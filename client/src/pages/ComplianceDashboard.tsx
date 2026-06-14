@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface CategoryStat {
   total?: number; tracked?: number; compliant: number;
   expiring?: number; expired?: number; overdue?: number;
-  dueSoon?: number; current?: number; reviewDue?: number; score: number;
+  dueSoon?: number; current?: number; reviewDue?: number; score: number | null;
 }
 
 interface CriticalIssue {
@@ -33,15 +33,17 @@ interface TimelineItem {
 }
 
 interface DashboardData {
-  overallScore: number;
-  contractorScore: number;
-  siteScore: number;
-  contractorBand: "green" | "amber" | "orange" | "red";
-  siteBand: "green" | "amber" | "orange" | "red";
-  riskBand: "green" | "amber" | "orange" | "red";
+  overallScore: number | null;
+  contractorScore: number | null;
+  siteScore: number | null;
+  contractorBand: "green" | "amber" | "orange" | "red" | "grey";
+  siteBand: "green" | "amber" | "orange" | "red" | "grey";
+  riskBand: "green" | "amber" | "orange" | "red" | "grey";
   riskLabel: string;
   calculatedAt: string;
   totalChecks: number;
+  trackedCategories: number;
+  totalCategories: number;
   categories: {
     contractorInsurance: CategoryStat;
     rams: CategoryStat;
@@ -72,6 +74,7 @@ const BAND_COLOURS = {
   amber:  { ring: "ring-amber-400",   bg: "from-amber-500 to-amber-600",     text: "text-amber-600",   arc: "#f59e0b", light: "bg-amber-50 dark:bg-amber-900/20" },
   orange: { ring: "ring-orange-400",  bg: "from-orange-500 to-orange-600",   text: "text-orange-600",  arc: "#f97316", light: "bg-orange-50 dark:bg-orange-900/20" },
   red:    { ring: "ring-red-400",     bg: "from-red-600 to-red-700",         text: "text-red-600",     arc: "#ef4444", light: "bg-red-50 dark:bg-red-900/20" },
+  grey:   { ring: "ring-gray-400",    bg: "from-gray-500 to-gray-600",       text: "text-gray-500",    arc: "#9ca3af", light: "bg-gray-50 dark:bg-gray-800/30" },
 };
 
 const CATEGORY_META: Record<string, { label: string; icon: any; link: string; stat: (c: CategoryStat) => string }> = {
@@ -145,13 +148,13 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
   },
 };
 
-function ScoreArc({ score, band, size = 140 }: { score: number; band: keyof typeof BAND_COLOURS; size?: number }) {
+function ScoreArc({ score, band, size = 140 }: { score: number | null; band: keyof typeof BAND_COLOURS; size?: number }) {
   const scale = size / 140;
   const r = 54 * scale;
   const cx = size / 2; const cy = size / 2;
   const strokeW = 10 * scale;
   const circumference = 2 * Math.PI * r;
-  const offset = circumference * (1 - score / 100);
+  const offset = circumference * (1 - (score ?? 0) / 100);
   const colour = BAND_COLOURS[band].arc;
 
   return (
@@ -168,11 +171,11 @@ function ScoreArc({ score, band, size = 140 }: { score: number; band: keyof type
   );
 }
 
-function ScoreArcMain({ score, band }: { score: number; band: keyof typeof BAND_COLOURS }) {
+function ScoreArcMain({ score, band }: { score: number | null; band: keyof typeof BAND_COLOURS }) {
   const r = 54;
   const cx = 70; const cy = 70;
   const circumference = 2 * Math.PI * r;
-  const offset = circumference * (1 - score / 100);
+  const offset = circumference * (1 - (score ?? 0) / 100);
   const colour = BAND_COLOURS[band].arc;
 
   return (
@@ -192,11 +195,11 @@ function ScoreArcMain({ score, band }: { score: number; band: keyof typeof BAND_
 function DomainPanel({
   title, icon, score, band, catKeys, categories, headerGradient, ringClass, badgeClass,
 }: {
-  title: string; icon: React.ReactNode; score: number; band: keyof typeof BAND_COLOURS;
+  title: string; icon: React.ReactNode; score: number | null; band: keyof typeof BAND_COLOURS;
   catKeys: string[]; categories: Record<string, CategoryStat>;
   headerGradient: string; ringClass: string; badgeClass: string;
 }) {
-  const bandLabel = score >= 90 ? "Good Standing" : score >= 70 ? "Attention Required" : score >= 50 ? "At Risk" : "Critical";
+  const bandLabel = score === null ? "No Data" : score >= 90 ? "Good Standing" : score >= 70 ? "Attention Required" : score >= 50 ? "At Risk" : "Critical";
   return (
     <Card variant="glass" className={`ring-2 ${ringClass} overflow-hidden`}>
       <div className={`bg-gradient-to-r ${headerGradient} p-4`}>
@@ -211,8 +214,8 @@ function DomainPanel({
           <div className="relative flex items-center justify-center shrink-0">
             <ScoreArc score={score} band={band} size={80} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-white leading-none">{score}</span>
-              <span className="text-white/60 text-[10px]">/ 100</span>
+              <span className="text-2xl font-black text-white leading-none">{score ?? "—"}</span>
+              {score !== null && <span className="text-white/60 text-[10px]">/ 100</span>}
             </div>
           </div>
         </div>
@@ -233,11 +236,14 @@ function CategoryCard({ catKey, data }: { catKey: string; data: CategoryStat }) 
   if (!meta) return null;
   const Icon = meta.icon;
   const score = data.score;
-  const dotColor = score >= 90 ? "bg-emerald-500" : score >= 70 ? "bg-amber-500" : score >= 50 ? "bg-orange-500" : "bg-red-500";
-  const barColor = score >= 90 ? "bg-emerald-500" : score >= 70 ? "bg-amber-500" : score >= 50 ? "bg-orange-500" : "bg-red-500";
+  const isTracked = score !== null;
+  const dotColor = !isTracked ? "bg-gray-300 dark:bg-gray-600"
+    : score >= 90 ? "bg-emerald-500" : score >= 70 ? "bg-amber-500" : score >= 50 ? "bg-orange-500" : "bg-red-500";
+  const barColor = !isTracked ? "bg-gray-200 dark:bg-gray-700"
+    : score >= 90 ? "bg-emerald-500" : score >= 70 ? "bg-amber-500" : score >= 50 ? "bg-orange-500" : "bg-red-500";
 
   return (
-    <Card variant="glass" className="hover:shadow-md transition-shadow">
+    <Card variant="glass" className={`hover:shadow-md transition-shadow ${!isTracked ? "opacity-60" : ""}`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -251,11 +257,15 @@ function CategoryCard({ catKey, data }: { catKey: string; data: CategoryStat }) 
 
         <div className="mb-2">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-500 dark:text-gray-400">{meta.stat(data)}</span>
-            <span className="font-bold text-gray-800 dark:text-gray-200">{score}%</span>
+            <span className="text-gray-500 dark:text-gray-400">
+              {!isTracked ? "Not tracked / No data" : meta.stat(data)}
+            </span>
+            <span className={`font-bold ${isTracked ? "text-gray-800 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}`}>
+              {isTracked ? `${score}%` : "—"}
+            </span>
           </div>
           <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${score}%` }} />
+            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${isTracked ? score : 0}%` }} />
           </div>
         </div>
 
@@ -352,18 +362,21 @@ async function generateCompliancePDF(data: DashboardData) {
     amber:  [180, 83, 9],
     orange: [194, 65, 12],
     red:    [185, 28, 28],
+    grey:   [107, 114, 128],
   };
   const BAND_TRACK: Record<string,[number,number,number]> = {
     green:  [110, 231, 183],
     amber:  [252, 211, 77],
     orange: [253, 186, 116],
     red:    [252, 165, 165],
+    grey:   [209, 213, 219],
   };
   const BAND_LABEL: Record<string,[number,number,number]> = {
     green:  [209, 250, 229],
     amber:  [254, 243, 199],
     orange: [255, 237, 213],
     red:    [254, 226, 226],
+    grey:   [243, 244, 246],
   };
 
   const bFill  = BAND_FILL[data.riskBand]  ?? BAND_FILL.green;
@@ -378,7 +391,8 @@ async function generateCompliancePDF(data: DashboardData) {
     if (y + needed > 278) { doc.addPage(); y = margin; }
   }
 
-  function scoreColor(score: number): [number,number,number] {
+  function scoreColor(score: number | null): [number,number,number] {
+    if (score === null) return [156, 163, 175];
     return score >= 90 ? [5, 150, 105] : score >= 70 ? [180, 83, 9] : score >= 50 ? [194, 65, 12] : [185, 28, 28];
   }
 
@@ -451,13 +465,13 @@ async function generateCompliancePDF(data: DashboardData) {
   const arcCx = margin + 28;
   const arcCy = y + heroH / 2 + 1;
   const arcR  = 17;
-  drawArc(arcCx, arcCy, arcR, data.overallScore, bTrack, [255, 255, 255]);
+  drawArc(arcCx, arcCy, arcR, data.overallScore ?? 0, bTrack, [255, 255, 255]);
 
   // Score in centre
   doc.setFont("helvetica", "bold");
   doc.setFontSize(17);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${data.overallScore}`, arcCx, arcCy + 3.5, { align: "center" });
+  doc.text(`${data.overallScore ?? 'N/A'}`, arcCx, arcCy + 3.5, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setTextColor(...bLabel);
@@ -476,7 +490,12 @@ async function generateCompliancePDF(data: DashboardData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(...bLabel);
-  doc.text(`Based on ${data.totalChecks} compliance checks across your site`, tx, y + 27);
+  doc.text(
+    data.trackedCategories > 0
+      ? `Score based on ${data.trackedCategories} of ${data.totalCategories} categories · ${data.totalChecks} checks`
+      : 'No compliance data tracked yet',
+    tx, y + 27
+  );
 
   // Pills row
   let pillX = tx;
@@ -554,10 +573,10 @@ async function generateCompliancePDF(data: DashboardData) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(...sc3);
-    doc.text(`${sc}%`, cx + cardW - 4, cy + 13.5, { align: "right" });
+    doc.text(sc !== null ? `${sc}%` : 'N/A', cx + cardW - 4, cy + 13.5, { align: "right" });
 
     // Progress bar
-    progressBar(cx + 4, cy + 17, cardW - 8, 2.5, sc, sc3);
+    progressBar(cx + 4, cy + 17, cardW - 8, 2.5, sc ?? 0, sc3);
 
     col++;
     if (col === 2) { col = 0; y += cardH + 3; }
@@ -759,7 +778,7 @@ async function generateCompliancePDF(data: DashboardData) {
   doc.setFontSize(7);
   doc.setTextColor(107, 114, 128);
   const noteLines = doc.splitTextToSize(
-    "The overall score is the average of two domain scores (50% each). Contractor Compliance: Insurance (25%), RAMS (15%), Inductions (15%), Worker Right to Work (15%), Worker DBS (10%), Worker Certifications (10%), Equipment (10%). Site Compliance: Certificates (20%), Permits (15%), Risk Assessments (15%), Audits (15%), PPM (10%), Fire Risk Assessment (10%), Staff Right to Work (10%), Staff DBS (2.5%), Staff Training (2.5%). Categories with no tracked items score 100.",
+    "The overall score is the average of two domain scores (50% each). Contractor Compliance: Insurance (25%), RAMS (15%), Inductions (15%), Worker Right to Work (15%), Worker DBS (10%), Worker Certifications (10%), Equipment (10%). Site Compliance: Certificates (20%), Permits (15%), Risk Assessments (15%), Audits (15%), PPM (10%), Fire Risk Assessment (10%), Staff Right to Work (10%), Staff DBS (2.5%), Staff Training (2.5%). Categories with no data are excluded and weights re-normalised — untracked items never inflate the score.",
     colW - 8
   );
   doc.text(noteLines, margin + 4, y + 12);
@@ -883,15 +902,17 @@ export default function ComplianceDashboard() {
             <div className="relative flex items-center justify-center">
               <ScoreArcMain score={data.overallScore} band={band} />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-black leading-none">{data.overallScore}</span>
-                <span className="text-xs text-white/70 mt-0.5">/ 100</span>
+                <span className="text-4xl font-black leading-none">{data.overallScore ?? "—"}</span>
+                {data.overallScore !== null && <span className="text-xs text-white/70 mt-0.5">/ 100</span>}
               </div>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white/80 text-sm font-medium">Overall Compliance Score</p>
               <p className="text-3xl font-bold mt-0.5">{data.riskLabel}</p>
               <p className="text-white/70 text-sm mt-2">
-                Based on {data.totalChecks} compliance checks across your site
+                {data.trackedCategories > 0
+                  ? `Score based on ${data.trackedCategories} of ${data.totalCategories} categories · ${data.totalChecks} compliance checks`
+                  : "No compliance data tracked yet — add data to see your score"}
               </p>
               <div className="flex gap-4 mt-4">
                 {data.criticalIssues.length > 0 && (
@@ -1104,7 +1125,7 @@ export default function ComplianceDashboard() {
             <p>Compliance Certificates (20%) · Permits (15%) · Risk Assessments (15%) · Audits (15%) · PPM (10%) · Fire Risk Assessment (10%) · Staff Right to Work (10%) · Staff DBS (2.5%) · Staff Training (2.5%)</p>
           </div>
         </div>
-        <p className="mt-2">Each category scores 0–100 based on compliant vs total tracked items. Categories with no tracked items score 100 (not applicable).</p>
+        <p className="mt-2">Each category scores 0–100 based on compliant vs total tracked items. Categories with no data are excluded from the score and shown as "Not tracked". Weights are re-normalised across tracked categories only — untracked items never inflate the score.</p>
       </div>
     </div>
   );

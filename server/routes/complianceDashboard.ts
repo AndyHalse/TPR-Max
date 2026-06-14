@@ -155,7 +155,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Insurance check error (non-fatal):', e.message);
       }
 
-      const insScore = insTotal === 0 ? 100 : Math.round((insCompliant / insTotal) * 100);
+      const insScore = insTotal === 0 ? null : Math.round((insCompliant / insTotal) * 100);
 
       // ── 2. RAMS Documents ─────────────────────────────────────────────────────
       // NOTE: ramsDocuments.status is NOT kept in sync with expiryDate — nothing in
@@ -209,7 +209,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       }
 
-      const ramsScore = ramsTotal === 0 ? 100 : Math.round((ramsValid / ramsTotal) * 100);
+      const ramsScore = ramsTotal === 0 ? null : Math.round((ramsValid / ramsTotal) * 100);
 
       // ── Active worker IDs (hoisted — reused across contractor worker sections) ──
       let activeWorkerIds = new Set<string>();
@@ -275,7 +275,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Induction query error (non-fatal):', e.message);
       }
 
-      const indScore = indTotal === 0 ? 100 : Math.round((indCompliant / indTotal) * 100);
+      const indScore = indTotal === 0 ? null : Math.round((indCompliant / indTotal) * 100);
 
       // ── 4. Worker Right to Work ───────────────────────────────────────────────
       let workerRtwTotal = 0, workerRtwCompliant = 0;
@@ -335,7 +335,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Worker RTW query error (non-fatal):', e.message);
       }
 
-      const workerRtwScore = workerRtwTotal === 0 ? 100 : Math.round((workerRtwCompliant / workerRtwTotal) * 100);
+      const workerRtwScore = workerRtwTotal === 0 ? null : Math.round((workerRtwCompliant / workerRtwTotal) * 100);
 
       // ── 5. Worker DBS ─────────────────────────────────────────────────────────
       let workerDbsTotal = 0, workerDbsCompliant = 0;
@@ -415,7 +415,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Worker DBS query error (non-fatal):', e.message);
       }
 
-      const workerDbsScore = workerDbsTotal === 0 ? 100 : Math.round((workerDbsCompliant / workerDbsTotal) * 100);
+      const workerDbsScore = workerDbsTotal === 0 ? null : Math.round((workerDbsCompliant / workerDbsTotal) * 100);
 
       // ── 6. Worker Certifications ──────────────────────────────────────────────
       // Excludes right_to_work (has its own domain in Section 4 — would double-count).
@@ -499,7 +499,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Worker certifications query error (non-fatal):', e.message);
       }
 
-      const workerCertScore = workerCertTotal === 0 ? 100 : Math.round((workerCertCompliant / workerCertTotal) * 100);
+      const workerCertScore = workerCertTotal === 0 ? null : Math.round((workerCertCompliant / workerCertTotal) * 100);
 
       // ── 7. Equipment ──────────────────────────────────────────────────────────
       let equipTotal = 0, equipCompliant = 0;
@@ -578,7 +578,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Equipment query error (non-fatal):', e.message);
       }
 
-      const equipScore = equipTotal === 0 ? 100 : Math.round((equipCompliant / equipTotal) * 100);
+      const equipScore = equipTotal === 0 ? null : Math.round((equipCompliant / equipTotal) * 100);
 
       // ── 8. Staff Right to Work ────────────────────────────────────────────────
       let rtwTracked = 0, rtwCompliant = 0, rtwExpiring = 0, rtwExpired = 0;
@@ -618,7 +618,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('RTW query error (non-fatal):', e.message);
       }
 
-      const rtwScore = rtwTracked === 0 ? 100 : Math.round((rtwCompliant / rtwTracked) * 100);
+      const rtwScore = rtwTracked === 0 ? null : Math.round((rtwCompliant / rtwTracked) * 100);
 
       // ── 9. Staff DBS ──────────────────────────────────────────────────────────
       let staffDbsTotal = 0, staffDbsCompliant = 0;
@@ -656,7 +656,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Staff DBS query error (non-fatal):', e.message);
       }
 
-      const staffDbsScore = staffDbsTotal === 0 ? 100 : Math.round((staffDbsCompliant / staffDbsTotal) * 100);
+      const staffDbsScore = staffDbsTotal === 0 ? null : Math.round((staffDbsCompliant / staffDbsTotal) * 100);
 
       // ── 10. Staff Training ────────────────────────────────────────────────────
       let staffTrainingTotal = 0, staffTrainingCompliant = 0;
@@ -699,7 +699,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Staff training query error (non-fatal):', e.message);
       }
 
-      const staffTrainingScore = staffTrainingTotal === 0 ? 100 : Math.round((staffTrainingCompliant / staffTrainingTotal) * 100);
+      const staffTrainingScore = staffTrainingTotal === 0 ? null : Math.round((staffTrainingCompliant / staffTrainingTotal) * 100);
 
       // ── 11. Compliance Certificates ───────────────────────────────────────────
       let certsTotal = 0, certsCompliant = 0, certsExpiring = 0, certsExpired = 0;
@@ -739,7 +739,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Compliance cert query error (non-fatal):', e.message);
       }
 
-      const certsScore = certsTotal === 0 ? 100 : Math.round((certsCompliant / certsTotal) * 100);
+      const certsScore = certsTotal === 0 ? null : Math.round((certsCompliant / certsTotal) * 100);
 
       // ── 12. Permits to Work ───────────────────────────────────────────────────
       let permitsTotal = 0, permitsCompliant = 0, permitsExpired = 0, permitsPending = 0;
@@ -781,7 +781,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Permits query error (non-fatal):', e.message);
       }
 
-      const permitsScore = permitsTotal === 0 ? 100 : Math.round((permitsCompliant / permitsTotal) * 100);
+      const permitsScore = permitsTotal === 0 ? null : Math.round((permitsCompliant / permitsTotal) * 100);
 
       // ── 13. Risk Assessments ──────────────────────────────────────────────────
       let raTotal = 0, raCompliant = 0, raReviewDue = 0;
@@ -820,7 +820,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('RA query error (non-fatal):', e.message);
       }
 
-      const raScore = raTotal === 0 ? 100 : Math.round((raCompliant / raTotal) * 100);
+      const raScore = raTotal === 0 ? null : Math.round((raCompliant / raTotal) * 100);
 
       // ── 14. Audits ────────────────────────────────────────────────────────────
       let auditsTotal = 0, auditsCompliant = 0, auditsOverdue = 0;
@@ -891,7 +891,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Audit query error (non-fatal):', e.message);
       }
 
-      const auditsScore = auditsTotal === 0 ? 100 : Math.round((auditsCompliant / auditsTotal) * 100);
+      const auditsScore = auditsTotal === 0 ? null : Math.round((auditsCompliant / auditsTotal) * 100);
 
       // ── 15. PPM Work Orders ───────────────────────────────────────────────────
       let ppmTotal = 0, ppmOverdue = 0, ppmDueSoon = 0;
@@ -934,7 +934,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       }
 
       const ppmCompliant = ppmTotal - ppmOverdue;
-      const ppmScore = ppmTotal === 0 ? 100 : Math.round((ppmCompliant / ppmTotal) * 100);
+      const ppmScore = ppmTotal === 0 ? null : Math.round((ppmCompliant / ppmTotal) * 100);
 
       // ── 16. Fire Risk Assessments ─────────────────────────────────────────────
       let fraTotal = 0, fraCurrent = 0, fraReviewDue = 0, fraOverdue = 0;
@@ -966,7 +966,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('FRA query error (non-fatal):', e.message);
       }
 
-      const fraScore = fraTotal === 0 ? 100 : Math.round((fraCurrent / fraTotal) * 100);
+      const fraScore = fraTotal === 0 ? null : Math.round((fraCurrent / fraTotal) * 100);
 
       // ── 17. Document Approvals ────────────────────────────────────────────────
       let docApprovalsCount = 0;
@@ -989,40 +989,72 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Document approvals query error (non-fatal):', e.message);
       }
 
+      // ── Score helpers ─────────────────────────────────────────────────────────
+      // Null scores mean "no data tracked" — excluded from weighted averages so
+      // untracked categories never inflate the overall score.
+      function weightedAverage(items: { score: number | null; weight: number }[]): number | null {
+        const tracked = items.filter(i => i.score !== null) as { score: number; weight: number }[];
+        if (tracked.length === 0) return null;
+        const totalW = tracked.reduce((s, i) => s + i.weight, 0);
+        return Math.round(tracked.reduce((s, i) => s + i.score * (i.weight / totalW), 0));
+      }
+      function scoreToBand(score: number | null): 'green' | 'amber' | 'orange' | 'red' | 'grey' {
+        if (score === null) return 'grey';
+        return score >= 90 ? 'green' : score >= 70 ? 'amber' : score >= 50 ? 'orange' : 'red';
+      }
+
       // ── Domain Scores ─────────────────────────────────────────────────────────
+      // Untracked categories (null) are excluded; weights are re-normalised across
+      // the tracked subset so missing data never inflates the domain score.
       // Contractor: Insurance 25%, RAMS 15%, Inductions 15%, Worker RTW 15%,
       //             Worker DBS 10%, Worker Certifications 10%, Equipment 10%
-      const contractorScore = Math.round(
-        insScore        * 0.25 +
-        ramsScore       * 0.15 +
-        indScore        * 0.15 +
-        workerRtwScore  * 0.15 +
-        workerDbsScore  * 0.10 +
-        workerCertScore * 0.10 +
-        equipScore      * 0.10
-      );
+      const contractorItems = [
+        { score: insScore,        weight: 0.25 },
+        { score: ramsScore,       weight: 0.15 },
+        { score: indScore,        weight: 0.15 },
+        { score: workerRtwScore,  weight: 0.15 },
+        { score: workerDbsScore,  weight: 0.10 },
+        { score: workerCertScore, weight: 0.10 },
+        { score: equipScore,      weight: 0.10 },
+      ];
+      const contractorScore = weightedAverage(contractorItems);
+      const contractorTracked = contractorItems.filter(i => i.score !== null).length;
 
       // Site: Compliance Certs 20%, Permits 15%, Risk Assessments 15%, Audits 15%,
       //       PPM 10%, FRA 10%, Staff RTW 10%, Staff DBS 2.5%, Staff Training 2.5%
-      const siteScore = Math.round(
-        certsScore        * 0.20 +
-        permitsScore      * 0.15 +
-        raScore           * 0.15 +
-        auditsScore       * 0.15 +
-        ppmScore          * 0.10 +
-        fraScore          * 0.10 +
-        rtwScore          * 0.10 +
-        staffDbsScore     * 0.025 +
-        staffTrainingScore * 0.025
-      );
+      const siteItems = [
+        { score: certsScore,         weight: 0.20 },
+        { score: permitsScore,       weight: 0.15 },
+        { score: raScore,            weight: 0.15 },
+        { score: auditsScore,        weight: 0.15 },
+        { score: ppmScore,           weight: 0.10 },
+        { score: fraScore,           weight: 0.10 },
+        { score: rtwScore,           weight: 0.10 },
+        { score: staffDbsScore,      weight: 0.025 },
+        { score: staffTrainingScore, weight: 0.025 },
+      ];
+      const siteScore = weightedAverage(siteItems);
+      const siteTracked = siteItems.filter(i => i.score !== null).length;
 
-      // Overall = 50% contractor + 50% site
-      const overallScore = Math.round(contractorScore * 0.50 + siteScore * 0.50);
+      // Overall = 50% contractor + 50% site (tracked domains only)
+      const overallScore = weightedAverage([
+        { score: contractorScore, weight: 0.50 },
+        { score: siteScore,       weight: 0.50 },
+      ]);
 
-      const contractorBand = contractorScore >= 90 ? 'green' : contractorScore >= 70 ? 'amber' : contractorScore >= 50 ? 'orange' : 'red';
-      const siteBand = siteScore >= 90 ? 'green' : siteScore >= 70 ? 'amber' : siteScore >= 50 ? 'orange' : 'red';
-      const riskBand = overallScore >= 90 ? 'green' : overallScore >= 70 ? 'amber' : overallScore >= 50 ? 'orange' : 'red';
-      const riskLabel = riskBand === 'green' ? 'Good Standing' : riskBand === 'amber' ? 'Attention Required' : riskBand === 'orange' ? 'At Risk' : 'Critical';
+      const contractorBand = scoreToBand(contractorScore);
+      const siteBand = scoreToBand(siteScore);
+      const riskBand = scoreToBand(overallScore);
+      const riskLabel = riskBand === 'green' ? 'Good Standing'
+        : riskBand === 'amber' ? 'Attention Required'
+        : riskBand === 'orange' ? 'At Risk'
+        : riskBand === 'red' ? 'Critical'
+        : 'Insufficient Data';
+
+      const contractorTotal = contractorItems.length;
+      const siteTotal = siteItems.length;
+      const trackedCategories = contractorTracked + siteTracked;
+      const totalCategories = contractorTotal + siteTotal;
 
       const topContractorRisks = Object.values(contractorRiskMap)
         .filter(c => c.issueCount > 0)
@@ -1046,6 +1078,12 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         riskLabel,
         calculatedAt: new Date().toISOString(),
         totalChecks,
+        trackedCategories,
+        totalCategories,
+        contractorTracked,
+        contractorTotal,
+        siteTracked,
+        siteTotal,
         categories: {
           contractorInsurance: { total: insTotal, compliant: insCompliant, expiring: insExpiring, expired: insExpired, score: insScore },
           rams: { total: ramsTotal, compliant: ramsValid, expiring: ramsExpiring, expired: ramsExpired, score: ramsScore },
@@ -1063,7 +1101,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           audits: { total: auditsTotal, compliant: auditsCompliant, overdue: auditsOverdue, score: auditsScore },
           ppm: { total: ppmTotal, compliant: ppmCompliant, overdue: ppmOverdue, dueSoon: ppmDueSoon, score: ppmScore },
           fireRiskAssessment: { total: fraTotal, current: fraCurrent, reviewDue: fraReviewDue, overdue: fraOverdue, score: fraScore },
-          documentApprovals: { total: docApprovalsCount, compliant: docApprovalsCount, score: 100 },
+          documentApprovals: { total: docApprovalsCount, compliant: docApprovalsCount, score: null },
         },
         criticalIssues,
         warnings,
