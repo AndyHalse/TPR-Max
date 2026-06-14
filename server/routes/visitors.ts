@@ -238,6 +238,14 @@ export function registerVisitorRoutes(app: Express): void {
                 hostStaffId: resolvedHostStaffId,
                 purpose: visitorData.purpose || '',
                 carRegistration: visitorData.carRegistration || undefined,
+                // Preserve / update PEEP flag and contact details on re-check-in.
+                // ?? existingVisitor.field so absent fields (e.g. previous-visitor dialog) never wipe saved data.
+                needsEvacuationAssistance: visitorData.needsEvacuationAssistance ?? existingVisitor.needsEvacuationAssistance ?? false,
+                email: visitorData.email ?? existingVisitor.email,
+                phoneNumber: visitorData.phoneNumber ?? existingVisitor.phoneNumber,
+                mobileNumber: visitorData.mobileNumber ?? existingVisitor.mobileNumber,
+                jobTitle: visitorData.jobTitle ?? existingVisitor.jobTitle,
+                address: visitorData.address ?? existingVisitor.address,
                 hsRulesAcceptanceToken: hsToken,
                 ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {}),
                 ...(ndaBodyAccepted ? { ndaAccepted: true, ndaAcceptedAt: new Date() } : {}),
