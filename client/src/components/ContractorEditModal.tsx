@@ -447,33 +447,28 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       setIsUploading(true);
       setUploadProgress(10);
       
-      // Get upload URL
-      const urlResponse = await fetch(`/api/contractors/workers/${worker.id}/documents/upload-url`, {
-        headers: { Authorization: `Bearer ${sessionStorage.getItem('session_token')}` },
+      // Upload via our server (avoids GCS CORS on signed PUTs)
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = sessionStorage.getItem('session_token');
+      const uploadResponse = await fetch(`/api/contractors/workers/${worker.id}/documents/upload`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
       });
-      
-      if (!urlResponse.ok) throw new Error('Failed to get upload URL');
-      
-      const { uploadURL } = await urlResponse.json();
-      setUploadProgress(30);
-      
-      // Upload file to object storage
-      const uploadResponse = await fetch(uploadURL, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream',
-        },
-        body: file,
-      });
-      
-      if (!uploadResponse.ok) throw new Error('Failed to upload file');
+
+      if (!uploadResponse.ok) {
+        const errBody = await uploadResponse.json().catch(() => ({}));
+        throw new Error((errBody as any).error || 'Failed to upload file');
+      }
+      const { fileUrl } = await uploadResponse.json();
       setUploadProgress(70);
       
       // Save document metadata
       const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/documents`, {
         documentName: file.name,
         documentType: documentFormData.documentType,
-        documentUrl: uploadURL.split('?')[0], // Remove query params
+        documentUrl: fileUrl,
         expiryDate: documentFormData.expiryDate || null,
         issuedBy: documentFormData.issuedBy || null,
         policyNumber: documentFormData.policyNumber || null,

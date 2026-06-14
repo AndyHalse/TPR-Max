@@ -781,21 +781,23 @@ export default function ContractorDetails() {
     }
     setUploading(true);
     try {
-      // Step 1: Get upload URL from object storage
-      const urlRes = await apiRequest("GET", `/api/contractors/${id}/documents/upload-url`);
-      const { uploadURL } = await urlRes.json();
-
-      // Step 2: Upload file directly to object storage via signed PUT URL
-      const uploadRes = await fetch(uploadURL, {
-        method: "PUT",
-        body: uploadFile,
-        headers: { "Content-Type": uploadFile.type || "application/octet-stream" },
+      // Step 1: Upload file through our server (avoids GCS CORS on signed PUTs)
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      const token = sessionStorage.getItem("session_token");
+      const uploadRes = await fetch(`/api/contractors/${id}/documents/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
       });
-      if (!uploadRes.ok) throw new Error("File upload failed");
-      // The document URL is the signed URL without the query string
-      const documentUrl = uploadURL.split("?")[0];
+      if (!uploadRes.ok) {
+        const errBody = await uploadRes.json().catch(() => ({}));
+        throw new Error((errBody as any).error || "File upload failed");
+      }
+      const { fileUrl } = await uploadRes.json();
+      const documentUrl = fileUrl;
 
-      // Step 3: Determine if this is an update or create
+      // Step 2: Determine if this is an update or create
       const docs = (contractor as any).documents || [];
       const existing = docs.find((d: any) => d.documentType === uploadDialog.docKey);
 

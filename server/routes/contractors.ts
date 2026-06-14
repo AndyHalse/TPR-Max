@@ -1873,6 +1873,44 @@ export function registerContractorRoutes(app: Express): void {
     }
   });
 
+  // Server-side document upload — replaces the old signed-URL flow that failed
+  // in browsers due to GCS CORS. The file is streamed through our server to GCS
+  // using the Replit sidecar credentials (no browser-side GCS auth needed).
+  const contractorDocUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+  app.post("/api/contractors/:companyId/documents/upload", requireAuth, contractorDocUpload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file provided' });
+      const { companyId } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      const [company] = await db.select().from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, companyId)).limit(1);
+      if (!company) return res.status(404).json({ error: 'Company not found' });
+
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const { randomUUID } = await import('crypto');
+      const ext = (req.file.originalname.split('.').pop() || 'bin').toLowerCase();
+      const objectId = randomUUID();
+      const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectPath(fullPath);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const gcsFile = bucket.file(objectName);
+      await gcsFile.save(req.file.buffer, {
+        contentType: req.file.mimetype || 'application/octet-stream',
+        resumable: false,
+      });
+      // Return internal object path — consumed by POST /api/contractors/:id/documents
+      const fileUrl = `/objects/uploads/${objectId}.${ext}`;
+      res.json({ fileUrl });
+    } catch (error) {
+      logger.error('Error uploading company document to object storage:', error);
+      res.status(500).json({ error: 'Failed to upload document' });
+    }
+  });
+
+  // Keep the old upload-url GET for any legacy callers; it still works for server-side flows
   app.get("/api/contractors/:companyId/documents/upload-url", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
