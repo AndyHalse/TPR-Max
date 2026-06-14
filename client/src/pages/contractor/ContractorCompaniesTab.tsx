@@ -15,7 +15,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { type ExtendedContractorCompany, matchesSearch, getSafetyRatingColor, getComplianceBadge } from "./types";
+import { type ExtendedContractorCompany, matchesSearch, getComplianceBadge } from "./types";
 
 interface ContractorCompaniesTabProps {
   companies: ExtendedContractorCompany[];
@@ -165,10 +165,6 @@ export default function ContractorCompaniesTab({
                         {company.status || 'pending'}
                       </Badge>
                       
-                      <Badge className={getSafetyRatingColor(company.complianceScore || 'N/A')}>
-                        {company.complianceScore || 'N/A'}
-                      </Badge>
-                      
                       {company.industry && (
                         <Badge className="bg-blue-100 text-blue-800 capitalize">
                           {company.serviceType || company.industry}
@@ -304,9 +300,6 @@ export default function ContractorCompaniesTab({
                             className={`text-xs ${company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
                           >
                             {company.status || 'pending'}
-                          </Badge>
-                          <Badge className={`text-xs ${getSafetyRatingColor(company.complianceScore || 'N/A')}`}>
-                            {company.complianceScore || 'N/A'}
                           </Badge>
                           {company.industry && (
                             <Badge className="text-xs bg-blue-100 text-blue-800 capitalize">

@@ -229,7 +229,7 @@ export function useContractorManagement() {
   const previousContractors = allWorkers
     .map((worker) => {
       const company = companies.find((c: any) => c.id === worker.companyId);
-      return { ...worker, companyName: company?.name || "Unknown Company", companyStatus: company?.status || "unknown", safetyRating: company?.complianceScore || "N/A" };
+      return { ...worker, companyName: company?.name || "Unknown Company", companyStatus: company?.status || "unknown" };
     })
     .filter((c) =>
       (c.firstName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||

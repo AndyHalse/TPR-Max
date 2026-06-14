@@ -38,15 +38,6 @@ import WorkerCertificatesTab from "@/components/WorkerCertificatesTab";
 import ContractorEquipmentTab from "@/components/ContractorEquipmentTab";
 // Removed ContractorHSModal - H&S acceptance now happens via e-pass link
 
-// Helper function to get safety rating colors
-const getSafetyRatingColor = (rating: string) => {
-  if (rating.startsWith('A')) return 'text-green-600';
-  if (rating.startsWith('B')) return 'text-yellow-600';
-  if (rating.startsWith('C')) return 'text-orange-600';
-  if (rating.startsWith('D')) return 'text-red-600';
-  if (rating === 'F') return 'text-red-800';
-  return 'text-blue-600';
-};
 
 export default function ContractorDetails() {
   const { id } = useParams();
@@ -1175,17 +1166,6 @@ export default function ContractorDetails() {
           </CardContent>
         </Card>
 
-        <Card variant="glass" data-testid="card-safety-rating">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Safety Rating</CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${getSafetyRatingColor(contractor?.complianceScore || 'A+')}`} data-testid="text-safety-rating">
-              {contractor?.complianceScore || 'A+'}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Main Content Tabs */}

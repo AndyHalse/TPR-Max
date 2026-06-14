@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/GlassCard";
-import { getSafetyRatingColor } from "./types";
 import {
   History,
   Search,
@@ -223,9 +222,6 @@ export default function ContractorPreviousTab({
                         No Induction
                       </span>
                     )}
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getSafetyRatingColor(contractor.safetyRating)}`}>
-                      {contractor.safetyRating}
-                    </span>
                     {(contractor as any).hasRedCard && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">Red Card</span>
                     )}
@@ -430,7 +426,6 @@ export default function ContractorPreviousTab({
                         {!contractor.inductionCompleted && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No Induction</span>
                         )}
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getSafetyRatingColor(contractor.safetyRating)}`}>{contractor.safetyRating}</span>
                         {(contractor as any).hasRedCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">Red Card</span>}
                         {(contractor as any).hasYellowCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-200 text-yellow-900">Yellow Card</span>}
                         {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-200 text-green-900">Clear</span>}

@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Camera, Mail, Phone, History, Clock, Edit, QrCode, CalendarPlus, LogIn, LogOut, Send, Loader2 } from "lucide-react";
-import { getSafetyRatingColor } from "./types";
 
 const PHOTO_INPUT_ID = "worker-photo-upload-input";
 
@@ -128,7 +127,6 @@ export default function ContractorWorkerProfileDialog({ worker, onClose, checkIn
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>{isCheckedIn ? '● On Site' : '● Available'}</span>
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${worker.rightToWork === 'valid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{worker.rightToWork === 'valid' ? '✓' : '!'} Work Auth</span>
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${worker.inductionCompleted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>{worker.inductionCompleted ? '✓ Inducted' : '! No Induction'}</span>
-              {worker.safetyRating && <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getSafetyRatingColor(worker.safetyRating)}`}>{worker.safetyRating}</span>}
               {isBanned && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-200 text-red-900">🚫 Site Ban</span>}
             </div>
 

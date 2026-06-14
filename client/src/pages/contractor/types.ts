@@ -87,16 +87,6 @@ export const CDM_STATUS_BADGE: Record<string, { label: string; className: string
   cancelled: { label: "Cancelled", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
-/** Safety rating colour classes */
-export function getSafetyRatingColor(rating: string): string {
-  if (rating.startsWith('A')) return 'bg-green-100 text-green-800';
-  if (rating.startsWith('B')) return 'bg-yellow-100 text-yellow-800';
-  if (rating.startsWith('C')) return 'bg-orange-100 text-orange-800';
-  if (rating.startsWith('D')) return 'bg-red-100 text-red-800';
-  if (rating === 'F') return 'bg-red-200 text-red-900';
-  return 'bg-gray-100 text-gray-800';
-}
-
 /** Derive compliance badge from documentsStatus returned by the API */
 export function getComplianceBadge(documentsStatus?: Record<string, string>) {
   if (!documentsStatus) return { label: 'Not started', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', icon: '⬜' };
@@ -166,6 +156,9 @@ export function matchesSearch(item: any, search: string): boolean {
     (item.contactFirstName || '').toLowerCase().includes(s) ||
     (item.contactLastName || '').toLowerCase().includes(s) ||
     (item.email || '').toLowerCase().includes(s) ||
+    (item.contactEmail || '').toLowerCase().includes(s) ||
+    (item.phone || '').toLowerCase().includes(s) ||
+    (item.contactPhone || '').toLowerCase().includes(s) ||
     (item.industry || '').toLowerCase().includes(s)
   );
 }
