@@ -198,7 +198,23 @@ export function registerAuthRoutes(app: Express): void {
 
   // ── Authentication endpoints ────────────────────────────────────────────
 
-  app.post('/api/auth/login', async (req, res) => {
+  // Brute-force protection for the password check — keyed on IP + username so
+  // one attacker can't lock everyone out and rotating IPs can't bypass per-user limits.
+  // TODO: use a shared store (Redis / DB) if running multiple server instances.
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => {
+      const ip = req.ip ?? 'unknown';
+      const body = req.body as Record<string, string> | undefined;
+      const user = `${(body?.companyName ?? '').toLowerCase()}:${(body?.username ?? '').toLowerCase()}`;
+      return `${ip}|${user}`;
+    },
+    message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+  });
+
+  app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
       const { companyName, username, password } = req.body;
 
