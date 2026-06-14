@@ -42,6 +42,7 @@ function generateLogoToken(customerId: string): string {
 export function registerAuthRoutes(app: Express): void {
 
   // ── Pending customer OTP store ──────────────────────────────────────────
+  // TODO: shared store for multi-instance deployments (currently in-memory per instance)
   interface PendingCustomerOtp {
     userId: string;
     customerId: string;
@@ -51,13 +52,19 @@ export function registerAuthRoutes(app: Express): void {
     email: string;
     otp: string;
     expiresAt: Date;
+    lastSentAt: Date; // for resend cooldown
   }
   const pendingCustomerOtps = new Map<string, PendingCustomerOtp>();
+  // Reverse-lookup: userId → active pendingToken (for resend cooldown)
+  const otpByUserId = new Map<string, string>();
   // Prune expired entries every 5 minutes
   setInterval(() => {
     const now = new Date();
     for (const [key, val] of pendingCustomerOtps.entries()) {
-      if (val.expiresAt < now) pendingCustomerOtps.delete(key);
+      if (val.expiresAt < now) {
+        pendingCustomerOtps.delete(key);
+        otpByUserId.delete(val.userId);
+      }
     }
   }, 5 * 60 * 1000);
 
@@ -373,13 +380,31 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
 
+      // ── OTP resend cooldown (60 s) ──────────────────────────────────────
+      // If the user already has a non-expired pending OTP that was sent less
+      // than 60 seconds ago, reuse it rather than sending another email.
+      const userId = (user as any).id as string;
+      const existingTokenKey = otpByUserId.get(userId);
+      if (existingTokenKey) {
+        const existingPending = pendingCustomerOtps.get(existingTokenKey);
+        if (existingPending && existingPending.expiresAt > new Date() &&
+            Date.now() - existingPending.lastSentAt.getTime() < 60_000) {
+          return res.json({
+            requires2fa: true,
+            pendingToken: existingTokenKey,
+            maskedEmail: maskEmail(existingPending.email),
+          });
+        }
+      }
+
       // Generate OTP and send verification email
       const pendingToken = crypto.randomUUID();
       const otp = generateCustomerOtp();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      const lastSentAt = new Date();
 
       pendingCustomerOtps.set(pendingToken, {
-        userId: (user as any).id,
+        userId,
         customerId: customer.id,
         companyName: customer.companyName,
         slug: (customer as any).slug,
@@ -387,7 +412,9 @@ export function registerAuthRoutes(app: Express): void {
         email: userEmail,
         otp,
         expiresAt,
+        lastSentAt,
       });
+      otpByUserId.set(userId, pendingToken);
 
       try {
         const { emailService } = await import('../emailService');
@@ -414,6 +441,7 @@ export function registerAuthRoutes(app: Express): void {
       } catch (emailErr) {
         logger.error('Failed to send 2FA OTP email:', emailErr);
         pendingCustomerOtps.delete(pendingToken);
+        otpByUserId.delete(userId);
         return res.status(500).json({
           error: 'Failed to send verification code. Please try again.',
         });
@@ -456,6 +484,7 @@ export function registerAuthRoutes(app: Express): void {
 
       if (new Date() > pending.expiresAt) {
         pendingCustomerOtps.delete(pendingToken);
+        otpByUserId.delete(pending.userId);
         return res.status(401).json({
           error: 'Verification code has expired. Please log in again.',
         });
@@ -471,6 +500,7 @@ export function registerAuthRoutes(app: Express): void {
 
       // Valid — consume the token
       pendingCustomerOtps.delete(pendingToken);
+      otpByUserId.delete(pending.userId);
 
       // Reconstruct user and customer objects for session creation
       const user = {

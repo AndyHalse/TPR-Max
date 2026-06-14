@@ -5625,7 +5625,7 @@ ${evacuationPhotosData.length > 0 ? `
   });
 
   // Mark all personnel as safe endpoint
-  app.post("/api/muster/mark-all-safe", async (req, res) => {
+  app.post("/api/muster/mark-all-safe", requireAuthOrFireMarshal, async (req, res) => {
     try {
       const username = req.user?.username || (req.session as any)?.username || 'system';
       const customerId = req.customerId || (req.session as any)?.customerId;

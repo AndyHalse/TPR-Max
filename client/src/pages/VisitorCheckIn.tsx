@@ -282,15 +282,28 @@ export default function VisitorCheckIn() {
       return;
     }
 
+    const emailTrimmed = formData.email.trim();
+    if (emailTrimmed) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailTrimmed)) {
+        toast({
+          title: "Invalid email address",
+          description: "Please enter a valid email address, or leave it blank.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const nameParts = formData.name.trim().split(' ');
     const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(' ') || firstName;
+    const lastName = nameParts.slice(1).join(' ') || '';
     
     const visitorData = {
       firstName,
       lastName,
       company: formData.company.trim() || null,
-      email: formData.email.trim() || null,
+      email: emailTrimmed || null,
       hostStaffId: formData.hostStaffId,
       purpose: formData.purpose.trim() || null,
       carRegistration: formData.carRegistration.trim() || null,
