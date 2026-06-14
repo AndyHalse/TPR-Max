@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, getCsrfToken } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
 import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles, Info, ExternalLink, Archive, ArchiveRestore } from 'lucide-react';
 import { format } from 'date-fns';
@@ -451,9 +451,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       const formData = new FormData();
       formData.append('file', file);
       const token = sessionStorage.getItem('session_token');
+      const csrfToken = getCsrfToken();
       const uploadResponse = await fetch(`/api/contractors/workers/${worker.id}/documents/upload`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        },
         body: formData,
       });
 

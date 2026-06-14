@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import NdaModal from "@/components/NdaModal";
 import type { CompanySettings } from "@shared/schema";
 import { useLocation } from "wouter";
-import { queryClient, apiRequest, getSessionToken } from "@/lib/queryClient";
+import { queryClient, apiRequest, getSessionToken, getCsrfToken } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { StaffSearchSelect } from "@/components/StaffSearchSelect";
 import { Button } from "@/components/ui/button";
@@ -945,9 +945,13 @@ export default function Contractors() {
       const formData = new FormData();
       formData.append('file', file);
       const token = sessionStorage.getItem('session_token');
+      const csrfToken = getCsrfToken();
       const uploadResponse = await fetch(`/api/contractors/${selectedContractor.id}/documents/upload`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        },
         body: formData,
       });
       if (!uploadResponse.ok) {

@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import RAMSManagement from "@/components/RAMSManagement";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getCsrfToken } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
@@ -785,9 +785,13 @@ export default function ContractorDetails() {
       const formData = new FormData();
       formData.append("file", uploadFile);
       const token = sessionStorage.getItem("session_token");
+      const csrfToken = getCsrfToken();
       const uploadRes = await fetch(`/api/contractors/${id}/documents/upload`, {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
         body: formData,
       });
       if (!uploadRes.ok) {
