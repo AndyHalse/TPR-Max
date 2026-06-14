@@ -36,7 +36,20 @@ export function calculateNextDueDate(
 export function getDaysUntilExpiry(expiryDate: string | null | undefined): number | null {
   if (!expiryDate) return null;
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  return Math.ceil((new Date(expiryDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const expiry = new Date(expiryDate); expiry.setHours(0, 0, 0, 0);
+  return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * The date the register should judge a certificate against.
+ * Prefer a manually-entered expiry date; fall back to the frequency-derived
+ * next-due date so recurring tests (weekly fire alarm, monthly emergency
+ * lighting, etc.) are still tracked when no expiry date is typed.
+ */
+export function getEffectiveDueDate(
+  cert: { expiryDate?: string | null; nextDueDate?: string | null }
+): string | null {
+  return cert.expiryDate || cert.nextDueDate || null;
 }
 
 export const CERT_SEED_DATA = [

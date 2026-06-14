@@ -395,6 +395,19 @@ export default function ComplianceCertificateRegister() {
                         </div>
                       </>
                     )}
+                    {!cert?.expiryDate && cert?.nextDueDate && (
+                      <>
+                        <div className="text-gray-500 dark:text-gray-400">Next due</div>
+                        <div className={`font-semibold ${certType.status === 'expired' ? 'text-red-600' : certType.status === 'expiring_soon' ? 'text-amber-600' : 'text-gray-800 dark:text-gray-200'}`}>
+                          {cert.nextDueDate}
+                          {certType.daysUntilExpiry !== null && (
+                            <span className="ml-1 font-normal text-gray-500">
+                              ({certType.daysUntilExpiry < 0 ? `${Math.abs(certType.daysUntilExpiry)}d ago` : `${certType.daysUntilExpiry}d`})
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
                     {cert?.issuingCompany && (
                       <>
                         <div className="text-gray-500 dark:text-gray-400">Issued by</div>

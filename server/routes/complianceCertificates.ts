@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, isNull, ne } from 'drizzle-orm';
 import { logger } from '../utils/logger';
-import { calculateCertificateStatus, calculateNextDueDate, getDaysUntilExpiry, CERT_SEED_DATA } from '../utils/complianceCertUtils';
+import { calculateCertificateStatus, calculateNextDueDate, getDaysUntilExpiry, getEffectiveDueDate, CERT_SEED_DATA } from '../utils/complianceCertUtils';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const objectStorage = new ObjectStorageService();
@@ -90,9 +90,10 @@ export function registerComplianceCertificateRoutes(app: Express): void {
         let isOverdue = false;
 
         if (latestCert) {
-          const s = calculateCertificateStatus(latestCert.expiryDate, t.reminderDaysBefore);
-          status = latestCert.expiryDate ? s : 'no_expiry';
-          daysUntilExpiry = getDaysUntilExpiry(latestCert.expiryDate);
+          const dueDate = getEffectiveDueDate(latestCert);
+          const s = calculateCertificateStatus(dueDate, t.reminderDaysBefore);
+          status = dueDate ? s : 'no_expiry';
+          daysUntilExpiry = getDaysUntilExpiry(dueDate);
           isOverdue = status === 'expired';
         }
 
@@ -230,13 +231,14 @@ export function registerComplianceCertificateRoutes(app: Express): void {
       const certsByType: Record<string, any> = {};
       for (const c of certs) certsByType[c.certificateTypeId] = c;
 
-      let current = 0, expiring = 0, expired = 0, noCert = 0;
+      let current = 0, expiring = 0, expired = 0, noCert = 0, noExpiry = 0;
       for (const t of types) {
         const cert = certsByType[t.id];
         if (!cert) { noCert++; continue; }
-        const s = calculateCertificateStatus(cert.expiryDate, t.reminderDaysBefore);
-        if (!cert.expiryDate) current++;
-        else if (s === 'current') current++;
+        const dueDate = getEffectiveDueDate(cert);
+        if (!dueDate) { noExpiry++; continue; }   // logged but no due date to judge — own bucket
+        const s = calculateCertificateStatus(dueDate, t.reminderDaysBefore);
+        if (s === 'current') current++;
         else if (s === 'expiring_soon') expiring++;
         else if (s === 'expired') expired++;
       }
@@ -245,7 +247,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
       if (expired > 0 || noCert > 0) overallStatus = 'critical';
       else if (expiring > 0) overallStatus = 'attention_needed';
 
-      res.json({ total: types.length, current, expiring_soon: expiring, expired, no_certificate: noCert, overallStatus });
+      res.json({ total: types.length, current, expiring_soon: expiring, expired, no_certificate: noCert, no_expiry: noExpiry, overallStatus });
     } catch (err) {
       logger.error('GET /api/compliance-certificates/status-summary', err);
       res.status(500).json({ error: 'Failed to fetch status summary' });
@@ -420,20 +422,22 @@ export function registerComplianceCertificateRoutes(app: Express): void {
                 isNull(isolatedSchema.complianceCertificates.expiryAlertedAt)
               )).catch(() => []) as any[];
 
-            if (!cert || !cert.expiryDate) continue;
+            if (!cert) continue;
+            const dueDate = getEffectiveDueDate(cert);
+            if (!dueDate) continue;   // genuinely no expiry/next-due — nothing to alert on
 
-            const status = calculateCertificateStatus(cert.expiryDate, certType.reminderDaysBefore);
+            const status = calculateCertificateStatus(dueDate, certType.reminderDaysBefore);
             if (status !== 'expiring_soon' && status !== 'expired') continue;
 
-            const days = getDaysUntilExpiry(cert.expiryDate);
+            const days = getDaysUntilExpiry(dueDate);
             const isExpired = status === 'expired';
             const subject = isExpired
               ? `🚨 Compliance Certificate EXPIRED — ${certType.displayName}`
               : `⚠ Compliance Certificate Expiring — ${certType.displayName}`;
 
             const statusLine = isExpired
-              ? `Expired <strong>${Math.abs(days ?? 0)} days ago</strong> (${cert.expiryDate})`
-              : `Expiring on <strong>${cert.expiryDate}</strong> (${days} days remaining)`;
+              ? `Due <strong>${Math.abs(days ?? 0)} days ago</strong> (${dueDate})`
+              : `Due on <strong>${dueDate}</strong> (${days} days remaining)`;
 
             const html = `<div style="font-family:Arial,sans-serif;max-width:640px">
               <div style="background:${isExpired ? '#dc2626' : '#d97706'};color:#fff;padding:20px;border-radius:8px 8px 0 0">
@@ -446,7 +450,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
                   <tr><td style="padding:4px 0;color:#6b7280">Legal requirement</td><td>${certType.legalBasis || '—'}</td></tr>
                   <tr><td style="padding:4px 0;color:#6b7280">Last issued by</td><td>${cert.issuingCompany || cert.issuedBy || '—'}</td></tr>
                   <tr><td style="padding:4px 0;color:#6b7280">Issue date</td><td>${cert.issueDate}</td></tr>
-                  <tr><td style="padding:4px 0;color:#6b7280">Expiry date</td><td>${cert.expiryDate}</td></tr>
+                  <tr><td style="padding:4px 0;color:#6b7280">Due date</td><td>${dueDate}</td></tr>
                   <tr><td style="padding:4px 0;color:${isExpired ? '#dc2626' : '#d97706'};font-weight:600">Status</td><td style="color:${isExpired ? '#dc2626' : '#d97706'};font-weight:600">${statusLine}</td></tr>
                 </table>
                 <p style="margin-top:16px">Log in to TPR Max to upload the renewed certificate and update your compliance record.</p>
@@ -461,7 +465,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
               to: adminEmail,
               subject,
               html,
-              text: `${subject}\n\nCertificate: ${certType.displayName}\nLegal basis: ${certType.legalBasis || '—'}\nExpiry: ${cert.expiryDate}\nStatus: ${status}`,
+              text: `${subject}\n\nCertificate: ${certType.displayName}\nLegal basis: ${certType.legalBasis || '—'}\nDue: ${dueDate}\nStatus: ${status}`,
               companyName,
             });
 
