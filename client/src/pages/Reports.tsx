@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import type { Report, Staff } from "@shared/schema";
+import type { CompanySettings } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Reports() {
@@ -63,7 +64,7 @@ export default function Reports() {
     queryKey: ["/api/reports"],
   });
 
-  const { data: settings } = useQuery<{ email?: string; reportRecipients?: string }>({
+  const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
 
@@ -183,19 +184,22 @@ export default function Reports() {
     let recipients: string[] = [];
     
     if (selectedStaff.length > 0) {
-      // Use selected staff emails (prioritized)
-      recipients = selectedStaff.map(staffId => {
-        const staffMember = staff?.find(s => s.id === staffId);
-        return staffMember?.email || `${staffMember?.firstName?.toLowerCase()}.${staffMember?.lastName?.toLowerCase()}@company.com`;
-      });
+      const withEmail = selectedStaff
+        .map(staffId => staff?.find(s => s.id === staffId))
+        .filter((s): s is NonNullable<typeof s> => !!s?.email)
+        .map(s => s.email as string);
+
+      const missing = selectedStaff.length - withEmail.length;
+      if (missing > 0) {
+        toast({
+          title: "Some staff have no email",
+          description: `${missing} selected staff member${missing !== 1 ? 's have' : ' has'} no email address and will be skipped.`,
+        });
+      }
+      recipients = withEmail;
     } else if (emailRecipients.trim()) {
-      // Use manually entered emails if provided
-      recipients = emailRecipients
-        .split(",")
-        .map(email => email.trim())
-        .filter(email => email.length > 0);
+      recipients = emailRecipients.split(",").map(e => e.trim()).filter(e => e.length > 0);
     } else {
-      // Use administrator email from company settings
       recipients = [settings?.email || "admin@company.com"];
     }
 
@@ -247,6 +251,12 @@ export default function Reports() {
       compliance_gap: "Contractor Compliance Gap",
       site_headcount: "Site Headcount / Roll Call",
       evacuation_readiness: "Evacuation Readiness",
+      health_safety: "Health & Safety / BBS",
+      fire_risk: "Fire Risk Assessment",
+      permit_to_work: "Permit to Work",
+      risk_assessments: "Risk Assessment Register",
+      ppm_compliance: "PPM Compliance",
+      audit_inspection: "Audit & Inspection",
     };
     
     return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
@@ -265,10 +275,49 @@ export default function Reports() {
       compliance_gap: "bg-red-100 text-red-800",
       site_headcount: "bg-purple-100 text-purple-800",
       evacuation_readiness: "bg-red-100 text-red-800",
+      health_safety: "bg-rose-100 text-rose-800",
+      fire_risk: "bg-orange-100 text-orange-800",
+      permit_to_work: "bg-cyan-100 text-cyan-800",
+      risk_assessments: "bg-violet-100 text-violet-800",
+      ppm_compliance: "bg-teal-100 text-teal-800",
+      audit_inspection: "bg-lime-100 text-lime-800",
     };
     
     return colorMap[type] || "bg-blue-100 text-blue-800";
   };
+
+  type ReportOption = { value: string; label: string; featureKey?: keyof CompanySettings; defaultOn?: boolean };
+
+  const REPORT_OPTIONS: ReportOption[] = [
+    { value: "daily",                 label: "Daily Visitor Log",                    featureKey: "featureVisitors",           defaultOn: true  },
+    { value: "weekly",                label: "Weekly Visitor Log",                   featureKey: "featureVisitors",           defaultOn: true  },
+    { value: "monthly",               label: "Monthly Visitor Log",                  featureKey: "featureVisitors",           defaultOn: true  },
+    { value: "staff_attendance",      label: "Staff Attendance Report",              featureKey: "featureStaff",              defaultOn: true  },
+    { value: "contractor_activity",   label: "Contractor Activity Report",           featureKey: "featureContractors",        defaultOn: true  },
+    { value: "contractor_compliance", label: "Contractor Compliance Report",         featureKey: "featureContractors",        defaultOn: true  },
+    { value: "compliance_gap",        label: "Contractor Compliance Gap Report",     featureKey: "featureContractors",        defaultOn: true  },
+    { value: "site_headcount",        label: "Site Headcount / Roll Call",           featureKey: "featureMusterList",         defaultOn: true  },
+    { value: "evacuation_readiness",  label: "Evacuation Readiness Report",          featureKey: "featureMusterList",         defaultOn: true  },
+    { value: "health_safety",         label: "Health & Safety / BBS Report",         featureKey: "featureHsIncidents",        defaultOn: true  },
+    { value: "fire_risk",             label: "Fire Risk Assessment Report",          featureKey: "featureFireRiskAssessment", defaultOn: true  },
+    { value: "permit_to_work",        label: "Permit to Work Report",                featureKey: "featurePermitToWork",       defaultOn: false },
+    { value: "risk_assessments",      label: "Risk Assessment Register",             featureKey: "featureRaBuilder",          defaultOn: false },
+    { value: "ppm_compliance",        label: "PPM Compliance Report",                featureKey: "featurePPM",                defaultOn: false },
+    { value: "audit_inspection",      label: "Audit & Inspection Report",            featureKey: "featureAuditEngine",        defaultOn: false },
+  ];
+
+  const visibleReportOptions = REPORT_OPTIONS.filter(opt => {
+    if (!opt.featureKey) return true;
+    if (!settings) return opt.defaultOn === true;
+    const val = settings[opt.featureKey];
+    return opt.defaultOn ? val !== false : val === true;
+  });
+
+  useEffect(() => {
+    if (visibleReportOptions.length && !visibleReportOptions.some(o => o.value === reportType)) {
+      setReportType(visibleReportOptions[0].value);
+    }
+  }, [visibleReportOptions, reportType]);
 
   if (isLoading) {
     return <div>Loading reports...</div>;
@@ -299,15 +348,9 @@ export default function Reports() {
                   <SelectValue placeholder="Select report type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily Visitor Log</SelectItem>
-                  <SelectItem value="weekly">Weekly Visitor Log</SelectItem>
-                  <SelectItem value="monthly">Monthly Visitor Log</SelectItem>
-                  <SelectItem value="staff_attendance">Staff Attendance Report</SelectItem>
-                  <SelectItem value="contractor_activity">Contractor Activity Report</SelectItem>
-                  <SelectItem value="contractor_compliance">Contractor Compliance Report</SelectItem>
-                  <SelectItem value="compliance_gap">Contractor Compliance Gap Report</SelectItem>
-                  <SelectItem value="site_headcount">Site Headcount / Roll Call</SelectItem>
-                  <SelectItem value="evacuation_readiness">Evacuation Readiness Report</SelectItem>
+                  {visibleReportOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -328,7 +371,7 @@ export default function Reports() {
                         data-testid="button-date-from"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "MMM dd, yyyy") : "Pick a date"}
+                        {dateFrom ? format(dateFrom, "dd MMM yyyy") : "Pick a date"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -352,7 +395,7 @@ export default function Reports() {
                         data-testid="button-date-to"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "MMM dd, yyyy") : "Pick a date"}
+                        {dateTo ? format(dateTo, "dd MMM yyyy") : "Pick a date"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -546,7 +589,7 @@ export default function Reports() {
                             {formatReportType(report.reportType)}
                           </div>
                           <div className="text-xs text-variable">
-                            Generated {new Date(report.generatedAt).toLocaleDateString()}
+                            Generated {new Date(report.generatedAt).toLocaleDateString('en-GB')}
                           </div>
                         </div>
                       </div>
@@ -554,7 +597,7 @@ export default function Reports() {
                     </div>
                     {/* Period */}
                     <div className="text-xs text-variable">
-                      {new Date(report.dateFrom).toLocaleDateString()} – {new Date(report.dateTo).toLocaleDateString()}
+                      {new Date(report.dateFrom).toLocaleDateString('en-GB')} – {new Date(report.dateTo).toLocaleDateString('en-GB')}
                     </div>
                     {/* Status + email badge */}
                     <div className="flex items-center gap-2 flex-wrap">
@@ -644,12 +687,12 @@ export default function Reports() {
                             <FileText className="mr-3 text-blue-600" size={16} />
                             <div>
                               <div className="text-sm font-medium text-fixed">{formatReportType(report.reportType)}</div>
-                              <div className="text-xs text-variable">Generated {new Date(report.generatedAt).toLocaleDateString()}</div>
+                              <div className="text-xs text-variable">Generated {new Date(report.generatedAt).toLocaleDateString('en-GB')}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
-                          {new Date(report.dateFrom).toLocaleDateString()} - {new Date(report.dateTo).toLocaleDateString()}
+                          {new Date(report.dateFrom).toLocaleDateString('en-GB')} - {new Date(report.dateTo).toLocaleDateString('en-GB')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-variable">
@@ -663,7 +706,7 @@ export default function Reports() {
                             {report.emailSent && (
                               <div className="flex items-center text-xs text-green-600">
                                 <Mail size={12} className="mr-1" />
-                                Emailed {report.emailSentAt ? new Date(report.emailSentAt).toLocaleDateString() : ""}
+                                Emailed {report.emailSentAt ? new Date(report.emailSentAt).toLocaleDateString('en-GB') : ""}
                               </div>
                             )}
                           </div>

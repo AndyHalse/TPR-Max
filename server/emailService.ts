@@ -500,6 +500,12 @@ For system support, visit: https://visigate.pro/support`;
       staff_attendance: 'Staff Attendance Report', contractor_activity: 'Contractor Activity Report',
       contractor_compliance: 'Contractor Compliance Report', compliance_gap: 'Contractor Compliance Gap Report',
       site_headcount: 'Site Headcount / Roll Call', evacuation_readiness: 'Evacuation Readiness Report',
+      health_safety: 'Health & Safety / BBS Report',
+      fire_risk: 'Fire Risk Assessment Report',
+      permit_to_work: 'Permit to Work Report',
+      risk_assessments: 'Risk Assessment Register',
+      ppm_compliance: 'PPM Compliance Report',
+      audit_inspection: 'Audit & Inspection Report',
     };
     const reportTitle = reportTypeNames[report.reportType] || report.reportType;
 
@@ -769,6 +775,136 @@ For system support, visit: https://visigate.pro/support`;
         ${fireMarshals.map((fm: any) => `<tr><td>${fm.firstName} ${fm.lastName}</td><td>${fm.department || '-'}</td><td>${fm.isCheckedIn ? '<span class="badge badge-green">On-Site</span>' : '<span class="badge badge-red">Off-Site</span>'}</td><td>${fm.email || '-'}</td></tr>`).join('')}
         ${fireMarshals.length === 0 ? '<tr><td colspan="4" style="text-align:center; color: #dc2626; font-weight: bold;">No Fire Marshals designated - URGENT ACTION REQUIRED</td></tr>' : ''}
         </tbody></table>`;
+
+    } else if (reportData.type === 'health_safety') {
+      const rows = reportData.rows || [];
+      const ser = reportData.incidents > 0
+        ? ((reportData.goodSpots + reportData.positives) / reportData.incidents).toFixed(1)
+        : '—';
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card red"><div class="stat-number">${reportData.incidents}</div><div class="stat-label">Incidents</div></div>
+          <div class="stat-card amber"><div class="stat-number">${reportData.nearMisses}</div><div class="stat-label">Near Misses</div></div>
+          <div class="stat-card green"><div class="stat-number">${reportData.goodSpots + reportData.positives}</div><div class="stat-label">Good Spots &amp; Positive Actions</div></div>
+          <div class="stat-card red"><div class="stat-number">${reportData.riddor}</div><div class="stat-label">RIDDOR-Reportable</div></div>
+          <div class="stat-card"><div class="stat-number">${ser}</div><div class="stat-label">Safety Engagement Ratio</div></div>
+          <div class="stat-card amber"><div class="stat-number">${reportData.open}</div><div class="stat-label">Unresolved</div></div>
+        </div>
+        ${rows.length ? `<h3>Records</h3><table><thead><tr><th>Date</th><th>Type</th><th>Title</th><th>Location</th><th>Reported By</th><th>RIDDOR</th><th>Status</th></tr></thead><tbody>
+        ${rows.map((r: any) => `<tr>
+          <td>${r.incidentDate ? new Date(r.incidentDate).toLocaleDateString('en-GB') : '-'}</td>
+          <td>${(r.recordType || '').replace('_', ' ')}</td>
+          <td>${r.title || '-'}</td>
+          <td>${r.location || '-'}</td>
+          <td>${r.reportedBy || '-'}</td>
+          <td>${r.riddorCategory ? '<span class="badge badge-red">Yes</span>' : '-'}</td>
+          <td>${r.resolved ? '<span class="badge badge-green">Resolved</span>' : '<span class="badge badge-amber">Open</span>'}</td>
+        </tr>`).join('')}
+        </tbody></table>` : '<p>No health &amp; safety records in this period.</p>'}`;
+
+    } else if (reportData.type === 'fire_risk') {
+      const rows = reportData.rows || [];
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${rows.length}</div><div class="stat-label">Assessments</div></div>
+          <div class="stat-card red"><div class="stat-number">${reportData.overdue}</div><div class="stat-label">Review Overdue</div></div>
+        </div>
+        ${rows.length ? `<h3>Fire Risk Assessments</h3><table><thead><tr><th>Title</th><th>Assessor</th><th>Assessed</th><th>Next Review</th><th>Status</th></tr></thead><tbody>
+        ${rows.map((r: any) => {
+          const overdue = r.nextReviewDate && new Date(r.nextReviewDate) < new Date();
+          return `<tr>
+            <td>${r.title || '-'}</td>
+            <td>${r.assessorName || '-'}${r.assessorCompany ? ' (' + r.assessorCompany + ')' : ''}</td>
+            <td>${r.assessmentDate ? new Date(r.assessmentDate).toLocaleDateString('en-GB') : '-'}</td>
+            <td>${r.nextReviewDate ? new Date(r.nextReviewDate).toLocaleDateString('en-GB') : '-'} ${overdue ? '<span class="badge badge-red">Overdue</span>' : ''}</td>
+            <td>${r.status || '-'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table>` : '<p>No fire risk assessments in this period.</p>'}`;
+
+    } else if (reportData.type === 'permit_to_work') {
+      const rows = reportData.rows || [];
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${rows.length}</div><div class="stat-label">Permits</div></div>
+          <div class="stat-card green"><div class="stat-number">${reportData.active}</div><div class="stat-label">Active / Authorised</div></div>
+          <div class="stat-card"><div class="stat-number">${reportData.closed}</div><div class="stat-label">Closed</div></div>
+        </div>
+        ${rows.length ? `<h3>Permits</h3><table><thead><tr><th>Permit #</th><th>Type</th><th>Work</th><th>Location</th><th>Contractor</th><th>Valid Until</th><th>Status</th></tr></thead><tbody>
+        ${rows.map((r: any) => `<tr>
+          <td>${r.permitNumber || '-'}</td>
+          <td>${r.permitType || '-'}</td>
+          <td>${r.workDescription || '-'}</td>
+          <td>${r.workLocation || '-'}</td>
+          <td>${r.contractorCompanyName || '-'}</td>
+          <td>${r.permitValidUntil ? new Date(r.permitValidUntil).toLocaleDateString('en-GB') : '-'}</td>
+          <td>${r.status || '-'}</td>
+        </tr>`).join('')}
+        </tbody></table>` : '<p>No permits raised in this period.</p>'}`;
+
+    } else if (reportData.type === 'risk_assessments') {
+      const rows = reportData.rows || [];
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${rows.length}</div><div class="stat-label">Assessments</div></div>
+          <div class="stat-card green"><div class="stat-number">${reportData.approved}</div><div class="stat-label">Approved</div></div>
+          <div class="stat-card amber"><div class="stat-number">${reportData.dueReview}</div><div class="stat-label">Review Due</div></div>
+        </div>
+        ${rows.length ? `<h3>Risk Assessments</h3><table><thead><tr><th>Title</th><th>Type</th><th>Location</th><th>Prepared By</th><th>Assessed</th><th>Next Review</th><th>Status</th></tr></thead><tbody>
+        ${rows.map((r: any) => {
+          const overdue = r.nextReviewDate && new Date(r.nextReviewDate) < new Date();
+          return `<tr>
+            <td>${r.title || '-'}</td>
+            <td>${r.raType || '-'}</td>
+            <td>${r.location || '-'}</td>
+            <td>${r.preparedBy || '-'}</td>
+            <td>${r.assessmentDate ? new Date(r.assessmentDate).toLocaleDateString('en-GB') : '-'}</td>
+            <td>${r.nextReviewDate ? new Date(r.nextReviewDate).toLocaleDateString('en-GB') : '-'} ${overdue ? '<span class="badge badge-red">Overdue</span>' : ''}</td>
+            <td>${r.status || '-'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table>` : '<p>No risk assessments in this period.</p>'}`;
+
+    } else if (reportData.type === 'ppm_compliance') {
+      const rows = reportData.rows || [];
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${rows.length}</div><div class="stat-label">Work Orders Due</div></div>
+          <div class="stat-card green"><div class="stat-number">${reportData.completed}</div><div class="stat-label">Completed</div></div>
+          <div class="stat-card red"><div class="stat-number">${reportData.overdue}</div><div class="stat-label">Overdue</div></div>
+          <div class="stat-card ${reportData.pct >= 90 ? 'green' : reportData.pct >= 70 ? 'amber' : 'red'}"><div class="stat-number">${reportData.pct}%</div><div class="stat-label">Completion Rate</div></div>
+        </div>
+        ${rows.length ? `<h3>Work Orders</h3><table><thead><tr><th>Title</th><th>Assigned To</th><th>Due</th><th>Completed</th><th>Status</th></tr></thead><tbody>
+        ${rows.map((r: any) => {
+          const overdue = r.status !== 'completed' && !r.completedDate && r.dueDate && new Date(r.dueDate) < new Date();
+          return `<tr>
+            <td>${r.title || '-'}</td>
+            <td>${r.contractorCompanyName || r.assignedEmail || '-'}</td>
+            <td>${r.dueDate ? new Date(r.dueDate).toLocaleDateString('en-GB') : '-'} ${overdue ? '<span class="badge badge-red">Overdue</span>' : ''}</td>
+            <td>${r.completedDate ? new Date(r.completedDate).toLocaleDateString('en-GB') : '-'}</td>
+            <td>${r.completedDate || r.status === 'completed' ? '<span class="badge badge-green">Completed</span>' : '<span class="badge badge-amber">' + (r.status || 'Open') + '</span>'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table>` : '<p>No PPM work orders due in this period.</p>'}`;
+
+    } else if (reportData.type === 'audit_inspection') {
+      const rows = reportData.rows || [];
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${rows.length}</div><div class="stat-label">Audits</div></div>
+          <div class="stat-card green"><div class="stat-number">${reportData.passed}</div><div class="stat-label">Passed</div></div>
+          <div class="stat-card"><div class="stat-number">${reportData.completed}</div><div class="stat-label">Completed</div></div>
+        </div>
+        ${rows.length ? `<h3>Audits &amp; Inspections</h3><table><thead><tr><th>Title</th><th>Template</th><th>Conducted By</th><th>Conducted</th><th>Score</th><th>Result</th></tr></thead><tbody>
+        ${rows.map((r: any) => `<tr>
+          <td>${r.title || '-'}</td>
+          <td>${r.templateName || '-'}</td>
+          <td>${r.conductedBy || '-'}</td>
+          <td>${r.conductedAt ? new Date(r.conductedAt).toLocaleDateString('en-GB') : '-'}</td>
+          <td>${r.overallScore != null ? r.overallScore + '%' : '-'}</td>
+          <td>${r.passed === true ? '<span class="badge badge-green">Pass</span>' : r.passed === false ? '<span class="badge badge-red">Fail</span>' : '<span class="badge badge-gray">' + (r.status || '-') + '</span>'}</td>
+        </tr>`).join('')}
+        </tbody></table>` : '<p>No audits in this period.</p>'}`;
     }
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${reportTitle} - ${companyName}</title><style>${baseStyles}</style></head><body>

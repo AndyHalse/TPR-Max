@@ -6,7 +6,7 @@ import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService, CustomerDatabaseService } from '../customerDatabase';
 import { EmailService, emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, sql, desc } from 'drizzle-orm';
+import { eq, sql, desc, and, gte, lte } from 'drizzle-orm';
 import { db } from '../db';
 
 export function registerReportRoutes(app: Express): void {
@@ -230,6 +230,99 @@ export function registerReportRoutes(app: Express): void {
     }
   });
 
+  const MODULE_REPORT_TYPES = [
+    'health_safety', 'fire_risk', 'permit_to_work',
+    'risk_assessments', 'ppm_compliance', 'audit_inspection',
+  ] as const;
+
+  async function buildModuleReportData(
+    customerId: string,
+    reportType: string,
+    fromDate: Date,
+    toDate: Date,
+  ): Promise<{ data: any; summaryCount: string; summaryNote: string }> {
+    const custDb = await customerDbService.getCustomerDatabase(customerId);
+    const inRange = (col: any) => and(gte(col, fromDate), lte(col, toDate));
+
+    if (reportType === 'health_safety') {
+      const rows = await custDb.select().from(isolatedSchema.hsIncidents)
+        .where(inRange(isolatedSchema.hsIncidents.incidentDate));
+      const incidents  = rows.filter(r => r.recordType === 'incident').length;
+      const nearMisses = rows.filter(r => r.recordType === 'near_miss').length;
+      const goodSpots  = rows.filter(r => r.recordType === 'good_spot').length;
+      const positives  = rows.filter(r => r.recordType === 'positive_action').length;
+      const riddor     = rows.filter(r => !!(r as any).riddorCategory).length;
+      const open       = rows.filter(r => !(r as any).resolved).length;
+      return {
+        data: { type: 'health_safety', rows, incidents, nearMisses, goodSpots, positives, riddor, open },
+        summaryCount: `${rows.length} records`,
+        summaryNote: `${incidents} incidents / ${riddor} RIDDOR`,
+      };
+    }
+
+    if (reportType === 'fire_risk') {
+      const rows = await custDb.select().from(isolatedSchema.fireRiskAssessments)
+        .where(inRange(isolatedSchema.fireRiskAssessments.assessmentDate));
+      const now = new Date();
+      const overdue = rows.filter(r => r.nextReviewDate && new Date(r.nextReviewDate) < now).length;
+      return {
+        data: { type: 'fire_risk', rows, overdue },
+        summaryCount: `${rows.length} assessments`,
+        summaryNote: `${overdue} review overdue`,
+      };
+    }
+
+    if (reportType === 'permit_to_work') {
+      const rows = await custDb.select().from(isolatedSchema.permitToWork)
+        .where(inRange(isolatedSchema.permitToWork.createdAt));
+      const active = rows.filter(r => r.status === 'active' || r.status === 'authorised' || r.status === 'approved').length;
+      const closed = rows.filter(r => r.status === 'closed').length;
+      return {
+        data: { type: 'permit_to_work', rows, active, closed },
+        summaryCount: `${rows.length} permits`,
+        summaryNote: `${active} active / ${closed} closed`,
+      };
+    }
+
+    if (reportType === 'risk_assessments') {
+      const rows = await custDb.select().from(isolatedSchema.raBuilderAssessments)
+        .where(inRange(isolatedSchema.raBuilderAssessments.assessmentDate));
+      const now = new Date();
+      const dueReview = rows.filter(r => r.nextReviewDate && new Date(r.nextReviewDate) < now).length;
+      const approved  = rows.filter(r => r.status === 'approved').length;
+      return {
+        data: { type: 'risk_assessments', rows, dueReview, approved },
+        summaryCount: `${rows.length} assessments`,
+        summaryNote: `${dueReview} review due`,
+      };
+    }
+
+    if (reportType === 'ppm_compliance') {
+      const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+        .where(inRange(isolatedSchema.ppmWorkOrders.dueDate));
+      const now = new Date();
+      const completed = rows.filter(r => r.status === 'completed' || !!(r as any).completedDate).length;
+      const overdue   = rows.filter(r => r.status !== 'completed' && !(r as any).completedDate && r.dueDate && new Date(r.dueDate) < now).length;
+      const pct = rows.length ? Math.round((completed / rows.length) * 100) : 0;
+      return {
+        data: { type: 'ppm_compliance', rows, completed, overdue, pct },
+        summaryCount: `${rows.length} work orders`,
+        summaryNote: `${pct}% complete / ${overdue} overdue`,
+      };
+    }
+
+    // audit_inspection
+    const rows = await custDb.select().from(isolatedSchema.auditRecords)
+      .where(inRange(isolatedSchema.auditRecords.conductedAt));
+    const passed    = rows.filter(r => r.passed === true).length;
+    const completed = rows.filter(r => r.status === 'completed').length;
+    return {
+      data: { type: 'audit_inspection', rows, passed, completed },
+      summaryCount: `${rows.length} audits`,
+      summaryNote: `${passed} passed`,
+    };
+  }
+
   app.post("/api/reports/generate", requireAuth, async (req, res) => {
     try {
       if (!req.user?.username) {
@@ -245,6 +338,7 @@ export function registerReportRoutes(app: Express): void {
 
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999); // include the whole final day
       
       let totalVisitors = "0";
       let avgDuration = "N/A";
@@ -308,6 +402,11 @@ export function registerReportRoutes(app: Express): void {
         totalVisitors = `${companies.length} contractors`;
         avgDuration = `${withGaps.length} with gaps`;
         snapshotData = JSON.stringify({ type: 'compliance_gap', companies });
+      } else if (MODULE_REPORT_TYPES.includes(reportType as any)) {
+        const built = await buildModuleReportData(context.customerId, reportType, fromDate, toDate);
+        totalVisitors = built.summaryCount;
+        avgDuration   = built.summaryNote;
+        snapshotData  = JSON.stringify(built.data);
       }
       
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -363,10 +462,13 @@ export function registerReportRoutes(app: Express): void {
       const allVisitors = await databaseService.getAllVisitors(context);
       
       let reportData: any = {};
+      const rangeFrom = report.dateFrom;
+      const rangeTo = new Date(report.dateTo);
+      rangeTo.setHours(23, 59, 59, 999);
 
       if (['daily', 'weekly', 'monthly'].includes(report.reportType)) {
         const visitorsInRange = allVisitors.filter(v => 
-          v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
+          v.checkedInAt >= rangeFrom && v.checkedInAt <= rangeTo
         );
         const enrichedVisitors = visitorsInRange.map(visitor => {
           const hostStaff = allStaff.find(s => s.id === visitor.hostStaffId);
@@ -401,6 +503,13 @@ export function registerReportRoutes(app: Express): void {
         } else {
           const companies = await databaseService.getAllContractorCompanies(context);
           reportData = { type: 'compliance_gap', companies };
+        }
+      } else if (MODULE_REPORT_TYPES.includes(report.reportType as any)) {
+        if (report.data) {
+          reportData = JSON.parse(report.data);
+        } else {
+          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo);
+          reportData = rebuilt.data;
         }
       } else {
         reportData = { type: 'visitor_log', visitors: allVisitors, checkedOutVisitors: allVisitors.filter(v => v.checkedOutAt), staff: allStaff };
@@ -446,10 +555,13 @@ export function registerReportRoutes(app: Express): void {
       const allVisitors = await databaseService.getAllVisitors(context);
       
       let reportData: any = {};
+      const rangeFrom = report.dateFrom;
+      const rangeTo = new Date(report.dateTo);
+      rangeTo.setHours(23, 59, 59, 999);
 
       if (['daily', 'weekly', 'monthly'].includes(report.reportType)) {
         const visitorsInRange = allVisitors.filter(v => 
-          v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
+          v.checkedInAt >= rangeFrom && v.checkedInAt <= rangeTo
         );
         const enrichedVisitors = visitorsInRange.map(visitor => {
           const hostStaff = allStaff.find(s => s.id === visitor.hostStaffId);
@@ -523,9 +635,16 @@ export function registerReportRoutes(app: Express): void {
           const companies = await databaseService.getAllContractorCompanies(context);
           reportData = { type: 'compliance_gap', companies };
         }
+      } else if (MODULE_REPORT_TYPES.includes(report.reportType as any)) {
+        if (report.data) {
+          reportData = JSON.parse(report.data);
+        } else {
+          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo);
+          reportData = rebuilt.data;
+        }
       } else {
         const visitorsInRange = allVisitors.filter(v => 
-          v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
+          v.checkedInAt >= rangeFrom && v.checkedInAt <= rangeTo
         );
         reportData = {
           type: 'visitor_log',
