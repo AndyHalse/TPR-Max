@@ -291,7 +291,44 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
             .limit(1);
           if (!tokenRow) continue;
           if (tokenRow.usedAt) return res.status(400).json({ error: 'This confirmation link has already been used', alreadyUsed: true });
-          if (new Date(tokenRow.expiresAt) < new Date()) return res.status(400).json({ error: 'This confirmation link has expired. A new check-in email has been sent.', expired: true });
+          if (new Date(tokenRow.expiresAt) < new Date()) {
+            // Fix (B): expired token — re-send a fresh welfare email so the worker can still self-confirm.
+            const [expSess] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
+              .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
+            if (!expSess || (expSess.status !== 'active' && expSess.status !== 'escalated')) {
+              return res.status(400).json({ error: 'This confirmation link has expired and the session is no longer active. Please contact your supervisor.', expired: true });
+            }
+            // Spam guard: only re-send if no fresh unused token already exists for this session
+            const [alreadyFresh] = await customerDb.select({ id: isolatedSchema.loneWorkerTokens.id })
+              .from(isolatedSchema.loneWorkerTokens)
+              .where(sql`${isolatedSchema.loneWorkerTokens.sessionId} = ${expSess.id} AND ${isolatedSchema.loneWorkerTokens.usedAt} IS NULL AND ${isolatedSchema.loneWorkerTokens.expiresAt} > NOW()`)
+              .limit(1);
+            if (alreadyFresh) {
+              return res.status(400).json({ error: 'This link has expired, but a fresh check-in email has already been sent. Please check your inbox.', expired: true });
+            }
+            const expSettings = await getLoneWorkerSettings({ db: customerDb });
+            const expInterval = expSess.intervalMins;
+            const freshTok = mintLoneWorkerToken(cryptoMod);
+            await customerDb.insert(isolatedSchema.loneWorkerTokens).values({
+              token: freshTok, sessionId: expSess.id,
+              expiresAt: new Date(Date.now() + (expInterval + (expSettings?.loneWorkerGracePeriodMins || 10)) * 60000),
+            });
+            if (expSess.personEmail) {
+              const baseUrl = `${req.protocol}://${req.get('host')}`;
+              try {
+                await emailService.forCustomer(expSess.customerId).sendLoneWorkerWelfareCheck({
+                  to: expSess.personEmail, workerName: expSess.personName,
+                  confirmUrl: `${baseUrl}/lone-worker/ok/${expSess.customerId}/${freshTok}`,
+                  nextCheckMins: expInterval,
+                  companyName: expSettings?.companyName || 'Your Company',
+                  siteName: expSettings?.companyName || 'Site',
+                });
+              } catch (emailErr: any) {
+                logger.warn(`🛡️ Failed to re-send welfare email for expired token (session ${expSess.id}):`, emailErr?.message || emailErr);
+              }
+            }
+            return res.status(400).json({ error: "This link had expired — we've sent you a fresh check-in link. Please check your email.", expired: true, refreshed: true });
+          }
           const [session] = await customerDb.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
           if (!session || (session.status !== 'active' && session.status !== 'escalated')) return res.status(400).json({ error: 'Lone worker session is no longer active', inactive: true });
           const settings = await getLoneWorkerSettings({ db: customerDb });
@@ -341,7 +378,44 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
 
       if (!tokenRow) return res.status(404).json({ error: 'Token not found or already used' });
       if (tokenRow.usedAt) return res.status(400).json({ error: 'This confirmation link has already been used', alreadyUsed: true });
-      if (new Date(tokenRow.expiresAt) < new Date()) return res.status(400).json({ error: 'This confirmation link has expired. A new check-in email has been sent.', expired: true });
+      if (new Date(tokenRow.expiresAt) < new Date()) {
+        // Fix (B): expired token — re-send a fresh welfare email so the worker can still self-confirm.
+        const [expSess] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
+          .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
+        if (!expSess || (expSess.status !== 'active' && expSess.status !== 'escalated')) {
+          return res.status(400).json({ error: 'This confirmation link has expired and the session is no longer active. Please contact your supervisor.', expired: true });
+        }
+        // Spam guard: only re-send if no fresh unused token already exists for this session
+        const [alreadyFresh] = await customerDb.select({ id: isolatedSchema.loneWorkerTokens.id })
+          .from(isolatedSchema.loneWorkerTokens)
+          .where(sql`${isolatedSchema.loneWorkerTokens.sessionId} = ${expSess.id} AND ${isolatedSchema.loneWorkerTokens.usedAt} IS NULL AND ${isolatedSchema.loneWorkerTokens.expiresAt} > NOW()`)
+          .limit(1);
+        if (alreadyFresh) {
+          return res.status(400).json({ error: 'This link has expired, but a fresh check-in email has already been sent. Please check your inbox.', expired: true });
+        }
+        const expSettings = await getLoneWorkerSettings({ db: customerDb });
+        const expInterval = expSess.intervalMins;
+        const freshTok = mintLoneWorkerToken(cryptoMod);
+        await customerDb.insert(isolatedSchema.loneWorkerTokens).values({
+          token: freshTok, sessionId: expSess.id,
+          expiresAt: new Date(Date.now() + (expInterval + (expSettings?.loneWorkerGracePeriodMins || 10)) * 60000),
+        });
+        if (expSess.personEmail) {
+          const baseUrl = `${req.protocol}://${req.get('host')}`;
+          try {
+            await emailService.forCustomer(expSess.customerId).sendLoneWorkerWelfareCheck({
+              to: expSess.personEmail, workerName: expSess.personName,
+              confirmUrl: `${baseUrl}/lone-worker/ok/${expSess.customerId}/${freshTok}`,
+              nextCheckMins: expInterval,
+              companyName: expSettings?.companyName || 'Your Company',
+              siteName: expSettings?.companyName || 'Site',
+            });
+          } catch (emailErr: any) {
+            logger.warn(`🛡️ Failed to re-send welfare email for expired token (session ${expSess.id}):`, emailErr?.message || emailErr);
+          }
+        }
+        return res.status(400).json({ error: "This link had expired — we've sent you a fresh check-in link. Please check your email.", expired: true, refreshed: true });
+      }
 
       const [session] = await customerDb.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
       if (!session || (session.status !== 'active' && session.status !== 'escalated')) return res.status(400).json({ error: 'Lone worker session is no longer active', inactive: true });
