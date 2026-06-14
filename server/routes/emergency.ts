@@ -17,7 +17,7 @@ import {
   evacuationAccountability,
 } from '@shared/schema';
 import { z } from 'zod';
-import { eq, and, sql, desc, inArray, gte, lt, or, not } from 'drizzle-orm';
+import { eq, and, sql, desc, gte, lt, or, not } from 'drizzle-orm';
 import { db, pool } from '../db';
 import { sendTeamsNotification } from '../utils/teamsNotifier';
 import { logger } from '../utils/logger';
@@ -5648,31 +5648,11 @@ ${evacuationPhotosData.length > 0 ? `
       
       const activeEvacuation = activeEvacuations[0];
 
-      // If zone IDs were provided, resolve them to names and build an allowlist of personIds
-      let allowedPersonIds: Set<string> | null = null;
-      if (zoneIds && zoneIds.length > 0 && activeEvacuation) {
-        try {
-          const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-          const zoneRecords = await custDb
-            .select({ id: isolatedSchema.evacuationZones.id, name: isolatedSchema.evacuationZones.name })
-            .from(isolatedSchema.evacuationZones)
-            .where(inArray(isolatedSchema.evacuationZones.id, zoneIds));
-          const zoneNames = zoneRecords.map(z => z.name);
-          // Find people whose lastKnownLocation matches one of the zone names
-          if (zoneNames.length > 0) {
-            const inZone = await db
-              .select({ personId: evacuationAccountability.personId })
-              .from(evacuationAccountability)
-              .where(and(
-                eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
-                inArray(evacuationAccountability.lastKnownLocation, zoneNames)
-              ));
-            allowedPersonIds = new Set(inZone.map(r => r.personId));
-          }
-        } catch (e) {
-          logger.warn('[mark-all-safe] Zone filter lookup failed, falling back to all:', e);
-        }
-      }
+      // Build a set of the selected zone IDs. We filter each person by their own
+      // zoneId below — the same key the muster screen and zone counts use.
+      // No text matching, no dependency on accountability records existing yet.
+      const zoneFilter: Set<string> | null =
+        zoneIds && zoneIds.length > 0 ? new Set(zoneIds) : null;
 
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
         databaseService.getCurrentVisitors(context),
@@ -5728,7 +5708,7 @@ ${evacuationPhotosData.length > 0 ? `
       };
 
       for (const staff of checkedInStaff) {
-        if (allowedPersonIds && !allowedPersonIds.has(staff.id)) continue;
+        if (zoneFilter && !zoneFilter.has((staff as any).zoneId)) continue;
         try {
           if (!staff.isAccountedFor) {
             const result = await databaseService.toggleStaffAccountedStatus(context, staff.id);
@@ -5743,7 +5723,7 @@ ${evacuationPhotosData.length > 0 ? `
       }
 
       for (const visitor of currentVisitors) {
-        if (allowedPersonIds && !allowedPersonIds.has(visitor.id)) continue;
+        if (zoneFilter && !zoneFilter.has((visitor as any).zoneId)) continue;
         try {
           if (!visitor.isAccountedFor) {
             const result = await databaseService.toggleVisitorAccountedStatus(context, visitor.id);
@@ -5758,7 +5738,7 @@ ${evacuationPhotosData.length > 0 ? `
       }
 
       for (const contractor of checkedInContractors) {
-        if (allowedPersonIds && !allowedPersonIds.has(contractor.id)) continue;
+        if (zoneFilter && !zoneFilter.has((contractor as any).zoneId)) continue;
         try {
           if (!contractor.isAccountedFor) {
             const result = await databaseService.toggleContractorAccountedStatus(context, contractor.id);
@@ -5785,8 +5765,8 @@ ${evacuationPhotosData.length > 0 ? `
             .from(isolatedSchema.members)
             .where(eq(isolatedSchema.members.isCheckedIn, true));
           
-          const filteredMembers = allowedPersonIds
-            ? checkedInMembers.filter(m => allowedPersonIds!.has(m.id))
+          const filteredMembers = zoneFilter
+            ? checkedInMembers.filter(m => zoneFilter.has((m as any).zoneId))
             : checkedInMembers;
           memberCount = filteredMembers.length;
           for (const member of filteredMembers) {
