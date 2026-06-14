@@ -1,0 +1,220 @@
+// server/data/tpr-features.ts
+//
+// TPR Max feature & benefit knowledge base.
+// This is the single source of truth the AI blog generator reads from.
+// Rule: only describe features that genuinely exist. If it's not in here,
+// the AI must not write about it. Add new modules as they ship.
+
+export interface TprFeature {
+  id: string;
+  name: string;
+  category:
+    | "Registration"
+    | "Emergency"
+    | "Compliance"
+    | "Safety"
+    | "Operations";
+  whatItDoes: string;   // plain English, no jargon
+  painItRemoves: string; // the customer problem it solves
+  proofPoints: string[]; // concrete details the AI can cite
+  audience: string[];    // who cares most
+}
+
+export const tprFeatures: TprFeature[] = [
+  {
+    id: "visitor-contractor-staff-registration",
+    name: "Visitor, Contractor & Staff Registration",
+    category: "Registration",
+    whatItDoes:
+      "A single sign-in system for everyone who comes on site — visitors, contractors and staff. People register on arrival, agree to your site rules, and you have a live record of exactly who is on site at any moment.",
+    painItRemoves:
+      "Paper sign-in books are unreadable, easy to skip, and useless in an emergency. Sites rarely know who is actually on site right now.",
+    proofPoints: [
+      "Live, real-time roll of everyone on site",
+      "Separate flows for visitors, contractors and staff",
+      "Site rules and inductions agreed at sign-in, not as an afterthought",
+    ],
+    audience: ["Facilities managers", "Site managers", "Reception teams"],
+  },
+  {
+    id: "mustering-evacuation",
+    name: "Mustering & Evacuation",
+    category: "Emergency",
+    whatItDoes:
+      "In an evacuation, every person on site appears on a live muster list grouped by zone. Marshals mark people safe from a phone or tablet, so you know in seconds who is accounted for and who is still missing.",
+    painItRemoves:
+      "In a real evacuation, paper registers and headcounts fall apart. Nobody can say with certainty who is still in the building.",
+    proofPoints: [
+      "Live evacuation list grouped by zone",
+      "Mark people safe from any device",
+      "Instant view of who is accounted for vs still missing",
+      "Covers visitors and contractors, not just staff",
+    ],
+    audience: ["Fire marshals", "Health & safety managers", "Site managers"],
+  },
+  {
+    id: "contractor-compliance-verification",
+    name: "Contractor Compliance & Verification",
+    category: "Compliance",
+    whatItDoes:
+      "Before a contractor is allowed on site, TPR checks they are properly verified — right to work, qualifications, insurances and certificates all confirmed and in date. Anyone who isn't compliant can be stopped at the gate.",
+    painItRemoves:
+      "Sites let contractors in without really knowing if they're qualified, insured or legally allowed to work — a serious liability if something goes wrong.",
+    proofPoints: [
+      "Verification happens before access is granted, not after",
+      "Right to work, certificates and insurance all checked in one place",
+      "Out-of-date or missing documents flag automatically",
+    ],
+    audience: [
+      "Facilities managers",
+      "Compliance officers",
+      "Construction site managers",
+    ],
+  },
+  {
+    id: "right-to-work",
+    name: "Right to Work Checks",
+    category: "Compliance",
+    whatItDoes:
+      "Captures and records right-to-work evidence for workers and contractors, with expiry tracking, so you have a clear audit trail that everyone on site is legally allowed to work.",
+    painItRemoves:
+      "Right-to-work failures carry heavy fines. Most sites have no consistent record of who they've checked and when it expires.",
+    proofPoints: [
+      "Evidence stored against each person",
+      "Expiry dates tracked, not forgotten",
+      "Audit-ready record for inspections",
+    ],
+    audience: ["HR managers", "Compliance officers"],
+  },
+  {
+    id: "worker-dbs",
+    name: "Worker & Staff DBS Checks",
+    category: "Compliance",
+    whatItDoes:
+      "Records DBS (background) check status and expiry for workers and staff, so anyone working in a sensitive environment is properly cleared before they start.",
+    painItRemoves:
+      "DBS status gets tracked in spreadsheets that nobody updates, leaving sites exposed when checks lapse.",
+    proofPoints: [
+      "DBS status held against each worker",
+      "Expiry tracking with reminders",
+      "Clear evidence trail for audits",
+    ],
+    audience: ["HR managers", "Compliance officers", "Care & education sites"],
+  },
+  {
+    id: "worker-certificates",
+    name: "Worker Certificates & Qualifications",
+    category: "Compliance",
+    whatItDoes:
+      "Holds each worker's certificates and qualifications with evidence and expiry dates, so you can prove the people on your site are trained for the job they're doing.",
+    painItRemoves:
+      "Expired or missing certificates go unnoticed until an incident or audit exposes them.",
+    proofPoints: [
+      "Certificate evidence stored per worker",
+      "Automatic expiry tracking",
+      "See at a glance who is qualified and current",
+    ],
+    audience: ["Site managers", "Compliance officers"],
+  },
+  {
+    id: "induction-builder",
+    name: "AI Induction Builder",
+    category: "Safety",
+    whatItDoes:
+      "Builds a site-specific induction for you using AI. You give it your site details and hazards, and it generates a tailored induction that visitors and contractors complete before they're allowed in.",
+    painItRemoves:
+      "Writing site inductions is slow and tedious, so most are generic, out of date, or skipped entirely.",
+    proofPoints: [
+      "AI-generated, tailored to your actual site and hazards",
+      "Completed at sign-in before access is granted",
+      "Far quicker than writing inductions by hand",
+    ],
+    audience: ["Health & safety managers", "Site managers"],
+  },
+  {
+    id: "risk-assessment-builder",
+    name: "AI Risk Assessment Builder",
+    category: "Safety",
+    whatItDoes:
+      "Helps you produce risk assessments quickly using AI, tailored to the task and site, so your paperwork keeps pace with the work actually happening.",
+    painItRemoves:
+      "Risk assessments are time-consuming to write, so they're often reused without thought or left out of date.",
+    proofPoints: [
+      "AI-assisted drafting tailored to the task",
+      "Faster than starting from a blank template",
+      "Keeps documentation current",
+    ],
+    audience: ["Health & safety managers", "Contractors"],
+  },
+  {
+    id: "permit-to-work",
+    name: "Permit to Work",
+    category: "Safety",
+    whatItDoes:
+      "Manages permits for high-risk work — hot works, working at height and similar — digitally, with the right approvals and supporting documents attached before the job can start.",
+    painItRemoves:
+      "Paper permits get lost, approved without proper checks, or can't be found when an inspector asks.",
+    proofPoints: [
+      "Digital permits with approval steps",
+      "Supporting documents attached to each permit",
+      "Clear record of who approved what and when",
+    ],
+    audience: ["Health & safety managers", "Site managers", "Contractors"],
+  },
+  {
+    id: "equipment-register",
+    name: "Equipment Register",
+    category: "Operations",
+    whatItDoes:
+      "A central register of equipment on site, with the records and checks attached, so you know what's in use and that it's been properly maintained.",
+    painItRemoves:
+      "Equipment records live in scattered spreadsheets, making it hard to prove kit is safe and serviced.",
+    proofPoints: [
+      "Single register of site equipment",
+      "Maintenance and check records attached",
+      "Audit-ready at any time",
+    ],
+    audience: ["Facilities managers", "Operations managers"],
+  },
+  {
+    id: "toolbox-talks-bbs",
+    name: "Toolbox Talks & Behavioural Safety (BBS)",
+    category: "Safety",
+    whatItDoes:
+      "Run and record toolbox talks and behaviour-based safety observations, so safety conversations on site are captured rather than lost.",
+    painItRemoves:
+      "Safety briefings happen verbally and leave no record, so there's nothing to show they took place.",
+    proofPoints: [
+      "Toolbox talks logged with attendance",
+      "Behavioural safety observations captured",
+      "Evidence that safety culture is active, not just claimed",
+    ],
+    audience: ["Health & safety managers", "Site supervisors"],
+  },
+  {
+    id: "compliance-dashboard",
+    name: "Compliance Dashboard",
+    category: "Compliance",
+    whatItDoes:
+      "A single dashboard showing your site's compliance position across categories — what's in date, what's expiring, and what needs attention — so nothing slips through unnoticed.",
+    painItRemoves:
+      "Compliance status is spread across people, spreadsheets and inboxes, so gaps only surface during an audit or after an incident.",
+    proofPoints: [
+      "One view of overall compliance health",
+      "Highlights what's expiring or missing",
+      "Turns scattered records into a clear picture",
+    ],
+    audience: ["Compliance officers", "Facilities managers", "Directors"],
+  },
+];
+
+// Helper the generator can use to fetch by id or category.
+export function getFeaturesByIds(ids: string[]): TprFeature[] {
+  return tprFeatures.filter((f) => ids.includes(f.id));
+}
+
+export function getFeaturesByCategory(
+  category: TprFeature["category"]
+): TprFeature[] {
+  return tprFeatures.filter((f) => f.category === category);
+}
