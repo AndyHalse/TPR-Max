@@ -4966,6 +4966,26 @@ ${evacuationPhotosData.length > 0 ? `
   });
 
   // Member endpoints
+
+  // Only these fields may be set by the client when creating/updating a member.
+  // Everything else (id, qrCode, isActive, isCheckedIn, isAccountedFor, timestamps)
+  // is controlled by the server only.
+  const MEMBER_EDITABLE_FIELDS = [
+    'firstName', 'lastName', 'email', 'phoneNumber', 'photoUrl',
+    'membershipType', 'membershipId', 'membershipNumber',
+    'joinDate', 'expiryDate', 'membershipStatus', 'notes',
+  ] as const;
+
+  function pickMemberFields(body: any) {
+    const out: Record<string, any> = {};
+    for (const key of MEMBER_EDITABLE_FIELDS) {
+      if (body[key] !== undefined) {
+        out[key] = body[key] === '' ? null : body[key];
+      }
+    }
+    return out;
+  }
+
   app.get("/api/members", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId;
@@ -4991,7 +5011,10 @@ ${evacuationPhotosData.length > 0 ? `
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
-      const memberData = req.body;
+      const memberData = pickMemberFields(req.body);
+      if (!memberData.firstName || !memberData.lastName) {
+        return res.status(400).json({ error: "First name and last name are required" });
+      }
       const qrCode = `MEM-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       const [newMember] = await customerDb
@@ -5016,7 +5039,7 @@ ${evacuationPhotosData.length > 0 ? `
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
       const { id } = req.params;
-      const updates = req.body;
+      const updates = pickMemberFields(req.body);
       
       const [updated] = await customerDb
         .update(isolatedSchema.members)
@@ -5045,7 +5068,15 @@ ${evacuationPhotosData.length > 0 ? `
       
       const [deactivated] = await customerDb
         .update(isolatedSchema.members)
-        .set({ isActive: false, updatedAt: new Date() })
+        .set({
+          isActive: false,
+          isCheckedIn: false,
+          checkedOutAt: new Date(),
+          checkoutType: 'deleted',
+          isAccountedFor: false,
+          zoneId: null,
+          updatedAt: new Date(),
+        })
         .where(eq(isolatedSchema.members.id, id))
         .returning();
       
