@@ -542,11 +542,11 @@ app.get("/api/import/sample-data-status", requireAuth, async (req, res) => {
     const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
     const result = await pool.query(
       `SELECT
-        (SELECT COUNT(*)::int FROM "${schemaName}".staff               WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".visitors             WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_workers   WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".members              WHERE email         LIKE '%@example.com')
+        (SELECT COUNT(*)::int FROM "${schemaName}".staff               WHERE email         LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".visitors             WHERE email         LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_workers   WHERE email         LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".members              WHERE email         LIKE '%@acsltd.eu')
        AS total`
     );
     const total = result.rows[0].total as number;
@@ -568,11 +568,11 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     // ── Idempotency guard: block duplicate loads ──────────────────────────────
     const existingCheck = await pool.query(
       `SELECT
-        (SELECT COUNT(*)::int FROM "${schemaName}".staff               WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".visitors             WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_workers   WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaName}".members              WHERE email         LIKE '%@example.com')
+        (SELECT COUNT(*)::int FROM "${schemaName}".staff               WHERE email         LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".visitors             WHERE email         LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_workers   WHERE email         LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@acsltd.eu') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".members              WHERE email         LIKE '%@acsltd.eu')
        AS total`
     );
     if ((existingCheck.rows[0].total as number) > 0) {
@@ -654,7 +654,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         const inserted = await customerDb.insert(isolatedSchema.staff).values({
           firstName:   s.firstName,
           lastName:    s.lastName,
-          email:       `demo.staff.${batchId}.${i}@example.com`,
+          email:       `${s.firstName.toLowerCase()}.${s.lastName.toLowerCase()}@acsltd.eu`,
           department:  s.dept,
           jobTitle:    s.title,
           employeeId:  `EMP-${batchId}-${String(i + 1).padStart(3, '0')}`,
@@ -713,7 +713,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         const inserted = await customerDb.insert(isolatedSchema.visitors).values({
           firstName:    firstNames[(i + 3) % firstNames.length],
           lastName:     lastNames[(i + 5) % lastNames.length],
-          email:        `demo.visitor.${batchId}.${i}@example.com`,
+          email:        `${firstNames[(i + 3) % firstNames.length].toLowerCase()}.${lastNames[(i + 5) % lastNames.length].toLowerCase()}@acsltd.eu`,
           company:      visitorCompanies[i % visitorCompanies.length],
           jobTitle:     ['Sales Manager', 'Project Lead', 'Consultant', 'Account Manager', 'Director'][i % 5],
           purpose:      ['Business Meeting', 'Site Inspection', 'Training', 'Delivery', 'Audit', 'Consultation'][i % 6],
@@ -756,7 +756,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
           .insert(isolatedSchema.contractorCompanies)
           .values({
             companyName:      co.name,
-            contactEmail:     `demo.company.${batchId}.${c}@example.com`,
+            contactEmail:     `demo@acsltd.eu`,
             contactPhone:     co.phone,
             contactFirstName: co.firstName,
             contactLastName:  co.lastName,
@@ -777,7 +777,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
               companyId,
               firstName:   firstNames[fnIdx],
               lastName:    lastNames[lnIdx],
-              email:       `demo.worker.${batchId}.${seq}@example.com`,
+              email:       `${firstNames[fnIdx].toLowerCase()}.${lastNames[lnIdx].toLowerCase()}@acsltd.eu`,
               phoneNumber: ukPhones[seq % ukPhones.length],
               jobTitle:    workerJobTitles[seq % workerJobTitles.length],
               department:  departments[seq % departments.length],
@@ -801,7 +801,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         const inserted = await customerDb.insert(isolatedSchema.members).values({
           firstName:        firstNames[(i + 2) % firstNames.length],
           lastName:         lastNames[(i + 7) % lastNames.length],
-          email:            `demo.member.${batchId}.${i}@example.com`,
+          email:            `${firstNames[(i + 2) % firstNames.length].toLowerCase()}.${lastNames[(i + 7) % lastNames.length].toLowerCase()}@acsltd.eu`,
           membershipType:   memberTypes[i],
           membershipId:     `MEM-${batchId}-${i}`,
           membershipNumber: `MBR-DEMO-${String(i + 1).padStart(3, '0')}`,
