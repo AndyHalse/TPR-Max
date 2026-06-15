@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from "react";
+import { pushCrash, setLastErrorId } from "@/lib/errorBuffer";
 
 // Configure your site reception number here — displayed on emergency fallback screens
 const RECEPTION_NUMBER = "RECEPTION_NUMBER";
@@ -12,25 +13,30 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  crashId: string | null;
 }
 
 // ── ErrorBoundary ────────────────────────────────────────────────────────────
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, crashId: null };
 
   static getDerivedStateFromError(): State {
-    return { hasError: true };
+    const crashId = 'CRASH-' + Math.random().toString(16).slice(2, 7).toUpperCase();
+    return { hasError: true, crashId };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    const crashId = this.state.crashId ?? ('CRASH-' + Math.random().toString(16).slice(2, 7).toUpperCase());
+    pushCrash(error.message, error.stack ?? '', info.componentStack ?? '');
+    setLastErrorId(crashId);
     console.error("[ErrorBoundary] Render error caught:", error.message);
     console.error("[ErrorBoundary] Component stack:", info.componentStack);
   }
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback ?? <DefaultFallback />;
+      return this.props.fallback ?? <DefaultFallback crashId={this.state.crashId} />;
     }
     return this.props.children;
   }
@@ -38,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
 // ── Default fallback (general screens) ───────────────────────────────────────
 
-function DefaultFallback() {
+function DefaultFallback({ crashId }: { crashId?: string | null }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
@@ -48,6 +54,11 @@ function DefaultFallback() {
         <p className="text-gray-500 mb-6 text-sm">
           An unexpected error occurred. Your data has not been affected.
         </p>
+        {crashId && (
+          <p className="text-xs text-gray-400 mb-4">
+            Reference: {crashId} — quote this if you report it.
+          </p>
+        )}
         <button
           onClick={() => window.location.reload()}
           className="px-6 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"

@@ -527,13 +527,30 @@ app.use((req, res, next) => {
       logger.info(`⚠️ Management DB column check: ${e.message?.substring(0, 80)}`);
     }
 
+    // Ensure bug_reports has diagnostic tracing columns
+    try {
+      const { db: mgmtDb2 } = await import('./db');
+      const { sql: sqlTag2 } = await import('drizzle-orm');
+      await mgmtDb2.execute(sqlTag2`
+        ALTER TABLE bug_reports
+          ADD COLUMN IF NOT EXISTS error_id    TEXT,
+          ADD COLUMN IF NOT EXISTS breadcrumbs TEXT,
+          ADD COLUMN IF NOT EXISTS app_version TEXT
+      `);
+      logger.info('✅ Management DB: bug_reports diagnostic columns ensured');
+    } catch (e: any) {
+      logger.info(`⚠️ Management DB bug_reports column check: ${e.message?.substring(0, 80)}`);
+    }
+
     // Register all routes AFTER server is already listening
     logger.info('Registering routes');
     await registerRoutes(app, server);
     logger.info('Routes registered successfully');
 
     app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+      const errorId = 'ERR-' + Math.random().toString(16).slice(2, 7).toUpperCase();
       logger.error('🔥 Express error handler caught:', {
+        errorId,
         error: err.message,
         stack: err.stack,
         url: req.url,
@@ -549,7 +566,7 @@ app.use((req, res, next) => {
       const responseMessage = process.env.NODE_ENV === 'production' ? 'Internal Server Error' : message;
       
       if (!res.headersSent) {
-        res.status(status).json({ error: responseMessage });
+        res.status(status).json({ error: responseMessage, errorId });
       }
     });
 

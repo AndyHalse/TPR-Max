@@ -87,6 +87,9 @@ export function registerBugReportRoutes(app: Express) {
         consoleErrors: data.consoleErrors ?? null,
         screenshot: data.screenshot ?? null,
         attachments: data.attachments && data.attachments.length > 0 ? data.attachments : null,
+        errorId: (data as any).errorId ?? null,
+        breadcrumbs: (data as any).breadcrumbs ?? null,
+        appVersion: (data as any).appVersion ?? null,
         status: 'new',
       }).returning({ id: bugReports.id, reportNumber: bugReports.reportNumber });
 
@@ -143,6 +146,9 @@ export function registerBugReportRoutes(app: Express) {
         browserInfo: bugReports.browserInfo,
         screenSize: bugReports.screenSize,
         consoleErrors: bugReports.consoleErrors,
+        errorId: bugReports.errorId,
+        breadcrumbs: bugReports.breadcrumbs,
+        appVersion: bugReports.appVersion,
         status: bugReports.status,
         adminNotes: bugReports.adminNotes,
         createdAt: bugReports.createdAt,

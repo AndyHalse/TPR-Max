@@ -28,6 +28,9 @@ interface BugReport {
   browserInfo: string | null;
   screenSize: string | null;
   consoleErrors: string | null;
+  errorId: string | null;
+  breadcrumbs: string | null;
+  appVersion: string | null;
   status: string;
   adminNotes: string | null;
   createdAt: string;
@@ -60,6 +63,8 @@ function buildCopyText(detail: BugReportDetail): string {
     `Customer: ${detail.customerName || detail.customerId || "—"}`,
     `Page: ${detail.pageUrl || "—"}`,
     `Browser: ${detail.browserInfo || "—"} | Screen: ${detail.screenSize || "—"}`,
+    `App Version: ${detail.appVersion || "—"}`,
+    ...(detail.errorId ? [`Error Ref: ${detail.errorId}`] : []),
     `Status: ${STATUS_CONFIG[detail.status]?.label ?? detail.status}`,
     "",
     "## Description",
@@ -67,6 +72,9 @@ function buildCopyText(detail: BugReportDetail): string {
     "",
     ...(detail.consoleErrors
       ? ["## Console / Network Logs", detail.consoleErrors, ""]
+      : []),
+    ...(detail.breadcrumbs
+      ? ["## Breadcrumbs (last actions)", detail.breadcrumbs, ""]
       : []),
     `## Attachments`,
     totalImages > 0
@@ -306,6 +314,24 @@ export default function PlatformAdminBugReports() {
                   </p>
                 </div>
 
+                {/* Error ref + version */}
+                {(detail.errorId || detail.appVersion) && (
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    {detail.errorId && (
+                      <div>
+                        <span className="font-medium">Error Ref: </span>
+                        <code className="font-mono text-red-600 bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded text-xs">{detail.errorId}</code>
+                      </div>
+                    )}
+                    {detail.appVersion && (
+                      <div>
+                        <span className="font-medium">App Version: </span>
+                        <span className="text-muted-foreground font-mono text-xs">{detail.appVersion}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Browser info */}
                 {detail.browserInfo && (
                   <div>
@@ -320,6 +346,16 @@ export default function PlatformAdminBugReports() {
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">Console / Network Logs</Label>
                     <pre className="mt-1 text-xs bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded p-3 max-h-48 overflow-auto whitespace-pre-wrap">
                       {detail.consoleErrors}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Breadcrumbs */}
+                {detail.breadcrumbs && (
+                  <div>
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Breadcrumbs (last actions)</Label>
+                    <pre className="mt-1 text-xs bg-slate-50 dark:bg-slate-800 border rounded p-3 max-h-36 overflow-auto whitespace-pre-wrap">
+                      {detail.breadcrumbs}
                     </pre>
                   </div>
                 )}

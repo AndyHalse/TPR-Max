@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { getRecentErrors } from "@/lib/errorBuffer";
+import { getRecentErrors, getBreadcrumbs, getLastErrorId } from "@/lib/errorBuffer";
 import { toast } from "@/hooks/use-toast";
 
 interface Attachment {
@@ -165,6 +165,8 @@ export default function ReportProblemButton() {
     setSubmitting(true);
     try {
       const recentErrors = getRecentErrors();
+      const crumbs = getBreadcrumbs();
+      const lastErrId = getLastErrorId();
       const payload = {
         description: description.trim(),
         screenshot: includeScreenshot && screenshot ? screenshot : undefined,
@@ -175,6 +177,9 @@ export default function ReportProblemButton() {
         consoleErrors: recentErrors.length > 0 ? recentErrors.join("\n") : undefined,
         reporterName: reporterName || undefined,
         reporterEmail: reporterEmail || undefined,
+        errorId: lastErrId || undefined,
+        breadcrumbs: crumbs.length > 0 ? crumbs.join("\n") : undefined,
+        appVersion: (import.meta.env.VITE_APP_VERSION as string | undefined) ?? 'dev',
       };
       const res = await apiRequest("POST", "/api/bug-reports", payload);
       const data = await res.json();

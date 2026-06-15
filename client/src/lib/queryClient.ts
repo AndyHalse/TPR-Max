@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { setLastErrorId } from "@/lib/errorBuffer";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -13,6 +14,7 @@ async function throwIfResNotOk(res: Response) {
     const error: any = new Error(message);
     error.status = res.status;
     Object.assign(error, jsonData);
+    if (jsonData.errorId) setLastErrorId(jsonData.errorId as string);
     throw error;
   }
 }
