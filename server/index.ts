@@ -7,11 +7,21 @@ import { Pool } from "pg";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import crypto from "crypto";
+import { execFileSync } from "child_process";
 import { registerRoutes, createHttpServer } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
 import { healthCheckService } from "./healthChecks";
 import { logger, requestLoggingMiddleware, securityLogger } from "./utils/logger";
+
+// Regenerate shared/version.ts on every server start so the version string is
+// always current for this process (and Vite HMR picks it up for the client).
+try {
+  execFileSync("node", ["scripts/gen-version.mjs"], { stdio: "inherit" });
+} catch {
+  // Non-fatal — version.ts already exists with a prior stamp; continue normally.
+}
+import { APP_VERSION } from "../shared/version";
 
 // Extend Express Request type for emergency token
 declare global {
@@ -511,9 +521,9 @@ app.use((req, res, next) => {
         port: port,
         environment: process.env.NODE_ENV || 'development',
         eventType: 'server_ready',
-        buildVersion: 'v2026.02.22.2'
+        buildVersion: APP_VERSION
       });
-      logger.info('[BUILD] VERSION: v2026.02.22.2 - public logo endpoint + locked settings cache + direct branding');
+      logger.info(`[BUILD] VERSION: ${APP_VERSION}`);
       log(`serving on port ${port}`);
     });
 

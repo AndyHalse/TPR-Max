@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { requireAuth } from '../auth';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
+import { APP_VERSION } from '../../shared/version';
 import { customerDbService, CustomerDatabaseService } from '../customerDatabase';
 import { EmailService, emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
@@ -978,7 +979,7 @@ export function registerReportRoutes(app: Express): void {
       const report = {
         generatedAt: new Date().toISOString(),
         appName: "TPR Max",
-        version: "v2026.02.26",
+        version: APP_VERSION,
         companyName: settings?.companyName ?? "Unknown",
         customerId: req.customerId,
         loggedInUser: req.user!.username,

@@ -3,6 +3,7 @@ import { requireAuth } from '../auth';
 import { storage } from '../storage';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
+import { APP_VERSION } from '../../shared/version';
 import { customerDbService, CustomerDatabaseService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { insertCompanySettingsSchema } from '../isolatedSchema';
@@ -270,7 +271,7 @@ export function registerSettingsRoutes(
         services: status,
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        version: "v2026.02.26",
+        version: APP_VERSION,
         appName: "TPR Max",
       });
     } catch (error) {

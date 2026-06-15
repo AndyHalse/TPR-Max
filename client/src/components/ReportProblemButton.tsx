@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Bug, Loader2, Camera, CameraOff, Paperclip, X, Image } from "lucide-react";
+import { APP_VERSION } from "../../../shared/version";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -179,7 +180,7 @@ export default function ReportProblemButton() {
         reporterEmail: reporterEmail || undefined,
         errorId: lastErrId || undefined,
         breadcrumbs: crumbs.length > 0 ? crumbs.join("\n") : undefined,
-        appVersion: (import.meta.env.VITE_APP_VERSION as string | undefined) || 'dev',
+        appVersion: APP_VERSION,
       };
       const res = await apiRequest("POST", "/api/bug-reports", payload);
       const data = await res.json();
