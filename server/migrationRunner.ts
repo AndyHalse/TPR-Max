@@ -312,6 +312,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     patchLoneWorkerColumnsMigration,
     martynLawAuditColumnsMigration,
     backfillLoneWorkerSessionsColumnsMigration,
+    repairHrModuleDefaultMigration,
     setAllFeaturesOnMigration,
     addSsoCredentialsMigration,
     {
@@ -2774,6 +2775,30 @@ const backfillLoneWorkerSessionsColumnsMigration: Migration = {
       }
     }
     logger.info('✅ [055] lone_worker_sessions column backfill complete');
+  }
+};
+
+// Migration 055 — Repair feature_hr_module incorrectly set to false by wrong DEFAULT in customerDatabase.ts startup path
+// The column was added with DEFAULT false in customerDatabase.ts but DEFAULT true in migration 052.
+// Any schema whose column was first created by the startup path ended up with HR silently disabled.
+// This migration ensures the column exists (DEFAULT true) and corrects any false values that were
+// never deliberately set by an admin.
+const repairHrModuleDefaultMigration: Migration = {
+  version: '20260615_055_repair_hr_module_default',
+  description: 'Repair feature_hr_module = false rows caused by wrong DEFAULT in customerDatabase startup path',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT true`);
+      logger.info('✅ [055] feature_hr_module column ensured with DEFAULT true');
+    } catch (err: any) {
+      logger.info(`⚠️ [055] feature_hr_module column ensure: ${err.message?.substring(0, 80)}`);
+    }
+    try {
+      const result = await db.execute(`UPDATE company_settings SET feature_hr_module = true WHERE feature_hr_module IS NOT DISTINCT FROM false`);
+      logger.info(`✅ [055] Repaired feature_hr_module: updated ${result?.rowCount ?? 0} rows to true`);
+    } catch (err: any) {
+      logger.info(`⚠️ [055] feature_hr_module repair UPDATE: ${err.message?.substring(0, 80)}`);
+    }
   }
 };
 

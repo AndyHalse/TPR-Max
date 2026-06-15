@@ -1012,7 +1012,7 @@ export class CustomerDatabaseService {
 
     // HR feature toggle in company_settings
     try {
-      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT true`);
     } catch (err: any) {
       logger.warn(`⚠️ HR feature toggle migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
@@ -1020,7 +1020,7 @@ export class CustomerDatabaseService {
 
     // Section — Audit & Inspection Engine
     try {
-      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_audit_engine BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_audit_engine BOOLEAN DEFAULT true`);
     } catch (err: any) {
       logger.warn(`⚠️ feature_audit_engine column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
