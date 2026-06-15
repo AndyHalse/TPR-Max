@@ -665,6 +665,7 @@ export function registerAuthRoutes(app: Express): void {
         username: devUser.username,
         customerId: devUser.customerId,
         role: 'admin',
+        email: null,
         sessionToken: signSessionToken(devUser.id, devUser.customerId),
       });
     }
@@ -708,6 +709,7 @@ export function registerAuthRoutes(app: Express): void {
         navStyle: (user as any).navStyle ?? 'sidebar',
         firstName: user.firstName ?? null,
         lastName: user.lastName ?? null,
+        email: (user as any).email ?? null,
         sessionToken: signSessionToken(user.id, req.session.customerId),
       });
     } catch (error) {

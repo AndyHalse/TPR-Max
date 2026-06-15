@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2 } from "lucide-react";
+import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +34,8 @@ interface BugReport {
   appVersion: string | null;
   status: string;
   adminNotes: string | null;
+  resolutionNote: string | null;
+  reporterNotifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -92,6 +95,8 @@ export default function PlatformAdminBugReports() {
   const [detailStatus, setDetailStatus] = useState("");
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [showFixConfirm, setShowFixConfirm] = useState(false);
+  const [resolutionNoteText, setResolutionNoteText] = useState("");
 
   const { data, isLoading, isError } = useQuery<{ reports: BugReport[] }>({
     queryKey: ["/platform-admin/bug-reports"],
@@ -117,9 +122,17 @@ export default function PlatformAdminBugReports() {
       const res = await apiRequest("PATCH", `/platform-admin/bug-reports/${id}`, body);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ["/platform-admin/bug-reports"] });
-      toast({ title: "Report updated" });
+      if (data?.emailSent) {
+        toast({ title: "Marked Fixed — reporter notified", description: `Email sent to ${data.reporterEmail ?? "reporter"}` });
+      } else if (data?.emailSkippedReason === 'no_email') {
+        toast({ title: "Marked Fixed", description: "No reporter email on file — notification skipped." });
+      } else if (data?.emailSkippedReason === 'already_notified') {
+        toast({ title: "Report updated", description: "Reporter was already notified of this fix." });
+      } else {
+        toast({ title: "Report updated" });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Update failed", description: err.message, variant: "destructive" });
@@ -130,12 +143,28 @@ export default function PlatformAdminBugReports() {
     setSelectedId(report.id);
     setDetailNotes(report.adminNotes ?? "");
     setDetailStatus(report.status);
+    setResolutionNoteText(report.resolutionNote ?? "");
   }
 
   function handleStatusChange(newStatus: string) {
+    if (newStatus === 'fixed' && selectedId) {
+      setDetailStatus('fixed');
+      setShowFixConfirm(true);
+      return;
+    }
     setDetailStatus(newStatus);
     if (selectedId) {
       patchMutation.mutate({ id: selectedId, body: { status: newStatus } });
+    }
+  }
+
+  function handleConfirmFix(skip: boolean) {
+    setShowFixConfirm(false);
+    if (selectedId) {
+      patchMutation.mutate({
+        id: selectedId,
+        body: { status: 'fixed', resolutionNote: resolutionNoteText.trim() || undefined, skipNotification: skip },
+      });
     }
   }
 
@@ -424,12 +453,23 @@ export default function PlatformAdminBugReports() {
               <div className="space-y-4 py-2">
                 {/* Meta */}
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
+                  <div className="col-span-2">
                     <span className="font-medium">Reporter: </span>
-                    <span className="text-muted-foreground">
-                      {detail.reporterName || "—"}
-                      {detail.reporterEmail ? ` (${detail.reporterEmail})` : ""}
-                    </span>
+                    <span className="text-muted-foreground">{detail.reporterName || "—"}</span>
+                    {detail.reporterEmail ? (
+                      <a
+                        href={`mailto:${detail.reporterEmail}`}
+                        className="ml-2 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline text-xs"
+                      >
+                        <Mail className="w-3 h-3" />
+                        {detail.reporterEmail}
+                      </a>
+                    ) : (
+                      <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">
+                        <AlertCircle className="w-3 h-3" />
+                        No contact email captured
+                      </span>
+                    )}
                   </div>
                   <div>
                     <span className="font-medium">Page: </span>
@@ -443,6 +483,12 @@ export default function PlatformAdminBugReports() {
                     <div>
                       <span className="font-medium">Resolved: </span>
                       <span className="text-muted-foreground">{new Date(detail.resolvedAt).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {detail.reporterNotifiedAt && (
+                    <div className="col-span-2 flex items-center gap-1.5 text-green-700 dark:text-green-400">
+                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="text-xs">Reporter notified on {new Date(detail.reporterNotifiedAt).toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -580,6 +626,84 @@ export default function PlatformAdminBugReports() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Fix & Notify confirm dialog */}
+      <Dialog open={showFixConfirm} onOpenChange={(o) => {
+        if (!o) {
+          setShowFixConfirm(false);
+          setDetailStatus(detail?.status ?? detailStatus);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              Mark as Fixed
+            </DialogTitle>
+            <DialogDescription>
+              {detail?.reporterEmail
+                ? `Optionally add a note about what was fixed, then notify ${detail.reporterName || 'the reporter'} by email.`
+                : 'No reporter email on file — the report will be marked Fixed without sending a notification.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {detail?.reporterEmail && (
+              <div className="flex items-center gap-2 text-sm bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-md px-3 py-2">
+                <Mail className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{detail.reporterEmail}</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="resolution-note" className="text-sm font-medium">
+                What was fixed? <span className="text-muted-foreground font-normal">(optional — included in the email)</span>
+              </Label>
+              <Textarea
+                id="resolution-note"
+                rows={3}
+                placeholder="e.g. The contractor email field now saves correctly."
+                value={resolutionNoteText}
+                onChange={(e) => setResolutionNoteText(e.target.value)}
+                maxLength={500}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setShowFixConfirm(false); setDetailStatus(detail?.status ?? 'new'); }}
+            >
+              Cancel
+            </Button>
+            <div className="flex gap-2">
+              {detail?.reporterEmail && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleConfirmFix(true)}
+                  disabled={patchMutation.isPending}
+                >
+                  Mark Fixed — Skip notification
+                </Button>
+              )}
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => handleConfirmFix(false)}
+                disabled={patchMutation.isPending}
+              >
+                {patchMutation.isPending
+                  ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                {detail?.reporterEmail ? 'Confirm & Send Email' : 'Mark Fixed'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

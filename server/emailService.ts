@@ -11,6 +11,9 @@ interface EmailOptions {
   html: string;
   text: string;
   companyName?: string;
+  fromName?: string;
+  replyTo?: string;
+  bcc?: string;
 }
 
 class EmailService {
@@ -80,12 +83,12 @@ class EmailService {
       const fromAddress = process.env.SMTP_USER || 'noreply@visigate.pro';
       const domain = fromAddress.split('@')[1] || 'visigate.pro';
       
-      const mailOptions = {
-        from: `${companyName} <${fromAddress}>`, // Include company name
+      const mailOptions: Record<string, any> = {
+        from: `${options.fromName || companyName} <${fromAddress}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,
-        text: options.text || this.generatePlainTextFromHtml(options.html), // Always provide text version
+        text: options.text || this.generatePlainTextFromHtml(options.html),
         attachments: options.attachments || [],
         headers: {
           'X-Mailer': 'TPR Max Visitor Management System',
@@ -98,7 +101,8 @@ class EmailService {
           'X-Auto-Response-Suppress': 'OOF, AutoReply',
           'Precedence': 'bulk',
         },
-        replyTo: process.env.SMTP_REPLY_TO || process.env.SMTP_USER
+        replyTo: options.replyTo || process.env.SMTP_REPLY_TO || process.env.SMTP_USER,
+        ...(options.bcc ? { bcc: options.bcc } : {}),
       };
 
       await this.transporter.sendMail(mailOptions);

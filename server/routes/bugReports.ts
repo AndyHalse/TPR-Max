@@ -19,6 +19,127 @@ const bugReportLimiter = rateLimit({
   message: { error: 'Too many bug reports submitted. Please wait a few minutes and try again.' },
 });
 
+const DISCLAIMER = `If you are not the intended recipient of this message, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium. Internet communications are not secure and therefore ACS Safety & Security Limited does not accept legal responsibility for the contents of this message. Any views or opinions presented are solely those of the author and do not necessarily represent those of ACS Safety & Security Limited.`;
+
+function buildFixedEmailHtml(opts: {
+  reportNumber: string;
+  reporterFirstName: string | null;
+  reporterName: string | null;
+  description: string;
+  resolutionNote: string | null;
+}): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const greeting = opts.reporterFirstName || opts.reporterName?.split(' ')[0] || 'there';
+  const desc = esc(opts.description.slice(0, 600) + (opts.description.length > 600 ? '…' : ''));
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+
+  <!-- Header band -->
+  <tr>
+    <td style="background:#2460A9;padding:24px 32px">
+      <p style="margin:0;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;opacity:0.85">ACS Safety &amp; Security — TPR Support</p>
+      <p style="margin:6px 0 0;color:#ffffff;font-size:20px;font-weight:bold">Report ${esc(opts.reportNumber)} — Resolved</p>
+    </td>
+  </tr>
+
+  <!-- Body -->
+  <tr>
+    <td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6">
+      <p style="margin:0 0 16px">Hi ${esc(greeting)},</p>
+      <p style="margin:0 0 20px">Good news — the issue you reported has now been fixed.</p>
+
+      <!-- Original report callout -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px">
+        <tr>
+          <td style="background:#f0f5fb;border-left:4px solid #2460A9;border-radius:0 4px 4px 0;padding:14px 16px">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#2460A9;text-transform:uppercase;letter-spacing:0.4px">Your report (${esc(opts.reportNumber)})</p>
+            <p style="margin:0;font-size:14px;color:#334155;font-style:italic">&ldquo;${desc}&rdquo;</p>
+          </td>
+        </tr>
+      </table>
+
+      ${opts.resolutionNote ? `
+      <!-- Resolution note -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px">
+        <tr>
+          <td style="background:#f0fdf4;border-left:4px solid #16a34a;border-radius:0 4px 4px 0;padding:14px 16px">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#16a34a;text-transform:uppercase;letter-spacing:0.4px">What we did</p>
+            <p style="margin:0;font-size:14px;color:#334155">${esc(opts.resolutionNote)}</p>
+          </td>
+        </tr>
+      </table>
+      ` : ''}
+
+      <p style="margin:0 0 20px">If you're still seeing the problem, please refresh the page (or sign out and back in) to pick up the latest version. If it persists, just reply to this email and we'll take another look.</p>
+
+      <p style="margin:0 0 4px">Thanks for helping us make TPR better.</p>
+      <p style="margin:0 0 24px">Kind Regards</p>
+
+      <!-- Signature -->
+      <table cellpadding="0" cellspacing="0" style="border-top:2px solid #2460A9;padding-top:16px;margin-bottom:8px">
+        <tr>
+          <td>
+            <p style="margin:0;font-size:14px;font-weight:bold;color:#1e293b">Software Development Team</p>
+            <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#2460A9">ACS Safety &amp; Security Ltd</p>
+            <p style="margin:6px 0 0;font-size:13px;color:#64748b">T: +44 (0)1344 771569</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Disclaimer -->
+  <tr>
+    <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 32px">
+      <p style="margin:0;font-size:10px;color:#94a3b8;line-height:1.5">${esc(DISCLAIMER)}</p>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function buildFixedEmailText(opts: {
+  reportNumber: string;
+  reporterFirstName: string | null;
+  reporterName: string | null;
+  description: string;
+  resolutionNote: string | null;
+}): string {
+  const greeting = opts.reporterFirstName || opts.reporterName?.split(' ')[0] || 'there';
+  const desc = opts.description.slice(0, 600) + (opts.description.length > 600 ? '…' : '');
+  return [
+    `Hi ${greeting},`,
+    '',
+    `Good news — the issue you reported (${opts.reportNumber}) has now been fixed.`,
+    '',
+    `Your report:`,
+    `"${desc}"`,
+    '',
+    ...(opts.resolutionNote ? [`What we did: ${opts.resolutionNote}`, ''] : []),
+    `If you're still seeing the problem, please refresh the page (or sign out and back in) to pick up the latest version. If it persists, just reply to this email and we'll take another look.`,
+    '',
+    `Thanks for helping us make TPR better.`,
+    '',
+    `Kind Regards`,
+    `Software Development Team`,
+    `ACS Safety & Security Ltd`,
+    `T: +44 (0)1344 771569`,
+    '',
+    '---',
+    DISCLAIMER,
+  ].join('\n');
+}
+
 export function registerBugReportRoutes(app: Express) {
 
   // POST /api/bug-reports — tenant-facing, rate-limited
@@ -151,6 +272,8 @@ export function registerBugReportRoutes(app: Express) {
         appVersion: bugReports.appVersion,
         status: bugReports.status,
         adminNotes: bugReports.adminNotes,
+        resolutionNote: bugReports.resolutionNote,
+        reporterNotifiedAt: bugReports.reporterNotifiedAt,
         createdAt: bugReports.createdAt,
         updatedAt: bugReports.updatedAt,
         resolvedAt: bugReports.resolvedAt,
@@ -183,15 +306,23 @@ export function registerBugReportRoutes(app: Express) {
     }
   });
 
-  // PATCH /platform-admin/bug-reports/:id — update status and/or adminNotes
+  // PATCH /platform-admin/bug-reports/:id — update status, adminNotes, and/or resolutionNote
   app.patch('/platform-admin/bug-reports/:id', requirePlatformAdmin, async (req, res) => {
     try {
-      const { status, adminNotes } = req.body;
+      const { status, adminNotes, resolutionNote, skipNotification } = req.body;
       const ALLOWED_STATUSES = ['new', 'in_progress', 'fixed', 'closed'];
 
       if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
         return res.status(400).json({ error: `Status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
       }
+
+      // Fetch the current record first (needed for fixed-transition email)
+      const [current] = await db
+        .select()
+        .from(bugReports)
+        .where(eq(bugReports.id, req.params.id))
+        .limit(1);
+      if (!current) return res.status(404).json({ error: 'Report not found.' });
 
       const setData: Record<string, any> = { updatedAt: new Date() };
       if (status !== undefined) {
@@ -199,15 +330,81 @@ export function registerBugReportRoutes(app: Express) {
         setData.resolvedAt = (status === 'fixed' || status === 'closed') ? new Date() : null;
       }
       if (adminNotes !== undefined) setData.adminNotes = adminNotes;
+      if (resolutionNote !== undefined) setData.resolutionNote = resolutionNote;
+
+      // Detect fixed transition — only fire notification once per transition
+      const isFixedTransition =
+        status === 'fixed' &&
+        current.status !== 'fixed' &&
+        !skipNotification;
+
+      // If transitioning to fixed and already notified, don't re-notify
+      const alreadyNotified = !!current.reporterNotifiedAt;
+
+      let emailSent = false;
+      let emailSkippedReason: string | null = null;
+
+      if (isFixedTransition && !alreadyNotified) {
+        const reporterEmail = current.reporterEmail;
+        if (!reporterEmail) {
+          emailSkippedReason = 'no_email';
+        } else {
+          try {
+            const emailSvc = new EmailService();
+            const resolvedNote = resolutionNote ?? current.resolutionNote ?? null;
+            const reporterFirstName = current.reporterName?.split(' ')[0] ?? null;
+
+            const html = buildFixedEmailHtml({
+              reportNumber: current.reportNumber,
+              reporterFirstName,
+              reporterName: current.reporterName,
+              description: current.description,
+              resolutionNote: resolvedNote,
+            });
+            const text = buildFixedEmailText({
+              reportNumber: current.reportNumber,
+              reporterFirstName,
+              reporterName: current.reporterName,
+              description: current.description,
+              resolutionNote: resolvedNote,
+            });
+
+            const replyToAddr = process.env.BUG_REPORT_REPLY_TO || process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+            const bccAddr = process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+
+            await emailSvc.sendEmail({
+              to: reporterEmail,
+              subject: `Your TPR issue ${current.reportNumber} has been resolved`,
+              fromName: 'ACS Safety & Security — Software Development Team',
+              replyTo: replyToAddr,
+              bcc: bccAddr,
+              html,
+              text,
+            });
+
+            setData.reporterNotifiedAt = new Date();
+            emailSent = true;
+            logger.info(`[bug-reports] Fixed notification sent to ${reporterEmail} for ${current.reportNumber}`);
+          } catch (emailErr: any) {
+            logger.warn('[bug-reports] Fixed notification email failed:', emailErr.message?.substring(0, 80));
+            emailSkippedReason = 'send_failed';
+          }
+        }
+      } else if (isFixedTransition && alreadyNotified) {
+        emailSkippedReason = 'already_notified';
+      }
 
       const [updated] = await db
         .update(bugReports)
         .set(setData)
         .where(eq(bugReports.id, req.params.id))
         .returning();
-      if (!updated) return res.status(404).json({ error: 'Report not found.' });
 
-      return res.json(updated);
+      return res.json({
+        ...updated,
+        emailSent,
+        ...(emailSkippedReason ? { emailSkippedReason } : {}),
+      });
     } catch (error: any) {
       logger.error('Error updating bug report:', error);
       return res.status(500).json({ error: 'Failed to update bug report.' });

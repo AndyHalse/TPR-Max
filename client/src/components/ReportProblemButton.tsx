@@ -57,6 +57,7 @@ export default function ReportProblemButton() {
   const [includeScreenshot, setIncludeScreenshot] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [emailOverride, setEmailOverride] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: me } = useQuery<any>({ queryKey: ["/api/auth/me"] });
@@ -64,8 +65,7 @@ export default function ReportProblemButton() {
   const reporterName = me
     ? [me.firstName, me.lastName].filter(Boolean).join(" ") || me.username || ""
     : "";
-  const reporterEmail =
-    me?.username?.includes("@") ? me.username : (me?.email ?? "");
+  const detectedEmail = me?.email || (me?.username?.includes("@") ? me.username : "");
 
   useEffect(() => {
     if (!open) return;
@@ -151,6 +151,7 @@ export default function ReportProblemButton() {
     setIncludeScreenshot(!!shot);
     setAttachments([]);
     setDescription("");
+    setEmailOverride(detectedEmail);
     setOpen(true);
   }
 
@@ -159,6 +160,7 @@ export default function ReportProblemButton() {
     setDescription("");
     setScreenshot(null);
     setAttachments([]);
+    setEmailOverride("");
   }
 
   async function handleSubmit() {
@@ -177,7 +179,7 @@ export default function ReportProblemButton() {
         screenSize: `${window.innerWidth}x${window.innerHeight}`,
         consoleErrors: recentErrors.length > 0 ? recentErrors.join("\n") : undefined,
         reporterName: reporterName || undefined,
-        reporterEmail: reporterEmail || undefined,
+        reporterEmail: emailOverride.trim() || undefined,
         errorId: lastErrId || undefined,
         breadcrumbs: crumbs.length > 0 ? crumbs.join("\n") : undefined,
         appVersion: APP_VERSION,
@@ -293,6 +295,19 @@ export default function ReportProblemButton() {
                   Screenshot capture wasn't available — the report will still be sent without one.
                 </p>
               )}
+            </div>
+
+            {/* Reporter email */}
+            <div className="space-y-1.5">
+              <Label htmlFor="reporter-email">Your email <span className="text-muted-foreground font-normal">(so we can update you when it's fixed)</span></Label>
+              <Input
+                id="reporter-email"
+                type="email"
+                placeholder="your@email.com"
+                value={emailOverride}
+                onChange={(e) => setEmailOverride(e.target.value)}
+                maxLength={254}
+              />
             </div>
 
             {/* Additional attachments */}
