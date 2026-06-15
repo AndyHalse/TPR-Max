@@ -6,6 +6,8 @@ import rateLimit from 'express-rate-limit';
 import { eq, sql, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import { requirePlatformAdmin } from '../auth';
+import { CustomerDatabaseService } from '../customerDatabase';
+import * as isolatedSchema from '../isolatedSchema';
 import { db } from '../db';
 import * as sharedSchema from '@shared/schema';
 import { customerOnboardingRequestSchema, type CustomerOnboardingRequest } from '@shared/schema';
