@@ -94,9 +94,9 @@ export default function ContractorPreviousTab({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                <h2 className="text-xl font-semibold text-fixed">Previous Contractor Workers</h2>
+                <h2 className="text-xl font-semibold text-fixed">Existing Contractor Workers</h2>
                 <span className="hidden sm:inline text-sm text-variable">
-                  Select a contractor who has been onsite before
+                  Select an existing contractor worker to book onto site
                 </span>
               </div>
               {/* Remove Duplicates button removed - duplication prevented via email validation */}
@@ -496,7 +496,7 @@ export default function ContractorPreviousTab({
 
             {previousContractors.length === 0 && (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                {searchTerm ? `No contractors found matching "${searchTerm}"` : "No previous contractors found"}
+                {searchTerm ? `No contractors found matching "${searchTerm}"` : "No existing contractor workers found"}
               </div>
             )}
           </div>

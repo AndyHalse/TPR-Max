@@ -36,7 +36,7 @@ export default function ContractorTabNav({ activeTab, setActiveTab, settings }: 
 
   return (
     <div className="flex overflow-x-auto gap-1.5 sm:flex-wrap sm:overflow-visible pb-1 sm:pb-0 scrollbar-hide">
-      {btn("previous", "Previous Workers", "Prev", History, "tab-previous-contractors")}
+      {btn("previous", "Existing Workers", "Workers", History, "tab-previous-contractors")}
       {btn("contractors", "Contractors", "Companies", Building2, "tab-contractors")}
       {btn("walkin", "Walk-in", "Walk-in", UserPlus, "tab-walkin-registration")}
       {btn("prebook", "Pre-booking", "Pre-book", CalendarPlus, "tab-pre-booking")}
