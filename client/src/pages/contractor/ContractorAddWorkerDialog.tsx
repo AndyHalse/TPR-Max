@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { User, CheckCircle, Lock, Shield, AlertTriangle, Upload } from "lucide-react";
 import type { ContractorCompany } from "@shared/schema";
 
-const BLANK_FORM = { companyId: "", firstName: "", lastName: "", email: "", phone: "", postcode: "", transportMethod: "car_diesel", rightToWork: "pending" as "valid" | "expired" | "pending", cscsCard: "", cscsStatus: "not_held" as "valid" | "expired" | "pending" | "not_held", ipafStatus: "none" as "none" | "3a" | "3b" | "1+" | "expired", asbestosAwareness: false, manualHandling: false, workingAtHeight: false, inductionCompleted: false, isActive: true };
+const BLANK_FORM = { companyId: "", firstName: "", lastName: "", email: "", phone: "", postcode: "", transportMethod: "", rightToWork: "pending" as "valid" | "expired" | "pending", cscsCard: "", cscsStatus: "not_held" as "valid" | "expired" | "pending" | "not_held", ipafStatus: "none" as "none" | "3a" | "3b" | "1+" | "expired", asbestosAwareness: false, manualHandling: false, workingAtHeight: false, inductionCompleted: false, isActive: true };
 
 interface Props {
   open: boolean;
@@ -88,6 +88,7 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Vehicle / Transport</label>
                 <select value={form.transportMethod} onChange={(e) => setForm({ ...form, transportMethod: e.target.value })} data-testid="select-worker-transport" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none">
+                  <option value="">Select transport method…</option>
                   {transportOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Used for CO2 emissions calculations</p>

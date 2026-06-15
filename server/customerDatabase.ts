@@ -152,9 +152,9 @@ export class CustomerDatabaseService {
       try {
         pool = new Pool({
           connectionString,
-          max: 1,
+          max: 5,
           min: 1,
-          idleTimeoutMillis: 0,
+          idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 10000,
         });
         

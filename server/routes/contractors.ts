@@ -2862,16 +2862,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   // Company notes / audit trail
   app.get("/api/contractors/:companyId/notes", requireAuth, async (req, res) => {
+    const { companyId } = req.params;
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(companyId)) {
+      return res.status(400).json({ error: "Invalid companyId format" });
+    }
     try {
-      const { companyId } = req.params;
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       const notes = await db.select().from(isolatedSchema.companyNotes)
         .where(eq(isolatedSchema.companyNotes.companyId, companyId))
         .orderBy(desc(isolatedSchema.companyNotes.changedAt));
       res.json(notes);
-    } catch (error) {
-      logger.error("Error fetching company notes:", error);
+    } catch (error: any) {
+      const msg: string = error?.message ?? '';
+      const code: string = error?.code ?? '';
+      logger.error("Error fetching company notes", {
+        companyId,
+        customerId: req.customerId,
+        errorMessage: msg,
+        errorCode: code,
+        stack: error?.stack?.split('\n').slice(0, 5).join(' | '),
+      });
+      if (msg.includes('does not exist') || msg.includes('undefined_table') || code === '42P01') {
+        return res.json([]);
+      }
       res.status(500).json({ error: "Failed to fetch company notes" });
     }
   });

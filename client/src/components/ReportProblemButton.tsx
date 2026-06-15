@@ -179,7 +179,7 @@ export default function ReportProblemButton() {
         reporterEmail: reporterEmail || undefined,
         errorId: lastErrId || undefined,
         breadcrumbs: crumbs.length > 0 ? crumbs.join("\n") : undefined,
-        appVersion: (import.meta.env.VITE_APP_VERSION as string | undefined) ?? 'dev',
+        appVersion: (import.meta.env.VITE_APP_VERSION as string | undefined) || 'dev',
       };
       const res = await apiRequest("POST", "/api/bug-reports", payload);
       const data = await res.json();
