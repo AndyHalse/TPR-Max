@@ -345,6 +345,7 @@ export default function PlatformAdminDashboard() {
   const [credentialReset, setCredentialReset] = useState({
     username: '',
     password: '',
+    email: '',
   });
 
   useEffect(() => {
@@ -353,7 +354,7 @@ export default function PlatformAdminDashboard() {
         companyName: editingCustomer.companyName,
         contactEmail: editingCustomer.contactEmail,
       });
-      setCredentialReset({ username: '', password: '' });
+      setCredentialReset({ username: '', password: '', email: '' });
     }
   }, [editingCustomer]);
 
@@ -363,10 +364,11 @@ export default function PlatformAdminDashboard() {
       
       const response = await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}`, editForm);
       
-      if (credentialReset.username || credentialReset.password) {
+      if (credentialReset.username || credentialReset.password || credentialReset.email) {
         const credPayload: Record<string, string> = {};
         if (credentialReset.username) credPayload.username = credentialReset.username;
         if (credentialReset.password) credPayload.password = credentialReset.password;
+        if (credentialReset.email)    credPayload.email    = credentialReset.email;
         try {
           await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}/credentials`, credPayload);
         } catch (credError: any) {
@@ -381,7 +383,7 @@ export default function PlatformAdminDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
       setEditingCustomer(null);
-      setCredentialReset({ username: '', password: '' });
+      setCredentialReset({ username: '', password: '', email: '' });
       toast({
         title: "Success",
         description: "Customer updated successfully",
@@ -1250,6 +1252,18 @@ export default function PlatformAdminDashboard() {
                     onChange={(e) => setCredentialReset({ ...credentialReset, password: e.target.value })}
                     placeholder="Leave blank to keep current"
                     data-testid="input-reset-password"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="reset-email">New Email (for the 6-digit login code)</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={credentialReset.email}
+                    onChange={(e) => setCredentialReset({ ...credentialReset, email: e.target.value })}
+                    placeholder="Leave blank to keep current"
+                    data-testid="input-reset-email"
                   />
                 </div>
               </div>

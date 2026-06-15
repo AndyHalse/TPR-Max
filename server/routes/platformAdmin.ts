@@ -783,13 +783,17 @@ export function registerPlatformAdminRoutes(app: Express): void {
   app.patch("/platform-admin/customers/:customerId/credentials", requirePlatformAdmin, async (req, res) => {
     try {
       const { customerId } = req.params;
-      const { username, password } = req.body;
+      const { username, password, email } = req.body;
 
-      if (!username && !password) {
+      if (!username && !password && !email) {
         return res.status(400).json({
           success: false,
-          error: 'Username or password required'
+          error: 'Username, password or email required'
         });
+      }
+
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid email address.' });
       }
 
       // Get customer to find their database
@@ -814,7 +818,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       // Step 1: Find the customer's primary admin user (role = admin, ordered by created_at)
       const adminUsers = await customerDb
-        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username, email: isolatedSchema.users.email })
         .from(isolatedSchema.users)
         .where(eq(isolatedSchema.users.role, 'admin'))
         .orderBy(isolatedSchema.users.createdAt)
@@ -822,7 +826,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       // Fallback: if no admin role found, take the first user ever created
       const [adminUser] = adminUsers.length > 0 ? adminUsers : await customerDb
-        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username, email: isolatedSchema.users.email })
         .from(isolatedSchema.users)
         .orderBy(isolatedSchema.users.createdAt)
         .limit(1);
@@ -831,11 +835,11 @@ export function registerPlatformAdminRoutes(app: Express): void {
         return res.status(404).json({ success: false, error: 'No admin user found for this customer' });
       }
 
-      // Step 2: If the requested username matches what they already have, skip username change
-      // to avoid a redundant UPDATE that could still trigger the constraint in some DB setups
+      // Step 2: Build update payload — only set fields that actually changed
       const updateData: any = {};
       if (username && username !== adminUser.username) updateData.username = username;
       if (password) updateData.password = await bcrypt.hash(password, 10);
+      if (email && email.trim() !== adminUser.email) updateData.email = email.trim();
 
       if (Object.keys(updateData).length === 0) {
         // Nothing actually changed
@@ -861,6 +865,12 @@ export function registerPlatformAdminRoutes(app: Express): void {
         return res.status(409).json({
           success: false,
           error: 'That username is already in use. Please choose a different username.'
+        });
+      }
+      if (error?.code === '23505' && error?.constraint?.includes('email')) {
+        return res.status(409).json({
+          success: false,
+          error: 'That email is already in use by another user. Please choose a different email.'
         });
       }
       res.status(500).json({
