@@ -83,9 +83,13 @@ export async function apiRequest(
     const isMutating = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
     const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
 
-    // Add per-tab session token (multi-window customer isolation)
+    // Add per-tab session token (multi-window customer isolation).
+    // Platform-admin routes authenticate via cookie session only — never send a
+    // customer Bearer token there or it will shadow req.session.platformAdminId
+    // and cause "Platform admin authentication required" on every write.
     const sessionToken = getSessionToken();
-    if (sessionToken) {
+    const isPlatformAdmin = url.startsWith('/platform-admin/');
+    if (sessionToken && !isPlatformAdmin) {
       headers['Authorization'] = `Bearer ${sessionToken}`;
     }
     
@@ -148,7 +152,7 @@ export const getQueryFn: <T>(options: {
       const url = queryKey[0] as string;
       const fetchHeaders: Record<string, string> = {};
       const sessionToken = getSessionToken();
-      if (sessionToken) {
+      if (sessionToken && !url.startsWith('/platform-admin/')) {
         fetchHeaders['Authorization'] = `Bearer ${sessionToken}`;
       }
       const res = await fetch(url, {

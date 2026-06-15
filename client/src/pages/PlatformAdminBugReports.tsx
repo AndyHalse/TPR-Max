@@ -636,7 +636,7 @@ export default function PlatformAdminBugReports() {
           setDetailStatus(detail?.status ?? detailStatus);
         }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -672,37 +672,34 @@ export default function PlatformAdminBugReports() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-2">
+          <div className="space-y-2 border-t pt-4">
+            <Button
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => handleConfirmFix(false)}
+              disabled={patchMutation.isPending}
+            >
+              {patchMutation.isPending
+                ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              {detail?.reporterEmail ? 'Confirm & Send Email' : 'Mark Fixed'}
+            </Button>
+            {detail?.reporterEmail && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => handleConfirmFix(true)}
+                disabled={patchMutation.isPending}
+              >
+                Mark Fixed — Skip notification
+              </Button>
+            )}
             <Button
               variant="ghost"
-              size="sm"
+              className="w-full text-muted-foreground"
               onClick={() => { setShowFixConfirm(false); setDetailStatus(detail?.status ?? 'new'); }}
             >
               Cancel
             </Button>
-            <div className="flex gap-2">
-              {detail?.reporterEmail && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleConfirmFix(true)}
-                  disabled={patchMutation.isPending}
-                >
-                  Mark Fixed — Skip notification
-                </Button>
-              )}
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => handleConfirmFix(false)}
-                disabled={patchMutation.isPending}
-              >
-                {patchMutation.isPending
-                  ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  : <CheckCircle2 className="w-4 h-4 mr-1" />}
-                {detail?.reporterEmail ? 'Confirm & Send Email' : 'Mark Fixed'}
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

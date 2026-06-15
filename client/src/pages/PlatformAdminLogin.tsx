@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, clearSessionToken } from "@/lib/queryClient";
 import { ShieldCheck, Mail, ArrowLeft } from "lucide-react";
 
 interface BrandingSettings {
@@ -42,6 +42,7 @@ export default function PlatformAdminLogin() {
       return response.json();
     },
     onSuccess: (data) => {
+      clearSessionToken();
       if (data.requiresOtp) {
         setPendingToken(data.pendingToken);
         setMaskedEmail(data.maskedEmail || "your registered email");
