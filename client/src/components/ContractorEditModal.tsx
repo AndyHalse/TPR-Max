@@ -88,7 +88,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     email: worker?.email || '',
     phone: worker?.phoneNumber || '',
     postcode: worker?.postcode || '',
-    transportMethod: worker?.transportMethod || 'car_diesel',
+    transportMethod: worker?.transportMethod || '',
     rightToWork: worker?.rightToWork || 'pending',
     cscsCard: worker?.cscsCard || '',
     cscsStatus: worker?.cscsStatus || 'pending',
@@ -123,7 +123,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       email: target.email || '',
       phone: (target as any).phoneNumber || (target as any).phone || '',
       postcode: target.postcode || '',
-      transportMethod: target.transportMethod || 'car_diesel',
+      transportMethod: target.transportMethod || '',
       rightToWork: target.rightToWork || 'pending',
       cscsCard: target.cscsCard || '',
       cscsStatus: target.cscsStatus || 'pending',
@@ -742,6 +742,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         data-testid="select-transport-method"
                       >
+                        <option value="">Not specified</option>
                         <option value="car_diesel">Diesel Car</option>
                         <option value="car_petrol">Petrol Car</option>
                         <option value="electric_car">Electric Car</option>

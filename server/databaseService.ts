@@ -1503,7 +1503,7 @@ export class DatabaseService {
           asbestosAwareness: worker.asbestosAwareness || false,
           manualHandling: worker.manualHandling || false,
           workingAtHeight: worker.workingAtHeight || false,
-          transportMethod: worker.transportMethod || 'car_diesel',
+          transportMethod: worker.transportMethod || '',
           workerStatus: worker.workerStatus || 'pending',
           approvedBy: worker.approvedBy,
           approvedAt: worker.approvedAt,
@@ -2014,7 +2014,7 @@ export class DatabaseService {
         asbestosAwareness: worker.asbestosAwareness || false,
         manualHandling: worker.manualHandling || false,
         workingAtHeight: worker.workingAtHeight || false,
-        transportMethod: worker.transportMethod || 'car_diesel', // FIXED: Correct field mapping
+        transportMethod: worker.transportMethod || '', // FIXED: Correct field mapping
         workerStatus: worker.workerStatus || 'pending',
         approvedBy: worker.approvedBy,
         approvedAt: worker.approvedAt,
@@ -2424,7 +2424,7 @@ export class DatabaseService {
           asbestosAwareness: worker.asbestosAwareness || false,
           manualHandling: worker.manualHandling || false,
           workingAtHeight: worker.workingAtHeight || false,
-          transportMethod: worker.transportMethod || 'car_diesel',
+          transportMethod: worker.transportMethod || '',
           workerStatus: worker.workerStatus || 'pending',
           approvedBy: worker.approvedBy,
           approvedAt: worker.approvedAt,

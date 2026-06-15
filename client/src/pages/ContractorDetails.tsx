@@ -279,7 +279,7 @@ export default function ContractorDetails() {
       email: z.string().min(1, "Email is required").email("Valid email address required"),
       phone: z.string().min(1, "Phone number is required"),
       postcode: z.string().optional(),
-      transportMethod: z.enum(["car_diesel", "car_petrol", "electric_car", "public_transport", "motorcycle"]),
+      transportMethod: z.string().optional(),
       rightToWork: z.string().min(1, "Right to work status is required"),
       rightToWorkExpiryDate: z.string().optional(),
       cscsCard: z.string().optional(),
@@ -301,7 +301,7 @@ export default function ContractorDetails() {
       email: "",
       phone: "",
       postcode: "",
-      transportMethod: "car_diesel" as const,
+      transportMethod: "",
       rightToWork: "pending",
       rightToWorkExpiryDate: "",
       cscsCard: "",
@@ -2310,14 +2310,23 @@ export default function ContractorDetails() {
                     <FormField control={workerForm.control} name="transportMethod" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Transport Method</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select
+                          onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
+                          value={field.value ? field.value : "__none__"}
+                        >
                           <FormControl><SelectTrigger data-testid="select-worker-transport"><SelectValue /></SelectTrigger></FormControl>
                           <SelectContent>
+                            <SelectItem value="__none__">Not specified</SelectItem>
                             <SelectItem value="car_diesel">Car (Diesel)</SelectItem>
                             <SelectItem value="car_petrol">Car (Petrol)</SelectItem>
                             <SelectItem value="electric_car">Electric Car</SelectItem>
-                            <SelectItem value="public_transport">Public Transport</SelectItem>
+                            <SelectItem value="hybrid_car">Hybrid Car</SelectItem>
+                            <SelectItem value="van_diesel">Van (Diesel)</SelectItem>
+                            <SelectItem value="van_petrol">Van (Petrol)</SelectItem>
                             <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                            <SelectItem value="public_transport">Public Transport</SelectItem>
+                            <SelectItem value="bicycle">Bicycle</SelectItem>
+                            <SelectItem value="walking">Walking</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

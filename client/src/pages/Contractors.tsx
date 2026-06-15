@@ -344,7 +344,7 @@ export default function Contractors() {
     email: "",
     phone: "",
     postcode: "",
-    transportMethod: "car_diesel" as "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle",
+    transportMethod: "" as string,
     rightToWork: "",
     cscsCard: "",
     cscsStatus: "valid" as "valid" | "expired" | "pending",
@@ -578,7 +578,7 @@ export default function Contractors() {
         email: "",
         phone: "",
         postcode: "",
-        transportMethod: "car_diesel" as "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle",
+        transportMethod: "" as string,
         rightToWork: "",
         cscsCard: "",
         cscsStatus: "valid",
@@ -3125,20 +3125,26 @@ export default function Contractors() {
               <p className="text-xs text-variable">Required for CO2 emission calculations</p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Vehicle Fuel Type *</label>
+              <label className="text-sm font-medium text-slate-700">Vehicle Fuel Type</label>
               <select
                 value={workerForm.transportMethod}
-                onChange={(e) => setWorkerForm({ ...workerForm, transportMethod: e.target.value as "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle" })}
+                onChange={(e) => setWorkerForm({ ...workerForm, transportMethod: e.target.value })}
                 data-testid="select-transport-method"
                 className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
+                <option value="">Not specified</option>
                 <option value="car_diesel">Diesel Car</option>
                 <option value="car_petrol">Petrol Car</option>
                 <option value="electric_car">Electric Car</option>
+                <option value="hybrid_car">Hybrid Car</option>
+                <option value="van_diesel">Diesel Van</option>
+                <option value="van_petrol">Petrol Van</option>
                 <option value="motorcycle">Motorcycle</option>
                 <option value="public_transport">Public Transport</option>
+                <option value="bicycle">Bicycle</option>
+                <option value="walking">Walking</option>
               </select>
-              <p className="text-xs text-variable">Required for CO2 emission calculations</p>
+              <p className="text-xs text-variable">Optional — used for CO2 emission calculations</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Right to Work Status</label>
