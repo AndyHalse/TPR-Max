@@ -912,6 +912,39 @@ const fixWorkerCertOwnershipMigration: Migration = {
   }
 };
 
+const createCompanyNotesTableMigration: Migration = {
+  version: '20260615_001_create_company_notes',
+  description: 'Create company_notes audit trail table for contractor company activity',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS company_notes (
+          id          TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          company_id  TEXT        NOT NULL,
+          change_type TEXT        NOT NULL,
+          notes       TEXT,
+          changed_by  TEXT        NOT NULL,
+          changed_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+          created_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+        )
+      `);
+      await db.execute(`
+        CREATE INDEX IF NOT EXISTS idx_company_notes_company_id
+          ON company_notes (company_id)
+      `);
+      logger.info('✅ company_notes table ensured');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const code = error?.code;
+      if (msg.includes('already exists') || code === '23505' || code === '42P07') {
+        logger.info('ℹ️ company_notes table/index already exists, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -927,4 +960,5 @@ export const missingTablesMigrations = [
   createWorkerCertificationTypesTableMigration,
   createContractorEquipmentMigration,
   fixWorkerCertOwnershipMigration,
+  createCompanyNotesTableMigration,
 ];

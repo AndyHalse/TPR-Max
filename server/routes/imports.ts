@@ -745,6 +745,8 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     ];
     const rightToWorkStatuses = ['valid', 'valid', 'valid', 'pending', 'valid'];
     const cscsStatuses        = ['valid', 'valid', 'pending', 'valid', 'expired'];
+    // Pattern: first two workers of each company require DBS (realistic mix)
+    const dbsRequiredPattern  = [true, true, false, false];
     const companyIds: string[] = [];
     const workerIds: string[]  = [];
     let workerSeq = 0;
@@ -785,6 +787,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
               cscsStatus:  cscsStatuses[c],
               postcode:    `EC${1 + (seq % 4)}V ${seq % 9}BB`,
               transportMethod: ['car_diesel', 'car_petrol', 'public_transport', 'bicycle', 'walking'][seq % 5],
+              dbsRequired: dbsRequiredPattern[w % dbsRequiredPattern.length],
               isActive:    true,
             }).returning({ id: isolatedSchema.contractorWorkers.id });
             if (inserted[0]?.id) workerIds.push(inserted[0].id);
