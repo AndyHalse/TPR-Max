@@ -880,6 +880,172 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
+  // ── User Management per customer ─────────────────────────────────────────
+
+  const VALID_ROLES = new Set(['admin', 'user', 'tenant_admin', 'tenant_staff']);
+
+  function validateUserFields(body: any): string | null {
+    const { email, role } = body;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Please enter a valid email address.';
+    if (role && !VALID_ROLES.has(role)) return 'Role must be admin, user, tenant_admin or tenant_staff.';
+    return null;
+  }
+
+  // 1. List users
+  app.get("/platform-admin/customers/:customerId/users", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const users = await customerDb
+        .select({
+          id: isolatedSchema.users.id,
+          username: isolatedSchema.users.username,
+          email: isolatedSchema.users.email,
+          role: isolatedSchema.users.role,
+          firstName: isolatedSchema.users.firstName,
+          lastName: isolatedSchema.users.lastName,
+          isActive: isolatedSchema.users.isActive,
+          lastLoginAt: isolatedSchema.users.lastLoginAt,
+          createdAt: isolatedSchema.users.createdAt,
+        })
+        .from(isolatedSchema.users)
+        .orderBy(isolatedSchema.users.createdAt);
+      return res.json({ success: true, users });
+    } catch (error: any) {
+      logger.error('Error listing customer users:', error);
+      return res.status(500).json({ success: false, error: 'Failed to list users' });
+    }
+  });
+
+  // 2. Create user
+  app.post("/platform-admin/customers/:customerId/users", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const { username, email, password, role = 'user', firstName = '', lastName = '' } = req.body;
+      if (!username || !password) return res.status(400).json({ success: false, error: 'Username and password are required.' });
+      if (password.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
+      const validationError = validateUserFields(req.body);
+      if (validationError) return res.status(400).json({ success: false, error: validationError });
+
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const [newUser] = await customerDb
+        .insert(isolatedSchema.users)
+        .values({ username, email: email?.trim() || null, password: hashedPassword, role, firstName, lastName })
+        .returning({
+          id: isolatedSchema.users.id,
+          username: isolatedSchema.users.username,
+          email: isolatedSchema.users.email,
+          role: isolatedSchema.users.role,
+          firstName: isolatedSchema.users.firstName,
+          lastName: isolatedSchema.users.lastName,
+          isActive: isolatedSchema.users.isActive,
+          createdAt: isolatedSchema.users.createdAt,
+        });
+      return res.status(201).json({ success: true, user: newUser });
+    } catch (error: any) {
+      if (error?.code === '23505' && error?.constraint?.includes('username')) {
+        return res.status(409).json({ success: false, error: 'That username is already in use.' });
+      }
+      logger.error('Error creating customer user:', error);
+      return res.status(500).json({ success: false, error: 'Failed to create user' });
+    }
+  });
+
+  // 3. Update user
+  app.patch("/platform-admin/customers/:customerId/users/:userId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId, userId } = req.params;
+      const { username, email, password, role, firstName, lastName, isActive } = req.body;
+      const validationError = validateUserFields(req.body);
+      if (validationError) return res.status(400).json({ success: false, error: validationError });
+      if (password !== undefined && password !== '' && password.length < 8) {
+        return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
+      }
+
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Lock-out guard: if disabling or demoting this user, ensure at least one other active admin remains
+      const currentUsers = await customerDb.select({ id: isolatedSchema.users.id, role: isolatedSchema.users.role, isActive: isolatedSchema.users.isActive }).from(isolatedSchema.users);
+      const target = currentUsers.find(u => u.id === userId);
+      if (!target) return res.status(404).json({ success: false, error: 'User not found' });
+
+      const wouldDisable = isActive === false && target.isActive;
+      const wouldDemote = role !== undefined && role !== 'admin' && target.role === 'admin';
+      if ((wouldDisable || wouldDemote)) {
+        const activeAdmins = currentUsers.filter(u => u.role === 'admin' && u.isActive && u.id !== userId);
+        if (activeAdmins.length === 0) {
+          return res.status(400).json({ success: false, error: "You can't disable or demote the last active admin — the customer would be locked out." });
+        }
+      }
+
+      const updateData: any = { updatedAt: new Date() };
+      if (username !== undefined) updateData.username = username;
+      if (email !== undefined) updateData.email = email ? email.trim() : null;
+      if (password) updateData.password = await bcrypt.hash(password, 10);
+      if (role !== undefined) updateData.role = role;
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (isActive !== undefined) updateData.isActive = isActive;
+
+      const [updated] = await customerDb
+        .update(isolatedSchema.users)
+        .set(updateData)
+        .where(eq(isolatedSchema.users.id, userId))
+        .returning({
+          id: isolatedSchema.users.id,
+          username: isolatedSchema.users.username,
+          email: isolatedSchema.users.email,
+          role: isolatedSchema.users.role,
+          firstName: isolatedSchema.users.firstName,
+          lastName: isolatedSchema.users.lastName,
+          isActive: isolatedSchema.users.isActive,
+          lastLoginAt: isolatedSchema.users.lastLoginAt,
+          createdAt: isolatedSchema.users.createdAt,
+        });
+      return res.json({ success: true, user: updated });
+    } catch (error: any) {
+      if (error?.code === '23505' && error?.constraint?.includes('username')) {
+        return res.status(409).json({ success: false, error: 'That username is already in use.' });
+      }
+      logger.error('Error updating customer user:', error);
+      return res.status(500).json({ success: false, error: 'Failed to update user' });
+    }
+  });
+
+  // 4. Delete user
+  app.delete("/platform-admin/customers/:customerId/users/:userId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId, userId } = req.params;
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const allUsers = await customerDb.select({ id: isolatedSchema.users.id, role: isolatedSchema.users.role, isActive: isolatedSchema.users.isActive }).from(isolatedSchema.users);
+      const target = allUsers.find(u => u.id === userId);
+      if (!target) return res.status(404).json({ success: false, error: 'User not found' });
+
+      // Lock-out guard
+      const remainingActiveAdmins = allUsers.filter(u => u.role === 'admin' && u.isActive && u.id !== userId);
+      if (target.role === 'admin' && target.isActive && remainingActiveAdmins.length === 0) {
+        return res.status(400).json({ success: false, error: "You can't delete the last active admin — the customer would be locked out." });
+      }
+
+      await customerDb.delete(isolatedSchema.users).where(eq(isolatedSchema.users.id, userId));
+      return res.json({ success: true });
+    } catch (error: any) {
+      if (error?.code === '23503') {
+        return res.status(409).json({ success: false, error: 'This login is linked to a staff record. Deactivate it instead, or unlink the staff record first.' });
+      }
+      logger.error('Error deleting customer user:', error);
+      return res.status(500).json({ success: false, error: 'Failed to delete user' });
+    }
+  });
+
+  // ── End User Management ───────────────────────────────────────────────────
+
   const KNOWN_FEATURE_KEYS = new Set([
     'featureDashboard', 'featureVisitors', 'featureContractors', 'featureContractorPage',
     'featureStaff', 'featureMembers', 'featureMeetingRooms', 'featureTimeAttendance',

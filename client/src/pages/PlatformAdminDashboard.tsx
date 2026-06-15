@@ -194,6 +194,12 @@ export default function PlatformAdminDashboard() {
   
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
+  const [managingUsersCustomer, setManagingUsersCustomer] = useState<any | null>(null);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const emptyUserForm = { username: '', email: '', password: '', role: 'user', firstName: '', lastName: '' };
+  const [userForm, setUserForm] = useState({ ...emptyUserForm });
+
   const [showAddAdmin, setShowAddAdmin] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<any | null>(null);
   const [newAdminForm, setNewAdminForm] = useState({
@@ -491,6 +497,64 @@ export default function PlatformAdminDashboard() {
     },
   });
 
+  // ── User Management queries & mutations ──────────────────────────────────
+  const { data: usersData, isLoading: usersLoading } = useQuery<{ success: boolean; users: any[] }>({
+    queryKey: ["/platform-admin/customers", managingUsersCustomer?.id, "users"],
+    queryFn: async () => {
+      const response = await fetch(`/platform-admin/customers/${managingUsersCustomer!.id}/users`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch users");
+      return response.json();
+    },
+    enabled: !!managingUsersCustomer,
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (form: typeof userForm) => {
+      const response = await apiRequest("POST", `/platform-admin/customers/${managingUsersCustomer!.id}/users`, form);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || "Failed to create user");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers", managingUsersCustomer?.id, "users"] });
+      setShowAddUser(false);
+      setUserForm({ ...emptyUserForm });
+      toast({ title: "User created", description: "New login added successfully." });
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, patch }: { userId: string; patch: any }) => {
+      const response = await apiRequest("PATCH", `/platform-admin/customers/${managingUsersCustomer!.id}/users/${userId}`, patch);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || "Failed to update user");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers", managingUsersCustomer?.id, "users"] });
+      setEditingUser(null);
+      setUserForm({ ...emptyUserForm });
+      toast({ title: "User updated", description: "Login details saved." });
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest("DELETE", `/platform-admin/customers/${managingUsersCustomer!.id}/users/${userId}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || "Failed to delete user");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers", managingUsersCustomer?.id, "users"] });
+      toast({ title: "User deleted" });
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+  // ── End User Management ────────────────────────────────────────────────
+
   // Blog queries and mutations
   const { data: blogData, isLoading: blogLoading } = useQuery<{ success: boolean; posts: BlogPost[] }>({
     queryKey: ["/api/admin/blog"],
@@ -782,6 +846,15 @@ export default function PlatformAdminDashboard() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setManagingUsersCustomer(customer); setShowAddUser(false); setEditingUser(null); setUserForm({ ...emptyUserForm }); }}
+                        data-testid={`button-users-${customer.id}`}
+                      >
+                        <Users className="w-3 h-3 mr-1" />
+                        Users
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -1459,6 +1532,173 @@ export default function PlatformAdminDashboard() {
                 {deleteBlogMutation.isPending ? 'Deleting...' : 'Delete Post'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Manage Users Dialog ──────────────────────────────────────── */}
+      <Dialog open={!!managingUsersCustomer} onOpenChange={(open) => { if (!open) { setManagingUsersCustomer(null); setShowAddUser(false); setEditingUser(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Manage Users — {managingUsersCustomer?.companyName}
+            </DialogTitle>
+            <DialogDescription>
+              View and manage every login for this customer. The 6-digit login code is sent to each user's email.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Add User button / inline form */}
+            {!showAddUser && !editingUser && (
+              <Button size="sm" onClick={() => { setShowAddUser(true); setUserForm({ ...emptyUserForm }); }}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add User
+              </Button>
+            )}
+
+            {/* Add user form */}
+            {showAddUser && (
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                <p className="text-sm font-semibold">New Login</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Username *</Label>
+                    <Input value={userForm.username} onChange={e => setUserForm(f => ({ ...f, username: e.target.value }))} placeholder="e.g. jsmith" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Password * (min 8 chars)</Label>
+                    <Input type="password" value={userForm.password} onChange={e => setUserForm(f => ({ ...f, password: e.target.value }))} placeholder="Password" />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-xs">Email — the 6-digit login code is sent here</Label>
+                    <Input type="email" value={userForm.email} onChange={e => setUserForm(f => ({ ...f, email: e.target.value }))} placeholder="user@example.com" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">First Name</Label>
+                    <Input value={userForm.firstName} onChange={e => setUserForm(f => ({ ...f, firstName: e.target.value }))} placeholder="First name" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Last Name</Label>
+                    <Input value={userForm.lastName} onChange={e => setUserForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Last name" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Role</Label>
+                    <select value={userForm.role} onChange={e => setUserForm(f => ({ ...f, role: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <option value="admin">admin</option>
+                      <option value="user">user</option>
+                      <option value="tenant_admin">tenant_admin</option>
+                      <option value="tenant_staff">tenant_staff</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" disabled={createUserMutation.isPending} onClick={() => createUserMutation.mutate(userForm)}>
+                    {createUserMutation.isPending ? "Creating…" : "Create User"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => { setShowAddUser(false); setUserForm({ ...emptyUserForm }); }}>Cancel</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Edit user form */}
+            {editingUser && (
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                <p className="text-sm font-semibold">Edit: {editingUser.username}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Username</Label>
+                    <Input value={userForm.username} onChange={e => setUserForm(f => ({ ...f, username: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Password (leave blank to keep current)</Label>
+                    <Input type="password" value={userForm.password} onChange={e => setUserForm(f => ({ ...f, password: e.target.value }))} placeholder="Leave blank to keep current" />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-xs">Email — the 6-digit login code is sent here</Label>
+                    <Input type="email" value={userForm.email} onChange={e => setUserForm(f => ({ ...f, email: e.target.value }))} placeholder="user@example.com" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">First Name</Label>
+                    <Input value={userForm.firstName} onChange={e => setUserForm(f => ({ ...f, firstName: e.target.value }))} placeholder="First name" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Last Name</Label>
+                    <Input value={userForm.lastName} onChange={e => setUserForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Last name" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Role</Label>
+                    <select value={userForm.role} onChange={e => setUserForm(f => ({ ...f, role: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <option value="admin">admin</option>
+                      <option value="user">user</option>
+                      <option value="tenant_admin">tenant_admin</option>
+                      <option value="tenant_staff">tenant_staff</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" disabled={updateUserMutation.isPending} onClick={() => {
+                    const patch: any = {};
+                    if (userForm.username !== editingUser.username) patch.username = userForm.username;
+                    if (userForm.email !== (editingUser.email ?? '')) patch.email = userForm.email;
+                    if (userForm.password) patch.password = userForm.password;
+                    if (userForm.role !== editingUser.role) patch.role = userForm.role;
+                    if (userForm.firstName !== (editingUser.firstName ?? '')) patch.firstName = userForm.firstName;
+                    if (userForm.lastName !== (editingUser.lastName ?? '')) patch.lastName = userForm.lastName;
+                    updateUserMutation.mutate({ userId: editingUser.id, patch });
+                  }}>
+                    {updateUserMutation.isPending ? "Saving…" : "Save Changes"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => { setEditingUser(null); setUserForm({ ...emptyUserForm }); }}>Cancel</Button>
+                </div>
+              </div>
+            )}
+
+            {/* User list */}
+            {usersLoading ? (
+              <p className="text-sm text-muted-foreground">Loading users…</p>
+            ) : (
+              <div className="space-y-2">
+                {(usersData?.users ?? []).map((u: any) => (
+                  <div key={u.id} className="flex items-center justify-between gap-3 border rounded-lg px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm truncate">{u.username}</span>
+                        {(u.firstName || u.lastName) && (
+                          <span className="text-xs text-muted-foreground">({[u.firstName, u.lastName].filter(Boolean).join(' ')})</span>
+                        )}
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${u.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>{u.role}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${u.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'}`}>{u.isActive ? 'Active' : 'Inactive'}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {u.email ? <span>📧 {u.email}</span> : <span className="italic">No email set — 2FA codes won't be delivered</span>}
+                        <span className="ml-3">Last login: {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-GB') : 'Never'}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Switch
+                        checked={!!u.isActive}
+                        disabled={updateUserMutation.isPending}
+                        onCheckedChange={(checked) => updateUserMutation.mutate({ userId: u.id, patch: { isActive: checked } })}
+                        title={u.isActive ? "Deactivate" : "Activate"}
+                      />
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setEditingUser(u);
+                        setShowAddUser(false);
+                        setUserForm({ username: u.username, email: u.email ?? '', password: '', role: u.role, firstName: u.firstName ?? '', lastName: u.lastName ?? '' });
+                      }}>Edit</Button>
+                      <Button size="sm" variant="destructive" disabled={deleteUserMutation.isPending} onClick={() => deleteUserMutation.mutate(u.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {(usersData?.users ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground">No users found.</p>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
