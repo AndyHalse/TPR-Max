@@ -1226,6 +1226,36 @@ export default function PlatformAdminDashboard() {
             </div>
 
             <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-semibold mb-1">Reset Login Details</h3>
+              <p className="text-xs text-gray-500 mb-4">Use this to change the customer's login username or password — e.g. when the person who set up the account has left. Leave blank to keep the current details.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-username">New Username</Label>
+                  <Input
+                    id="reset-username"
+                    value={credentialReset.username}
+                    onChange={(e) => setCredentialReset({ ...credentialReset, username: e.target.value })}
+                    placeholder="Leave blank to keep current"
+                    data-testid="input-reset-username"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reset-password">New Password</Label>
+                  <Input
+                    id="reset-password"
+                    type="password"
+                    value={credentialReset.password}
+                    onChange={(e) => setCredentialReset({ ...credentialReset, password: e.target.value })}
+                    placeholder="Leave blank to keep current"
+                    data-testid="input-reset-password"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 mt-4">
               <h3 className="text-sm font-semibold mb-1">Module Features</h3>
               <p className="text-xs text-muted-foreground mb-4">ON (green) = available to the customer. OFF = hidden and inaccessible. The customer can further hide ON modules from their own Settings page.</p>
               {!customerFeatures ? (
@@ -1264,36 +1294,6 @@ export default function PlatformAdminDashboard() {
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="border-t pt-4 mt-4">
-              <h3 className="text-sm font-semibold mb-3">Reset Customer Admin Credentials (Optional)</h3>
-              <p className="text-xs text-gray-500 mb-4">Leave blank to keep existing credentials</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reset-username">New Username</Label>
-                  <Input
-                    id="reset-username"
-                    value={credentialReset.username}
-                    onChange={(e) => setCredentialReset({ ...credentialReset, username: e.target.value })}
-                    placeholder="Leave blank to keep current"
-                    data-testid="input-reset-username"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="reset-password">New Password</Label>
-                  <Input
-                    id="reset-password"
-                    type="password"
-                    value={credentialReset.password}
-                    onChange={(e) => setCredentialReset({ ...credentialReset, password: e.target.value })}
-                    placeholder="Leave blank to keep current"
-                    data-testid="input-reset-password"
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
