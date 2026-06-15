@@ -1,0 +1,45 @@
+TPR Bug Report BR-007 — 15/06/2026, 13:03:31
+Reporter: Emma Leschenko
+Customer: ACS Safety & Security Ltd
+Page: /compliance-dashboard
+Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0 | Screen: 2142x1082
+App Version: —
+Status: New
+
+## Description
+Worker DBS says 0 of 1 current but when select View, 6 contractors display. See sample Carole Johnson DBS check not selected as required.
+
+## Console / Network Logs
+[2026-06-15T11:47:29.887Z] [ERROR] Query failed: {}
+[2026-06-15T11:47:48.523Z] [NETWORK] HTTP 500 GET /api/contractors/eae5dd43-f015-4ec9-af67-2b3ce67f311d/notes
+[2026-06-15T11:47:48.525Z] [ERROR] Query failed: {"status":500,"error":"Failed to fetch company notes"}
+[2026-06-15T11:47:52.002Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-15T11:51:04.891Z] [ERROR] Query failed: {}
+[2026-06-15T11:51:16.624Z] [NETWORK] HTTP 500 GET /api/contractors/61f0e3e2-0501-4aee-bff3-95e053e76547/notes
+[2026-06-15T11:51:16.625Z] [ERROR] Query failed: {"status":500,"error":"Failed to fetch company notes"}
+[2026-06-15T11:51:19.367Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-15T11:53:12.193Z] [ERROR] Query failed: {}
+[2026-06-15T11:53:33.225Z] [NETWORK] HTTP 500 GET /api/contractors/bca496a3-0e94-4d23-811a-eda63cef30a2/notes
+[2026-06-15T11:53:33.226Z] [ERROR] Query failed: {"status":500,"error":"Failed to fetch company notes"}
+[2026-06-15T11:53:36.389Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-15T11:54:15.812Z] [NETWORK] HTTP 500 GET /api/contractors/bca496a3-0e94-4d23-811a-eda63cef30a2/equipment
+[2026-06-15T11:54:49.863Z] [ERROR] Query failed: {}
+[2026-06-15T11:55:10.179Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-15T11:55:12.682Z] [NETWORK] HTTP 500 GET /api/contractors/eae5dd43-f015-4ec9-af67-2b3ce67f311d/notes
+[2026-06-15T11:55:12.683Z] [ERROR] Query failed: {"status":500,"error":"Failed to fetch company notes"}
+[2026-06-15T11:55:29.138Z] [ERROR] Query failed: {}
+[2026-06-15T11:55:43.081Z] [NETWORK] HTTP 500 GET /api/contractors/68da9092-dda6-4557-aa5c-29841618990d/notes
+[2026-06-15T11:55:43.083Z] [ERROR] Query failed: {"status":500,"error":"Failed to fetch company notes"}
+[2026-06-15T11:55:46.039Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-15T11:56:01.690Z] [ERROR] Query failed: {}
+[2026-06-15T11:56:11.964Z] [NETWORK] HTTP 500 GET /api/contractors/b9473935-3202-4775-a61f-5a56ec2ea955/notes
+[2026-06-15T11:56:11.965Z] [ERROR] Query failed: {"status":500,"error":"Failed to fetch company notes"}
+[2026-06-15T11:56:15.317Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-15T11:56:25.047Z] [ERROR] Query failed: {}
+[2026-06-15T11:56:32.942Z] [NETWORK] HTTP 500 GET /api/contractors/b9473935-3202-4775-a61f-5a56ec2ea955/notes
+[2026-06-15T11:56:32.947Z] [ERROR] Query failed: {"status":500,"error":"Failed to fetch company notes"}
+[2026-06-15T11:57:19.736Z] [ERROR] Query failed: {}
+[2026-06-15T11:58:06.379Z] [ERROR] Query failed: {}
+
+## Attachments
+3 image(s) attached — view in Platform Admin.
