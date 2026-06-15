@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { Link, useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, X, ChartLine, Activity, User, HardHat, CalendarPlus, Users, UserCheck, Calendar, Clock, ListChecks, ScrollText, AlertTriangle, Flame, Wrench, ClipboardCheck, ShieldCheck, ClipboardList, FileEdit, Ticket, Shield, FileText, Video, Dock, Mail, Briefcase, Settings, LogOut, Globe } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, clearSessionToken } from "@/lib/queryClient";
 
 export const SIDEBAR_COLLAPSED_KEY = "tprmax-sidebar-collapsed";
@@ -295,6 +295,12 @@ function SidebarItem({ item, isActive, collapsed, textStyle, activeStyle, onNavi
 
 function SidebarLogoutButton({ collapsed, textStyle }: { collapsed: boolean; textStyle: CSSProperties }) {
   const queryClient = useQueryClient();
+  const { data: authUser } = useQuery<{ firstName?: string | null }>({
+    queryKey: ["/api/auth/me"],
+    staleTime: Infinity,
+  });
+  const firstName = authUser?.firstName;
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/auth/logout");
@@ -312,6 +318,12 @@ function SidebarLogoutButton({ collapsed, textStyle }: { collapsed: boolean; tex
     },
   });
 
+  const label = logoutMutation.isPending
+    ? "Logging out…"
+    : firstName
+      ? `Logout  ${firstName}`
+      : "Logout";
+
   const inner = (
     <button
       onClick={() => logoutMutation.mutate()}
@@ -321,7 +333,7 @@ function SidebarLogoutButton({ collapsed, textStyle }: { collapsed: boolean; tex
       data-testid="button-logout-sidebar"
     >
       <span className="flex-shrink-0"><LogOut size={18} /></span>
-      {!collapsed && <span className="text-sm truncate flex-1">{logoutMutation.isPending ? "Logging out…" : "Logout"}</span>}
+      {!collapsed && <span className="text-sm truncate flex-1">{label}</span>}
     </button>
   );
 
