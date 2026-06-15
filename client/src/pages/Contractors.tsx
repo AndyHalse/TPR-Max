@@ -234,12 +234,6 @@ export default function Contractors() {
     const t = p.get("tab") || "contractors";
     return VALID_TABS.includes(t) ? t : "contractors";
   });
-  // When arriving from the compliance dashboard with a defaultTab hint,
-  // clicking into a contractor navigates directly to that tab.
-  const defaultContractorTab = (() => {
-    const p = new URLSearchParams(window.location.search);
-    return p.get("defaultTab") || null;
-  })();
   const [searchTerm, setSearchTerm] = useState(() => {
     const p = new URLSearchParams(window.location.search);
     return p.get("search") || "";
@@ -268,6 +262,10 @@ export default function Contractors() {
       return false;
     }
   });
+  const [docTypeFilter, setDocTypeFilter] = useState<string | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("docType") || null;
+  });
 
   useEffect(() => {
     const p = new URLSearchParams();
@@ -276,10 +274,11 @@ export default function Contractors() {
     if (viewMode !== 'list') p.set("view", viewMode);
     if (showGapsOnly) p.set("gaps", "true");
     if (sortGapsFirst) p.set("sort", "true");
+    if (docTypeFilter) p.set("docType", docTypeFilter);
     const qs = p.toString();
     const newUrl = window.location.pathname + (qs ? `?${qs}` : "");
     window.history.replaceState(window.history.state, "", newUrl);
-  }, [activeTab, searchTerm, viewMode, showGapsOnly, sortGapsFirst]);
+  }, [activeTab, searchTerm, viewMode, showGapsOnly, sortGapsFirst, docTypeFilter]);
 
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
@@ -487,6 +486,14 @@ export default function Contractors() {
         contractor.email.toLowerCase().includes(searchTerm.toLowerCase());
       if (!matchesSearch) return false;
       if (showGapsOnly && !hasComplianceGap(contractor)) return false;
+      if (docTypeFilter) {
+        const ds = contractor.documentsStatus;
+        if (docTypeFilter === 'insurance') {
+          if (ds.publicLiability !== 'missing' && ds.employersLiability !== 'missing') return false;
+        } else {
+          if (ds[docTypeFilter as keyof typeof ds] !== 'missing') return false;
+        }
+      }
       return true;
     })
     .sort((a: ContractorCompany, b: ContractorCompany) => {
@@ -1299,6 +1306,43 @@ export default function Contractors() {
         </div>
       </GlassCard>
 
+      {/* Document-type filter chips — shown when gaps filter is active */}
+      {(showGapsOnly || docTypeFilter) && (
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <span className="text-xs font-medium text-slate-500 mr-1">Filter by missing doc:</span>
+          {[
+            { key: null, label: 'All gaps' },
+            { key: 'insurance', label: 'Insurance (Public + Employers)' },
+            { key: 'publicLiability', label: 'Public Liability' },
+            { key: 'employersLiability', label: 'Employers Liability' },
+            { key: 'healthSafety', label: 'H&S Policy' },
+            { key: 'cisRegistration', label: 'CIS Registration' },
+          ].map(({ key, label }) => (
+            <button
+              key={key ?? 'all'}
+              onClick={() => {
+                setDocTypeFilter(key);
+                if (!showGapsOnly) setShowGapsOnly(true);
+              }}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                docTypeFilter === key
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-white/70 text-slate-600 border-slate-300 hover:border-red-400 hover:text-red-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            onClick={() => { setShowGapsOnly(false); setDocTypeFilter(null); }}
+            className="text-xs px-2 py-1 rounded-full text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-300 transition-colors ml-1"
+            title="Clear all gap filters"
+          >
+            <X size={12} className="inline mr-0.5" />Clear
+          </button>
+        </div>
+      )}
+
       {/* Contractors List */}
       <div className={viewMode === 'grid' ? "grid grid-cols-1 gap-6" : "space-y-2"}>
         {isLoading ? (
@@ -1434,12 +1478,22 @@ export default function Contractors() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setLocation(`/contractors/${contractor.id}${defaultContractorTab ? `?tab=${defaultContractorTab}` : ''}`)}
+                    onClick={() => setLocation(`/contractors/${contractor.id}`)}
                     className="w-full"
                     data-testid={`button-workers-${contractor.id}`}
                   >
                     <Users className="mr-2" size={14} />
-                    {defaultContractorTab === 'documents' ? 'Documents' : 'Workers'}
+                    Workers
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLocation(`/contractors/${contractor.id}?tab=documents`)}
+                    className="w-full"
+                    data-testid={`button-documents-${contractor.id}`}
+                  >
+                    <FileText className="mr-2" size={14} />
+                    Documents
                   </Button>
                   <Button
                     variant="outline"
@@ -1448,7 +1502,7 @@ export default function Contractors() {
                       setSelectedContractor(contractor);
                       setShowWorkersModal(true);
                     }}
-                    className="w-full"
+                    className="w-full col-span-2"
                     data-testid={`button-add-worker-${contractor.id}`}
                   >
                     <UserPlus className="mr-2" size={14} />
@@ -1498,8 +1552,11 @@ export default function Contractors() {
                     <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                       {complianceGapBadge}
                       {getStatusBadge(contractor.status)}
-                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}${defaultContractorTab ? `?tab=${defaultContractorTab}` : ''}`)} className="h-9 px-3 text-sm">
-                        <Users className="mr-1" size={13} />{defaultContractorTab === 'documents' ? 'Documents' : 'Workers'}
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm">
+                        <Users className="mr-1" size={13} />Workers
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}?tab=documents`)} className="h-9 px-3 text-sm">
+                        <FileText className="mr-1" size={13} />Documents
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm">
                         <UserPlus className="mr-1" size={13} />Add Worker
@@ -1513,8 +1570,11 @@ export default function Contractors() {
                       {getStatusBadge(contractor.status)}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}${defaultContractorTab ? `?tab=${defaultContractorTab}` : ''}`)} className="h-9 px-3 text-sm font-medium">
-                        <Users className="mr-1" size={13} />{defaultContractorTab === 'documents' ? 'Documents' : 'Workers'}
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm font-medium">
+                        <Users className="mr-1" size={13} />Workers
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}?tab=documents`)} className="h-9 px-3 text-sm font-medium">
+                        <FileText className="mr-1" size={13} />Docs
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm font-medium">
                         <UserPlus className="mr-1" size={13} />Add

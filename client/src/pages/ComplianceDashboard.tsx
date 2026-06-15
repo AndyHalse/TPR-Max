@@ -80,7 +80,7 @@ const BAND_COLOURS = {
 
 const CATEGORY_META: Record<string, { label: string; icon: any; link: string; stat: (c: CategoryStat) => string }> = {
   contractorInsurance: {
-    label: "Contractor Insurance", icon: Building2, link: "/contractors?gaps=true&sort=true&defaultTab=documents",
+    label: "Contractor Insurance", icon: Building2, link: "/contractors?gaps=true&sort=true&docType=insurance",
     stat: c => c.total === 0 ? "No policies tracked" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.total} current`,
   },
   rams: {
