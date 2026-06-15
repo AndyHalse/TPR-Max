@@ -141,6 +141,10 @@ export default function FireRiskAssessmentPage() {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const didHighlight = useRef(false);
 
+  const { data: fras = [], isLoading } = useQuery<FireRiskAssessment[]>({
+    queryKey: ["/api/fire-risk-assessments"],
+  });
+
   useEffect(() => {
     if (didHighlight.current || !fras.length) return;
     const id = new URLSearchParams(window.location.search).get('highlight');
@@ -154,10 +158,6 @@ export default function FireRiskAssessmentPage() {
       setTimeout(() => setHighlightedId(null), 3000);
     }, 400);
   }, [fras]);
-
-  const { data: fras = [], isLoading } = useQuery<FireRiskAssessment[]>({
-    queryKey: ["/api/fire-risk-assessments"],
-  });
 
   const { data: fraStatus } = useQuery<FraStatus>({
     queryKey: ["/api/fire-risk-assessments/status"],

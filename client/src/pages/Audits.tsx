@@ -1201,6 +1201,26 @@ export default function Audits() {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const didHighlight = useRef(false);
 
+  const { data: summary, isLoading: summaryLoading } = useQuery<AuditSummary>({
+    queryKey: ["/api/audits/summary"],
+    staleTime: 30000,
+  });
+
+  const { data: templates = [] } = useQuery<AuditTemplate[]>({
+    queryKey: ["/api/audits/templates"],
+    staleTime: 30000,
+  });
+
+  const { data: records = [], isLoading: recordsLoading } = useQuery<AuditRecord[]>({
+    queryKey: ["/api/audits/records"],
+    staleTime: 30000,
+  });
+
+  const { data: actions = [], isLoading: actionsLoading } = useQuery<AuditCorrectiveAction[]>({
+    queryKey: ["/api/audits/actions"],
+    staleTime: 30000,
+  });
+
   useEffect(() => {
     if (didHighlight.current) return;
     const params = new URLSearchParams(window.location.search);
@@ -1234,26 +1254,6 @@ export default function Audits() {
       }, 400);
     }
   }, [records, actions]);
-
-  const { data: summary, isLoading: summaryLoading } = useQuery<AuditSummary>({
-    queryKey: ["/api/audits/summary"],
-    staleTime: 30000,
-  });
-
-  const { data: templates = [] } = useQuery<AuditTemplate[]>({
-    queryKey: ["/api/audits/templates"],
-    staleTime: 30000,
-  });
-
-  const { data: records = [], isLoading: recordsLoading } = useQuery<AuditRecord[]>({
-    queryKey: ["/api/audits/records"],
-    staleTime: 30000,
-  });
-
-  const { data: actions = [], isLoading: actionsLoading } = useQuery<AuditCorrectiveAction[]>({
-    queryKey: ["/api/audits/actions"],
-    staleTime: 30000,
-  });
 
   const deleteTplMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/audits/templates/${id}`),
