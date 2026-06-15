@@ -1304,15 +1304,13 @@ export default function Contractors() {
             </div>
           </div>
         </div>
-      </GlassCard>
 
-      {/* Document-type filter chips — shown when gaps filter is active */}
-      {(showGapsOnly || docTypeFilter) && (
-        <div className="flex flex-wrap items-center gap-2 px-1">
-          <span className="text-xs font-medium text-slate-500 mr-1">Filter by missing doc:</span>
+        {/* Document-type filter chips — always visible */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/20 mt-3">
+          <span className="text-xs font-medium text-slate-500 whitespace-nowrap">Missing docs:</span>
           {[
-            { key: null, label: 'All gaps' },
-            { key: 'insurance', label: 'Insurance (Public + Employers)' },
+            { key: null, label: 'All' },
+            { key: 'insurance', label: '🛡 Insurance' },
             { key: 'publicLiability', label: 'Public Liability' },
             { key: 'employersLiability', label: 'Employers Liability' },
             { key: 'healthSafety', label: 'H&S Policy' },
@@ -1322,26 +1320,37 @@ export default function Contractors() {
               key={key ?? 'all'}
               onClick={() => {
                 setDocTypeFilter(key);
-                if (!showGapsOnly) setShowGapsOnly(true);
+                if (key !== null && !showGapsOnly) {
+                  setShowGapsOnly(true);
+                  try { localStorage.setItem('contractors_showGapsOnly', 'true'); } catch {}
+                }
+                if (key === null) {
+                  setShowGapsOnly(false);
+                  try { localStorage.setItem('contractors_showGapsOnly', 'false'); } catch {}
+                }
               }}
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                docTypeFilter === key
+                docTypeFilter === key && (key !== null || showGapsOnly)
                   ? 'bg-red-600 text-white border-red-600'
+                  : key === null && !showGapsOnly && !docTypeFilter
+                  ? 'bg-slate-700 text-white border-slate-700'
                   : 'bg-white/70 text-slate-600 border-slate-300 hover:border-red-400 hover:text-red-600'
               }`}
             >
               {label}
             </button>
           ))}
-          <button
-            onClick={() => { setShowGapsOnly(false); setDocTypeFilter(null); }}
-            className="text-xs px-2 py-1 rounded-full text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-300 transition-colors ml-1"
-            title="Clear all gap filters"
-          >
-            <X size={12} className="inline mr-0.5" />Clear
-          </button>
+          {(showGapsOnly || docTypeFilter) && (
+            <button
+              onClick={() => { setShowGapsOnly(false); setDocTypeFilter(null); try { localStorage.setItem('contractors_showGapsOnly', 'false'); } catch {} }}
+              className="text-xs px-2 py-1 rounded-full text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-300 transition-colors"
+              title="Clear filters"
+            >
+              <X size={11} className="inline mr-0.5" />Clear
+            </button>
+          )}
         </div>
-      )}
+      </GlassCard>
 
       {/* Contractors List */}
       <div className={viewMode === 'grid' ? "grid grid-cols-1 gap-6" : "space-y-2"}>
