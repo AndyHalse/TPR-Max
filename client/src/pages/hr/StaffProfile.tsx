@@ -22,6 +22,12 @@ import LeaverDetail from "./LeaverDetail";
 import StaffDbsTab from "@/components/StaffDbsTab";
 import StaffDocumentsTab from "@/components/StaffDocumentsTab";
 
+const safeFetch = (url: string) =>
+  fetch(url, { credentials: "include" }).then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
+
 function FileUploadField({ value, fileName, onUploaded, onClear }: {
   value?: string;
   fileName?: string;
@@ -92,8 +98,8 @@ function RtwTab({ staffId }: { staffId: string }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ documentType: "", documentReference: "", issueDate: "", expiryDate: "", verifiedDate: "", verifiedBy: "", notes: "" });
 
-  const { data: records = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/staff", staffId, "right-to-work"], queryFn: () => fetch(`/api/staff/${staffId}/right-to-work`, { credentials: "include" }).then(r => r.json()) });
-  const { data: status } = useQuery<any>({ queryKey: ["/api/right-to-work/status", staffId], queryFn: () => fetch(`/api/right-to-work/status/${staffId}`, { credentials: "include" }).then(r => r.json()) });
+  const { data: records = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/staff", staffId, "right-to-work"], queryFn: () => safeFetch(`/api/staff/${staffId}/right-to-work`) });
+  const { data: status } = useQuery<any>({ queryKey: ["/api/right-to-work/status", staffId], queryFn: () => safeFetch(`/api/right-to-work/status/${staffId}`) });
 
   const add = useMutation({
     mutationFn: (data: any) => apiRequest("POST", `/api/staff/${staffId}/right-to-work`, data),
@@ -192,7 +198,7 @@ function TrainingTab({ staffId }: { staffId: string }) {
 
   const { data: records = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff", staffId, "training"],
-    queryFn: () => fetch(`/api/staff/${staffId}/training`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => safeFetch(`/api/staff/${staffId}/training`),
   });
 
   const add = useMutation({
@@ -282,7 +288,7 @@ function LeaveTab({ staffId }: { staffId: string }) {
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/staff", staffId, "leave"],
-    queryFn: () => fetch(`/api/staff/${staffId}/leave`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => safeFetch(`/api/staff/${staffId}/leave`),
   });
 
   const submit = useMutation({
@@ -370,7 +376,7 @@ function AbsenceTab({ staffId }: { staffId: string }) {
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/staff", staffId, "absences"],
-    queryFn: () => fetch(`/api/staff/${staffId}/absences`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => safeFetch(`/api/staff/${staffId}/absences`),
   });
 
   const recordAbsence = useMutation({
@@ -488,7 +494,7 @@ function OnboardingTab({ staffId }: { staffId: string }) {
 
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/staff", staffId, "onboarding"],
-    queryFn: () => fetch(`/api/staff/${staffId}/onboarding`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => safeFetch(`/api/staff/${staffId}/onboarding`),
   });
 
   const create = useMutation({
@@ -547,7 +553,7 @@ function AppraisalsTab({ staffId }: { staffId: string }) {
 
   const { data: appraisals = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff", staffId, "appraisals"],
-    queryFn: () => fetch(`/api/staff/${staffId}/appraisals`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => safeFetch(`/api/staff/${staffId}/appraisals`),
   });
 
   const add = useMutation({
@@ -655,7 +661,7 @@ function EmploymentTab({ staffId, staff }: { staffId: string; staff: any }) {
   });
   const [mgrSearch, setMgrSearch] = useState("");
 
-  const { data: allStaff = [] } = useQuery<any[]>({ queryKey: ["/api/staff"], queryFn: () => fetch("/api/staff", { credentials: "include" }).then(r => r.json()) });
+  const { data: allStaff = [] } = useQuery<any[]>({ queryKey: ["/api/staff"], queryFn: () => safeFetch("/api/staff") });
 
   // Compute descendant ids of the current staff member so we exclude them from the dropdown
   const descendantIds = (() => {
@@ -895,7 +901,7 @@ export default function StaffProfile() {
 
   const { data: staffList = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff"],
-    queryFn: () => fetch("/api/staff", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => safeFetch("/api/staff"),
   });
 
   const staff = staffList.find((s: any) => s.id === id);
