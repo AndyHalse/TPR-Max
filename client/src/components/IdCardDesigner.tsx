@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Printer, Move, Save, Settings, User, Building2, Hash, Shield } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, objectUrl } from "@/lib/queryClient";
 import type { Staff } from "@shared/schema";
 
 interface IdCardDesignerProps {
@@ -278,7 +278,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
                       <div className="w-full h-full bg-slate-200 rounded border flex items-center justify-center">
                         {staff.photoUrl ? (
                           <img 
-                            src={staff.photoUrl} 
+                            src={objectUrl(staff.photoUrl)}
                             alt="Staff Photo" 
                             className="w-full h-full object-cover rounded"
                           />

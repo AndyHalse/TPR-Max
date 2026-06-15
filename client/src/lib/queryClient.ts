@@ -51,6 +51,19 @@ export function setSessionToken(token: string): void {
   }
 }
 
+/**
+ * Appends the current Bearer session token as ?token=... to any /objects/...
+ * URL so that <img> tags (which can't send Authorization headers) can still
+ * load auth-protected uploads when the session cookie has expired.
+ */
+export function objectUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  const token = getSessionToken();
+  if (!token) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}token=${encodeURIComponent(token)}`;
+}
+
 export function clearSessionToken(): void {
   try {
     sessionStorage.removeItem('session_token');

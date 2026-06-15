@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { queryClient } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
 import StaffDbsTab from "@/components/StaffDbsTab";
@@ -86,7 +85,7 @@ function StaffProfilePanel({
             <div className="relative group">
               <div className="w-28 h-28 rounded-full border-4 border-blue-100 shadow-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                 {vs.photoUrl ? (
-                  <img src={vs.photoUrl} alt={getFullName(vs)} className="w-full h-full object-cover" />
+                  <img src={objectUrl(vs.photoUrl)} alt={getFullName(vs)} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-white font-bold text-3xl">{getInitials(vs)}</span>
                 )}
@@ -887,7 +886,7 @@ export default function StaffManagement() {
                 <div className="flex items-start space-x-3 mb-3 cursor-pointer group" onClick={() => setViewingStaff(member)} title="View profile">
                   {member.photoUrl ? (
                     <img 
-                      src={member.photoUrl} 
+                      src={objectUrl(member.photoUrl)}
                       alt={getFullName(member)}
                       className="w-12 h-12 rounded-full object-cover flex-shrink-0 ring-2 ring-transparent group-hover:ring-blue-400 transition-all"
                     />
@@ -1046,7 +1045,7 @@ export default function StaffManagement() {
                 {/* Info row — full width so name never truncates */}
                 <div className="flex items-center gap-3 px-3 pt-3 pb-1">
                   {member.photoUrl ? (
-                    <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                    <img src={objectUrl(member.photoUrl)} alt={`${member.firstName} ${member.lastName}`} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                   ) : (
                     <div className={`w-10 h-10 ${getGradientClass(index)} rounded-full flex items-center justify-center flex-shrink-0`}>
                       <span className="text-white font-bold text-xs">{getInitials(member)}</span>

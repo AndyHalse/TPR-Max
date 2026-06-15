@@ -17,6 +17,7 @@ import { eq, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { generateLogoToken, validateLogoToken } from '../utils/logoToken';
 import { verifyPortalToken } from '../utils/contractorPortalAuth';
+import { verifySessionToken } from '../auth';
 
 export function registerSettingsRoutes(
   app: Express,
@@ -731,19 +732,41 @@ export function registerSettingsRoutes(
           return res.status(403).json({ error: 'Not permitted.' });
         }
       } else {
+        // Try staff Bearer token (from Authorization header OR ?token= query param).
+        // The query-param form is needed so <img> tags can include auth without JS fetch.
         const authHeader = req.headers['authorization'];
-        const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-        const payload = token ? verifyPortalToken(token) : null;
-        if (!payload) {
+        const rawToken =
+          (req.query.token as string | undefined) ||
+          (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null);
+
+        // Check if this is a staff session token first.
+        if (rawToken) {
+          try {
+            const { customerId: tokenCustomerId } = verifySessionToken(rawToken);
+            // Staff tokens may read any non-contractor-portal path belonging to their customer.
+            if (req.path.includes('/contractor-portal/')) {
+              return res.status(403).json({ error: 'Not permitted.' });
+            }
+            if (pathCustomerId && pathCustomerId !== tokenCustomerId) {
+              return res.status(403).json({ error: 'Not permitted.' });
+            }
+            // Auth passed — fall through to serve the file.
+          } catch {
+            // Not a valid staff token; try contractor portal token below.
+            const payload = verifyPortalToken(rawToken);
+            if (!payload) {
+              return res.status(401).json({ error: 'Authentication required to access this file.' });
+            }
+            // Portal tokens may only read contractor-portal documents.
+            if (!req.path.includes('/contractor-portal/')) {
+              return res.status(403).json({ error: 'Not permitted.' });
+            }
+            if (pathCustomerId && pathCustomerId !== payload.customerId) {
+              return res.status(403).json({ error: 'Not permitted.' });
+            }
+          }
+        } else {
           return res.status(401).json({ error: 'Authentication required to access this file.' });
-        }
-        // Portal tokens may only read contractor-portal documents, never staff/uploads objects.
-        if (!req.path.includes('/contractor-portal/')) {
-          return res.status(403).json({ error: 'Not permitted.' });
-        }
-        // For new namespaced paths, the path's customerId must match the token's customer.
-        if (pathCustomerId && pathCustomerId !== payload.customerId) {
-          return res.status(403).json({ error: 'Not permitted.' });
         }
       }
 

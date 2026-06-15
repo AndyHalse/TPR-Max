@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -413,7 +413,7 @@ export default function Members() {
               >
                 {/* Avatar */}
                 {member.photoUrl ? (
-                  <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  <img src={objectUrl(member.photoUrl)} alt={`${member.firstName} ${member.lastName}`} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-bold text-[11px]">{member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}</span>
@@ -458,7 +458,7 @@ export default function Members() {
               <GlassCard key={member.id} hover>
                 <div className="flex items-start space-x-3 mb-3">
                   {member.photoUrl ? (
-                    <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+                    <img src={objectUrl(member.photoUrl)} alt={`${member.firstName} ${member.lastName}`} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
                   ) : (
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
                       ['bg-gradient-to-r from-blue-500 to-purple-500',

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -808,7 +807,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             {uploadedPhoto ? (
               <div className="relative border-2 border-white/30 rounded-xl p-4 text-center">
                 <img
-                  src={uploadedPhoto}
+                  src={objectUrl(uploadedPhoto) ?? uploadedPhoto}
                   alt="Staff photo"
                   className="w-20 h-20 rounded-full mx-auto mb-2 object-cover"
                 />

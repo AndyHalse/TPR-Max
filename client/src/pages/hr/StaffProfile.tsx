@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, objectUrl } from "@/lib/queryClient";
 import { format, formatDuration, intervalToDuration } from "date-fns";
 import {
   User, ArrowLeft, Shield, BookOpen, Calendar, Activity,
@@ -46,8 +46,9 @@ function FileUploadField({ value, fileName, onUploaded, onClear }: {
       reader.onload = async () => {
         try {
           const base64 = (reader.result as string).split(',')[1];
-          const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type }) as any;
-          onUploaded(res.objectPath, file.name);
+          const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+          const { objectPath } = await res.json();
+          onUploaded(objectPath, file.name);
         } catch {
           toast({ title: "Upload failed", variant: "destructive" });
         } finally {
@@ -934,7 +935,7 @@ export default function StaffProfile() {
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-2xl font-bold text-blue-700 overflow-hidden">
-              {staff.photoUrl ? <img src={staff.photoUrl} alt="" className="w-full h-full object-cover" /> : `${staff.firstName?.[0]}${staff.lastName?.[0]}`}
+              {staff.photoUrl ? <img src={objectUrl(staff.photoUrl)} alt="" className="w-full h-full object-cover" /> : `${staff.firstName?.[0]}${staff.lastName?.[0]}`}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">

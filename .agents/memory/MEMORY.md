@@ -10,3 +10,4 @@
 - [Induction video serving mode](induction-video-serving.md) — mode is derived from customVideoUrl (no videoSource column); render/serve/preview must check customVideoUrl BEFORE generatedHtml or uploaded MP4s show AI slides.
 - [Logo token missing on session-cookie login](logo-token-pattern.md) — tprmax-logo-token set only on Login.tsx flow; session-cookie logins skip it so getLogoSrc stage-0 must fall through to /api/company-logo (stage 1) when no token exists.
 - [contractorWorkers induction field mismatch](contractor-induction-field.md) — contractorWorkers isolated schema uses siteInductionCompleted/siteInductionCompletedAt (site_induction_completed); never use inductionCompleted on this table.
+- [objectUrl token pattern for img tags](object-url-token-pattern.md) — img tags can't send Bearer headers; use objectUrl() from queryClient.ts to append ?token= so /objects/... route authenticates via query param.
