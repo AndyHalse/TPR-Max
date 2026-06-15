@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { apiRequest, objectUrl } from "@/lib/queryClient";
 import {
   Globe, Send, Users, Building2, Loader2,
   CheckCircle2, Clock, Plus, MailCheck, ShieldOff, FileText,
@@ -17,7 +18,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GlassCard from "@/components/GlassCard";
-import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 
 const OVERVIEW_KEY = ["/api/contractor-portal/admin-overview"];
@@ -450,7 +450,7 @@ export default function ContractorPortalAdmin() {
                           {doc.documentUrl && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(doc.documentUrl, "_blank")}>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(objectUrl(doc.documentUrl), "_blank")}>
                                   <Eye className="w-3 h-3" />
                                 </Button>
                               </TooltipTrigger>
