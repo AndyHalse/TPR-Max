@@ -1113,7 +1113,7 @@ export function registerContractorRoutes(app: Express): void {
       // Audit trail — company created
       try {
         const auditDb = await customerDbService.getCustomerDatabase(context.customerId);
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         await auditDb.insert(isolatedSchema.companyNotes).values({
           companyId: contractor.id,
           changeType: 'company_created',
@@ -1186,7 +1186,7 @@ export function registerContractorRoutes(app: Express): void {
       // Audit trail — company updated
       try {
         const auditDb = await customerDbService.getCustomerDatabase(context.customerId);
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const changedFields = Object.keys(cleanUpdates).join(', ');
         await auditDb.insert(isolatedSchema.companyNotes).values({
           companyId: id,
@@ -1978,7 +1978,7 @@ export function registerContractorRoutes(app: Express): void {
 
       // Audit trail — company document uploaded
       try {
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const docLabel = (documentType || documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
         await db.insert(isolatedSchema.companyNotes).values({
           companyId,
@@ -2038,7 +2038,7 @@ export function registerContractorRoutes(app: Express): void {
 
       // Audit trail — company document replaced/updated
       try {
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const docLabel = (updated?.documentType || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
         const action = normalizedUrl ? 'replaced' : 'updated';
         await db.insert(isolatedSchema.companyNotes).values({
@@ -2060,7 +2060,7 @@ export function registerContractorRoutes(app: Express): void {
       if (updated && isNowExpired && !wasAlreadyExpired) {
         setImmediate(async () => {
           try {
-            const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+            const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
             const docLabel = (updated.documentType || updated.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
             const settingsRows = await db.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
             const sRow = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
@@ -2132,7 +2132,7 @@ export function registerContractorRoutes(app: Express): void {
 
       // Audit trail
       try {
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const docLabel = (deleted.documentType || deleted.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
         await db.insert(isolatedSchema.companyNotes).values({
           companyId,
@@ -2147,7 +2147,7 @@ export function registerContractorRoutes(app: Express): void {
       // Fire-and-forget: notify admin that a compliance document was deleted
       setImmediate(async () => {
         try {
-          const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+          const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
           const docLabel = (deleted.documentType || deleted.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
           const settingsRows = await db.execute(`SELECT company_name, email, notify_on_document_deletion FROM company_settings LIMIT 1`);
           const sRow = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_deletion?: boolean } | undefined;
@@ -2225,7 +2225,7 @@ export function registerContractorRoutes(app: Express): void {
 
       // Audit trail
       try {
-        const auditTs = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const docLabel = (updated.documentType || updated.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
         await db.insert(isolatedSchema.companyNotes).values({
           companyId,

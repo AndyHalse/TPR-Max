@@ -51,8 +51,8 @@ export interface WorkerServiceContext {
 
 function nowLabel(): { dateStr: string; timeStr: string; ts: string } {
   const now = new Date();
-  const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/London' });
+  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
   return { dateStr, timeStr, ts: `${dateStr} at ${timeStr}` };
 }
 
@@ -752,7 +752,7 @@ async function _writeAdminCreateNotes(
   body: any,
 ): Promise<void> {
   try {
-    const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+    const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
 
     const transportLabels: Record<string, string> = {
       car_diesel: 'Car (diesel)', car_petrol: 'Car (petrol)', electric_car: 'Electric car',
@@ -823,9 +823,9 @@ async function _writePortalCreateNotes(
   const portalActor = `portal:${ctx.actor}`;
   const auditNow = new Date();
   const auditTs =
-    auditNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    auditNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/London' }) +
     ' ' +
-    auditNow.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    auditNow.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
   try {
     await ctx.db.insert(isolatedSchema.workerNotes).values({
       workerId: worker.id,

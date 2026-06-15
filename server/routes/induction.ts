@@ -1131,7 +1131,7 @@ export function registerInductionRoutes(app: Express): void {
           const noteCtx = simpleDatabaseService.createCustomerContext('system', token.customerId);
           const noteDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(noteCtx.customerId);
           const now = new Date();
-          const dateStr = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+          const dateStr = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
           const attemptNum = token.quizAttempts || 1;
 
           await noteDb.transaction(async (tx) => {
@@ -1645,7 +1645,7 @@ export function registerInductionRoutes(app: Express): void {
 
       // Audit trail — worker document uploaded
       try {
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const docLabel = documentType?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || documentName;
         await db.insert(isolatedSchema.workerNotes).values({
           workerId,
@@ -1722,7 +1722,7 @@ export function registerInductionRoutes(app: Express): void {
 
       // Audit trail — worker document deleted
       try {
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const docLabel = deletedDoc?.documentType?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || deletedDoc?.documentName || 'Unknown';
         await db.insert(isolatedSchema.workerNotes).values({
           workerId,

@@ -137,8 +137,8 @@ export function registerPassRoutes(app: Express): void {
       }
 
       const checkinTime = visitor.checkedInAt
-        ? new Date(visitor.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
-        : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+        ? new Date(visitor.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/London' })
+        : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/London' });
 
       const html = await buildPassPage({
         title: `Visitor Pass — ${visitor.firstName} ${visitor.lastName}`,
@@ -181,8 +181,8 @@ export function registerPassRoutes(app: Express): void {
       const logoUrl = settings?.logoUrl ? `${baseUrl}${settings.logoUrl}` : null;
 
       const checkinTime = worker.checkedInAt
-        ? new Date(worker.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
-        : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+        ? new Date(worker.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/London' })
+        : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/London' });
 
       // Gate on active card_issues — never trust the raw column alone
       const db = await customerDbService.getCustomerDatabase(req.customerId);
