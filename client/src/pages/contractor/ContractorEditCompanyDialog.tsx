@@ -29,7 +29,7 @@ export default function ContractorEditCompanyDialog({ open, onOpenChange, compan
     if (company && open) {
       setForm({
         name: company.name || "",
-        email: company.email || "",
+        email: (company as any).contactEmail || company.email || "",
         contactFirstName: company.contactFirstName || "",
         contactLastName: company.contactLastName || "",
         phone: (company as any).contactPhone || company.phone || "",

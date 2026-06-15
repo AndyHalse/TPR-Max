@@ -912,6 +912,53 @@ const fixWorkerCertOwnershipMigration: Migration = {
   }
 };
 
+const ensureLoneWorkerTablesMigration: Migration = {
+  version: '20260615_002_ensure_lone_worker_tables',
+  description: 'Safety-net: ensure lone_worker_sessions and lone_worker_tokens exist (idempotent re-create for customers where migration 057 silently failed)',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS lone_worker_sessions (
+          id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+          customer_id          TEXT        NOT NULL,
+          person_id            TEXT        NOT NULL,
+          person_type          TEXT        NOT NULL DEFAULT 'staff',
+          person_name          TEXT        NOT NULL,
+          person_email         TEXT,
+          started_at           TIMESTAMP   NOT NULL DEFAULT NOW(),
+          ended_at             TIMESTAMP,
+          interval_mins        INTEGER     NOT NULL DEFAULT 30,
+          grace_period_mins    INTEGER     NOT NULL DEFAULT 10,
+          status               TEXT        NOT NULL DEFAULT 'active',
+          check_ins_completed  INTEGER     NOT NULL DEFAULT 0,
+          escalations_fired    INTEGER     NOT NULL DEFAULT 0,
+          ended_by             TEXT
+        )
+      `);
+      logger.info('✅ lone_worker_sessions table ensured');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (!msg.includes('already exists')) throw error;
+    }
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS lone_worker_tokens (
+          id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+          token       TEXT        NOT NULL UNIQUE,
+          session_id  UUID        NOT NULL REFERENCES lone_worker_sessions(id),
+          created_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+          expires_at  TIMESTAMP   NOT NULL,
+          used_at     TIMESTAMP
+        )
+      `);
+      logger.info('✅ lone_worker_tokens table ensured');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (!msg.includes('already exists')) throw error;
+    }
+  }
+};
+
 const createCompanyNotesTableMigration: Migration = {
   version: '20260615_001_create_company_notes',
   description: 'Create company_notes audit trail table for contractor company activity',
@@ -960,5 +1007,6 @@ export const missingTablesMigrations = [
   createWorkerCertificationTypesTableMigration,
   createContractorEquipmentMigration,
   fixWorkerCertOwnershipMigration,
+  ensureLoneWorkerTablesMigration,
   createCompanyNotesTableMigration,
 ];

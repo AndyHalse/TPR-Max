@@ -1150,7 +1150,9 @@ export function registerContractorRoutes(app: Express): void {
       // Map form field names to isolated schema field names
       const mappedUpdates = {
         companyName: updates.name,
-        contactEmail: updates.email, 
+        contactEmail: updates.email,
+        contactFirstName: updates.contactFirstName,
+        contactLastName: updates.contactLastName,
         contactPhone: updates.phone,
         address: updates.address,
         postcode: updates.postcode,

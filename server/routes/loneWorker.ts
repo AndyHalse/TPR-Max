@@ -182,6 +182,10 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
       }));
       res.json(augmented);
     } catch (err: any) {
+      const msg: string = err?.message ?? '';
+      if (msg.includes('does not exist') || msg.includes('undefined_table') || err?.code === '42P01') {
+        return res.json([]);
+      }
       logger.error('GET /api/lone-worker/active error:', err);
       res.status(500).json({ error: 'Failed to fetch active lone workers' });
     }
