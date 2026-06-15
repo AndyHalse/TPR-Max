@@ -178,7 +178,7 @@ export default function PlatformAdminBugReports() {
     if (!detail) return;
     try {
       await navigator.clipboard.writeText(buildCopyText(detail));
-      toast({ title: "Copied to clipboard", description: "Paste it straight into Claude Code or Replit." });
+      toast({ title: "Copied to clipboard", description: "Paste it straight into Claude Code." });
     } catch (_) {
       toast({ title: "Copy failed", description: "Your browser blocked clipboard access.", variant: "destructive" });
     }
@@ -429,7 +429,7 @@ export default function PlatformAdminBugReports() {
                       size="sm"
                       className="flex items-center gap-1.5"
                       onClick={handleCopyAll}
-                      title="Copy entire report as text for pasting into Claude Code / Replit"
+                      title="Copy entire report as text for pasting into Claude Code"
                     >
                       <Copy className="w-3.5 h-3.5" /> Copy all
                     </Button>

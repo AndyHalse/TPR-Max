@@ -89,7 +89,7 @@ export default function AiSettings() {
           <Label className="text-sm font-medium text-fixed">AI Model</Label>
           <Tooltip>
             <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
-            <TooltipContent className="max-w-xs">Controls which AI model generates induction scripts and safety content. Claude Sonnet 4 is recommended — best quality for multi-scene scripts. Claude and Gemini models require their respective API keys configured below. GPT models use Replit AI credits.</TooltipContent>
+            <TooltipContent className="max-w-xs">Controls which AI model generates induction scripts and safety content. Claude Sonnet 4 is recommended — best quality for multi-scene scripts. Claude and Gemini models require their respective API keys configured below. GPT models are billed via platform AI credits.</TooltipContent>
           </Tooltip>
         </div>
         <Select

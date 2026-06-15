@@ -1703,7 +1703,7 @@ export default function InductionSettings() {
                   <span>No Google Gemini API key configured — add one in <strong>Settings → AI</strong> or generation will fail.</span>
                 </div>
               )}
-              <p className="text-xs text-variable">Changes auto-save. GPT models use Replit AI credits. Claude and Gemini models use your own API keys.</p>
+              <p className="text-xs text-variable">Changes auto-save. GPT models are billed via platform AI credits. Claude and Gemini models use your own API keys.</p>
             </div>
           </div>
         </GlassCard>

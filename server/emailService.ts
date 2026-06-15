@@ -235,7 +235,7 @@ class EmailService {
         if (!url) return null;
         if (url.startsWith('http://') || url.startsWith('https://')) return url;
         
-        const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`).trim();
+        const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || 'https://www.tpr-max.com').trim();
         const base = host.startsWith('http') ? host : `https://${host}`;
         const cleanBase = base.replace(/\/$/, ''); // Remove trailing slash
         const cleanPath = url.replace(/^\//, ''); // Remove leading slash
@@ -2813,11 +2813,11 @@ This email was sent automatically by TPR`;
       // Create secure invitation URL - use proper domain based on environment
       let baseUrl: string;
       if (process.env.NODE_ENV === 'production') {
-        baseUrl = process.env.BASE_URL || 'https://your-app.replit.app';
+        baseUrl = process.env.BASE_URL || 'https://www.tpr-max.com';
       } else {
-        // In development, use REPLIT_DOMAINS for correct URL
-        const replitDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
-        baseUrl = replitDomain ? `https://${replitDomain}` : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        // In development, prefer an explicit BASE_URL override, then the Replit preview domain
+        const devDomain = process.env.BASE_URL || process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
+        baseUrl = devDomain ? (devDomain.startsWith('http') ? devDomain : `https://${devDomain}`) : 'http://localhost:5000';
       }
       
       const invitationUrl = customerId
