@@ -333,7 +333,7 @@ export default function ReportProblemButton() {
                         />
                         <div className="flex-1 min-w-0 space-y-1">
                           <Input
-                            placeholder="Optional caption (e.g. "the modal where it breaks")"
+                            placeholder={`Optional caption (e.g. "the modal where it breaks")`}
                             value={att.caption}
                             onChange={(e) => updateCaption(att.id, e.target.value)}
                             maxLength={200}
