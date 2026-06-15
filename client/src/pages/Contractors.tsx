@@ -234,6 +234,12 @@ export default function Contractors() {
     const t = p.get("tab") || "contractors";
     return VALID_TABS.includes(t) ? t : "contractors";
   });
+  // When arriving from the compliance dashboard with a defaultTab hint,
+  // clicking into a contractor navigates directly to that tab.
+  const defaultContractorTab = (() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("defaultTab") || null;
+  })();
   const [searchTerm, setSearchTerm] = useState(() => {
     const p = new URLSearchParams(window.location.search);
     return p.get("search") || "";
@@ -1428,12 +1434,12 @@ export default function Contractors() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setLocation(`/contractors/${contractor.id}`)}
+                    onClick={() => setLocation(`/contractors/${contractor.id}${defaultContractorTab ? `?tab=${defaultContractorTab}` : ''}`)}
                     className="w-full"
                     data-testid={`button-workers-${contractor.id}`}
                   >
                     <Users className="mr-2" size={14} />
-                    Workers
+                    {defaultContractorTab === 'documents' ? 'Documents' : 'Workers'}
                   </Button>
                   <Button
                     variant="outline"
@@ -1492,8 +1498,8 @@ export default function Contractors() {
                     <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                       {complianceGapBadge}
                       {getStatusBadge(contractor.status)}
-                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm">
-                        <Users className="mr-1" size={13} />Workers
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}${defaultContractorTab ? `?tab=${defaultContractorTab}` : ''}`)} className="h-9 px-3 text-sm">
+                        <Users className="mr-1" size={13} />{defaultContractorTab === 'documents' ? 'Documents' : 'Workers'}
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm">
                         <UserPlus className="mr-1" size={13} />Add Worker
@@ -1507,8 +1513,8 @@ export default function Contractors() {
                       {getStatusBadge(contractor.status)}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm font-medium">
-                        <Users className="mr-1" size={13} />Workers
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}${defaultContractorTab ? `?tab=${defaultContractorTab}` : ''}`)} className="h-9 px-3 text-sm font-medium">
+                        <Users className="mr-1" size={13} />{defaultContractorTab === 'documents' ? 'Documents' : 'Workers'}
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm font-medium">
                         <UserPlus className="mr-1" size={13} />Add
