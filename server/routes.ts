@@ -17,6 +17,12 @@ import { setupAutomaticDailyReset } from "./routes/induction";
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
   // Apply shared-DB schema migrations (evacuations table is in the shared DB, not isolated)
   try {
+    await db.execute(sql`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS attachments JSONB`);
+    logger.info(`✅ [shared-migration] bug_reports.attachments column ensured`);
+  } catch (e: any) {
+    logger.info(`⚠️ [shared-migration] bug_reports.attachments: ${String(e?.message || e).substring(0, 120)}`);
+  }
+  try {
     await db.execute(sql`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS is_drill BOOLEAN NOT NULL DEFAULT FALSE`);
     logger.info(`✅ [shared-migration] evacuations.is_drill column ensured`);
   } catch (e: any) {

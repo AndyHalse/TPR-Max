@@ -7,6 +7,10 @@ import { eq, desc, sql } from 'drizzle-orm';
 import { EmailService } from '../emailService';
 import { logger } from '../utils/logger';
 
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 12 * 1024 * 1024;
+const MAX_ATTACHMENTS = 5;
+
 const bugReportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -30,8 +34,27 @@ export function registerBugReportRoutes(app: Express) {
         if (!data.screenshot.startsWith('data:image/')) {
           return res.status(400).json({ error: 'Screenshot must be a valid image data URL.' });
         }
-        if (data.screenshot.length > 4 * 1024 * 1024) {
+        if (data.screenshot.length > MAX_ATTACHMENT_BYTES) {
           return res.status(400).json({ error: 'Screenshot too large (max 4MB).' });
+        }
+      }
+
+      if (data.attachments && data.attachments.length > 0) {
+        if (data.attachments.length > MAX_ATTACHMENTS) {
+          return res.status(400).json({ error: `Too many attachments (max ${MAX_ATTACHMENTS}).` });
+        }
+        let totalBytes = 0;
+        for (const att of data.attachments) {
+          if (!att.dataUrl.startsWith('data:image/')) {
+            return res.status(400).json({ error: 'Each attachment must be a valid image data URL.' });
+          }
+          if (att.dataUrl.length > MAX_ATTACHMENT_BYTES) {
+            return res.status(400).json({ error: 'One or more attachments exceed the 4MB per-image limit.' });
+          }
+          totalBytes += att.dataUrl.length;
+        }
+        if (totalBytes > MAX_TOTAL_BYTES) {
+          return res.status(400).json({ error: 'Total attachments exceed 12MB. Please reduce the number or size of images.' });
         }
       }
 
@@ -63,8 +86,12 @@ export function registerBugReportRoutes(app: Express) {
         screenSize: data.screenSize ?? null,
         consoleErrors: data.consoleErrors ?? null,
         screenshot: data.screenshot ?? null,
+        attachments: data.attachments && data.attachments.length > 0 ? data.attachments : null,
         status: 'new',
       }).returning({ id: bugReports.id, reportNumber: bugReports.reportNumber });
+
+      const totalImages =
+        (data.screenshot ? 1 : 0) + (data.attachments?.length ?? 0);
 
       const notifyEmail = process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
       try {
@@ -81,10 +108,11 @@ export function registerBugReportRoutes(app: Express) {
                 <tr><td style="padding:4px 8px;font-weight:bold">Reporter</td><td>${esc(data.reporterName ?? '—')} (${esc(data.reporterEmail ?? '—')})</td></tr>
                 <tr><td style="padding:4px 8px;font-weight:bold">Page</td><td>${esc(data.pageUrl ?? '—')}</td></tr>
                 <tr><td style="padding:4px 8px;font-weight:bold">Screen</td><td>${esc(data.screenSize ?? '—')}</td></tr>
+                ${totalImages > 0 ? `<tr><td style="padding:4px 8px;font-weight:bold">Attachments</td><td>${totalImages} image(s)</td></tr>` : ''}
               </table>
               <h3>Description</h3>
               <p style="white-space:pre-wrap;background:#f8fafc;padding:12px;border-radius:4px;border-left:4px solid #d97706">${esc(data.description)}</p>
-              ${data.consoleErrors ? `<h3>Console Errors</h3><pre style="background:#fee2e2;padding:8px;font-size:12px;overflow:auto;border-radius:4px">${esc(data.consoleErrors)}</pre>` : ''}
+              ${data.consoleErrors ? `<h3>Console / Network Logs</h3><pre style="background:#fee2e2;padding:8px;font-size:12px;overflow:auto;border-radius:4px">${esc(data.consoleErrors)}</pre>` : ''}
             </div>
           `,
           text: `${reportNumber} — New Bug Report\nCustomer: ${customerName || customerId}\nReporter: ${data.reporterName ?? '—'} (${data.reporterEmail ?? '—'})\nPage: ${data.pageUrl ?? '—'}\n\n${data.description}`,
@@ -121,6 +149,7 @@ export function registerBugReportRoutes(app: Express) {
         updatedAt: bugReports.updatedAt,
         resolvedAt: bugReports.resolvedAt,
         hasScreenshot: sql<boolean>`(${bugReports.screenshot} IS NOT NULL)`,
+        attachmentCount: sql<number>`coalesce(jsonb_array_length(${bugReports.attachments}), 0)`,
       })
         .from(bugReports)
         .orderBy(desc(bugReports.createdAt));

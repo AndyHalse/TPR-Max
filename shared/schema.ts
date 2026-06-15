@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, numeric, index, uniqueIndex, check } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, numeric, index, uniqueIndex, check, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -2674,6 +2674,7 @@ export const bugReports = pgTable("bug_reports", {
   screenSize: text("screen_size"),
   consoleErrors: text("console_errors"),
   screenshot: text("screenshot"),
+  attachments: jsonb("attachments").$type<Array<{ dataUrl: string; caption: string }>>(),
   status: text("status").notNull().default("new"),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -2697,6 +2698,10 @@ export const insertBugReportSchema = createInsertSchema(bugReports).omit({
   resolvedAt: true,
 }).extend({
   description: z.string().min(1).max(5000),
+  attachments: z.array(z.object({
+    dataUrl: z.string().startsWith("data:image/"),
+    caption: z.string().max(200),
+  })).max(5).optional(),
 });
 
 export type BugReport = typeof bugReports.$inferSelect;

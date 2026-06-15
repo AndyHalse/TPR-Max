@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Bug, Camera, Download, Maximize2, ChevronDown, X } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+
+interface Attachment {
+  dataUrl: string;
+  caption: string;
+}
 
 interface BugReport {
   id: string;
@@ -29,10 +34,12 @@ interface BugReport {
   updatedAt: string;
   resolvedAt: string | null;
   hasScreenshot: boolean;
+  attachmentCount: number;
 }
 
 interface BugReportDetail extends BugReport {
   screenshot: string | null;
+  attachments: Attachment[] | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -44,6 +51,30 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 
 const STATUSES = ["new", "in_progress", "fixed", "closed"] as const;
 
+function buildCopyText(detail: BugReportDetail): string {
+  const totalImages =
+    (detail.screenshot ? 1 : 0) + (detail.attachments?.length ?? 0);
+  return [
+    `TPR Bug Report ${detail.reportNumber} — ${new Date(detail.createdAt).toLocaleString()}`,
+    `Reporter: ${detail.reporterName || "—"}${detail.reporterEmail ? ` <${detail.reporterEmail}>` : ""}`,
+    `Customer: ${detail.customerName || detail.customerId || "—"}`,
+    `Page: ${detail.pageUrl || "—"}`,
+    `Browser: ${detail.browserInfo || "—"} | Screen: ${detail.screenSize || "—"}`,
+    `Status: ${STATUS_CONFIG[detail.status]?.label ?? detail.status}`,
+    "",
+    "## Description",
+    detail.description,
+    "",
+    ...(detail.consoleErrors
+      ? ["## Console / Network Logs", detail.consoleErrors, ""]
+      : []),
+    `## Attachments`,
+    totalImages > 0
+      ? `${totalImages} image(s) attached — view in Platform Admin.`
+      : "No images attached.",
+  ].join("\n");
+}
+
 export default function PlatformAdminBugReports() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -51,7 +82,7 @@ export default function PlatformAdminBugReports() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailNotes, setDetailNotes] = useState("");
   const [detailStatus, setDetailStatus] = useState("");
-  const [zoomedScreenshot, setZoomedScreenshot] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery<{ reports: BugReport[] }>({
     queryKey: ["/platform-admin/bug-reports"],
@@ -105,9 +136,34 @@ export default function PlatformAdminBugReports() {
     }
   }
 
+  async function handleCopyAll() {
+    if (!detail) return;
+    try {
+      await navigator.clipboard.writeText(buildCopyText(detail));
+      toast({ title: "Copied to clipboard", description: "Paste it straight into Claude Code or Replit." });
+    } catch (_) {
+      toast({ title: "Copy failed", description: "Your browser blocked clipboard access.", variant: "destructive" });
+    }
+  }
+
+  function downloadImage(dataUrl: string, filename: string) {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+  }
+
   const reports = data?.reports ?? [];
   const filtered = statusFilter === "all" ? reports : reports.filter((r) => r.status === statusFilter);
   const openCount = reports.filter((r) => r.status === "new" || r.status === "in_progress").length;
+
+  const allImages: Array<{ dataUrl: string; caption: string; index: number }> = [];
+  if (detail) {
+    if (detail.screenshot) allImages.push({ dataUrl: detail.screenshot, caption: "Auto-screenshot", index: 0 });
+    (detail.attachments ?? []).forEach((a, i) =>
+      allImages.push({ dataUrl: a.dataUrl, caption: a.caption || `Attachment ${i + 1}`, index: allImages.length })
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -150,6 +206,7 @@ export default function PlatformAdminBugReports() {
           {filtered.map((report) => {
             const cfg = STATUS_CONFIG[report.status] ?? STATUS_CONFIG.new;
             const firstLine = report.description.split("\n")[0].slice(0, 120);
+            const imgCount = (report.hasScreenshot ? 1 : 0) + (report.attachmentCount ?? 0);
             return (
               <Card
                 key={report.id}
@@ -160,8 +217,10 @@ export default function PlatformAdminBugReports() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-mono text-sm font-bold text-amber-600">{report.reportNumber}</span>
-                      {report.hasScreenshot && (
-                        <span title="Has screenshot"><Camera className="w-3.5 h-3.5 text-slate-400" /></span>
+                      {imgCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-slate-400" title={`${imgCount} image${imgCount !== 1 ? "s" : ""}`}>
+                          <Image className="w-3.5 h-3.5" />{imgCount}
+                        </span>
                       )}
                       <Badge className={`text-xs px-2 py-0 ${cfg.className}`}>{cfg.label}</Badge>
                       <span className="text-xs text-muted-foreground">
@@ -190,14 +249,27 @@ export default function PlatformAdminBugReports() {
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Bug className="w-5 h-5 text-amber-500" />
-                  {detail.reportNumber}
-                </DialogTitle>
-                <DialogDescription>
-                  {detail.customerName || detail.customerId || "Unknown customer"} ·{" "}
-                  {new Date(detail.createdAt).toLocaleString()}
-                </DialogDescription>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Bug className="w-5 h-5 text-amber-500" />
+                      {detail.reportNumber}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {detail.customerName || detail.customerId || "Unknown customer"} ·{" "}
+                      {new Date(detail.createdAt).toLocaleString()}
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1.5 shrink-0 mt-0.5"
+                    onClick={handleCopyAll}
+                    title="Copy entire report as text for pasting into Claude Code / Replit"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Copy all
+                  </Button>
+                </div>
               </DialogHeader>
 
               <div className="space-y-4 py-2">
@@ -242,51 +314,52 @@ export default function PlatformAdminBugReports() {
                   </div>
                 )}
 
-                {/* Console errors */}
+                {/* Console / network logs */}
                 {detail.consoleErrors && (
                   <div>
-                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Console Errors</Label>
-                    <pre className="mt-1 text-xs bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded p-3 max-h-36 overflow-auto whitespace-pre-wrap">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Console / Network Logs</Label>
+                    <pre className="mt-1 text-xs bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded p-3 max-h-48 overflow-auto whitespace-pre-wrap">
                       {detail.consoleErrors}
                     </pre>
                   </div>
                 )}
 
-                {/* Screenshot */}
-                {detail.screenshot && (
+                {/* Image gallery — legacy screenshot + attachments */}
+                {allImages.length > 0 && (
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Screenshot</Label>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => {
-                            const a = document.createElement("a");
-                            a.href = detail.screenshot!;
-                            a.download = `${detail.reportNumber || "bug-report"}.jpg`;
-                            a.click();
-                          }}
-                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                          title="Download screenshot"
-                        >
-                          <Download className="w-3 h-3" /> Download
-                        </button>
-                        <span className="text-muted-foreground/40 mx-1">·</span>
-                        <button
-                          onClick={() => setZoomedScreenshot(detail.screenshot!)}
-                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                          title="View full size"
-                        >
-                          <Maximize2 className="w-3 h-3" /> Full size
-                        </button>
-                      </div>
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Screenshots &amp; Attachments ({allImages.length})
+                    </Label>
+                    <div className="mt-2 space-y-3">
+                      {allImages.map((img, i) => (
+                        <div key={i} className="border rounded-lg overflow-hidden">
+                          <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-xs text-muted-foreground">
+                            <span className="font-medium">{img.caption || `Image ${i + 1}`}</span>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => downloadImage(img.dataUrl, `${detail.reportNumber}-img${i + 1}.jpg`)}
+                                className="hover:text-foreground flex items-center gap-1 transition-colors"
+                              >
+                                <Download className="w-3 h-3" /> Download
+                              </button>
+                              <span className="text-muted-foreground/40">·</span>
+                              <button
+                                onClick={() => setZoomedImage(img.dataUrl)}
+                                className="hover:text-foreground flex items-center gap-1 transition-colors"
+                              >
+                                <Maximize2 className="w-3 h-3" /> Full size
+                              </button>
+                            </div>
+                          </div>
+                          <img
+                            src={img.dataUrl}
+                            alt={img.caption || `Screenshot ${i + 1}`}
+                            className="w-full object-contain bg-slate-50 dark:bg-slate-900 cursor-zoom-in max-h-64"
+                            onClick={() => setZoomedImage(img.dataUrl)}
+                          />
+                        </div>
+                      ))}
                     </div>
-                    <img
-                      src={detail.screenshot}
-                      alt="Bug report screenshot"
-                      className="w-full rounded border object-contain bg-slate-50 dark:bg-slate-900 cursor-zoom-in"
-                      onClick={() => setZoomedScreenshot(detail.screenshot!)}
-                      title="Click to view full size"
-                    />
                   </div>
                 )}
 
@@ -333,15 +406,15 @@ export default function PlatformAdminBugReports() {
         </DialogContent>
       </Dialog>
 
-      {/* Screenshot lightbox */}
-      {zoomedScreenshot && (
+      {/* Image lightbox */}
+      {zoomedImage && (
         <div
           className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setZoomedScreenshot(null)}
+          onClick={() => setZoomedImage(null)}
         >
           <button
             className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-            onClick={() => setZoomedScreenshot(null)}
+            onClick={() => setZoomedImage(null)}
           >
             <X className="w-5 h-5" />
           </button>
@@ -349,17 +422,14 @@ export default function PlatformAdminBugReports() {
             className="absolute top-4 right-16 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
-              const a = document.createElement("a");
-              a.href = zoomedScreenshot;
-              a.download = "bug-report-screenshot.jpg";
-              a.click();
+              downloadImage(zoomedImage, "bug-report-screenshot.jpg");
             }}
             title="Download"
           >
             <Download className="w-5 h-5" />
           </button>
           <img
-            src={zoomedScreenshot}
+            src={zoomedImage}
             alt="Full size screenshot"
             className="max-w-full max-h-full rounded shadow-2xl object-contain"
             onClick={(e) => e.stopPropagation()}
