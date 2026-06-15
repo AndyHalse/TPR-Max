@@ -1216,6 +1216,7 @@ export const inductionSettings = pgTable("induction_settings", {
   generatedAt: timestamp("generated_at"), // When video was last generated
   questionsGenerated: boolean("questions_generated").default(false), // Whether AI questions have been saved
   customVideoUrl: text("custom_video_url"),   // Object-storage path for customer-uploaded video (null = use AI-generated)
+  failureFeedbackLevel: text("failure_feedback_level").default("questions_topics"), // 'score_only' | 'questions_topics' | 'topics_rewatch'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

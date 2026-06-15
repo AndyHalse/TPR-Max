@@ -41,6 +41,7 @@ interface InductionSettingRow {
   videoFormat: string;
   modelType: string;
   passPercentage: number;
+  failureFeedbackLevel?: string;
   isActive?: boolean;
   kioskEnabled?: boolean;
   sendLinkEnabled?: boolean;
@@ -222,6 +223,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const [isRegeneratingQuestions, setIsRegeneratingQuestions] = useState(false);
   const [isTogglingKiosk, setIsTogglingKiosk] = useState(false);
   const [kioskEnabled, setKioskEnabled] = useState<boolean>(settings?.kioskEnabled ?? false);
+  const [failureFeedbackLevel, setFailureFeedbackLevel] = useState<string>(settings?.failureFeedbackLevel ?? 'questions_topics');
+  const [isSavingFeedbackLevel, setIsSavingFeedbackLevel] = useState(false);
   const [isSendingLink, setIsSendingLink] = useState(false);
   const [showSendLink, setShowSendLink] = useState(false);
   const [sendName, setSendName] = useState('');
@@ -267,6 +270,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   }, [settings?.customVideoUrl]);
 
   useEffect(() => { setKioskEnabled(settings?.kioskEnabled ?? false); }, [settings?.kioskEnabled]);
+  useEffect(() => { setFailureFeedbackLevel(settings?.failureFeedbackLevel ?? 'questions_topics'); }, [settings?.failureFeedbackLevel]);
 
   // ── Queries ──
   const { data: slidesData, isLoading: slidesLoading, refetch: refetchSlides } = useQuery<{ scenes: InductionScene[] }>({
@@ -559,6 +563,17 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     finally { setIsTogglingKiosk(false); }
   };
 
+  const handleFeedbackLevelChange = async (value: string) => {
+    const prev = failureFeedbackLevel;
+    setFailureFeedbackLevel(value);
+    setIsSavingFeedbackLevel(true);
+    try {
+      await apiRequest('PATCH', `/api/induction/settings/${roleType}/toggle`, { failureFeedbackLevel: value });
+      queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
+    } catch { setFailureFeedbackLevel(prev); toast({ title: 'Failed to save', variant: 'destructive' }); }
+    finally { setIsSavingFeedbackLevel(false); }
+  };
+
   const handleCloseSendDialog = (open: boolean) => {
     setShowSendLink(open);
     if (!open) { setSelectedPersonId(null); setSendName(''); setSendEmail(''); setManualMode(false); setPersonFilter(''); }
@@ -843,9 +858,27 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-fixed">Knowledge Questions</h3>
-            <p className="text-xs text-variable mt-0.5">AI-generated scenario-based quiz. 80% pass mark required for compliance. Wrong-answer explanations are shown to the inductee.</p>
+            <p className="text-xs text-variable mt-0.5">AI-generated scenario-based quiz. 80% pass mark required for compliance.</p>
           </div>
           <Badge variant="secondary" className="shrink-0">{questions.length} question{questions.length !== 1 ? 's' : ''}</Badge>
+        </div>
+
+        {/* ── On-fail feedback level ── */}
+        <div className="mb-5 flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-fixed">On fail, show inductee</p>
+            <p className="text-xs text-variable mt-0.5">Controls what information is shown after a failed quiz attempt.</p>
+          </div>
+          <select
+            value={failureFeedbackLevel}
+            onChange={e => handleFeedbackLevelChange(e.target.value)}
+            disabled={isSavingFeedbackLevel}
+            className="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-background shrink-0 min-w-[170px]"
+          >
+            <option value="score_only">Score only</option>
+            <option value="questions_topics">Which questions they missed</option>
+            <option value="topics_rewatch">Missed questions + rewatch links</option>
+          </select>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-5">

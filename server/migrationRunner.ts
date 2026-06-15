@@ -314,6 +314,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     backfillLoneWorkerSessionsColumnsMigration,
     repairHrModuleDefaultMigration,
     setAllFeaturesOnMigration,
+    addInductionFailureFeedbackLevelMigration,
     addSsoCredentialsMigration,
     {
       version: '20260513_047_add_sso_fields',
@@ -2798,6 +2799,20 @@ const repairHrModuleDefaultMigration: Migration = {
       logger.info(`✅ [055] Repaired feature_hr_module: updated ${result?.rowCount ?? 0} rows to true`);
     } catch (err: any) {
       logger.info(`⚠️ [055] feature_hr_module repair UPDATE: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+// Migration 057 — Add failure_feedback_level to induction_settings (isolated schema per customer)
+const addInductionFailureFeedbackLevelMigration: Migration = {
+  version: '20260615_057_add_induction_failure_feedback_level',
+  description: 'Add failure_feedback_level column to induction_settings in each customer isolated schema',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE induction_settings ADD COLUMN IF NOT EXISTS failure_feedback_level TEXT DEFAULT 'questions_topics'`);
+      logger.info("✅ [057] induction_settings.failure_feedback_level ensured");
+    } catch (err: any) {
+      logger.info(`⚠️ [057] induction_settings.failure_feedback_level: ${err.message?.substring(0, 80)}`);
     }
   }
 };

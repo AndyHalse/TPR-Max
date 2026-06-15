@@ -129,6 +129,9 @@ export default function SiteInduction() {
   const [branding, setBranding] = useState<InductionBranding | null>(null);
   const fetchedTokenRef = useRef<string | null>(null);
 
+  // ── Failure feedback level (set by customer admin in InductionSettings) ──
+  const [failureFeedbackLevel, setFailureFeedbackLevel] = useState<string>('questions_topics');
+
   // ── Per-section quiz + native slide state ────────────────────────────────
   const [scenes, setScenes] = useState<InductionScene[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -193,6 +196,7 @@ export default function SiteInduction() {
       setWorker(tokenResponse.worker);
       setVideoContent(tokenResponse.videoContent);
       if (tokenResponse.branding) setBranding(tokenResponse.branding);
+      if (tokenResponse.failureFeedbackLevel) setFailureFeedbackLevel(tokenResponse.failureFeedbackLevel);
       
       // Derive personType from token object - critical for correct quiz and messaging
       const derivedPersonType = tkn?.personType || 'contractor';
@@ -379,6 +383,16 @@ export default function SiteInduction() {
     setCurrentQuestionIndex(0);
     setQuizResults(null);
     setQuizSubmitted(false);
+  };
+
+  const rewatchScene = (sceneIdx: number) => {
+    setAnswers({});
+    setPerSceneAnswers({});
+    setCurrentQuestionIndex(0);
+    setQuizResults(null);
+    setQuizSubmitted(false);
+    setCurrentSlideIndex(sceneIdx);
+    setCurrentStep("video");
   };
 
   // ── Native slide renderer (per-section knowledge checks) ─────────────────
@@ -919,37 +933,31 @@ export default function SiteInduction() {
                     )}
                   </div>
 
-                  {/* Wrong-answer review — learning moment before retry */}
-                  {wrongQuestions.length > 0 && (
+                  {/* Wrong-question summary — mode controlled by customer admin */}
+                  {wrongQuestions.length > 0 && failureFeedbackLevel !== 'score_only' && (
                     <div className="border border-orange-200 rounded-xl overflow-hidden">
                       <div className="bg-orange-600 px-4 py-3 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-white shrink-0" />
                         <span className="text-white text-sm font-semibold">
-                          Review — {wrongQuestions.length} question{wrongQuestions.length > 1 ? 's' : ''} to revisit
+                          Questions to review — {wrongQuestions.length} of {questions.length}
                         </span>
                       </div>
                       <ul className="divide-y divide-orange-100">
                         {wrongQuestions.map(q => {
-                          const given = answers[q.id] || perSceneAnswers[q.id];
-                          const givenText = given ? (q[`option${given}` as keyof InductionQuestion] as string) : 'No answer';
-                          const correctText = q[`option${q.correctAnswer}` as keyof InductionQuestion] as string;
+                          const questionNumber = questions.findIndex(qq => qq.id === q.id) + 1;
                           return (
-                            <li key={q.id} className="px-4 py-4 bg-orange-50 space-y-2">
-                              <p className="text-sm font-medium text-gray-900">{q.questionText}</p>
-                              <div className="space-y-1">
-                                <p className="text-sm flex items-start gap-1.5">
-                                  <span className="shrink-0 text-red-600 font-semibold">✗ Your answer:</span>
-                                  <span className="text-red-700">{givenText}</span>
-                                </p>
-                                <p className="text-sm flex items-start gap-1.5">
-                                  <span className="shrink-0 text-green-700 font-semibold">✓ Correct answer:</span>
-                                  <span className="text-green-800">{correctText}</span>
-                                </p>
-                              </div>
-                              {q.explanation && (
-                                <p className="text-xs text-gray-600 bg-white border border-orange-200 rounded-lg px-3 py-2 leading-relaxed">
-                                  {q.explanation}
-                                </p>
+                            <li key={q.id} className="px-4 py-3 bg-orange-50 flex items-center justify-between gap-3">
+                              <span className="text-sm text-gray-800">
+                                <span className="font-semibold">Question {questionNumber}</span>
+                                {q.category ? ` — ${q.category}` : ''}
+                              </span>
+                              {failureFeedbackLevel === 'topics_rewatch' && typeof (q as any).sceneIndex === 'number' && (
+                                <button
+                                  onClick={() => rewatchScene((q as any).sceneIndex)}
+                                  className="shrink-0 text-xs text-blue-700 underline underline-offset-2 hover:text-blue-900 flex items-center gap-1"
+                                >
+                                  ▶ Rewatch this section
+                                </button>
                               )}
                             </li>
                           );

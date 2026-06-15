@@ -332,6 +332,7 @@ export function registerInductionRoutes(app: Express): void {
               videoUrl: isolatedSchema.inductionSettings.videoUrl,
               generatedHtml: isolatedSchema.inductionSettings.generatedHtml,
               customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl,
+              failureFeedbackLevel: isolatedSchema.inductionSettings.failureFeedbackLevel,
             })
             .from(isolatedSchema.inductionSettings)
             .where(eq(isolatedSchema.inductionSettings.roleType, personType));
@@ -376,6 +377,7 @@ export function registerInductionRoutes(app: Express): void {
         worker: personDetails,
         personType,
         branding,
+        failureFeedbackLevel: videoSettingsAny?.failureFeedbackLevel ?? 'questions_topics',
         videoContent: videoSettingsAny ? {
           title: videoSettingsAny.videoTitle,
           description: videoSettingsAny.videoDescription,
@@ -1175,6 +1177,49 @@ export function registerInductionRoutes(app: Express): void {
       } catch (workerErr) {
         logger.error('⚠️ Failed to update worker induction record:', workerErr);
         workerUpdateWarning = 'Result recorded but worker record update failed — please contact support.';
+      }
+
+      // ── Email admin on final failed attempt (5th) ────────────────────────
+      if (!results.passed) {
+        const attemptsBefore = tokenRecord.quizAttempts ?? 0;
+        if (attemptsBefore >= 4) {
+          // This was attempt 5 (or beyond due to guard above) — notify the customer admin
+          (async () => {
+            try {
+              const [freshToken] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+              if (!freshToken?.customerId) return;
+              const adminCtx = simpleDatabaseService.createCustomerContext('system', freshToken.customerId);
+              const adminSettings = await simpleDatabaseService.getCompanySettings(adminCtx);
+              const adminEmail = adminSettings?.email;
+              if (!adminEmail) return;
+              const personLabel = freshToken.personName || 'Unknown person';
+              const roleLabel = (freshToken.personType || 'contractor').charAt(0).toUpperCase() + (freshToken.personType || 'contractor').slice(1);
+              const dateStr = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
+              const subject = `Induction alert: ${personLabel} has exhausted all quiz attempts`;
+              const body = [
+                `This is an automated notification from TPR Max.`,
+                ``,
+                `${personLabel} (${freshToken.personEmail || 'no email recorded'}) has used all 5 attempts on their ${roleLabel} site induction quiz and has not yet passed.`,
+                ``,
+                `Final score: ${results.score}% (pass mark: ${freshToken.passThreshold ?? 80}%)`,
+                `Induction type: ${roleLabel}`,
+                `All attempts used: 5/5`,
+                `Time: ${dateStr}`,
+                ``,
+                `To allow them to retake the quiz, open Induction Settings → Sent Links and click "Reset Quiz" next to their name, or issue a new induction link.`,
+              ].join('\n');
+              await emailService.forCustomer(freshToken.customerId).sendEmail({
+                to: adminEmail,
+                subject,
+                html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${body}</pre>`,
+                text: body,
+              });
+              logger.info(`✅ Exhausted-attempts email sent to ${adminEmail} for token ${tokenId}`);
+            } catch (emailErr) {
+              logger.error('⚠️ Failed to send exhausted-attempts email:', emailErr);
+            }
+          })();
+        }
       }
 
       res.json({ results, topicsCovered, ...(workerUpdateWarning ? { warning: workerUpdateWarning } : {}) });
@@ -4004,6 +4049,7 @@ export function registerInductionRoutes(app: Express): void {
         createdAt: isolatedSchema.inductionSettings.createdAt,
         updatedAt: isolatedSchema.inductionSettings.updatedAt,
         customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl,
+        failureFeedbackLevel: isolatedSchema.inductionSettings.failureFeedbackLevel,
         hasGeneratedHtml: sql<boolean>`(generated_html IS NOT NULL)`,
         hasScenes: sql<boolean>`(scenes_data IS NOT NULL)`,
       }).from(isolatedSchema.inductionSettings);
@@ -4032,6 +4078,7 @@ export function registerInductionRoutes(app: Express): void {
         createdAt: inductionSettings.createdAt,
         updatedAt: inductionSettings.updatedAt,
         customVideoUrl: inductionSettings.customVideoUrl,
+        failureFeedbackLevel: sql<string>`COALESCE(failure_feedback_level, 'questions_topics')`,
         hasGeneratedHtml: sql<boolean>`(generated_html IS NOT NULL)`,
         hasScenes: sql<boolean>`(scenes_data IS NOT NULL)`,
       }).from(inductionSettings);
@@ -4097,13 +4144,17 @@ export function registerInductionRoutes(app: Express): void {
   app.patch('/api/induction/settings/:roleType/toggle', requireAuth, async (req, res) => {
     try {
       const { roleType } = req.params;
-      const { kioskEnabled, sendLinkEnabled } = req.body;
+      const { kioskEnabled, sendLinkEnabled, failureFeedbackLevel } = req.body;
       const customerId = req.customerId || 'default';
       const settingsDb = await customerDbService.getCustomerDatabase(customerId);
 
       const updateFields: any = { updatedAt: new Date() };
       if (typeof kioskEnabled === 'boolean') updateFields.kioskEnabled = kioskEnabled;
       if (typeof sendLinkEnabled === 'boolean') updateFields.sendLinkEnabled = sendLinkEnabled;
+      const VALID_FEEDBACK_LEVELS = ['score_only', 'questions_topics', 'topics_rewatch'];
+      if (typeof failureFeedbackLevel === 'string' && VALID_FEEDBACK_LEVELS.includes(failureFeedbackLevel)) {
+        updateFields.failureFeedbackLevel = failureFeedbackLevel;
+      }
 
       await settingsDb
         .update(isolatedSchema.inductionSettings)
