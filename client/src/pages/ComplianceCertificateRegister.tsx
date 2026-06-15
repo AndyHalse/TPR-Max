@@ -116,6 +116,14 @@ export default function ComplianceCertificateRegister() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const didHighlight = useRef(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadForm, setUploadForm] = useState({
+    issueDate: '', expiryDate: '', referenceNumber: '', issuedBy: '', issuingCompany: '', notes: '',
+  });
+
+  const { data: certTypes = [], isLoading } = useQuery<CertType[]>({
+    queryKey: ['/api/compliance-certificates/types'],
+  });
 
   useEffect(() => {
     if (didHighlight.current || !certTypes.length) return;
@@ -132,14 +140,6 @@ export default function ComplianceCertificateRegister() {
       setTimeout(() => setHighlightedId(null), 3000);
     }, 400);
   }, [certTypes]);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadForm, setUploadForm] = useState({
-    issueDate: '', expiryDate: '', referenceNumber: '', issuedBy: '', issuingCompany: '', notes: '',
-  });
-
-  const { data: certTypes = [], isLoading } = useQuery<CertType[]>({
-    queryKey: ['/api/compliance-certificates/types'],
-  });
 
   const { data: summary } = useQuery<StatusSummary>({
     queryKey: ['/api/compliance-certificates/status-summary'],
