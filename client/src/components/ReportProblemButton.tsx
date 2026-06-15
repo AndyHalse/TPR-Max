@@ -328,6 +328,7 @@ export default function ReportProblemButton() {
               />
               {attachments.length > 0 && (
                 <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">A quick caption on each image helps us fix it faster.</p>
                   {attachments.map((att) => (
                     <div key={att.id} className="border rounded-lg p-2 space-y-2 bg-slate-50 dark:bg-slate-900">
                       <div className="flex items-start gap-2">
@@ -338,7 +339,7 @@ export default function ReportProblemButton() {
                         />
                         <div className="flex-1 min-w-0 space-y-1">
                           <Input
-                            placeholder={`Optional caption (e.g. "the modal where it breaks")`}
+                            placeholder="What does this image show?"
                             value={att.caption}
                             onChange={(e) => updateCaption(att.id, e.target.value)}
                             maxLength={200}

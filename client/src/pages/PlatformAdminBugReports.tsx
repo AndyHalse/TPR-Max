@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image } from "lucide-react";
+import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,7 @@ export default function PlatformAdminBugReports() {
   const [detailNotes, setDetailNotes] = useState("");
   const [detailStatus, setDetailStatus] = useState("");
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const { data, isLoading, isError } = useQuery<{ reports: BugReport[] }>({
     queryKey: ["/platform-admin/bug-reports"],
@@ -151,6 +152,131 @@ export default function PlatformAdminBugReports() {
       toast({ title: "Copied to clipboard", description: "Paste it straight into Claude Code or Replit." });
     } catch (_) {
       toast({ title: "Copy failed", description: "Your browser blocked clipboard access.", variant: "destructive" });
+    }
+  }
+
+  async function handleDownloadPdf() {
+    if (!detail) return;
+    setPdfGenerating(true);
+    try {
+      const { jsPDF } = (await import("jspdf")) as { jsPDF: any };
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      const PW = 210, PH = 297, M = 15;
+      const CW = PW - M * 2;
+      let y = M;
+
+      const addLine = (
+        text: string,
+        fs: number,
+        style: "normal" | "bold" = "normal",
+        font: "helvetica" | "courier" = "helvetica",
+        r = 30, g = 30, b = 30,
+      ) => {
+        doc.setFontSize(fs);
+        doc.setFont(font, style);
+        doc.setTextColor(r, g, b);
+        const lineH = fs * 0.3528 * 1.45;
+        const wrapped: string[] = doc.splitTextToSize(text, CW);
+        let i = 0;
+        while (i < wrapped.length) {
+          const fit = Math.max(1, Math.floor((PH - M - y) / lineH));
+          const chunk = wrapped.slice(i, i + fit);
+          doc.text(chunk, M, y);
+          y += chunk.length * lineH;
+          i += fit;
+          if (i < wrapped.length) { doc.addPage(); y = M; }
+        }
+      };
+
+      const gap = (mm: number) => { y += mm; };
+      const checkPage = (need: number) => { if (y + need > PH - M) { doc.addPage(); y = M; } };
+
+      // ── Page 1: summary ──────────────────────────────────────────────
+      addLine(`TPR Bug Report ${detail.reportNumber}`, 16, "bold");
+      gap(1);
+      addLine(new Date(detail.createdAt).toLocaleString("en-GB"), 9, "normal", "helvetica", 100, 100, 100);
+      gap(6);
+
+      const meta: [string, string, boolean?][] = [
+        ["Reporter", `${detail.reporterName || "—"}${detail.reporterEmail ? ` <${detail.reporterEmail}>` : ""}`],
+        ...(detail.errorId ? [["Error Ref", detail.errorId, true] as [string, string, boolean]] : []),
+        ["App Version", detail.appVersion || "—"],
+        ["Status", STATUS_CONFIG[detail.status]?.label ?? detail.status],
+        ["Customer", detail.customerName || detail.customerId || "—"],
+        ["Page", detail.pageUrl || "—"],
+        ["Browser", detail.browserInfo || "—"],
+        ["Screen", detail.screenSize || "—"],
+      ];
+      for (const [label, value, isErr] of meta) {
+        checkPage(6);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(60, 60, 60);
+        doc.text(`${label}:`, M, y);
+        doc.setFont("helvetica", "normal");
+        if (isErr) doc.setTextColor(160, 20, 20); else doc.setTextColor(30, 30, 30);
+        const vLines: string[] = doc.splitTextToSize(value, CW - 38);
+        doc.text(vLines, M + 38, y);
+        y += Math.max(5, vLines.length * 4.2);
+      }
+      gap(4);
+
+      checkPage(12);
+      addLine("Description", 12, "bold");
+      gap(1);
+      addLine(detail.description, 9);
+      gap(5);
+
+      if (detail.consoleErrors?.trim()) {
+        checkPage(12);
+        addLine("Console / Network Logs", 12, "bold");
+        gap(1);
+        addLine(detail.consoleErrors, 7.5, "normal", "courier");
+        gap(5);
+      }
+
+      if (detail.breadcrumbs?.trim()) {
+        checkPage(12);
+        addLine("Breadcrumbs (last actions)", 12, "bold");
+        gap(1);
+        addLine(detail.breadcrumbs, 7.5, "normal", "courier");
+      }
+
+      // ── Image pages ───────────────────────────────────────────────────
+      for (const img of allImages) {
+        doc.addPage();
+        y = M;
+        addLine(img.caption, 13, "bold");
+        gap(4);
+
+        const fmt = img.dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+        await new Promise<void>((resolve) => {
+          const el = new window.Image();
+          el.onload = () => {
+            const mmPerPx = 0.264583;
+            const availW = CW;
+            const availH = PH - M - y;
+            const scale = Math.min(availW / (el.naturalWidth * mmPerPx), availH / (el.naturalHeight * mmPerPx), 1);
+            const dw = el.naturalWidth * mmPerPx * scale;
+            const dh = el.naturalHeight * mmPerPx * scale;
+            try { doc.addImage(img.dataUrl, fmt, M, y, dw, dh); } catch (_) {}
+            resolve();
+          };
+          el.onerror = () => resolve();
+          el.src = img.dataUrl;
+        });
+      }
+
+      const slug = (() => {
+        const seg = (detail.pageUrl ?? "").split("/").filter(Boolean).pop() ?? "";
+        return seg.replace(/[^a-z0-9]/gi, "-").toLowerCase() || "bug-report";
+      })();
+      doc.save(`${detail.reportNumber}-${slug}.pdf`);
+    } catch (err: any) {
+      toast({ title: "PDF generation failed", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setPdfGenerating(false);
     }
   }
 
@@ -268,15 +394,30 @@ export default function PlatformAdminBugReports() {
                       {new Date(detail.createdAt).toLocaleString()}
                     </DialogDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1.5 shrink-0 mt-0.5"
-                    onClick={handleCopyAll}
-                    title="Copy entire report as text for pasting into Claude Code / Replit"
-                  >
-                    <Copy className="w-3.5 h-3.5" /> Copy all
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5"
+                      onClick={handleCopyAll}
+                      title="Copy entire report as text for pasting into Claude Code / Replit"
+                    >
+                      <Copy className="w-3.5 h-3.5" /> Copy all
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5"
+                      onClick={handleDownloadPdf}
+                      disabled={pdfGenerating}
+                      title="Download full report as PDF (includes all screenshots)"
+                    >
+                      {pdfGenerating
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <FileText className="w-3.5 h-3.5" />}
+                      {pdfGenerating ? "Generating…" : "Download PDF"}
+                    </Button>
+                  </div>
                 </div>
               </DialogHeader>
 
