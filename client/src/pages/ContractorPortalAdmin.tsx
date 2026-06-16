@@ -5,7 +5,7 @@ import { apiRequest, objectUrl } from "@/lib/queryClient";
 import {
   Globe, Send, Users, Building2, Loader2,
   CheckCircle2, Clock, Plus, MailCheck, ShieldOff, FileText,
-  CheckCheck, XCircle, Eye, RefreshCw, AlertTriangle,
+  CheckCheck, XCircle, Eye, RefreshCw, AlertTriangle, ShieldCheck, Settings,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GlassCard from "@/components/GlassCard";
 import { toast } from "@/hooks/use-toast";
@@ -47,6 +48,8 @@ export default function ContractorPortalAdmin() {
   const [revokeTarget, setRevokeTarget] = useState<{ id: string; email: string } | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ docId: string; documentName: string; companyName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [requestChangesTarget, setRequestChangesTarget] = useState<{ id: string; companyName: string } | null>(null);
+  const [requestChangesReason, setRequestChangesReason] = useState("");
 
   const { data: companies = [] } = useQuery<any[]>({ queryKey: ["/api/contractors"] });
 
@@ -55,7 +58,7 @@ export default function ContractorPortalAdmin() {
     isLoading: overviewLoading,
     isError: overviewError,
     refetch: refetchOverview,
-  } = useQuery<{ portalUsers: any[]; pendingDocs: any[] }>({
+  } = useQuery<{ portalUsers: any[]; pendingDocs: any[]; submittedCompanies: any[] }>({
     queryKey: OVERVIEW_KEY,
   });
 
@@ -148,11 +151,62 @@ export default function ContractorPortalAdmin() {
     },
   });
 
+  const approveForSiteMutation = useMutation({
+    mutationFn: async (companyId: string) => {
+      const res = await apiRequest("POST", `/api/contractors/${companyId}/approve-for-site`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Approved for site", description: "The contractor has been approved. They've been notified by email." });
+      qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+      qc.invalidateQueries({ queryKey: ["/api/contractors"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Approval failed", description: err?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const requestChangesMutation = useMutation({
+    mutationFn: async ({ companyId, reason }: { companyId: string; reason: string }) => {
+      const res = await apiRequest("POST", `/api/contractors/${companyId}/request-changes`, { reason });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Changes requested", description: "The contractor has been notified by email." });
+      setRequestChangesTarget(null);
+      setRequestChangesReason("");
+      qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to request changes", description: err?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const { data: requirementsDef = [] } = useQuery<Array<{ document_type: string; label: string; is_required: boolean; sort_order: number }>>({
+    queryKey: ["/api/contractors/onboarding-requirements"],
+  });
+
+  const toggleRequirementMutation = useMutation({
+    mutationFn: async ({ docType, isRequired }: { docType: string; isRequired: boolean }) => {
+      const res = await apiRequest("PUT", `/api/contractors/onboarding-requirements/${docType}`, { isRequired });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/contractors/onboarding-requirements"] });
+      toast({ title: "Requirement updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update failed", description: err?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
   const activeCount = allPortalUsers.filter((u) => u.isActive).length;
   const pendingCount = allPortalUsers.filter((u) => !u.isActive && u.hasPendingInvite).length;
   const revokedCount = allPortalUsers.filter((u) => !u.isActive && !u.hasPendingInvite).length;
   const companiesWithPortal = new Set(allPortalUsers.map((u) => u.companyId)).size;
   const pendingDocsCount = allPendingDocs.length;
+  const allSubmittedCompanies: any[] = overview?.submittedCompanies ?? [];
+  const submittedCount = allSubmittedCompanies.length;
 
   const cf = contractorForm;
   const addDisabled = !cf.name || !cf.email || !cf.contactFirstName || !cf.contactLastName || !cf.phone || !cf.address || createContractorMutation.isPending;
@@ -192,7 +246,7 @@ export default function ContractorPortalAdmin() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <Tooltip>
           <TooltipTrigger className="text-left w-full block">
             <GlassCard className="p-4">
@@ -249,6 +303,20 @@ export default function ContractorPortalAdmin() {
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">Documents uploaded by contractors via the portal that are waiting for your approval</TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger className="text-left w-full block">
+            <GlassCard className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-lg"><ShieldCheck className="w-5 h-5 text-indigo-600" /></div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{submittedCount}</p>
+                  <p className="text-xs text-muted-foreground">Awaiting approval</p>
+                </div>
+              </div>
+            </GlassCard>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">Contractors who have submitted all required documents and are awaiting site approval</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Tabs: Portal Users + Pending Documents */}
@@ -259,6 +327,12 @@ export default function ContractorPortalAdmin() {
           </TabsTrigger>
           <TabsTrigger value="docs" className="flex items-center gap-2">
             <FileText className="w-4 h-4" /> Pending Documents {pendingDocsCount > 0 && <Badge variant="destructive" className="ml-1">{pendingDocsCount}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="approval" className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4" /> Awaiting Approval {submittedCount > 0 && <Badge className="ml-1 bg-indigo-600 text-white">{submittedCount}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="requirements" className="flex items-center gap-2">
+            <Settings className="w-4 h-4" /> Requirements
           </TabsTrigger>
         </TabsList>
 
@@ -482,6 +556,131 @@ export default function ContractorPortalAdmin() {
             </CardContent>
           </Card>
         </TabsContent>
+        {/* Awaiting Approval tab */}
+        <TabsContent value="approval">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-indigo-600" /> Awaiting Site Approval</CardTitle>
+              <CardDescription>Contractors who have submitted all required documents and are waiting for you to approve them for site.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {overviewLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" /><span>Loading…</span>
+                </div>
+              ) : allSubmittedCompanies.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <ShieldCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No submissions awaiting approval</p>
+                  <p className="text-sm mt-1">Contractors will appear here once they've submitted all required documents.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {allSubmittedCompanies.map((c: any) => {
+                    const approveBusy = approveForSiteMutation.isPending && approveForSiteMutation.variables === c.id;
+                    const allValid = (c.required_docs ?? []).every((d: any) => d.valid);
+                    return (
+                      <div key={c.id} className="border rounded-xl p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div>
+                            <p className="font-semibold text-slate-800 dark:text-slate-100">{c.company_name}</p>
+                            <p className="text-xs text-muted-foreground">{c.contact_email}</p>
+                            {c.onboarding_submitted_at && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Submitted {new Date(c.onboarding_submitted_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                                  onClick={() => approveForSiteMutation.mutate(c.id)}
+                                  disabled={approveForSiteMutation.isPending}
+                                >
+                                  {approveBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCheck className="w-3 h-3 mr-1" />}
+                                  Approve for site
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">Approve this contractor — their status updates to Approved and they're notified by email</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                                  onClick={() => { setRequestChangesTarget({ id: c.id, companyName: c.company_name }); setRequestChangesReason(""); }}
+                                  disabled={requestChangesMutation.isPending}
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-1" />Request changes
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">Send the contractor back with a reason — they'll be notified and can re-submit</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                        {Array.isArray(c.required_docs) && c.required_docs.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1 border-t">
+                            {c.required_docs.map((d: any) => (
+                              <span key={d.docType} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium ${d.valid ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                {d.valid ? <CheckCheck className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                {d.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {!allValid && (
+                          <p className="text-xs text-amber-600">⚠ Some required documents appear invalid or expired — review before approving.</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Requirements tab */}
+        <TabsContent value="requirements">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5" /> Onboarding Requirements</CardTitle>
+              <CardDescription>Configure which document types are required for contractor onboarding. Required documents must be uploaded before a contractor can submit for site approval.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {requirementsDef.length === 0 ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /><span>Loading requirements…</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {requirementsDef.map((req) => (
+                    <div key={req.document_type} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/20 transition-colors">
+                      <div>
+                        <p className="font-medium text-sm">{req.label}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{req.document_type}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-medium ${req.is_required ? "text-red-600" : "text-slate-400"}`}>
+                          {req.is_required ? "Required" : "Optional"}
+                        </span>
+                        <Switch
+                          checked={req.is_required}
+                          onCheckedChange={(checked) => toggleRequirementMutation.mutate({ docType: req.document_type, isRequired: checked })}
+                          disabled={toggleRequirementMutation.isPending}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* ── Add Contractor Dialog ─────────────────────────────────────────────── */}
@@ -669,6 +868,36 @@ export default function ContractorPortalAdmin() {
               onClick={() => rejectTarget && reviewDocMutation.mutate({ docId: rejectTarget.docId, status: "rejected", rejectedReason: rejectReason.trim() })}
             >
               {reviewDocMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Reject Document
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* ── Request Changes Dialog ───────────────────────────────────────────── */}
+      <Dialog open={!!requestChangesTarget} onOpenChange={(o) => { if (!o) { setRequestChangesTarget(null); setRequestChangesReason(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700"><RefreshCw className="w-5 h-5" />Request Changes</DialogTitle>
+            <DialogDescription>
+              Tell <strong>{requestChangesTarget?.companyName}</strong> what needs to be updated. They'll be notified by email and can re-submit once the changes are made.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Reason *</Label>
+            <Textarea
+              placeholder="e.g. Public Liability certificate has expired, please upload a current certificate…"
+              value={requestChangesReason}
+              onChange={(e) => setRequestChangesReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRequestChangesTarget(null); setRequestChangesReason(""); }}>Cancel</Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              disabled={!requestChangesReason.trim() || requestChangesMutation.isPending}
+              onClick={() => requestChangesTarget && requestChangesMutation.mutate({ companyId: requestChangesTarget.id, reason: requestChangesReason.trim() })}
+            >
+              {requestChangesMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Send Request
             </Button>
           </DialogFooter>
         </DialogContent>

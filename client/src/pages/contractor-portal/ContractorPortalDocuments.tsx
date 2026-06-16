@@ -129,6 +129,17 @@ export default function ContractorPortalDocuments() {
     enabled: !!getPortalToken(),
   });
 
+  const { data: progressData } = useQuery<{ requirements: Array<{ document_type: string; is_required: boolean }> }>({
+    queryKey: ["portal-onboarding-progress"],
+    queryFn: async () => {
+      const r = await portalFetch("/api/contractor-portal/onboarding-progress");
+      if (!r.ok) return { requirements: [] };
+      return r.json();
+    },
+    enabled: !!getPortalToken(),
+    staleTime: 60 * 1000,
+  });
+
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!file || !dialog.docType) throw new Error("No file selected.");
@@ -154,6 +165,7 @@ export default function ContractorPortalDocuments() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["portal-documents"] });
       qc.invalidateQueries({ queryKey: ["portal-doc-stats"] });
+      qc.invalidateQueries({ queryKey: ["portal-onboarding-progress"] });
       toast({ title: "Document uploaded", description: "Your document has been submitted for review." });
       closeDialog();
     },
@@ -184,6 +196,16 @@ export default function ContractorPortalDocuments() {
       .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())[0];
   }
 
+  const requirementMap = new Map<string, boolean>(
+    (progressData?.requirements ?? []).map((r) => [r.document_type, r.is_required])
+  );
+  const sortedDocTypes = [...UK_DOC_TYPES].sort((a, b) => {
+    const aReq = requirementMap.has(a.key) ? requirementMap.get(a.key)! : false;
+    const bReq = requirementMap.has(b.key) ? requirementMap.get(b.key)! : false;
+    if (aReq === bReq) return 0;
+    return aReq ? -1 : 1;
+  });
+
   if (isLoading) {
     return (
       <ContractorPortalLayout>
@@ -204,21 +226,28 @@ export default function ContractorPortalDocuments() {
       </div>
 
       <div className="space-y-3">
-        {UK_DOC_TYPES.map((docType) => {
+        {sortedDocTypes.map((docType) => {
           const current = getLatestDoc(docType.key);
           const cfg = current ? (statusConfig[current.status] ?? statusConfig.pending) : null;
           const StatusIcon = cfg?.icon;
           const isExpiringSoon =
             current?.expiryDate &&
             new Date(current.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          const isRequired = requirementMap.has(docType.key) ? requirementMap.get(docType.key) : undefined;
 
           return (
-            <Card key={docType.key} className={`transition-all ${current?.status === "rejected" ? "border-red-200 bg-red-50/50" : ""}`}>
+            <Card key={docType.key} className={`transition-all ${current?.status === "rejected" ? "border-red-200 bg-red-50/50" : isRequired && !current ? "border-amber-200" : ""}`}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-medium text-slate-900">{docType.name}</h3>
+                      {isRequired === true && (
+                        <Badge className="text-xs bg-red-100 text-red-700 border border-red-200 font-medium">Required</Badge>
+                      )}
+                      {isRequired === false && (
+                        <Badge variant="outline" className="text-xs text-slate-400 border-slate-200">Optional</Badge>
+                      )}
                       {current && cfg && StatusIcon && (
                         <Badge variant={cfg.variant} className="text-xs">
                           <StatusIcon className="h-3 w-3 mr-1" />

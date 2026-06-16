@@ -4964,6 +4964,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     try {
       const customerId = req.customerId!;
       const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
 
       const portalUsers = await db
         .select({
@@ -5021,7 +5023,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         )
         .orderBy(desc(isolatedSchema.contractorDocuments.uploadedAt));
 
-      return res.json({ portalUsers, pendingDocs });
+      // Submitted companies awaiting site approval (raw SQL — onboarding_status not in Drizzle schema)
+      let submittedCompanies: any[] = [];
+      try {
+        const submittedResult = await pool.query(`
+          SELECT
+            cc.id,
+            cc.company_name,
+            cc.contact_email,
+            cc.onboarding_submitted_at,
+            COALESCE((
+              SELECT json_agg(json_build_object(
+                'docType', r.document_type,
+                'label', r.label,
+                'valid', EXISTS(
+                  SELECT 1 FROM "${schemaName}".contractor_documents cd
+                  WHERE cd.company_id = cc.id
+                    AND cd.is_active = true
+                    AND cd.document_type = r.document_type
+                    AND cd.status != 'rejected'
+                    AND (cd.expiry_date IS NULL OR cd.expiry_date >= NOW())
+                ) ) ORDER BY r.sort_order)
+              FROM "${schemaName}".contractor_onboarding_requirements r
+              WHERE r.is_required = true
+            ), '[]'::json) AS required_docs
+          FROM "${schemaName}".contractor_companies cc
+          WHERE cc.onboarding_status = 'submitted'
+            AND cc.is_active = true
+          ORDER BY cc.onboarding_submitted_at ASC
+        `);
+        submittedCompanies = submittedResult.rows;
+      } catch (_) { /* non-fatal — table may not exist on old schemas */ }
+
+      return res.json({ portalUsers, pendingDocs, submittedCompanies });
     } catch (error: any) {
       logger.error('Error loading portal admin overview:', error);
       return res.status(500).json({ error: 'Failed to load portal overview.' });
@@ -5483,6 +5517,165 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     } catch (error: any) {
       logger.error('Error reviewing document:', error);
       return res.status(500).json({ error: 'Failed to update document status.' });
+    }
+  });
+
+  // ── Contractor Portal: Onboarding requirements (GET) ─────────────────────
+  app.get('/api/contractors/onboarding-requirements', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      const result = await pool.query(
+        `SELECT document_type, label, is_required, sort_order FROM "${schemaName}".contractor_onboarding_requirements ORDER BY sort_order`
+      );
+      return res.json(result.rows);
+    } catch (error: any) {
+      logger.error('Error loading onboarding requirements:', error);
+      return res.status(500).json({ error: 'Failed to load requirements.' });
+    }
+  });
+
+  // ── Contractor Portal: Onboarding requirements (PUT toggle) ──────────────
+  app.put('/api/contractors/onboarding-requirements/:docType', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const { docType } = req.params;
+      const { isRequired } = req.body as { isRequired: boolean };
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      await pool.query(
+        `UPDATE "${schemaName}".contractor_onboarding_requirements SET is_required = $1, updated_at = NOW() WHERE document_type = $2`,
+        [!!isRequired, docType]
+      );
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Error updating onboarding requirement:', error);
+      return res.status(500).json({ error: 'Failed to update requirement.' });
+    }
+  });
+
+  // ── Contractor Portal: Approve company for site ───────────────────────────
+  app.post('/api/contractors/:id/approve-for-site', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customerId = req.customerId!;
+      const actor = (req.user as any)?.email || (req.user as any)?.username || 'admin';
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+
+      await pool.query(
+        `UPDATE "${schemaName}".contractor_companies
+         SET status = 'approved', onboarding_status = 'approved', onboarding_approved_at = NOW(), updated_at = NOW()
+         WHERE id = $1`,
+        [id]
+      );
+      await pool.query(
+        `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor) VALUES ($1, 'approved_for_site', $2)`,
+        [id, actor]
+      );
+
+      const companyResult = await pool.query(
+        `SELECT company_name, contact_email FROM "${schemaName}".contractor_companies WHERE id = $1`,
+        [id]
+      );
+      const company = companyResult.rows[0];
+
+      if (company?.contact_email) {
+        try {
+          const emailSvc = new EmailService(customerId);
+          const context = simpleDatabaseService.createCustomerContext((req.user as any)!.username, customerId);
+          const settings = await simpleDatabaseService.getCompanySettings(context);
+          const siteName = (settings as any)?.companyName || 'the site team';
+          await emailSvc.sendEmail({
+            to: company.contact_email,
+            subject: `✅ You're approved to work on site — ${siteName}`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+                <div style="background:#2460A9;padding:16px 24px;border-radius:8px 8px 0 0">
+                  <p style="color:white;margin:0;font-size:18px;font-weight:bold">Onboarding Approved</p>
+                </div>
+                <div style="padding:20px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+                  <p>Good news — <strong>${company.company_name}</strong> has been approved to work on site.</p>
+                  <p>Your compliance documents have been reviewed and accepted by ${siteName}. You're now cleared to begin work.</p>
+                  <p style="color:#64748b;font-size:13px;margin-top:16px">If you have any questions please contact ${siteName} directly.</p>
+                </div>
+              </div>
+            `,
+            text: `Your onboarding has been approved. ${company.company_name} is now cleared to work on site (approved by ${siteName}).`,
+          });
+        } catch (_) { /* non-fatal */ }
+      }
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Error approving contractor for site:', error);
+      return res.status(500).json({ error: 'Failed to approve contractor.' });
+    }
+  });
+
+  // ── Contractor Portal: Request changes on submitted onboarding ────────────
+  app.post('/api/contractors/:id/request-changes', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body as { reason: string };
+      if (!reason?.trim()) return res.status(400).json({ error: 'Reason is required.' });
+      const customerId = req.customerId!;
+      const actor = (req.user as any)?.email || (req.user as any)?.username || 'admin';
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+
+      await pool.query(
+        `UPDATE "${schemaName}".contractor_companies SET onboarding_status = 'changes_requested', updated_at = NOW() WHERE id = $1`,
+        [id]
+      );
+      await pool.query(
+        `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor, reason) VALUES ($1, 'changes_requested', $2, $3)`,
+        [id, actor, reason.trim()]
+      );
+
+      const companyResult = await pool.query(
+        `SELECT company_name, contact_email FROM "${schemaName}".contractor_companies WHERE id = $1`,
+        [id]
+      );
+      const company = companyResult.rows[0];
+
+      if (company?.contact_email) {
+        try {
+          const emailSvc = new EmailService(customerId);
+          const baseUrl = process.env.APP_URL || 'https://www.tpr-max.com';
+          await emailSvc.sendEmail({
+            to: company.contact_email,
+            subject: `Action required — changes requested for your onboarding`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+                <div style="background:#2460A9;padding:16px 24px;border-radius:8px 8px 0 0">
+                  <p style="color:white;margin:0;font-size:18px;font-weight:bold">Changes Requested</p>
+                </div>
+                <div style="padding:20px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+                  <p>The site team has reviewed your onboarding submission and has requested some changes.</p>
+                  <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;margin:16px 0">
+                    <p style="margin:0;font-weight:600;color:#92400e">Reason:</p>
+                    <p style="margin:4px 0 0;color:#78350f">${reason.trim()}</p>
+                  </div>
+                  <p>Please log in to the portal, address the issues, and re-submit for review.</p>
+                  <a href="${baseUrl}/contractor-portal/dashboard" style="display:inline-block;background:#2460A9;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">Go to Portal →</a>
+                </div>
+              </div>
+            `,
+            text: `Changes requested for your onboarding.\n\nReason: ${reason.trim()}\n\nPlease log in to the portal and re-submit once changes are made.`,
+          });
+        } catch (_) { /* non-fatal */ }
+      }
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Error requesting changes:', error);
+      return res.status(500).json({ error: 'Failed to request changes.' });
     }
   });
 

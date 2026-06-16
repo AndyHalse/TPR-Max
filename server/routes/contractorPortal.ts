@@ -483,6 +483,18 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
       const rawLogo = settingsRows[0]?.logoUrl ?? '';
       const logoUrl = rawLogo ? `/api/public-logo/${generateLogoToken(pu.customerId)}` : '';
 
+      // Get onboarding status via raw SQL (not in Drizzle schema)
+      let onboardingStatus = 'not_started';
+      try {
+        const pool = (db as any).$client ?? (db as any).session?.client;
+        const schemaName = customerDbService.generateSchemaName(pu.customerId);
+        const osResult = await pool.query(
+          `SELECT onboarding_status FROM "${schemaName}".contractor_companies WHERE id = $1 LIMIT 1`,
+          [pu.contractorCompanyId]
+        );
+        onboardingStatus = osResult.rows[0]?.onboarding_status ?? 'not_started';
+      } catch (_) { /* non-fatal — column may not exist on old schema */ }
+
       return res.json({
         id: user.id,
         email: user.email,
@@ -496,6 +508,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         companyStatus: company?.status ?? '',
         customerId: pu.customerId,
         logoUrl,
+        onboardingStatus,
       });
     } catch (err: any) {
       logger.error('[portal-me]', err);
@@ -612,6 +625,16 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
             text: `Document Awaiting Review\n\nDocument: ${documentName}\nType: ${documentType}${expiryDate ? `\nExpiry: ${new Date(expiryDate).toLocaleDateString('en-GB')}` : ''}\n\nReview at: ${baseUrl}/contractor-portal-admin`,
           });
         } catch (_) { /* non-fatal — upload already succeeded */ }
+
+        // Auto-advance onboarding status: not_started → in_progress (or changes_requested → in_progress on re-upload)
+        try {
+          const pool = (db as any).$client ?? (db as any).session?.client;
+          const schemaName = customerDbService.generateSchemaName(pu.customerId);
+          await pool.query(
+            `UPDATE "${schemaName}".contractor_companies SET onboarding_status = 'in_progress', updated_at = NOW() WHERE id = $1 AND onboarding_status IN ('not_started', 'changes_requested')`,
+            [pu.contractorCompanyId]
+          );
+        } catch (_) { /* non-fatal */ }
 
         return res.status(201).json(doc);
       } catch (err: any) {
@@ -824,6 +847,16 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           });
         } catch (_) { /* non-fatal — upload already succeeded */ }
 
+        // Auto-advance onboarding status on any upload
+        try {
+          const pool2 = (db as any).$client ?? (db as any).session?.client;
+          const schemaName2 = customerDbService.generateSchemaName(pu.customerId);
+          await pool2.query(
+            `UPDATE "${schemaName2}".contractor_companies SET onboarding_status = 'in_progress', updated_at = NOW() WHERE id = $1 AND onboarding_status IN ('not_started', 'changes_requested')`,
+            [pu.contractorCompanyId]
+          );
+        } catch (_) { /* non-fatal */ }
+
         return res.status(201).json(doc);
       } catch (err: any) {
         logger.error('[portal-worker-upload]', err);
@@ -831,6 +864,179 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
       }
     }
   );
+
+  // ── Auth: Onboarding progress ─────────────────────────────────────────────
+  app.get('/api/contractor-portal/onboarding-progress', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(pu.customerId);
+
+      // Load requirements + company onboarding status in parallel
+      const [reqResult, companyResult, docs] = await Promise.all([
+        pool.query(
+          `SELECT document_type, label, is_required FROM "${schemaName}".contractor_onboarding_requirements ORDER BY sort_order`
+        ),
+        pool.query(
+          `SELECT onboarding_status, onboarding_submitted_at, onboarding_approved_at FROM "${schemaName}".contractor_companies WHERE id = $1 LIMIT 1`,
+          [pu.contractorCompanyId]
+        ),
+        db
+          .select({
+            documentType: isolatedSchema.contractorDocuments.documentType,
+            status: isolatedSchema.contractorDocuments.status,
+            expiryDate: isolatedSchema.contractorDocuments.expiryDate,
+          })
+          .from(isolatedSchema.contractorDocuments)
+          .where(
+            and(
+              eq(isolatedSchema.contractorDocuments.companyId, pu.contractorCompanyId),
+              eq(isolatedSchema.contractorDocuments.isActive, true)
+            )
+          ),
+      ]);
+
+      const requirements: Array<{ document_type: string; label: string; is_required: boolean }> = reqResult.rows;
+      const company = companyResult.rows[0];
+      const onboardingStatus: string = company?.onboarding_status ?? 'not_started';
+      const onboardingSubmittedAt: string | null = company?.onboarding_submitted_at ?? null;
+      const onboardingApprovedAt: string | null = company?.onboarding_approved_at ?? null;
+
+      const now = new Date();
+      const requiredTypes = requirements.filter((r) => r.is_required);
+      const completedRequired = requiredTypes.filter((r) => {
+        const matching = docs.filter((d: any) => d.documentType === r.document_type);
+        return matching.some((d: any) => {
+          if (d.status === 'rejected') return false;
+          if (d.expiryDate && new Date(d.expiryDate) < now) return false;
+          return true;
+        });
+      });
+
+      // Get latest changes-requested reason from audit
+      let changesRequestedReason: string | null = null;
+      if (onboardingStatus === 'changes_requested') {
+        try {
+          const auditResult = await pool.query(
+            `SELECT reason FROM "${schemaName}".contractor_onboarding_audit WHERE company_id = $1 AND action = 'changes_requested' ORDER BY created_at DESC LIMIT 1`,
+            [pu.contractorCompanyId]
+          );
+          changesRequestedReason = auditResult.rows[0]?.reason ?? null;
+        } catch (_) {}
+      }
+
+      const canSubmit =
+        completedRequired.length >= requiredTypes.length &&
+        requiredTypes.length > 0 &&
+        ['not_started', 'in_progress', 'changes_requested'].includes(onboardingStatus);
+
+      return res.json({
+        onboardingStatus,
+        onboardingSubmittedAt,
+        onboardingApprovedAt,
+        requirements,
+        requiredCount: requiredTypes.length,
+        completedCount: completedRequired.length,
+        canSubmit,
+        missingRequired: requiredTypes
+          .filter((r) => !completedRequired.includes(r))
+          .map((r) => r.label),
+        changesRequestedReason,
+      });
+    } catch (err: any) {
+      logger.error('[portal-onboarding-progress]', err);
+      return res.status(500).json({ error: 'Failed to load onboarding progress.' });
+    }
+  });
+
+  // ── Auth: Submit for review ────────────────────────────────────────────────
+  app.post('/api/contractor-portal/submit-for-review', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(pu.customerId);
+
+      // Server-side re-check: get required types
+      const reqResult = await pool.query(
+        `SELECT document_type, label FROM "${schemaName}".contractor_onboarding_requirements WHERE is_required = true ORDER BY sort_order`
+      );
+      const requiredTypes: Array<{ document_type: string; label: string }> = reqResult.rows;
+
+      const docs = await db
+        .select({
+          documentType: isolatedSchema.contractorDocuments.documentType,
+          status: isolatedSchema.contractorDocuments.status,
+          expiryDate: isolatedSchema.contractorDocuments.expiryDate,
+        })
+        .from(isolatedSchema.contractorDocuments)
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.companyId, pu.contractorCompanyId),
+            eq(isolatedSchema.contractorDocuments.isActive, true)
+          )
+        );
+
+      const now = new Date();
+      const missing: string[] = [];
+      for (const req of requiredTypes) {
+        const valid = docs.some((d: any) => {
+          if (d.documentType !== req.document_type) return false;
+          if (d.status === 'rejected') return false;
+          if (d.expiryDate && new Date(d.expiryDate) < now) return false;
+          return true;
+        });
+        if (!valid) missing.push(req.label);
+      }
+
+      if (missing.length > 0) {
+        return res.status(400).json({ error: 'Not all required documents are complete.', missing });
+      }
+
+      await pool.query(
+        `UPDATE "${schemaName}".contractor_companies SET onboarding_status = 'submitted', onboarding_submitted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [pu.contractorCompanyId]
+      );
+      await pool.query(
+        `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor) VALUES ($1, 'submitted', $2)`,
+        [pu.contractorCompanyId, `portal:${pu.portalUserId}`]
+      );
+
+      // Notify admin (non-fatal)
+      try {
+        const notifyEmail = process.env.CONTRACTOR_NOTIFY_EMAIL || process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+        const emailSvc = new EmailService(pu.customerId);
+        const companyResult = await pool.query(
+          `SELECT company_name FROM "${schemaName}".contractor_companies WHERE id = $1`,
+          [pu.contractorCompanyId]
+        );
+        const companyName = companyResult.rows[0]?.company_name || 'A contractor';
+        const baseUrl = process.env.APP_URL || 'https://www.tpr-max.com';
+        await emailSvc.sendEmail({
+          to: notifyEmail,
+          subject: `🔔 Onboarding submission — ${companyName} is ready for review`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <div style="background:#2460A9;padding:16px 24px;border-radius:8px 8px 0 0">
+                <p style="color:white;margin:0;font-size:18px;font-weight:bold">Onboarding Submission</p>
+              </div>
+              <div style="padding:20px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+                <p><strong>${companyName}</strong> has submitted their onboarding for review. All required documents are in place.</p>
+                <a href="${baseUrl}/contractor-portal-admin" style="display:inline-block;background:#2460A9;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">Review in Portal Admin →</a>
+              </div>
+            </div>
+          `,
+          text: `${companyName} has submitted their onboarding for review.\n\nReview at: ${baseUrl}/contractor-portal-admin`,
+        });
+      } catch (_) { /* non-fatal */ }
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      logger.error('[portal-submit-for-review]', err);
+      return res.status(500).json({ error: 'Failed to submit for review.' });
+    }
+  });
 
   // ── Auth: Document stats summary ──────────────────────────────────────────
   app.get('/api/contractor-portal/document-stats', requireContractorPortalAuth, async (req, res) => {
