@@ -1066,8 +1066,9 @@ export function registerEmergencyRoutes(app: Express): void {
       }
       
       const { personId } = req.params;
-      const { musterPoint, evacuationId: requestedEvacuationId, marshalName: providedMarshal, statusOption } = req.body;
+      const { musterPoint, evacuationId: requestedEvacuationId, marshalName: providedMarshal, statusOption, markedAt } = req.body;
       const marshalName = providedMarshal || `${validatedStaff.firstName} ${validatedStaff.lastName}`;
+      const accountedAtValue = markedAt ? new Date(markedAt) : new Date();
       
       logger.info(`MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${requestedEvacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
       logger.info(`Validated Fire Marshal: ID ${validatedStaff.id} ([email])`);
@@ -1197,7 +1198,7 @@ export function registerEmergencyRoutes(app: Express): void {
         .set({
           isAccountedFor: true,
           accountedBy: marshalName,
-          accountedAt: new Date(),
+          accountedAt: accountedAtValue,
           musterPoint,
           statusOption: statusOption ?? null,
           updatedAt: new Date()
@@ -1253,20 +1254,48 @@ export function registerEmergencyRoutes(app: Express): void {
           }
         }
         
-        const insertResult = await db.insert(evacuationAccountability).values({
-          evacuationId,
-          customerId: customerIdFinal || '',
-          personId,
-          personType: personType as any,
-          personName,
-          department,
-          company,
-          lastKnownLocation: musterPoint || 'Safe Location',
-          isAccountedFor: true,
-          accountedBy: marshalName,
-          accountedAt: new Date(),
-          musterPoint
-        }).returning();
+        // Guard against concurrent late-check-in duplicates
+        const existingRecord = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(
+            and(
+              eq(evacuationAccountability.evacuationId, evacuationId),
+              eq(evacuationAccountability.personId, personId),
+              eq(evacuationAccountability.customerId, customerIdFinal as any)
+            )
+          )
+          .limit(1);
+        
+        let insertResult;
+        if (existingRecord.length > 0) {
+          insertResult = await db
+            .update(evacuationAccountability)
+            .set({ isAccountedFor: true, accountedBy: marshalName, accountedAt: accountedAtValue, musterPoint, statusOption: statusOption ?? null, updatedAt: new Date() } as any)
+            .where(
+              and(
+                eq(evacuationAccountability.evacuationId, evacuationId),
+                eq(evacuationAccountability.personId, personId),
+                eq(evacuationAccountability.customerId, customerIdFinal as any)
+              )
+            )
+            .returning();
+        } else {
+          insertResult = await db.insert(evacuationAccountability).values({
+            evacuationId,
+            customerId: customerIdFinal || '',
+            personId,
+            personType: personType as any,
+            personName,
+            department,
+            company,
+            lastKnownLocation: musterPoint || 'Safe Location',
+            isAccountedFor: true,
+            accountedBy: marshalName,
+            accountedAt: accountedAtValue,
+            musterPoint
+          }).returning();
+        };
         
         if (insertResult.length > 0) {
           logger.info(`Created accountability record and marked safe: ${personName}`);

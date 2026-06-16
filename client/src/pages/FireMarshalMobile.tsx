@@ -1,4 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import {
+  addToOutbox,
+  flushMarkSafeOutbox,
+  getOutboxCount,
+  registerFireMarshalSW,
+  clearMusterCache,
+} from "@/lib/fireMarshalOffline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -136,6 +143,10 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [pendingPhotoData, setPendingPhotoData] = useState<string | null>(null);
   const [photoCaption, setPhotoCaption] = useState("");
 
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [lastDataAt, setLastDataAt] = useState<Date | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -165,6 +176,41 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         });
     }
   }, [urlId]);
+
+  // Register service worker for offline support
+  useEffect(() => {
+    if (urlId) registerFireMarshalSW();
+  }, [urlId]);
+
+  // Online / offline state + outbox flush
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      if (!urlId) return;
+      try {
+        const remaining = await flushMarkSafeOutbox({
+          urlId,
+          marshalName: marshalName || marshalInfo?.name || 'Fire Marshal',
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+          },
+        });
+        setPendingSyncCount(remaining);
+      } catch { /* ignore */ }
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [urlId, marshalName, marshalInfo, queryClient]);
+
+  // Track pending sync count on mount
+  useEffect(() => {
+    getOutboxCount().then(setPendingSyncCount).catch(() => {});
+  }, []);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -258,6 +304,21 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [personnelData?.evacuationId]);
 
+  // Update lastDataAt whenever personnel data arrives (online only)
+  useEffect(() => {
+    if (personnelData && isOnline) {
+      setLastDataAt(new Date());
+    }
+  }, [personnelData, isOnline]);
+
+  // When evacuation ends, clear cached muster data after 24h
+  useEffect(() => {
+    if (!activeEvacuationId && urlId) {
+      const timer = setTimeout(() => clearMusterCache(), 24 * 60 * 60 * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeEvacuationId, urlId]);
+
   // Check for active evacuation (legacy token auth only)
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
     queryKey: ["/api/emergency/active"],
@@ -331,6 +392,18 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Mark safe mutation
   const markSafeMutation = useMutation({
     mutationFn: async ({ personId }: { personId: string }) => {
+      if (!navigator.onLine && urlId) {
+        const markedAt = new Date().toISOString();
+        await addToOutbox({
+          personId,
+          urlId,
+          evacuationId: activeEvacuationId,
+          marshalName: marshalName || marshalInfo?.name || 'Fire Marshal',
+          markedAt,
+        });
+        setPendingSyncCount(c => c + 1);
+        return { personId, queued: true, isAccountedFor: true };
+      }
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers["X-Emergency-Token"] = token;
       else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
@@ -405,6 +478,19 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Mark safe with a status option (amber — e.g. "Working remotely / offsite")
   const markSafeWithOptionMutation = useMutation({
     mutationFn: async ({ personId, statusOption }: { personId: string; statusOption: string }) => {
+      if (!navigator.onLine && urlId) {
+        const markedAt = new Date().toISOString();
+        await addToOutbox({
+          personId,
+          urlId,
+          evacuationId: activeEvacuationId,
+          marshalName: marshalName || marshalInfo?.name || 'Fire Marshal',
+          statusOption,
+          markedAt,
+        });
+        setPendingSyncCount(c => c + 1);
+        return { personId, queued: true, isAccountedFor: true, statusOption };
+      }
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers["X-Emergency-Token"] = token;
       else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
@@ -758,6 +844,46 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       className={`min-h-screen pb-24 overflow-x-hidden w-full max-w-full ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}
       onClick={() => { if (openDropdownId) { setOpenDropdownId(null); setDropdownPos(null); } }}
     >
+
+      {/* ── Offline / Sync-pending banner ──────────────────────────────── */}
+      {(!isOnline || pendingSyncCount > 0) && (
+        <div
+          className={`sticky top-0 z-40 flex items-center justify-between gap-2 px-4 py-2 text-sm font-semibold shadow-sm ${
+            !isOnline
+              ? 'bg-amber-500 text-white'
+              : 'bg-blue-600 text-white'
+          }`}
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            {!isOnline ? (
+              <>
+                <svg className="flex-shrink-0 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M6.343 6.343a9 9 0 000 12.728m2.829-9.9a5 5 0 000 7.072M12 12h.01" />
+                </svg>
+                <span className="truncate">
+                  OFFLINE — showing last-known list
+                  {lastDataAt
+                    ? ` from ${lastDataAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                    : ''}
+                </span>
+              </>
+            ) : (
+              <>
+                <svg className="flex-shrink-0 w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Syncing {pendingSyncCount} queued action{pendingSyncCount !== 1 ? 's' : ''}…</span>
+              </>
+            )}
+          </span>
+          {pendingSyncCount > 0 && (
+            <span className="flex-shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-xs">
+              {pendingSyncCount} pending
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Sweep confirmation dialog */}
       {sweepConfirmZone && (
