@@ -306,7 +306,7 @@ export const users = pgTable("users", {
   lastLoginAt: timestamp("last_login_at"),
   allowedMenuItems: text("allowed_menu_items").array(),
   defaultLandingPage: text("default_landing_page"),
-  navStyle: text("nav_style").default("classic"),
+  navStyle: text("nav_style").default("sidebar"),
   azureObjectId: text("azure_object_id"),
   authProvider: text("auth_provider").default("local"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

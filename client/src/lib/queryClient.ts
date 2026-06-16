@@ -172,7 +172,8 @@ export const getQueryFn: <T>(options: {
       await throwIfResNotOk(res);
       return await res.json();
     } catch (error) {
-      console.error('Query failed:', error);
+      const url = typeof arguments[0] === 'string' ? arguments[0] : '';
+      console.error('Query failed:', error instanceof Error ? error.message : String(error), url ? { url } : '');
       throw error;
     }
   };

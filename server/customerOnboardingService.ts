@@ -288,6 +288,7 @@ export class CustomerOnboardingService {
       role: 'admin' as const,
       password: hashedPassword,
       isActive: true,
+      navStyle: 'sidebar' as const,
     };
     
     const existingUsers = await customerDb

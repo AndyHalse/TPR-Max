@@ -71,6 +71,7 @@ export default function Layout({ children }: LayoutProps) {
     enabled: !!customerId && user?.role === "admin",
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
+    retry: 1,
   });
 
   const ppmGapsCount = ppmExpiryData?.total ?? 0;
