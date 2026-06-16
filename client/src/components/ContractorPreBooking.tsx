@@ -45,7 +45,6 @@ const contractorPreBookingSchema = z.object({
   scheduledTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:MM format"),
   duration: z.string().default("4"),
   notes: z.string().optional(),
-  documentsRequired: z.array(z.string()).default([]),
 });
 
 type FormData = z.infer<typeof contractorPreBookingSchema>;
@@ -69,13 +68,7 @@ export default function ContractorPreBooking() {
       scheduledTime: "09:00",
       duration: "4",
       notes: "",
-      documentsRequired: [],
     },
-  });
-
-  // Fetch contractor companies for dropdown
-  const { data: companies = [] } = useQuery<ContractorCompany[]>({
-    queryKey: ["/api/contractors"],
   });
 
   // Fetch contractor pre-bookings
@@ -229,7 +222,6 @@ export default function ContractorPreBooking() {
       scheduledTime: booking.scheduledTime,
       duration: booking.duration || "4",
       notes: booking.notes || "",
-      documentsRequired: booking.documentsRequired || [],
     });
     setShowForm(true);
   };
@@ -370,6 +362,7 @@ export default function ContractorPreBooking() {
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
+                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                             initialFocus
                           />
                         </PopoverContent>

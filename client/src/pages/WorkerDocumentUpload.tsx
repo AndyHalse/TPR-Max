@@ -76,8 +76,11 @@ function DocCard({ cert, state, existingDoc, accentColor, onFileChange, onFieldC
                 onFileChange(f, f?.name || '');
               }}
             />
-            {state.fileName && !state.file && (
-              <p className="text-xs text-slate-500 mt-1">Selected: {state.fileName}</p>
+            {state.file && (
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                <span>✓</span>
+                <span>Selected: {state.fileName}{state.file.size ? ` (${(state.file.size / 1024).toFixed(0)} KB)` : ''}</span>
+              </p>
             )}
           </div>
           <div className="space-y-3">
@@ -88,8 +91,12 @@ function DocCard({ cert, state, existingDoc, accentColor, onFileChange, onFieldC
               <Input
                 type="date"
                 className="h-8 text-sm w-full"
-                value={state.expiry}
-                onChange={e => onFieldChange({ expiry: e.target.value })}
+                defaultValue={state.expiry}
+                onBlur={e => onFieldChange({ expiry: e.target.value })}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (!v || (v.split('-')[0] ?? '').length === 4) onFieldChange({ expiry: v });
+                }}
               />
             </div>
             <div>

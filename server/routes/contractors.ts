@@ -173,6 +173,7 @@ export function registerContractorRoutes(app: Express): void {
   // Expiring-soon items are NOT included in the red badge total.
   app.get("/api/contractors/compliance-gap-count", requireAuth, async (req, res) => {
     try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
@@ -736,39 +737,9 @@ export function registerContractorRoutes(app: Express): void {
       // Get all contractors using customer-isolated database service
       const contractors = await databaseService.getAllContractorCompanies(context);
       
-      // Add worker counts, document status, and dynamic safety ratings for each contractor
-      const contractorsWithStats = await Promise.all(contractors.map(async (contractor) => {
-        const workers = await databaseService.getWorkersByCompanyId(context, contractor.id);
-        const docsDb = await customerDbService.getCustomerDatabase(context.customerId);
-        const documents = await docsDb.select().from(isolatedSchema.contractorDocuments)
-          .where(and(eq(isolatedSchema.contractorDocuments.companyId, contractor.id), eq(isolatedSchema.contractorDocuments.isActive, true)));
-        
-        const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration', 'rams', 'modernSlavery', 'environmentalPolicy', 'professionalIndemnity'];
-        const documentsStatus = docTypes.reduce((acc, type) => {
-          const doc = documents.find(d => d.documentType === type);
-          if (!doc) {
-            acc[type] = 'missing';
-          } else if (doc.expiryDate && new Date(doc.expiryDate) < new Date()) {
-            acc[type] = 'expired';
-          } else {
-            acc[type] = 'valid';
-          }
-          return acc;
-        }, {} as Record<string, string>);
-        
-        // Use existing compliance score without AI calculation for performance
-        const safetyRating = contractor.complianceScore || "A+";
-        
-        return {
-          ...contractor,
-          workersCount: workers.length,
-          documentsStatus,
-          complianceScore: safetyRating,
-          lastUpdated: new Date().toISOString() // Force cache refresh
-        };
-      }));
-      
-      res.json(contractorsWithStats);
+      // getAllContractorCompanies already returns workersCount, documentsStatus (with
+      // 'expiring' ≤30-day state), name, email, phone — return directly to avoid N+1.
+      res.json(contractors);
     } catch (error) {
       logger.error("Error fetching contractors:", error);
       res.status(500).json({ error: "Failed to fetch contractors" });
@@ -2541,6 +2512,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         backgroundColor: isolatedSchema.companySettings.backgroundColor,
       }).from(isolatedSchema.companySettings).limit(1);
 
+      // Fetch active worker certification types so the email lists exactly what the upload page shows
+      const workerCertSchemaName = customerDbService.generateSchemaName(context.customerId);
+      const workerCertPool = (custDb as any).$client ?? (custDb as any).session?.client;
+      let docListHtml = `<li>Right to Work (passport, driving licence, or biometric residence permit)</li>
+        <li>CSCS Card</li>
+        <li>IPAF Card (if working at height)</li>
+        <li>Training Certificates</li>
+        <li>Other relevant worker certifications</li>`;
+      try {
+        const certResult = await workerCertPool.query(
+          `SELECT name FROM "${workerCertSchemaName}".worker_certification_types
+           WHERE is_active = TRUE
+           ORDER BY CASE category WHEN 'legal' THEN 1 WHEN 'site' THEN 2 WHEN 'training' THEN 3 ELSE 4 END, name`
+        );
+        if (certResult.rows?.length) {
+          docListHtml = certResult.rows.map((r: any) => `<li>${r.name}</li>`).join('\n        ');
+        }
+      } catch { /* non-fatal — fall back to generic list */ }
+
       const token = randomUUID();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -2593,13 +2583,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <p>Please click the secure link below to upload your documents. The link is valid for <strong>7 days</strong>.</p>
     <a href="${uploadLink}" class="btn">📎 Upload My Documents</a>
     <div class="docs">
-      <p style="font-weight:600;margin-bottom:8px">Documents that may be required:</p>
+      <p style="font-weight:600;margin-bottom:8px">Documents required:</p>
       <ul>
-        <li>Right to Work (passport, driving licence, or biometric residence permit)</li>
-        <li>CSCS Card</li>
-        <li>IPAF Card (if working at height)</li>
-        <li>Training Certificates</li>
-        <li>Other relevant worker certifications</li>
+        ${docListHtml}
       </ul>
     </div>
     <p style="margin-top:16px;font-size:13px;color:#6b7280">Each document must be uploaded as a PDF, image, or Word file. Please include the expiry date where applicable. Documents will be reviewed by our team before being marked as compliant.</p>

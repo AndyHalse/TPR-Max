@@ -41,6 +41,12 @@ import {
 
 export default function ContractorCDMTab({ companies }: { companies: any[] }) {
   const { toast } = useToast();
+
+  const { data: currentUser } = useQuery<{ customerId: string }>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+  });
+  const customerId = currentUser?.customerId;
   const [search, setSearch] = useState("");
   const [selectedProject, setSelectedProject] = useState<CdmProject | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -158,7 +164,8 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
   const [form, setForm] = useState(emptyForm);
 
   const { data: allProjects = [], isLoading } = useQuery<CdmProject[]>({
-    queryKey: ["/api/cdm/projects"],
+    queryKey: ["/api/cdm/projects", customerId],
+    enabled: !!customerId,
   });
 
   const createMutation = useMutation({
@@ -167,7 +174,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects", customerId] });
       setShowAddDialog(false);
       setAddStep(1);
       setForm(emptyForm);
@@ -182,7 +189,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
       return await res.json();
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects", customerId] });
       setSelectedProject(updated);
       setEditingProject(null);
       toast({ title: "CDM Project updated" });
@@ -193,7 +200,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiRequest("DELETE", `/api/cdm/projects/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects", customerId] });
       setSelectedProject(null);
       toast({ title: "CDM Project deleted" });
     },

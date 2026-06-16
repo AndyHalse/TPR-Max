@@ -1197,8 +1197,12 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       <Input
                         id="expiry-date"
                         type="date"
-                        value={documentFormData.expiryDate}
-                        onChange={(e) => setDocumentFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                        defaultValue={documentFormData.expiryDate}
+                        onBlur={e => setDocumentFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                        onChange={e => {
+                          const v = e.target.value;
+                          if (!v || (v.split('-')[0] ?? '').length === 4) setDocumentFormData(prev => ({ ...prev, expiryDate: v }));
+                        }}
                         disabled={isUploading}
                         data-testid="input-expiry-date"
                       />

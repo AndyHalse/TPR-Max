@@ -354,6 +354,7 @@ app.delete("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
 // GET /api/ppm/expiry-count — lightweight summary of expired/expiring-soon document counts (for nav badge)
 app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
   try {
+    if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
     if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
     const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);

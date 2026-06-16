@@ -186,7 +186,16 @@ export default function ContractorDocumentUpload({ token }: Props) {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-slate-600 mb-1 block">Expiry date</Label>
-                      <Input type="date" className="h-8 text-sm" value={getDocState(doc.key).expiry} onChange={e => setDocState(doc.key, { expiry: e.target.value })} />
+                      <Input
+                        type="date"
+                        className="h-8 text-sm"
+                        defaultValue={getDocState(doc.key).expiry}
+                        onBlur={e => setDocState(doc.key, { expiry: e.target.value })}
+                        onChange={e => {
+                          const v = e.target.value;
+                          if (!v || (v.split('-')[0] ?? '').length === 4) setDocState(doc.key, { expiry: v });
+                        }}
+                      />
                     </div>
                     <div>
                       <Label className="text-xs text-slate-600 mb-1 block">Issued by (optional)</Label>

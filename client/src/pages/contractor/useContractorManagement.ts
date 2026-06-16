@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -164,7 +164,7 @@ export function useContractorManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       if (data.ePassSent) {
         toast({ title: "Digital Pass Sent", description: `E-Pass has been sent to ${data.worker?.email || "contractor"}. They can use it to check out.`, duration: 5000 });
-      } else {
+      } else if (data.worker) {
         const worker = data.worker;
         const company = companies.find((c: any) => c.id === worker.companyId);
         setSelectedWorker(worker);
@@ -173,6 +173,8 @@ export function useContractorManagement() {
         printPassViaIframe(`/api/passes/print/contractor/${worker.id}`);
         const ePassFailed = data.hasEmail && data.ePassEnabled && !data.ePassSent;
         toast({ title: "Checked In", description: ePassFailed ? "E-pass could not be sent — pass is printing." : "Contractor checked in. Pass is printing.", variant: ePassFailed ? "destructive" : "default", duration: 6000 });
+      } else {
+        toast({ title: "Checked In", description: "Contractor checked in successfully.", duration: 6000 });
       }
     },
     onError: (error: any) => toast({ title: "Cannot Check In", description: error?.message || "Failed to check in contractor", variant: "destructive" }),
@@ -226,17 +228,20 @@ export function useContractorManagement() {
     }
   };
 
-  const previousContractors = allWorkers
-    .map((worker) => {
-      const company = companies.find((c: any) => c.id === worker.companyId);
-      return { ...worker, companyName: company?.name || "Unknown Company", companyStatus: company?.status || "unknown" };
-    })
-    .filter((c) =>
-      (c.firstName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.lastName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.email || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const previousContractors = useMemo(() => {
+    const companyMap = new Map(companies.map((c: any) => [c.id, c]));
+    return allWorkers
+      .map((worker) => {
+        const company = companyMap.get(worker.companyId);
+        return { ...worker, companyName: company?.name || "Unknown Company", companyStatus: company?.status || "unknown" };
+      })
+      .filter((c) =>
+        (c.firstName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.lastName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.email || "").toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }, [allWorkers, companies, searchTerm]);
 
   return {
     toast,
