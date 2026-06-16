@@ -16,7 +16,7 @@ import {
   type WorkerServiceContext,
 } from '../services/workerService';
 import { requireAuth, isDevDataBypass, isDatabaseConnectionError, getMockCheckedInContractors } from '../auth';
-import { getWorkerClearanceStatus, seedOnboardingRequirements, UK_DEFAULT_REQUIREMENTS } from '../utils/contractorCompliance';
+import { getWorkerClearanceStatus, getCompanyComplianceStatus, reevaluateCompanyApproval, seedOnboardingRequirements, UK_DEFAULT_REQUIREMENTS } from '../utils/contractorCompliance';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { CustomerDatabaseService, customerDbService } from '../customerDatabase';
@@ -4912,6 +4912,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     }
   });
 
+  // ── Portal URL builder — single source of truth ──────────────────────────
+  // Prefers APP_URL env var, then x-forwarded headers, then raw request host.
+  function buildPortalUrl(req: any): string {
+    if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+    const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+    const host  = (req.headers['x-forwarded-host']  as string) || req.headers.host || '';
+    return `${proto}://${host}`;
+  }
+
   // ── Portal-admin middleware ───────────────────────────────────────────────
   function requirePortalAdmin(req: any, res: any, next: any) {
     if (!['admin', 'tenant_admin'].includes(req.user?.role || '')) {
@@ -5101,9 +5110,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         });
       }
 
-      const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol;
-      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
-      const portalUrl = `${protocol}://${host}/contractor-portal/accept-invite?token=${inviteToken}&cid=${customerId}`;
+      const portalUrl = buildPortalUrl(req) + `/contractor-portal/accept-invite?token=${inviteToken}&cid=${customerId}`;
 
       try {
         const emailSvc = new EmailService(customerId);
@@ -5113,7 +5120,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           html: `
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
               <h2 style="color:#1e293b">Contractor Portal Invitation</h2>
-              <p>Hello${firstName ? ` ${firstName}` : ''},</p>
+              <p>Hello${resolvedFirst ? ` ${resolvedFirst}` : ''},</p>
               <p>You have been invited to access the contractor compliance portal for <strong>${company.companyName}</strong>.</p>
               <p>Click the button below to set up your account and start uploading your compliance documents:</p>
               <p style="text-align:center;margin:32px 0">
@@ -5217,9 +5224,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         .limit(1);
       const siteCompanyName = settings[0]?.companyName ?? 'your client';
 
-      const protocol = req.protocol;
-      const host = req.get('host') ?? '';
-      const portalUrl = `${protocol}://${host}/contractor-portal/login`;
+      const portalUrl = buildPortalUrl(req) + '/contractor-portal/login';
       const firstName = user.firstName ?? '';
 
       try {
@@ -5278,7 +5283,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       }
 
       const db = await customerDbService.getCustomerDatabase(customerId);
-      const reviewerId = (req as any).userId as string;
+      const reviewerId = (req.user as any)?.email || (req.user as any)?.username || 'admin';
 
       const [updated] = await db
         .update(isolatedSchema.contractorDocuments)
@@ -5488,6 +5493,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         }
       }
 
+      // ── Audit row in contractor_onboarding_audit ──────────────────────────
+      try {
+        const pool = (db as any).$client ?? (db as any).session?.client;
+        const schemaName = customerDbService.generateSchemaName(customerId);
+        const docLabel = (updated as any).documentName ?? (updated as any).documentType ?? 'document';
+        const auditAction = status === 'approved' ? 'document_approved' : 'document_rejected';
+        const auditReason = status === 'rejected'
+          ? `${docLabel} — ${rejectedReason || 'No reason given'}`
+          : docLabel;
+        if (pool) {
+          await pool.query(
+            `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, worker_id, action, actor, reason) VALUES ($1, $2, $3, $4, $5)`,
+            [
+              (updated as any).companyId ?? null,
+              (updated as any).workerId ?? null,
+              auditAction,
+              reviewerId,
+              auditReason,
+            ]
+          );
+        }
+      } catch (auditErr: any) {
+        logger.warn('[portal-review] Failed to write onboarding audit (non-fatal):', auditErr.message?.substring(0, 80));
+      }
+
+      // ── Auto-revert approved company if this review broke compliance ──────
+      if ((updated as any).companyId) {
+        // fire-and-forget; non-fatal
+        reevaluateCompanyApproval(db, customerId, (updated as any).companyId).catch(() => {});
+      }
+
       return res.json(updated);
     } catch (error: any) {
       logger.error('Error reviewing document:', error);
@@ -5541,14 +5577,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Approve company for site ───────────────────────────
-  app.post('/api/contractors/:id/approve-for-site', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.post('/api/contractors/:id/approve-for-site', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const customerId = req.customerId!;
       const actor = (req.user as any)?.email || (req.user as any)?.username || 'admin';
+      const { overrideReason } = req.body as { overrideReason?: string };
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+
+      // Check compliance before approving
+      const compliance = await getCompanyComplianceStatus(db, id);
+      let auditAction = 'approved_for_site';
+      let auditReason: string | null = null;
+
+      if (!compliance.compliant) {
+        if (!overrideReason?.trim()) {
+          return res.status(400).json({
+            error: 'This contractor is not fully compliant. Provide an override reason to approve anyway.',
+            missingItems: compliance.reasons,
+            requiresOverride: true,
+          });
+        }
+        auditAction = 'approved_for_site_override';
+        auditReason = `Override: ${overrideReason.trim()} | Missing: ${compliance.reasons.join('; ')}`;
+      }
 
       await pool.query(
         `UPDATE "${schemaName}".contractor_companies
@@ -5557,8 +5611,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         [id]
       );
       await pool.query(
-        `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor) VALUES ($1, 'approved_for_site', $2)`,
-        [id, actor]
+        `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor, reason) VALUES ($1, $2, $3, $4)`,
+        [id, auditAction, actor, auditReason]
       );
 
       const companyResult = await pool.query(
@@ -5601,7 +5655,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Request changes on submitted onboarding ────────────
-  app.post('/api/contractors/:id/request-changes', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.post('/api/contractors/:id/request-changes', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const { reason } = req.body as { reason: string };
@@ -5630,7 +5684,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       if (company?.contact_email) {
         try {
           const emailSvc = new EmailService(customerId);
-          const baseUrl = process.env.APP_URL || 'https://www.tpr-max.com';
+          const portalBase = buildPortalUrl(req);
           await emailSvc.sendEmail({
             to: company.contact_email,
             subject: `Action required — changes requested for your onboarding`,
@@ -5646,11 +5700,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
                     <p style="margin:4px 0 0;color:#78350f">${reason.trim()}</p>
                   </div>
                   <p>Please log in to the portal, address the issues, and re-submit for review.</p>
-                  <a href="${baseUrl}/contractor-portal/dashboard" style="display:inline-block;background:#2460A9;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">Go to Portal →</a>
+                  <a href="${portalBase}/contractor-portal/dashboard" style="display:inline-block;background:#2460A9;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">Go to Portal →</a>
                 </div>
               </div>
             `,
-            text: `Changes requested for your onboarding.\n\nReason: ${reason.trim()}\n\nPlease log in to the portal and re-submit once changes are made.`,
+            text: `Changes requested for your onboarding.\n\nReason: ${reason.trim()}\n\nPlease log in to the portal and re-submit once changes are made.\n\n${portalBase}/contractor-portal/dashboard`,
           });
         } catch (_) { /* non-fatal */ }
       }

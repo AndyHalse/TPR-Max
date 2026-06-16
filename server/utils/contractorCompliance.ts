@@ -1,11 +1,29 @@
 import { eq, and } from "drizzle-orm";
 import * as isolatedSchema from "../isolatedSchema";
 import { customerDbService } from "../customerDatabase";
+import { EmailService } from "../emailService";
+import { logger } from "../utils/logger";
 
 export type ComplianceResult = {
   compliant: boolean;
   reasons: string[];
 };
+
+// ── RTW status vocabulary (canonical): pending | verified | expired | invalid
+// "valid" is a legacy alias for "verified" — treat identically.
+export function evaluateRightToWork(status: string | null | undefined): { blocked: boolean; warning: boolean; message: string } {
+  if (!status || status === "pending") {
+    return { blocked: false, warning: true, message: "Right to Work not yet verified" };
+  }
+  if (status === "verified" || status === "valid") {
+    return { blocked: false, warning: false, message: "" };
+  }
+  if (status === "expired") {
+    return { blocked: true, warning: false, message: "Right to Work has expired" };
+  }
+  // invalid, missing, or any unknown value → blocking
+  return { blocked: true, warning: false, message: `Right to Work not accepted (status: ${status})` };
+}
 
 export type WorkerReadiness = {
   ready: boolean;
@@ -136,11 +154,11 @@ export async function getWorkerClearanceStatus(
 
   if ((worker as any).currentCardStatus === "red") blocking.push("Worker has an active Red Card (site ban)");
 
-  // Right to Work: expired/missing → block; pending → warning
+  // Right to Work — use canonical evaluator so the rule lives in one place
   const rtw = (worker as any).rightToWork;
-  if (!rtw || rtw === "missing") blocking.push("Right to Work document missing");
-  else if (rtw === "expired") blocking.push("Right to Work has expired");
-  else if (rtw !== "valid") warnings.push(`Right to Work not yet verified (status: ${rtw})`);
+  const rtwResult = evaluateRightToWork(rtw);
+  if (rtwResult.blocked) blocking.push(rtwResult.message);
+  else if (rtwResult.warning) warnings.push(rtwResult.message);
 
   // Site induction
   const inducted =
@@ -188,4 +206,84 @@ export async function getWorkerClearanceStatus(
   const ready = blocking.length === 0;
   const reasons = [...blocking, ...warnings];
   return { ready, blocking, warnings, compliant: ready, reasons };
+}
+
+// ── Auto-revert an approved company if compliance has lapsed ──────────────
+// Call after any document review, and from the nightly cron.
+// Only acts when the company is currently 'approved' and compliance is now broken.
+// Deduplication: only sends the alert email on the transition (not on every cron run).
+export async function reevaluateCompanyApproval(
+  db: any,
+  customerId: string,
+  companyId: string
+): Promise<void> {
+  try {
+    const pool = (db as any).$client ?? (db as any).session?.client;
+    if (!pool) return;
+    const schemaName = customerDbService.generateSchemaName(customerId);
+
+    const coResult = await pool.query(
+      `SELECT onboarding_status FROM "${schemaName}".contractor_companies WHERE id = $1 LIMIT 1`,
+      [companyId]
+    );
+    if (!coResult.rows[0] || coResult.rows[0].onboarding_status !== 'approved') return;
+
+    const compliance = await getCompanyComplianceStatus(db, companyId);
+    if (compliance.compliant) return;
+
+    // Transition: approved → attention_needed
+    await pool.query(
+      `UPDATE "${schemaName}".contractor_companies SET onboarding_status = 'attention_needed', updated_at = NOW() WHERE id = $1`,
+      [companyId]
+    );
+    const reasonText = compliance.reasons.join('; ');
+    await pool.query(
+      `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor, reason) VALUES ($1, 'auto_reverted', 'system', $2)`,
+      [companyId, reasonText]
+    );
+
+    // Alert email — only on the transition so the cron doesn't spam
+    try {
+      const settingsRows = await db.execute(`SELECT email, company_name FROM company_settings LIMIT 1`);
+      const settings = settingsRows.rows?.[0] as { email?: string; company_name?: string } | undefined;
+      const adminEmail = settings?.email as string | undefined;
+      const siteName = (settings?.company_name as string) || 'TPR Max';
+
+      const nameResult = await pool.query(
+        `SELECT company_name FROM "${schemaName}".contractor_companies WHERE id = $1 LIMIT 1`,
+        [companyId]
+      );
+      const contractorName = nameResult.rows[0]?.company_name ?? 'A contractor';
+
+      if (adminEmail) {
+        const emailSvc = new EmailService(customerId);
+        await emailSvc.sendEmail({
+          to: adminEmail,
+          subject: `⚠️ Compliance lapsed — ${contractorName} needs review`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <div style="background:#b45309;padding:16px 24px;border-radius:8px 8px 0 0">
+                <p style="color:white;margin:0;font-size:18px;font-weight:bold">Contractor Compliance Alert</p>
+              </div>
+              <div style="padding:20px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+                <p><strong>${contractorName}</strong> was previously approved but is no longer fully compliant. Their status has been set to <strong>Attention Needed</strong>.</p>
+                <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;margin:16px 0">
+                  <p style="margin:0;font-weight:600;color:#92400e">Issues detected:</p>
+                  <ul style="margin:8px 0 0;padding-left:20px;color:#78350f">
+                    ${compliance.reasons.map(r => `<li>${r}</li>`).join('')}
+                  </ul>
+                </div>
+                <p>Please log in to ${siteName} and review their documents.</p>
+              </div>
+            </div>
+          `,
+          text: `${contractorName} is no longer fully compliant and has been set to Attention Needed.\n\nIssues:\n${compliance.reasons.map(r => `- ${r}`).join('\n')}\n\nPlease review in ${siteName}.`,
+        });
+      }
+    } catch (emailErr: any) {
+      logger.warn('[reevaluateCompanyApproval] Alert email failed (non-fatal):', emailErr.message?.substring(0, 80));
+    }
+  } catch (err: any) {
+    logger.warn('[reevaluateCompanyApproval] Non-fatal error:', err.message?.substring(0, 120));
+  }
 }

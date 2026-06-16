@@ -50,6 +50,8 @@ export default function ContractorPortalAdmin() {
   const [rejectReason, setRejectReason] = useState("");
   const [requestChangesTarget, setRequestChangesTarget] = useState<{ id: string; companyName: string } | null>(null);
   const [requestChangesReason, setRequestChangesReason] = useState("");
+  const [overrideTarget, setOverrideTarget] = useState<{ id: string; companyName: string; missingItems: string[] } | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
 
   const { data: companies = [] } = useQuery<any[]>({ queryKey: ["/api/contractors"] });
 
@@ -152,16 +154,31 @@ export default function ContractorPortalAdmin() {
   });
 
   const approveForSiteMutation = useMutation({
-    mutationFn: async (companyId: string) => {
-      const res = await apiRequest("POST", `/api/contractors/${companyId}/approve-for-site`, {});
-      return res.json();
+    mutationFn: async ({ companyId, overrideReason }: { companyId: string; overrideReason?: string }) => {
+      const res = await apiRequest("POST", `/api/contractors/${companyId}/approve-for-site`, overrideReason ? { overrideReason } : {});
+      const data = await res.json();
+      if (!res.ok) throw Object.assign(new Error(data.error || "Approval failed"), data);
+      return data;
     },
-    onSuccess: () => {
-      toast({ title: "Approved for site", description: "The contractor has been approved. They've been notified by email." });
+    onSuccess: (_data, vars) => {
+      const wasOverride = !!vars.overrideReason;
+      toast({
+        title: wasOverride ? "Approved with override" : "Approved for site",
+        description: wasOverride
+          ? "Contractor approved despite missing compliance items. This has been logged in the audit trail."
+          : "The contractor has been approved. They've been notified by email.",
+      });
+      setOverrideTarget(null);
+      setOverrideReason("");
       qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
     },
     onError: (err: any) => {
+      if (err?.requiresOverride) {
+        // Server flagged non-compliance — surface the override dialog
+        setOverrideTarget({ id: err._companyId ?? "", companyName: err._companyName ?? "", missingItems: err.missingItems ?? [] });
+        return;
+      }
       toast({ title: "Approval failed", description: err?.message || "Please try again.", variant: "destructive" });
     },
   });
@@ -584,8 +601,9 @@ export default function ContractorPortalAdmin() {
               ) : (
                 <div className="space-y-4">
                   {allSubmittedCompanies.map((c: any) => {
-                    const approveBusy = approveForSiteMutation.isPending && approveForSiteMutation.variables === c.id;
+                    const approveBusy = approveForSiteMutation.isPending && (approveForSiteMutation.variables as any)?.companyId === c.id;
                     const allValid = (c.required_docs ?? []).every((d: any) => d.valid);
+                    const missingItems: string[] = (c.required_docs ?? []).filter((d: any) => !d.valid).map((d: any) => d.label);
                     return (
                       <div key={c.id} className="border rounded-xl p-4 space-y-3">
                         <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -603,15 +621,26 @@ export default function ContractorPortalAdmin() {
                               <TooltipTrigger asChild>
                                 <Button
                                   size="sm"
-                                  className="bg-green-600 hover:bg-green-700 text-white text-xs"
-                                  onClick={() => approveForSiteMutation.mutate(c.id)}
+                                  className={allValid ? "bg-green-600 hover:bg-green-700 text-white text-xs" : "bg-amber-600 hover:bg-amber-700 text-white text-xs"}
+                                  onClick={() => {
+                                    if (allValid) {
+                                      approveForSiteMutation.mutate({ companyId: c.id });
+                                    } else {
+                                      setOverrideTarget({ id: c.id, companyName: c.company_name, missingItems });
+                                      setOverrideReason("");
+                                    }
+                                  }}
                                   disabled={approveForSiteMutation.isPending}
                                 >
                                   {approveBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCheck className="w-3 h-3 mr-1" />}
-                                  Approve for site
+                                  {allValid ? "Approve for site" : "Approve with override"}
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs">Approve this contractor — their status updates to Approved and they're notified by email</TooltipContent>
+                              <TooltipContent side="top" className="text-xs">
+                                {allValid
+                                  ? "Approve this contractor — their status updates to Approved and they're notified by email"
+                                  : "Some required documents are missing or invalid — you'll need to provide an override reason"}
+                              </TooltipContent>
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -977,6 +1006,44 @@ export default function ContractorPortalAdmin() {
               onClick={() => requestChangesTarget && requestChangesMutation.mutate({ companyId: requestChangesTarget.id, reason: requestChangesReason.trim() })}
             >
               {requestChangesMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Send Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* ── Override Approval Dialog ─────────────────────────────────────────── */}
+      <Dialog open={!!overrideTarget} onOpenChange={(o) => { if (!o) { setOverrideTarget(null); setOverrideReason(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700"><AlertTriangle className="w-5 h-5" />Override Approval Required</DialogTitle>
+            <DialogDescription>
+              <strong>{overrideTarget?.companyName}</strong> is missing or has invalid compliance documents. You can still approve them, but you must provide a reason — this will be logged in the audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          {overrideTarget?.missingItems && overrideTarget.missingItems.length > 0 && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-1">
+              <p className="text-xs font-semibold text-amber-800">Missing or invalid items:</p>
+              <ul className="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+                {overrideTarget.missingItems.map((item, i) => <li key={i}>{item}</li>)}
+              </ul>
+            </div>
+          )}
+          <div className="space-y-2 py-1">
+            <Label>Override reason <span className="text-red-500">*</span></Label>
+            <Textarea
+              placeholder="e.g. Contractor has verbal confirmation from site manager; updated certificate expected within 48 hours…"
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setOverrideTarget(null); setOverrideReason(""); }}>Cancel</Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              disabled={!overrideReason.trim() || approveForSiteMutation.isPending}
+              onClick={() => overrideTarget && approveForSiteMutation.mutate({ companyId: overrideTarget.id, overrideReason: overrideReason.trim() })}
+            >
+              {approveForSiteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Approve with Override
             </Button>
           </DialogFooter>
         </DialogContent>

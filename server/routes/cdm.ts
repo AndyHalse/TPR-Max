@@ -7,6 +7,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { EmailService } from '../emailService';
 import { eq, and, sql, inArray, isNotNull, lte } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { reevaluateCompanyApproval } from '../utils/contractorCompliance';
 
 export async function registerCdmRoutes(app: Express): Promise<void> {
 // ── PPM (Planned Preventative Maintenance) routes ───────────────────────────
@@ -848,6 +849,23 @@ app.put("/api/cdm/contractor/:id/accreditations", requireAuth, async (req, res) 
       for (const customer of allCustomers) {
         try {
           const custDb = await customerDbService.getCustomerDatabase(customer.id);
+
+          // ── Auto-revert approved companies whose compliance has now lapsed ────
+          // Runs every night for every customer, regardless of expiry alerts.
+          // reevaluateCompanyApproval is a no-op when the company is still compliant.
+          try {
+            const rvPool = (custDb as any).$client ?? (custDb as any).session?.client;
+            if (rvPool) {
+              const approvedResult = await rvPool.query(
+                `SELECT id FROM contractor_companies WHERE onboarding_status = 'approved'`
+              );
+              for (const row of approvedResult.rows) {
+                await reevaluateCompanyApproval(custDb, customer.id, row.id);
+              }
+            }
+          } catch (revertErr) {
+            logger.warn(`[Contractor Expiry Cron] Auto-revert check failed for customer ${customer.id} (non-fatal):`, revertErr);
+          }
 
           const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
           const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
