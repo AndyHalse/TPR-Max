@@ -1416,8 +1416,10 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                                   <Clock className="h-3 w-3 mr-1" /> Pending Review
                                 </Badge>
                               )}
-                              {doc.approvedBy && (
-                                <span className="text-xs text-variable">by {doc.approvedBy}</span>
+                              {doc.approvedBy && doc.approvedAt && (
+                                <span className="text-xs text-muted-foreground">
+                                  by <strong>{doc.approvedBy}</strong> · {new Date(doc.approvedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
+                                </span>
                               )}
                             </div>
                             {doc.status === 'pending' && (

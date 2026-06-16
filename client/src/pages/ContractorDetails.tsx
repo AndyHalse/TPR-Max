@@ -2122,6 +2122,11 @@ export default function ContractorDetails() {
                                   <Clock className="h-3 w-3 mr-1" /> Pending Review
                                 </Badge>
                               )}
+                              {doc.approvedBy && doc.approvedAt && (
+                                <span className="text-xs text-muted-foreground">
+                                  by <strong>{doc.approvedBy}</strong> · {new Date(doc.approvedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
+                                </span>
+                              )}
                               {isExpired && (
                                 <Badge className="bg-red-100 text-red-800 border border-red-300 text-xs">Expired</Badge>
                               )}
