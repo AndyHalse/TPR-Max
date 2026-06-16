@@ -366,7 +366,7 @@ export function registerBugReportRoutes(app: Express) {
         reporterConfirmedAt: now,
         resolvedAt: report.resolvedAt ?? now,
         updatedAt: now,
-        feedbackToken: null,
+        // Keep feedbackToken so repeat clicks show "Already received" not "Link expired"
       }).where(eq(bugReports.id, report.id));
 
       // Notify us (non-fatal)
@@ -433,7 +433,7 @@ export function registerBugReportRoutes(app: Express) {
         reopenScreenshot: screenshot ?? null,
         reopenedAt: now,
         updatedAt: now,
-        feedbackToken: null,
+        // Keep feedbackToken so repeat clicks show "Already received" not "Link expired"
       }).where(eq(bugReports.id, report.id));
 
       // Alert us (non-fatal)
