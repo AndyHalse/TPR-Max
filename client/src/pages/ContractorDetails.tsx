@@ -480,6 +480,28 @@ export default function ContractorDetails() {
     },
   });
 
+  // Worker documents query — fetches when a worker details modal is open
+  const { data: viewingWorkerDocs = [], refetch: refetchViewingWorkerDocs } = useQuery<any[]>({
+    queryKey: [`/api/contractors/workers/${viewingWorker?.id}/documents`],
+    enabled: !!viewingWorker?.id,
+  });
+
+  // Approve worker document mutation (used inside Worker Details modal)
+  const approveWorkerDocumentMutation = useMutation({
+    mutationFn: async ({ workerId, documentId }: { workerId: string; documentId: string }) => {
+      const response = await apiRequest('PATCH', `/api/contractors/workers/${workerId}/documents/${documentId}/approve`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Document approved", description: "Approval recorded successfully." });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${viewingWorker?.id}/documents`] });
+      refetchViewingWorkerDocs();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to approve document", description: error.message, variant: "destructive" });
+    }
+  });
+
   // Approve company document mutation
   const approveDocumentMutation = useMutation({
     mutationFn: async (documentId: string) => {
@@ -2063,6 +2085,78 @@ export default function ContractorDetails() {
                   dbsRequired={viewingWorkerDbsRequired}
                   onDbsRequiredChange={setViewingWorkerDbsRequired}
                 />
+              </div>
+
+              {/* Uploaded Documents */}
+              <div className="border-t pt-4 space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Uploaded Documents
+                  {viewingWorkerDocs.filter((d: any) => d.status === 'pending').length > 0 && (
+                    <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 text-xs ml-1">
+                      {viewingWorkerDocs.filter((d: any) => d.status === 'pending').length} pending
+                    </Badge>
+                  )}
+                </h3>
+                {viewingWorkerDocs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {viewingWorkerDocs.map((doc: any) => {
+                      const isExpired = doc.expiryDate && new Date(doc.expiryDate) < new Date();
+                      return (
+                        <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{doc.documentName}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              {doc.status === 'approved' ? (
+                                <Badge className="bg-green-100 text-green-800 border border-green-300 text-xs">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Approved
+                                </Badge>
+                              ) : doc.status === 'rejected' ? (
+                                <Badge className="bg-red-100 text-red-800 border border-red-300 text-xs">
+                                  <XCircle className="h-3 w-3 mr-1" /> Rejected
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 text-xs">
+                                  <Clock className="h-3 w-3 mr-1" /> Pending Review
+                                </Badge>
+                              )}
+                              {isExpired && (
+                                <Badge className="bg-red-100 text-red-800 border border-red-300 text-xs">Expired</Badge>
+                              )}
+                              {doc.expiryDate && !isExpired && (
+                                <span className="text-xs text-muted-foreground">
+                                  Expires {format(new Date(doc.expiryDate), 'dd/MM/yyyy')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-3 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => window.open(objectUrl(doc.documentUrl), '_blank')}
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                            {doc.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white h-7 px-3 text-xs"
+                                onClick={() => approveWorkerDocumentMutation.mutate({ workerId: viewingWorker.id, documentId: doc.id })}
+                                disabled={approveWorkerDocumentMutation.isPending}
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {isWorkerClearForWork(viewingWorker) && (
