@@ -150,6 +150,23 @@ export function registerContractorRoutes(app: Express): void {
     }
   });
 
+  // ── Pending documents count — badge source for the Contractor Portal nav item ──
+  // Returns number of contractor_documents rows with status = 'pending' across all companies.
+  app.get("/api/contractors/pending-docs-count", requireAuth, async (req, res) => {
+    try {
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS count FROM "${schemaName}".contractor_documents WHERE status = 'pending' AND is_active = TRUE`
+      );
+      return res.json({ count: rows[0]?.count ?? 0 });
+    } catch (error) {
+      logger.error("Error fetching pending docs count:", error);
+      return res.json({ count: 0 });
+    }
+  });
+
   // ── Contractor compliance gap count (badge source — replaces client-side hasContractorComplianceGap) ──
   // Returns total CRITICAL (expired / missing) gaps across companies + workers.
   // Expiring-soon items are NOT included in the red badge total.

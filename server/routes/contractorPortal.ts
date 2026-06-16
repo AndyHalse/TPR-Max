@@ -585,6 +585,34 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           })
           .returning();
 
+        // Notify admin that a new document is awaiting review (non-fatal)
+        try {
+          const notifyEmail = process.env.CONTRACTOR_NOTIFY_EMAIL || process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+          const emailSvc = new EmailService(pu.customerId);
+          const baseUrl = process.env.APP_URL || process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.replit.app` : 'https://www.tpr-max.com';
+          await emailSvc.sendEmail({
+            to: notifyEmail,
+            subject: `📋 Document awaiting review — ${documentName}`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+                <div style="background:#2460A9;padding:16px 24px;border-radius:8px 8px 0 0">
+                  <p style="color:white;margin:0;font-size:18px;font-weight:bold">TPR — Document Awaiting Review</p>
+                </div>
+                <div style="padding:20px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+                  <p>A contractor has uploaded a new document that needs your review.</p>
+                  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+                    <tr><td style="padding:6px 0;color:#64748b;width:140px">Document</td><td style="padding:6px 0;font-weight:600">${documentName}</td></tr>
+                    <tr><td style="padding:6px 0;color:#64748b">Type</td><td style="padding:6px 0">${documentType}</td></tr>
+                    ${expiryDate ? `<tr><td style="padding:6px 0;color:#64748b">Expiry</td><td style="padding:6px 0">${new Date(expiryDate).toLocaleDateString('en-GB')}</td></tr>` : ''}
+                  </table>
+                  <a href="${baseUrl}/contractor-portal-admin" style="display:inline-block;background:#2460A9;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">Review in Portal Admin →</a>
+                </div>
+              </div>
+            `,
+            text: `Document Awaiting Review\n\nDocument: ${documentName}\nType: ${documentType}${expiryDate ? `\nExpiry: ${new Date(expiryDate).toLocaleDateString('en-GB')}` : ''}\n\nReview at: ${baseUrl}/contractor-portal-admin`,
+          });
+        } catch (_) { /* non-fatal — upload already succeeded */ }
+
         return res.status(201).json(doc);
       } catch (err: any) {
         logger.error('[portal-upload]', err);
@@ -754,6 +782,47 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
             isActive: true,
           })
           .returning();
+
+        // Notify admin that a new worker document is awaiting review (non-fatal)
+        try {
+          const notifyEmail = process.env.CONTRACTOR_NOTIFY_EMAIL || process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+          const emailSvc = new EmailService(pu.customerId);
+          const baseUrl = process.env.APP_URL || process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.replit.app` : 'https://www.tpr-max.com';
+
+          // Resolve worker name for the email (non-fatal if it fails)
+          let workerLabel = 'a worker';
+          try {
+            const [w] = await db
+              .select({ firstName: isolatedSchema.contractorWorkers.firstName, lastName: isolatedSchema.contractorWorkers.lastName })
+              .from(isolatedSchema.contractorWorkers)
+              .where(eq(isolatedSchema.contractorWorkers.id, workerId))
+              .limit(1);
+            if (w) workerLabel = [w.firstName, w.lastName].filter(Boolean).join(' ') || workerLabel;
+          } catch (_) {}
+
+          await emailSvc.sendEmail({
+            to: notifyEmail,
+            subject: `📋 Worker document awaiting review — ${documentName} (${workerLabel})`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+                <div style="background:#2460A9;padding:16px 24px;border-radius:8px 8px 0 0">
+                  <p style="color:white;margin:0;font-size:18px;font-weight:bold">TPR — Worker Document Awaiting Review</p>
+                </div>
+                <div style="padding:20px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+                  <p>A contractor has uploaded a worker document that needs your review.</p>
+                  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+                    <tr><td style="padding:6px 0;color:#64748b;width:140px">Worker</td><td style="padding:6px 0;font-weight:600">${workerLabel}</td></tr>
+                    <tr><td style="padding:6px 0;color:#64748b">Document</td><td style="padding:6px 0;font-weight:600">${documentName}</td></tr>
+                    <tr><td style="padding:6px 0;color:#64748b">Type</td><td style="padding:6px 0">${documentType}</td></tr>
+                    ${expiryDate ? `<tr><td style="padding:6px 0;color:#64748b">Expiry</td><td style="padding:6px 0">${new Date(expiryDate).toLocaleDateString('en-GB')}</td></tr>` : ''}
+                  </table>
+                  <a href="${baseUrl}/contractor-portal-admin" style="display:inline-block;background:#2460A9;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">Review in Portal Admin →</a>
+                </div>
+              </div>
+            `,
+            text: `Worker Document Awaiting Review\n\nWorker: ${workerLabel}\nDocument: ${documentName}\nType: ${documentType}${expiryDate ? `\nExpiry: ${new Date(expiryDate).toLocaleDateString('en-GB')}` : ''}\n\nReview at: ${baseUrl}/contractor-portal-admin`,
+          });
+        } catch (_) { /* non-fatal — upload already succeeded */ }
 
         return res.status(201).json(doc);
       } catch (err: any) {

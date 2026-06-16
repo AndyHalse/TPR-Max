@@ -66,6 +66,15 @@ export default function Layout({ children }: LayoutProps) {
 
   const contractorGapsCount = contractorGapData?.total ?? 0;
 
+  const { data: pendingDocsData } = useQuery<{ count: number }>({
+    queryKey: ["/api/contractors/pending-docs-count", customerId],
+    enabled: !!customerId,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  const pendingDocsCount = pendingDocsData?.count ?? 0;
+
   const { data: ppmExpiryData } = useQuery<{ expiredCount: number; expiringSoonCount: number; total: number }>({
     queryKey: ["/api/ppm/expiry-count", customerId],
     enabled: !!customerId && user?.role === "admin",
@@ -246,7 +255,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/compliance-dashboard", icon: Activity, label: "Compliance Score", featureKey: "featureComplianceDashboard", defaultOn: true },
     { path: "/visitors", icon: User, label: "Visitors", featureKey: "featureVisitors", defaultOn: true },
     { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true, badge: contractorGapsCount > 0 ? contractorGapsCount : undefined, badgeTooltip: contractorGapsCount > 0 ? `${contractorGapsCount} compliance gap${contractorGapsCount !== 1 ? 's' : ''} — click to review` : undefined },
-    { path: "/contractor-portal-admin", icon: Globe, label: "Contractor Portal", tooltip: "Contractor Self-Service Portal Management", featureKey: "featureContractorPortal", defaultOn: false },
+    { path: "/contractor-portal-admin", icon: Globe, label: "Contractor Portal", tooltip: "Contractor Self-Service Portal Management", featureKey: "featureContractorPortal", defaultOn: false, badge: pendingDocsCount > 0 ? pendingDocsCount : undefined, badgeTooltip: pendingDocsCount > 0 ? `${pendingDocsCount} document${pendingDocsCount !== 1 ? 's' : ''} awaiting review` : undefined },
     { path: "/staff", icon: Users, label: "Staff", featureKey: "featureStaff", defaultOn: true },
     { path: "/members", icon: UserCheck, label: "Members", featureKey: "featureMembers", defaultOn: true },
     { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms", defaultOn: true },
