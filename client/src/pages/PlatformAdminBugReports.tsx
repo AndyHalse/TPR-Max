@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2, Mail, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,11 +41,17 @@ interface BugReport {
   resolvedAt: string | null;
   hasScreenshot: boolean;
   attachmentCount: number;
+  reporterFeedback: string | null;
+  reporterConfirmedAt: string | null;
+  reopenReason: string | null;
+  reopenedAt: string | null;
+  hasReopenScreenshot: boolean;
 }
 
 interface BugReportDetail extends BugReport {
   screenshot: string | null;
   attachments: Attachment[] | null;
+  reopenScreenshot: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -53,9 +59,10 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   in_progress: { label: "In Progress", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
   fixed: { label: "Fixed", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
   closed: { label: "Closed", className: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400" },
+  reopened: { label: "Reopened", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
-const STATUSES = ["new", "in_progress", "fixed", "closed"] as const;
+const STATUSES = ["new", "in_progress", "fixed", "closed", "reopened"] as const;
 
 function buildCopyText(detail: BugReportDetail): string {
   const totalImages =
@@ -78,6 +85,9 @@ function buildCopyText(detail: BugReportDetail): string {
       : []),
     ...(detail.breadcrumbs
       ? ["## Breadcrumbs (last actions)", detail.breadcrumbs, ""]
+      : []),
+    ...(detail.reopenReason
+      ? ["## Reporter Reopen Note", detail.reopenReason, ""]
       : []),
     `## Attachments`,
     totalImages > 0
@@ -272,6 +282,13 @@ export default function PlatformAdminBugReports() {
         addLine(detail.breadcrumbs, 7.5, "normal", "courier");
       }
 
+      if (detail.reopenReason?.trim()) {
+        checkPage(12);
+        addLine("Reporter Reopen Note", 12, "bold");
+        gap(1);
+        addLine(detail.reopenReason, 9);
+      }
+
       // ── Image pages ───────────────────────────────────────────────────
       for (const img of allImages) {
         doc.addPage();
@@ -317,8 +334,16 @@ export default function PlatformAdminBugReports() {
   }
 
   const reports = data?.reports ?? [];
-  const filtered = statusFilter === "all" ? reports : reports.filter((r) => r.status === statusFilter);
-  const openCount = reports.filter((r) => r.status === "new" || r.status === "in_progress").length;
+  // Sort reopened to the top, then by createdAt desc
+  const sorted = [...reports].sort((a, b) => {
+    const aReopened = a.status === "reopened" ? 0 : 1;
+    const bReopened = b.status === "reopened" ? 0 : 1;
+    if (aReopened !== bReopened) return aReopened - bReopened;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  const filtered = statusFilter === "all" ? sorted : sorted.filter((r) => r.status === statusFilter);
+  const openCount = reports.filter((r) => r.status === "new" || r.status === "in_progress" || r.status === "reopened").length;
+  const reopenedCount = reports.filter((r) => r.status === "reopened").length;
 
   const allImages: Array<{ dataUrl: string; caption: string; index: number }> = [];
   if (detail) {
@@ -326,6 +351,9 @@ export default function PlatformAdminBugReports() {
     (detail.attachments ?? []).forEach((a, i) =>
       allImages.push({ dataUrl: a.dataUrl, caption: a.caption || `Attachment ${i + 1}`, index: allImages.length })
     );
+    if (detail.reopenScreenshot) {
+      allImages.push({ dataUrl: detail.reopenScreenshot, caption: "Reporter screenshot (reopen)", index: allImages.length });
+    }
   }
 
   return (
@@ -337,12 +365,19 @@ export default function PlatformAdminBugReports() {
           <div>
             <h2 className="text-xl font-bold">Bug Reports</h2>
             <p className="text-sm text-muted-foreground">
-              {openCount > 0 ? `${openCount} open report${openCount !== 1 ? "s" : ""}` : "No open reports"}
+              {reopenedCount > 0
+                ? <span className="text-red-600 font-medium">{reopenedCount} reopened</span>
+                : null}
+              {reopenedCount > 0 && openCount > reopenedCount ? " · " : null}
+              {openCount - reopenedCount > 0
+                ? `${openCount - reopenedCount} open`
+                : openCount === 0 ? "No open reports" : null}
+              {reopenedCount === 0 && openCount === 0 ? "No open reports" : null}
             </p>
           </div>
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -369,11 +404,12 @@ export default function PlatformAdminBugReports() {
           {filtered.map((report) => {
             const cfg = STATUS_CONFIG[report.status] ?? STATUS_CONFIG.new;
             const firstLine = report.description.split("\n")[0].slice(0, 120);
-            const imgCount = (report.hasScreenshot ? 1 : 0) + (report.attachmentCount ?? 0);
+            const imgCount = (report.hasScreenshot ? 1 : 0) + (report.attachmentCount ?? 0) + (report.hasReopenScreenshot ? 1 : 0);
+            const isReopened = report.status === "reopened";
             return (
               <Card
                 key={report.id}
-                className="cursor-pointer hover:border-amber-300 transition-colors"
+                className={`cursor-pointer hover:border-amber-300 transition-colors ${isReopened ? "border-red-300 dark:border-red-700" : ""}`}
                 onClick={() => openDetail(report)}
               >
                 <CardContent className="p-4 flex items-center gap-4">
@@ -386,11 +422,21 @@ export default function PlatformAdminBugReports() {
                         </span>
                       )}
                       <Badge className={`text-xs px-2 py-0 ${cfg.className}`}>{cfg.label}</Badge>
+                      {isReopened && (
+                        <span className="text-xs text-red-600 font-medium flex items-center gap-0.5">
+                          <RotateCcw className="w-3 h-3" /> Needs attention
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {report.customerName || report.customerId || "—"}
                       </span>
                     </div>
                     <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{firstLine}</p>
+                    {isReopened && report.reopenReason && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 truncate">
+                        Reporter: "{report.reopenReason}"
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {report.reporterName ? `${report.reporterName} · ` : ""}
                       {new Date(report.createdAt).toLocaleString()}
@@ -492,6 +538,41 @@ export default function PlatformAdminBugReports() {
                     </div>
                   )}
                 </div>
+
+                {/* Reporter feedback panels */}
+                {detail.reporterFeedback === 'confirmed' && detail.reporterConfirmedAt && (
+                  <div className="flex items-start gap-2.5 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
+                    <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-green-700 dark:text-green-400">
+                      ✓ Reporter confirmed fixed on {new Date(detail.reporterConfirmedAt).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+
+                {detail.reporterFeedback === 'still_broken' && (
+                  <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <RotateCcw className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                        Reporter says it's still broken
+                        {detail.reopenedAt ? ` · ${new Date(detail.reopenedAt).toLocaleString()}` : ""}
+                      </p>
+                    </div>
+                    {detail.reopenReason && (
+                      <p className="text-sm text-red-800 dark:text-red-300 whitespace-pre-wrap pl-6">
+                        "{detail.reopenReason}"
+                      </p>
+                    )}
+                    {detail.reopenScreenshot && (
+                      <div className="pl-6 mt-2">
+                        <p className="text-xs text-red-600 mb-1 font-medium">Reporter's screenshot:</p>
+                        <div className="border border-red-200 rounded overflow-hidden cursor-zoom-in" onClick={() => setZoomedImage(detail.reopenScreenshot!)}>
+                          <img src={detail.reopenScreenshot} alt="Reporter screenshot" className="w-full max-h-40 object-contain bg-slate-50 dark:bg-slate-900" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Description */}
                 <div>
@@ -644,7 +725,7 @@ export default function PlatformAdminBugReports() {
             </DialogTitle>
             <DialogDescription>
               {detail?.reporterEmail
-                ? `Optionally add a note about what was fixed, then notify ${detail.reporterName || 'the reporter'} by email.`
+                ? `Optionally add a note about what was fixed, then notify ${detail.reporterName || 'the reporter'} by email.${detail.status === 'reopened' ? ' This will send a fresh verification email since the report was reopened.' : ''}`
                 : 'No reporter email on file — the report will be marked Fixed without sending a notification.'}
             </DialogDescription>
           </DialogHeader>

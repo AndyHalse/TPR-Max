@@ -2685,6 +2685,12 @@ export const bugReports = pgTable("bug_reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
+  feedbackToken: text("feedback_token"),
+  reporterConfirmedAt: timestamp("reporter_confirmed_at"),
+  reporterFeedback: text("reporter_feedback"),
+  reopenReason: text("reopen_reason"),
+  reopenScreenshot: text("reopen_screenshot"),
+  reopenedAt: timestamp("reopened_at"),
 }, (table) => ({
   bugStatusIdx: index("bug_reports_status_idx").on(table.status),
   bugCustomerIdIdx: index("bug_reports_customer_id_idx").on(table.customerId),
@@ -2703,6 +2709,12 @@ export const insertBugReportSchema = createInsertSchema(bugReports).omit({
   createdAt: true,
   updatedAt: true,
   resolvedAt: true,
+  feedbackToken: true,
+  reporterConfirmedAt: true,
+  reporterFeedback: true,
+  reopenReason: true,
+  reopenScreenshot: true,
+  reopenedAt: true,
 }).extend({
   description: z.string().min(1).max(5000),
   attachments: z.array(z.object({

@@ -59,6 +59,7 @@ import AcceptInvitation from "@/pages/AcceptInvitation";
 import Profile from "@/pages/Profile";
 import PlatformAdminLogin from "@/pages/PlatformAdminLogin";
 import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
+import BugFeedback from "@/pages/BugFeedback";
 import IncidentManagerMonitor from "@/pages/IncidentManagerMonitor";
 import LoneWorkerConfirmation from "@/pages/LoneWorkerConfirmation";
 import HSIncidents from "@/pages/HSIncidents";
@@ -115,7 +116,8 @@ function Router() {
   const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
   const isPlatformAdminRoute = location.startsWith('/platform-admin');
   const isContractorPortalRoute = location.startsWith('/contractor-portal/') || location === '/contractor-portal';
-  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute || isContractorPortalRoute;
+  const isBugFeedbackRoute = window.location.pathname.startsWith('/bug-feedback/');
+  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute || isContractorPortalRoute || isBugFeedbackRoute;
 
   // Auth query — must be called unconditionally (Rules of Hooks) before any early returns
   const { data: user, isLoading, error, isError } = useQuery({
@@ -440,6 +442,11 @@ function Router() {
   // Customer-facing kiosk pages — render without any admin Layout/nav
   if (window.location.pathname === '/contractor') {
     return <ContractorKiosk />;
+  }
+
+  // Bug feedback — public token-auth, no app chrome
+  if (isBugFeedbackRoute) {
+    return <BugFeedback />;
   }
 
   // Contractor self-service portal — separate JWT-auth flow, no main Layout

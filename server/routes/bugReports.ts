@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { randomBytes } from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, requirePlatformAdmin } from '../auth';
 import { db } from '../db';
@@ -11,6 +12,8 @@ const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 12 * 1024 * 1024;
 const MAX_ATTACHMENTS = 5;
 
+const ALLOWED_STATUSES = ['new', 'in_progress', 'fixed', 'closed', 'reopened'];
+
 const bugReportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -19,7 +22,20 @@ const bugReportLimiter = rateLimit({
   message: { error: 'Too many bug reports submitted. Please wait a few minutes and try again.' },
 });
 
+const feedbackLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
 const DISCLAIMER = `If you are not the intended recipient of this message, please notify the sender immediately and do not disclose the contents to any other person, use it for any purpose, or store or copy the information in any medium. Internet communications are not secure and therefore ACS Safety & Security Limited does not accept legal responsibility for the contents of this message. Any views or opinions presented are solely those of the author and do not necessarily represent those of ACS Safety & Security Limited.`;
+
+function getBaseUrl(): string {
+  return process.env.FRONTEND_URL
+    || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0].trim()}` : 'http://localhost:5000');
+}
 
 function buildFixedEmailHtml(opts: {
   reportNumber: string;
@@ -27,10 +43,35 @@ function buildFixedEmailHtml(opts: {
   reporterName: string | null;
   description: string;
   resolutionNote: string | null;
+  feedbackToken?: string;
+  baseUrl?: string;
 }): string {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const greeting = opts.reporterFirstName || opts.reporterName?.split(' ')[0] || 'there';
   const desc = esc(opts.description.slice(0, 600) + (opts.description.length > 600 ? '…' : ''));
+
+  const verificationButtons = opts.feedbackToken && opts.baseUrl ? `
+      <!-- Verification buttons -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 24px">
+        <tr>
+          <td align="center">
+            <p style="margin:0 0 14px;font-size:15px;color:#1e293b">Can you confirm the issue is sorted?</p>
+            <table cellpadding="0" cellspacing="0" style="display:inline-block">
+              <tr>
+                <td style="padding:0 6px">
+                  <a href="${opts.baseUrl}/bug-feedback/${opts.feedbackToken}?r=fixed"
+                     style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:6px">&#10003; Yes, this is fixed</a>
+                </td>
+                <td style="padding:0 6px">
+                  <a href="${opts.baseUrl}/bug-feedback/${opts.feedbackToken}?r=broken"
+                     style="display:inline-block;background:#ffffff;color:#b91c1c;text-decoration:none;font-weight:bold;font-size:14px;padding:11px 21px;border:1px solid #b91c1c;border-radius:6px">&#10007; No, still broken</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+  ` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -76,6 +117,8 @@ function buildFixedEmailHtml(opts: {
       </table>
       ` : ''}
 
+      ${verificationButtons}
+
       <p style="margin:0 0 20px">If you're still seeing the problem, please refresh the page (or sign out and back in) to pick up the latest version. If it persists, just reply to this email and we'll take another look.</p>
 
       <p style="margin:0 0 4px">Thanks for helping us make TPR better.</p>
@@ -114,9 +157,17 @@ function buildFixedEmailText(opts: {
   reporterName: string | null;
   description: string;
   resolutionNote: string | null;
+  feedbackToken?: string;
+  baseUrl?: string;
 }): string {
   const greeting = opts.reporterFirstName || opts.reporterName?.split(' ')[0] || 'there';
   const desc = opts.description.slice(0, 600) + (opts.description.length > 600 ? '…' : '');
+  const feedbackLines = opts.feedbackToken && opts.baseUrl ? [
+    `Is it fixed?`,
+    `  Yes → ${opts.baseUrl}/bug-feedback/${opts.feedbackToken}?r=fixed`,
+    `  Still broken → ${opts.baseUrl}/bug-feedback/${opts.feedbackToken}?r=broken`,
+    '',
+  ] : [];
   return [
     `Hi ${greeting},`,
     '',
@@ -126,6 +177,7 @@ function buildFixedEmailText(opts: {
     `"${desc}"`,
     '',
     ...(opts.resolutionNote ? [`What we did: ${opts.resolutionNote}`, ''] : []),
+    ...feedbackLines,
     `If you're still seeing the problem, please refresh the page (or sign out and back in) to pick up the latest version. If it persists, just reply to this email and we'll take another look.`,
     '',
     `Thanks for helping us make TPR better.`,
@@ -252,6 +304,158 @@ export function registerBugReportRoutes(app: Express) {
     }
   });
 
+  // ── Public feedback routes (no auth — token is the credential) ────────────
+
+  // GET /api/bug-feedback/:token — look up a report by token
+  app.get('/api/bug-feedback/:token', feedbackLimiter, async (req, res) => {
+    try {
+      const { token } = req.params;
+      const [report] = await db
+        .select({
+          id: bugReports.id,
+          reportNumber: bugReports.reportNumber,
+          status: bugReports.status,
+          reporterFeedback: bugReports.reporterFeedback,
+        })
+        .from(bugReports)
+        .where(eq(bugReports.feedbackToken, token))
+        .limit(1);
+
+      if (!report) return res.status(404).json({ error: 'Token not found or already used.' });
+
+      const alreadyResponded = report.reporterFeedback !== null;
+      return res.json({
+        reportNumber: report.reportNumber,
+        status: report.status,
+        alreadyResponded,
+      });
+    } catch (error: any) {
+      logger.error('[bug-feedback] GET error:', error);
+      return res.status(500).json({ error: 'Failed to look up report.' });
+    }
+  });
+
+  // POST /api/bug-feedback/:token/confirm — reporter says "Yes, it's fixed"
+  app.post('/api/bug-feedback/:token/confirm', feedbackLimiter, async (req, res) => {
+    try {
+      const { token } = req.params;
+      const [report] = await db
+        .select()
+        .from(bugReports)
+        .where(eq(bugReports.feedbackToken, token))
+        .limit(1);
+
+      if (!report) return res.status(404).json({ error: 'Token not found or already used.' });
+
+      // Idempotent — if already confirmed, just return success
+      if (report.reporterFeedback === 'confirmed') {
+        return res.json({ ok: true, reportNumber: report.reportNumber });
+      }
+
+      const now = new Date();
+      await db.update(bugReports).set({
+        status: 'closed',
+        reporterFeedback: 'confirmed',
+        reporterConfirmedAt: now,
+        resolvedAt: report.resolvedAt ?? now,
+        updatedAt: now,
+        feedbackToken: null,
+      }).where(eq(bugReports.id, report.id));
+
+      // Notify us (non-fatal)
+      try {
+        const notifyEmail = process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+        const emailSvc = new EmailService();
+        await emailSvc.sendEmail({
+          to: notifyEmail,
+          subject: `✅ ${report.reportNumber} — Reporter confirmed fix (auto-closed)`,
+          html: `<p style="font-family:Arial,sans-serif"><strong>${report.reportNumber}</strong> was confirmed fixed by the reporter and has been auto-closed.</p>`,
+          text: `${report.reportNumber} — Reporter confirmed the fix. Report auto-closed.`,
+        });
+      } catch (_) { /* non-fatal */ }
+
+      return res.json({ ok: true, reportNumber: report.reportNumber });
+    } catch (error: any) {
+      logger.error('[bug-feedback] confirm error:', error);
+      return res.status(500).json({ error: 'Failed to confirm report.' });
+    }
+  });
+
+  // POST /api/bug-feedback/:token/reopen — reporter says "Still broken"
+  app.post('/api/bug-feedback/:token/reopen', feedbackLimiter, async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { reason, screenshot } = req.body as { reason?: string; screenshot?: string };
+
+      if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+        return res.status(400).json({ error: 'Please describe what is still wrong.' });
+      }
+      if (reason.length > 2000) {
+        return res.status(400).json({ error: 'Reason too long (max 2000 characters).' });
+      }
+      if (screenshot) {
+        if (!screenshot.startsWith('data:image/')) {
+          return res.status(400).json({ error: 'Screenshot must be a valid image data URL.' });
+        }
+        if (screenshot.length > MAX_ATTACHMENT_BYTES) {
+          return res.status(400).json({ error: 'Screenshot too large (max 4MB).' });
+        }
+      }
+
+      const [report] = await db
+        .select()
+        .from(bugReports)
+        .where(eq(bugReports.feedbackToken, token))
+        .limit(1);
+
+      if (!report) return res.status(404).json({ error: 'Token not found or already used.' });
+
+      // Idempotent
+      if (report.reporterFeedback === 'still_broken') {
+        return res.json({ ok: true, reportNumber: report.reportNumber });
+      }
+
+      const now = new Date();
+      await db.update(bugReports).set({
+        status: 'reopened',
+        reporterFeedback: 'still_broken',
+        reopenReason: reason.trim(),
+        reopenScreenshot: screenshot ?? null,
+        reopenedAt: now,
+        updatedAt: now,
+        feedbackToken: null,
+      }).where(eq(bugReports.id, report.id));
+
+      // Alert us (non-fatal)
+      try {
+        const notifyEmail = process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+        const emailSvc = new EmailService();
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        await emailSvc.sendEmail({
+          to: notifyEmail,
+          subject: `⚠️ ${report.reportNumber} — Reopened by reporter`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <h2 style="color:#b91c1c">⚠️ ${esc(report.reportNumber)} — Reopened by Reporter</h2>
+              <p><strong>${esc(report.reporterName || 'The reporter')}</strong> says the issue is still not fixed.</p>
+              <h3>Their note:</h3>
+              <p style="white-space:pre-wrap;background:#fef2f2;padding:12px;border-radius:4px;border-left:4px solid #b91c1c">${esc(reason.trim())}</p>
+              ${screenshot ? '<p><em>A screenshot was attached — view in Platform Admin.</em></p>' : ''}
+            </div>
+          `,
+          text: `${report.reportNumber} — Reopened by reporter.\n\n${report.reporterName || 'Reporter'} says:\n${reason.trim()}${screenshot ? '\n\n[Screenshot attached — view in Platform Admin]' : ''}`,
+        });
+      } catch (_) { /* non-fatal */ }
+
+      return res.json({ ok: true, reportNumber: report.reportNumber });
+    } catch (error: any) {
+      logger.error('[bug-feedback] reopen error:', error);
+      return res.status(500).json({ error: 'Failed to reopen report.' });
+    }
+  });
+
+  // ── Platform admin routes ─────────────────────────────────────────────────
+
   // GET /platform-admin/bug-reports — all reports, no screenshot (hasScreenshot boolean instead)
   app.get('/platform-admin/bug-reports', requirePlatformAdmin, async (_req, res) => {
     try {
@@ -277,6 +481,11 @@ export function registerBugReportRoutes(app: Express) {
         createdAt: bugReports.createdAt,
         updatedAt: bugReports.updatedAt,
         resolvedAt: bugReports.resolvedAt,
+        reporterFeedback: bugReports.reporterFeedback,
+        reporterConfirmedAt: bugReports.reporterConfirmedAt,
+        reopenReason: bugReports.reopenReason,
+        reopenedAt: bugReports.reopenedAt,
+        hasReopenScreenshot: sql<boolean>`(${bugReports.reopenScreenshot} IS NOT NULL)`,
         hasScreenshot: sql<boolean>`(${bugReports.screenshot} IS NOT NULL)`,
         attachmentCount: sql<number>`coalesce(jsonb_array_length(${bugReports.attachments}), 0)`,
       })
@@ -299,7 +508,9 @@ export function registerBugReportRoutes(app: Express) {
         .where(eq(bugReports.id, req.params.id))
         .limit(1);
       if (!report) return res.status(404).json({ error: 'Report not found.' });
-      return res.json(report);
+      // Never send feedbackToken to client (security)
+      const { feedbackToken: _ft, ...safeReport } = report;
+      return res.json(safeReport);
     } catch (error: any) {
       logger.error('Error fetching bug report:', error);
       return res.status(500).json({ error: 'Failed to load bug report.' });
@@ -310,7 +521,6 @@ export function registerBugReportRoutes(app: Express) {
   app.patch('/platform-admin/bug-reports/:id', requirePlatformAdmin, async (req, res) => {
     try {
       const { status, adminNotes, resolutionNote, skipNotification } = req.body;
-      const ALLOWED_STATUSES = ['new', 'in_progress', 'fixed', 'closed'];
 
       if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
         return res.status(400).json({ error: `Status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
@@ -338,8 +548,8 @@ export function registerBugReportRoutes(app: Express) {
         current.status !== 'fixed' &&
         !skipNotification;
 
-      // If transitioning to fixed and already notified, don't re-notify
-      const alreadyNotified = !!current.reporterNotifiedAt;
+      // Allow re-notification when re-fixing a reopened report
+      const alreadyNotified = !!current.reporterNotifiedAt && current.status !== 'reopened';
 
       let emailSent = false;
       let emailSkippedReason: string | null = null;
@@ -353,6 +563,12 @@ export function registerBugReportRoutes(app: Express) {
             const emailSvc = new EmailService();
             const resolvedNote = resolutionNote ?? current.resolutionNote ?? null;
             const reporterFirstName = current.reporterName?.split(' ')[0] ?? null;
+            const baseUrl = getBaseUrl();
+            const feedbackToken = randomBytes(24).toString('base64url');
+
+            // Save token (and reset any prior feedback) before sending email
+            setData.feedbackToken = feedbackToken;
+            setData.reporterFeedback = null;
 
             const html = buildFixedEmailHtml({
               reportNumber: current.reportNumber,
@@ -360,6 +576,8 @@ export function registerBugReportRoutes(app: Express) {
               reporterName: current.reporterName,
               description: current.description,
               resolutionNote: resolvedNote,
+              feedbackToken,
+              baseUrl,
             });
             const text = buildFixedEmailText({
               reportNumber: current.reportNumber,
@@ -367,6 +585,8 @@ export function registerBugReportRoutes(app: Express) {
               reporterName: current.reporterName,
               description: current.description,
               resolutionNote: resolvedNote,
+              feedbackToken,
+              baseUrl,
             });
 
             const replyToAddr = process.env.BUG_REPORT_REPLY_TO || process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
@@ -388,6 +608,9 @@ export function registerBugReportRoutes(app: Express) {
           } catch (emailErr: any) {
             logger.warn('[bug-reports] Fixed notification email failed:', emailErr.message?.substring(0, 80));
             emailSkippedReason = 'send_failed';
+            // Don't save feedbackToken if email failed
+            delete setData.feedbackToken;
+            delete setData.reporterFeedback;
           }
         }
       } else if (isFixedTransition && alreadyNotified) {
@@ -400,10 +623,13 @@ export function registerBugReportRoutes(app: Express) {
         .where(eq(bugReports.id, req.params.id))
         .returning();
 
+      // Never send feedbackToken back to client
+      const { feedbackToken: _ft, ...safeUpdated } = updated;
       return res.json({
-        ...updated,
+        ...safeUpdated,
         emailSent,
         ...(emailSkippedReason ? { emailSkippedReason } : {}),
+        ...(emailSent ? { reporterEmail: current.reporterEmail } : {}),
       });
     } catch (error: any) {
       logger.error('Error updating bug report:', error);
