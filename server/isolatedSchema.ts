@@ -875,7 +875,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   workingAtHeight: boolean("working_at_height").default(false),
   // Note: Removed expiry dates as they don't exist in DB yet
   // Transport and emissions tracking
-  transportMethod: text("transport_method").default("car_diesel"), // car_diesel, car_petrol, electric_car, public_transport, motorcycle
+  transportMethod: text("transport_method"), // car_diesel, car_petrol, electric_car, public_transport, motorcycle — null means not specified
   // Status and approval
   workerStatus: text("worker_status").notNull().default("pending"), // pending, approved, suspended, rejected, banned
   approvedBy: varchar("approved_by").references(() => users.id),

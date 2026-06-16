@@ -1397,7 +1397,7 @@ export function registerInductionRoutes(app: Express): void {
       const responseWorker = {
         ...worker,
         // Explicitly include all critical fields with fallback values
-        transportMethod: worker.transportMethod || 'car_diesel',
+        transportMethod: worker.transportMethod || '',
         cscsCard: worker.cscsCard || '',
         cscsStatus: worker.cscsStatus || 'pending',
         rightToWork: worker.rightToWork || 'pending',

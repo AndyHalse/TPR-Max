@@ -1637,7 +1637,7 @@ export class DatabaseStorage implements IStorage {
       asbestosAwareness: worker.asbestosAwareness || false,
       manualHandling: worker.manualHandling || false,
       workingAtHeight: worker.workingAtHeight || false,
-      transportMethod: worker.transportMethod || 'car_diesel',
+      transportMethod: worker.transportMethod || '',
       workerStatus: worker.workerStatus || 'pending',
       approvedBy: worker.approvedBy,
       approvedAt: worker.approvedAt,

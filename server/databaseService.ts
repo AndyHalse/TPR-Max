@@ -1795,7 +1795,7 @@ export class DatabaseService {
       ipafStatus: worker.ipafStatus || 'none',
       asbestosAwareness: worker.asbestosAwareness || false,
       manualHandling: worker.manualHandling || false,
-      transportMethod: worker.transportMethod || 'car_diesel',
+      transportMethod: worker.transportMethod || '',
       isActive: worker.isActive ?? true,
     } as ContractorWorker));
   }
