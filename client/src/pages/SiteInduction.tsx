@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import DOMPurify from "dompurify";
 import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -116,6 +116,7 @@ export default function SiteInduction() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizLocked, setQuizLocked] = useState<string | null>(null);
+  const [_cooldownTick, setCooldownTick] = useState(0);
   const [quizResults, setQuizResults] = useState<{
     score: number;
     passed: boolean;
@@ -152,6 +153,16 @@ export default function SiteInduction() {
       loadInductionData(token);
     }
   }, [match, params?.token]);
+
+  // Drive per-second re-renders while a retry cooldown is active so the countdown stays live
+  useEffect(() => {
+    if (!tokenData?.quizCompletedAt || tokenData.quizPassed) return;
+    const elapsed = Date.now() - new Date(tokenData.quizCompletedAt).getTime();
+    const remaining = 10 * 60 * 1000 - elapsed;
+    if (remaining <= 0) return;
+    const id = setInterval(() => setCooldownTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [tokenData?.quizCompletedAt, tokenData?.quizPassed]);
 
   const loadInductionData = async (token: string) => {
     try {
@@ -356,7 +367,11 @@ export default function SiteInduction() {
           duration: 5000
         });
       } else {
-        setTokenData(prev => prev ? { ...prev, quizAttempts: (prev.quizAttempts || 0) + 1 } : null);
+        setTokenData(prev => prev ? {
+          ...prev,
+          quizAttempts: (prev.quizAttempts || 0) + 1,
+          quizCompletedAt: new Date().toISOString(),
+        } : null);
         toast({
           title: "Quiz Not Passed",
           description: `You scored ${response.results.score}%. You need ${threshold}% to pass. Review the questions and retry.`,
@@ -772,6 +787,37 @@ export default function SiteInduction() {
     // Check if already locked from previous attempts (at load time or after 429)
     const alreadyMaxed = !quizLocked && tokenData && (tokenData.quizAttempts ?? 0) >= 5 && !tokenData.quizPassed;
     const lockReason = quizLocked || (alreadyMaxed ? 'Maximum quiz attempts reached. You have used all 5 attempts. Please contact the site operator to request a new induction link.' : null);
+
+    // Cooldown gate — enforce before showing questions so the user isn't blocked mid-attempt
+    if (!lockReason && tokenData?.quizCompletedAt && !tokenData.quizPassed) {
+      const elapsed = Date.now() - new Date(tokenData.quizCompletedAt).getTime();
+      const secsLeft = Math.max(0, Math.ceil((10 * 60 * 1000 - elapsed) / 1000));
+      if (secsLeft > 0) {
+        const minsDisplay = Math.floor(secsLeft / 60);
+        const secsDisplay = secsLeft % 60;
+        return (
+          <div className="space-y-6">
+            <Card className="border-amber-200">
+              <CardContent className="p-8 text-center space-y-5">
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
+                  <Clock className="w-8 h-8 text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Please Wait Before Retrying</h2>
+                  <p className="text-gray-600 mt-2 max-w-sm mx-auto">
+                    A short cooldown is required between attempts. This gives you time to review the topics before trying again.
+                  </p>
+                </div>
+                <div className="text-4xl font-mono font-bold text-amber-600 tabular-nums">
+                  {String(minsDisplay).padStart(2, '0')}:{String(secsDisplay).padStart(2, '0')}
+                </div>
+                <p className="text-sm text-gray-500">The quiz will unlock automatically when the timer reaches zero.</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+    }
 
     if (lockReason) {
       return (
