@@ -42,6 +42,7 @@ export default function AboutPage() {
                 { label: "Platform", href: "/marketing#features" },
                 { label: "Industries", href: "/marketing#industries" },
                 { label: "Pricing", href: "/marketing#pricing" },
+                { label: "Blog", href: "/blog" },
                 { label: "Contact", href: "/marketing#contact" },
               ].map(({ label, href }) => (
                 <a
@@ -96,6 +97,7 @@ export default function AboutPage() {
                 { label: "Platform", href: "/marketing#features" },
                 { label: "Industries", href: "/marketing#industries" },
                 { label: "Pricing", href: "/marketing#pricing" },
+                { label: "Blog", href: "/blog" },
                 { label: "Contact", href: "/marketing#contact" },
               ].map(({ label, href }) => (
                 <a

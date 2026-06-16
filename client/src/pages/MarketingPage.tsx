@@ -264,6 +264,13 @@ export default function MarketingPage() {
                 Pricing
               </button>
               <button
+                onClick={() => window.location.href = "/blog"}
+                className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
+                data-testid="link-blog"
+              >
+                Blog
+              </button>
+              <button
                 onClick={() => scrollToSection("contact")}
                 className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
                 data-testid="link-contact"
@@ -337,6 +344,12 @@ export default function MarketingPage() {
                 className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
               >
                 Pricing
+              </button>
+              <button
+                onClick={() => { window.location.href = "/blog"; }}
+                className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
+              >
+                Blog
               </button>
               <button
                 onClick={() => { scrollToSection("contact"); setMobileMenuOpen(false); }}
