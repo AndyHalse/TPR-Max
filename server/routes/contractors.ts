@@ -16,6 +16,7 @@ import {
   type WorkerServiceContext,
 } from '../services/workerService';
 import { requireAuth, isDevDataBypass, isDatabaseConnectionError, getMockCheckedInContractors } from '../auth';
+import { getWorkerClearanceStatus, seedOnboardingRequirements, UK_DEFAULT_REQUIREMENTS } from '../utils/contractorCompliance';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { CustomerDatabaseService, customerDbService } from '../customerDatabase';
@@ -656,35 +657,26 @@ export function registerContractorRoutes(app: Express): void {
         worker = newWorker;
       }
       
-      // Check worker status — align with regular check-in blocking rules
-      const inductionCompleted = worker.inductionCompleted ?? false;
-      const rightToWorkStatus = worker.rightToWork ?? 'pending';
-      const blockingIssues = [];
-      const warnings = [];
-
-      if (!worker.isActive) {
-        blockingIssues.push("Worker account is inactive");
-      }
-      if (worker.currentCardStatus === 'red') {
-        blockingIssues.push("Worker has active Red Card (site ban)");
-      }
-      // Block if induction not completed (matches regular check-in)
-      if (!inductionCompleted) {
-        blockingIssues.push("Site induction not completed");
-      }
-      // Block if right-to-work expired; warn for pending (pre-booking leniency)
-      if (rightToWorkStatus === 'expired') {
-        blockingIssues.push("Right to work has expired");
-      } else if (rightToWorkStatus !== 'valid') {
-        warnings.push(`Right to work not verified (status: ${rightToWorkStatus})`);
-      }
-
-      if (blockingIssues.length > 0) {
-        return res.status(400).json({ 
-          error: `Cannot check in: ${blockingIssues.join(' · ')}`,
-          issues: blockingIssues
+      // Check worker clearance — single source of truth
+      const pbClearance = await getWorkerClearanceStatus(customerDb, worker.id, context.customerId);
+      if (!pbClearance.ready) {
+        try {
+          const pbSchema = customerDbService.generateSchemaName(context.customerId);
+          const pbPool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+          if (pbPool) {
+            await pbPool.query(
+              `INSERT INTO "${pbSchema}".contractor_onboarding_audit (company_id, worker_id, action, actor, reason) VALUES ($1, $2, 'check_in_blocked', 'kiosk', $3)`,
+              [company.id, worker.id, pbClearance.blocking.join(' · ')]
+            );
+          }
+        } catch { /* Non-fatal */ }
+        return res.status(400).json({
+          error: `Cannot check in: ${pbClearance.blocking.join(' · ')}`,
+          issues: pbClearance.blocking,
+          warnings: pbClearance.warnings,
         });
       }
+      const warnings = pbClearance.warnings;
       
       // Check if worker is already checked in
       if (worker.isCheckedIn) {
@@ -4425,38 +4417,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         return res.status(404).json({ error: "Contractor company not found" });
       }
 
-      // Check if worker can check in (induction completed, valid status, etc.)
-      const issues = [];
-      
-      // Validation fields now correctly read from database
-      
-      // Check company status — only block suspended companies (pending/active are fine)
-      if (company.status === 'suspended') {
-        issues.push(`Contractor company is suspended`);
-      }
-      
-      // Handle inductionCompleted with proper default (schema defaults to false)
-      const inductionCompleted = worker.inductionCompleted ?? false;
-      if (!inductionCompleted) {
-        issues.push("Site induction not completed");
-      }
-      
-      // Handle rightToWork with proper default (schema defaults to 'pending')
-      const rightToWorkStatus = worker.rightToWork ?? 'pending';
-      if (rightToWorkStatus === 'expired') {
-        issues.push("Right to work has expired");
-      } else if (rightToWorkStatus !== 'valid') {
-        issues.push("Right to work not verified (status: pending)");
-      }
-      // Check for Red Card (site ban) - Yellow Cards are warnings only, not blockages
-      if (worker.currentCardStatus === 'red') {
-        issues.push("Worker has an active Red Card (site ban)");
-      }
-      
-      if (issues.length > 0) {
-        return res.status(400).json({ 
-          error: `Cannot check in: ${issues.join(' · ')}`,
-          issues: issues
+      // Check worker clearance — single source of truth
+      const checkinDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const clearance = await getWorkerClearanceStatus(checkinDb, workerId, context.customerId);
+      if (!clearance.ready) {
+        try {
+          const ciSchema = customerDbService.generateSchemaName(context.customerId);
+          const ciPool = (checkinDb as any).$client ?? (checkinDb as any).session?.client;
+          if (ciPool) {
+            await ciPool.query(
+              `INSERT INTO "${ciSchema}".contractor_onboarding_audit (company_id, worker_id, action, actor, reason) VALUES ($1, $2, 'check_in_blocked', $3, $4)`,
+              [company.id, workerId, username, clearance.blocking.join(' · ')]
+            );
+          }
+        } catch { /* Non-fatal */ }
+        return res.status(400).json({
+          error: `Cannot check in: ${clearance.blocking.join(' · ')}`,
+          issues: clearance.blocking,
+          warnings: clearance.warnings,
         });
       }
 
@@ -5521,12 +5499,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Onboarding requirements (GET) ─────────────────────
-  app.get('/api/contractors/onboarding-requirements', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+  app.get('/api/contractors/onboarding-requirements', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const customerId = req.customerId!;
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+      // Seed-on-read: ensures table + UK defaults exist on older schemas (no manual migration needed)
+      await seedOnboardingRequirements(pool, schemaName);
       const result = await pool.query(
         `SELECT document_type, label, is_required, sort_order FROM "${schemaName}".contractor_onboarding_requirements ORDER BY sort_order`
       );
@@ -5538,7 +5518,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Onboarding requirements (PUT toggle) ──────────────
-  app.put('/api/contractors/onboarding-requirements/:docType', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+  app.put('/api/contractors/onboarding-requirements/:docType', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { docType } = req.params;
       const { isRequired } = req.body as { isRequired: boolean };
@@ -5546,9 +5526,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+      const knownDefault = UK_DEFAULT_REQUIREMENTS.find(r => r.document_type === docType);
+      const label = knownDefault?.label ?? docType;
+      const sortOrder = knownDefault?.sort_order ?? 99;
+      // Upsert: silently inserts if the row was never seeded, or updates if it was
       await pool.query(
-        `UPDATE "${schemaName}".contractor_onboarding_requirements SET is_required = $1, updated_at = NOW() WHERE document_type = $2`,
-        [!!isRequired, docType]
+        `INSERT INTO "${schemaName}".contractor_onboarding_requirements (document_type, label, is_required, sort_order)
+         VALUES ($2, $3, $1, $4)
+         ON CONFLICT (document_type) DO UPDATE SET is_required = $1, updated_at = NOW()`,
+        [!!isRequired, docType, label, sortOrder]
       );
       return res.json({ success: true });
     } catch (error: any) {
@@ -5558,7 +5544,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Approve company for site ───────────────────────────
-  app.post('/api/contractors/:id/approve-for-site', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+  app.post('/api/contractors/:id/approve-for-site', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const customerId = req.customerId!;
@@ -5618,7 +5604,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Request changes on submitted onboarding ────────────
-  app.post('/api/contractors/:id/request-changes', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+  app.post('/api/contractors/:id/request-changes', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const { reason } = req.body as { reason: string };
@@ -5680,6 +5666,49 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: List pending documents for admin review ────────────
+  // ── Worker readiness — single source of truth, same helper as kiosk ─────────
+  app.get('/api/contractors/workers/:workerId/readiness', requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const readiness = await getWorkerClearanceStatus(db, workerId, customerId);
+      return res.json(readiness);
+    } catch (err: any) {
+      logger.error('Error getting worker readiness:', err);
+      return res.status(500).json({ error: 'Failed to get worker readiness.' });
+    }
+  });
+
+  // ── Onboarding audit trail (all companies, latest first) ─────────────────
+  app.get('/api/contractors/onboarding-audit', requireAuth, requirePortalAdmin, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const companyId = req.query.companyId as string | undefined;
+
+      const result = await pool.query(
+        `SELECT a.id, a.company_id, a.worker_id, a.action, a.actor, a.reason, a.created_at,
+                cc.company_name,
+                cw.first_name AS worker_first_name, cw.last_name AS worker_last_name
+         FROM "${schemaName}".contractor_onboarding_audit a
+         LEFT JOIN "${schemaName}".contractor_companies cc ON cc.id = a.company_id
+         LEFT JOIN "${schemaName}".contractor_workers cw ON cw.id = a.worker_id
+         ${companyId ? 'WHERE a.company_id = $2' : ''}
+         ORDER BY a.created_at DESC
+         LIMIT $1`,
+        companyId ? [limit, companyId] : [limit]
+      );
+      return res.json(result.rows);
+    } catch (err: any) {
+      logger.error('Error loading onboarding audit:', err);
+      return res.status(500).json({ error: 'Failed to load audit trail.' });
+    }
+  });
+
   app.get('/api/contractors/:companyId/portal-documents', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { companyId } = req.params;

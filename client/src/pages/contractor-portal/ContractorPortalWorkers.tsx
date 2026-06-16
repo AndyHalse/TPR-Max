@@ -19,7 +19,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Users, Phone, Mail, Loader2, HardHat, Plus, User,
   FileText, CheckCircle, Clock, XCircle, AlertTriangle, Upload, ExternalLink,
+  ShieldCheck, ShieldOff, Send,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "@/hooks/use-toast";
 
 interface Worker {
   id: string;
@@ -97,6 +100,32 @@ export default function ContractorPortalWorkers() {
       return r.json();
     },
     enabled: !!getPortalToken(),
+  });
+
+  const { data: readinessMap = {} } = useQuery<Record<string, { ready: boolean; blocking: string[]; warnings: string[] }>>({
+    queryKey: ["portal-workers-readiness"],
+    queryFn: async () => {
+      const r = await portalFetch("/api/contractor-portal/workers-readiness");
+      if (!r.ok) return {};
+      return r.json();
+    },
+    enabled: !!getPortalToken(),
+    staleTime: 30_000,
+  });
+
+  const sendInduction = useMutation({
+    mutationFn: (workerId: string) =>
+      portalFetch(`/api/contractor-portal/workers/${workerId}/send-induction`, { method: "POST" })
+        .then(async (r) => {
+          const json = await r.json();
+          if (!r.ok) throw new Error(json.error || "Failed to send.");
+          return json;
+        }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["portal-workers-readiness"] });
+      toast({ title: "Induction email sent" });
+    },
+    onError: (err: Error) => toast({ title: "Failed to send", description: err.message, variant: "destructive" }),
   });
 
   const { data: workerDocs = [], isLoading: docsLoading } = useQuery<WorkerDoc[]>({
@@ -265,6 +294,27 @@ export default function ContractorPortalWorkers() {
                       >
                         {worker.isActive ? "Active" : "Inactive"}
                       </Badge>
+                      {readinessMap[worker.id] && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className={`text-xs cursor-default ${readinessMap[worker.id].ready ? "bg-green-100 text-green-700 border-0" : "bg-amber-100 text-amber-700 border-0"}`}>
+                              {readinessMap[worker.id].ready
+                                ? <><ShieldCheck className="w-3 h-3 mr-1 inline" />Site ready</>
+                                : <><ShieldOff className="w-3 h-3 mr-1 inline" />Not ready</>}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            {readinessMap[worker.id].ready ? (
+                              <p className="text-xs">All clearance checks passed — this worker can check in</p>
+                            ) : (
+                              <ul className="text-xs space-y-0.5">
+                                {readinessMap[worker.id].blocking.map((b, i) => <li key={i} className="text-red-600">✗ {b}</li>)}
+                                {readinessMap[worker.id].warnings.map((w, i) => <li key={i} className="text-amber-600">⚠ {w}</li>)}
+                              </ul>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
 
                     {(worker.jobTitle || worker.trade) && (
@@ -289,15 +339,29 @@ export default function ContractorPortalWorkers() {
                       )}
                     </div>
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-3 w-full h-7 text-xs"
-                      onClick={() => handleOpenDocs(worker.id)}
-                    >
-                      <FileText className="h-3 w-3 mr-1.5" />
-                      Documents
-                    </Button>
+                    <div className="mt-3 space-y-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-7 text-xs"
+                        onClick={() => handleOpenDocs(worker.id)}
+                      >
+                        <FileText className="h-3 w-3 mr-1.5" />
+                        Documents
+                      </Button>
+                      {readinessMap[worker.id] && !readinessMap[worker.id].ready && worker.email && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                          onClick={() => sendInduction.mutate(worker.id)}
+                          disabled={sendInduction.isPending}
+                        >
+                          <Send className="h-3 w-3 mr-1.5" />
+                          Send induction
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

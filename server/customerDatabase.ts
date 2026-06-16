@@ -1287,43 +1287,22 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'not_started'`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS onboarding_submitted_at TIMESTAMP`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS onboarding_approved_at TIMESTAMP`);
-      // Configurable onboarding requirements table
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS "${schemaName}".contractor_onboarding_requirements (
-          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-          document_type TEXT NOT NULL UNIQUE,
-          label TEXT NOT NULL,
-          is_required BOOLEAN NOT NULL DEFAULT TRUE,
-          sort_order INTEGER NOT NULL DEFAULT 0,
-          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-        )
-      `);
-      // Seed UK defaults (no-op if already seeded)
-      await pool.query(`
-        INSERT INTO "${schemaName}".contractor_onboarding_requirements (document_type, label, is_required, sort_order) VALUES
-          ('publicLiability',       'Public Liability Insurance',                 true,  1),
-          ('employersLiability',    'Employers'' Liability Insurance',            true,  2),
-          ('rams',                  'Risk Assessment & Method Statement (RAMS)',  true,  3),
-          ('healthSafety',          'Health & Safety Policy',                     true,  4),
-          ('cisRegistration',       'CIS Registration',                           false, 5),
-          ('professionalIndemnity', 'Professional Indemnity Insurance',           false, 6),
-          ('modernSlavery',         'Modern Slavery Statement',                   false, 7),
-          ('environmentalPolicy',   'Environmental Policy',                       false, 8),
-          ('other',                 'Other Document',                             false, 9)
-        ON CONFLICT (document_type) DO NOTHING
-      `);
+      // Configurable onboarding requirements — seed via shared helper (single source of truth)
+      const { seedOnboardingRequirements } = await import('./utils/contractorCompliance');
+      await seedOnboardingRequirements(pool, schemaName);
       // Onboarding audit trail table
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "${schemaName}".contractor_onboarding_audit (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
           company_id TEXT NOT NULL,
+          worker_id TEXT,
           action TEXT NOT NULL,
           actor TEXT NOT NULL,
           reason TEXT,
           created_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
       `);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_onboarding_audit ADD COLUMN IF NOT EXISTS worker_id TEXT`);
       logger.info(`✅ Contractor portal migration ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Contractor portal migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

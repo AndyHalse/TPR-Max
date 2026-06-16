@@ -18,6 +18,8 @@ import {
 } from '../services/workerService';
 import { generateLogoToken } from '../utils/logoToken';
 import { EmailService } from '../emailService';
+import { getWorkerClearanceStatus } from '../utils/contractorCompliance';
+import { inductionService } from '../inductionService';
 
 export async function registerContractorPortalRoutes(app: Express): Promise<void> {
   const multerModule = await import('multer');
@@ -1070,6 +1072,88 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
     } catch (err: any) {
       logger.error('[portal-doc-stats]', err);
       return res.status(500).json({ error: 'Failed to load document stats.' });
+    }
+  });
+
+  // ── Portal: Worker readiness — single worker ──────────────────────────────
+  app.get('/api/contractor-portal/workers/:workerId/readiness', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { workerId } = req.params;
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      // Scope check — worker must belong to the portal user's company
+      const [worker] = await db.select().from(isolatedSchema.contractorWorkers)
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.id, workerId),
+          eq(isolatedSchema.contractorWorkers.companyId, pu.contractorCompanyId)
+        ));
+      if (!worker) return res.status(404).json({ error: 'Worker not found.' });
+
+      const readiness = await getWorkerClearanceStatus(db, workerId, pu.customerId);
+      return res.json(readiness);
+    } catch (err: any) {
+      logger.error('[portal-worker-readiness]', err);
+      return res.status(500).json({ error: 'Failed to get worker readiness.' });
+    }
+  });
+
+  // ── Portal: All workers' readiness for this company (batch) ──────────────
+  app.get('/api/contractor-portal/workers-readiness', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      const workers = await db.select().from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.companyId, pu.contractorCompanyId));
+
+      const results: Record<string, any> = {};
+      await Promise.all(workers.map(async (w) => {
+        results[w.id] = await getWorkerClearanceStatus(db, w.id, pu.customerId);
+      }));
+      return res.json(results);
+    } catch (err: any) {
+      logger.error('[portal-workers-readiness]', err);
+      return res.status(500).json({ error: 'Failed to get workers readiness.' });
+    }
+  });
+
+  // ── Portal: Send induction to a worker ───────────────────────────────────
+  app.post('/api/contractor-portal/workers/:workerId/send-induction', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { workerId } = req.params;
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      // Scope check
+      const [worker] = await db.select().from(isolatedSchema.contractorWorkers)
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.id, workerId),
+          eq(isolatedSchema.contractorWorkers.companyId, pu.contractorCompanyId)
+        ));
+      if (!worker) return res.status(404).json({ error: 'Worker not found.' });
+      if (!worker.email) return res.status(400).json({ error: 'Worker has no email address on record.' });
+
+      const workerName = `${worker.firstName} ${worker.lastName}`;
+      const success = await inductionService.sendInductionEmail(workerId, pu.customerId, workerName, worker.email);
+      if (!success) return res.status(500).json({ error: 'Failed to send induction email.' });
+
+      // Audit the send
+      try {
+        const schemaName = customerDbService.generateSchemaName(pu.customerId);
+        const pool = (db as any).$client ?? (db as any).session?.client;
+        if (pool) {
+          await pool.query(
+            `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, worker_id, action, actor, reason) VALUES ($1, $2, 'induction_sent', $3, $4)`,
+            [pu.contractorCompanyId, workerId, `portal:${pu.email}`, `Induction email sent to ${worker.email}`]
+          );
+        }
+      } catch { /* Non-fatal */ }
+
+      return res.json({ success: true, message: `Induction email sent to ${worker.email}.` });
+    } catch (err: any) {
+      logger.error('[portal-send-induction]', err);
+      return res.status(500).json({ error: 'Failed to send induction.' });
     }
   });
 }

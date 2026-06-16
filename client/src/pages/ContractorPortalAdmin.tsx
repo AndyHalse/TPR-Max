@@ -5,7 +5,7 @@ import { apiRequest, objectUrl } from "@/lib/queryClient";
 import {
   Globe, Send, Users, Building2, Loader2,
   CheckCircle2, Clock, Plus, MailCheck, ShieldOff, FileText,
-  CheckCheck, XCircle, Eye, RefreshCw, AlertTriangle, ShieldCheck, Settings,
+  CheckCheck, XCircle, Eye, RefreshCw, AlertTriangle, ShieldCheck, Settings, History,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -182,8 +182,12 @@ export default function ContractorPortalAdmin() {
     },
   });
 
-  const { data: requirementsDef = [] } = useQuery<Array<{ document_type: string; label: string; is_required: boolean; sort_order: number }>>({
+  const { data: requirementsDef = [], isLoading: reqLoading, isError: reqError, refetch: refetchReqs } = useQuery<Array<{ document_type: string; label: string; is_required: boolean; sort_order: number }>>({
     queryKey: ["/api/contractors/onboarding-requirements"],
+  });
+
+  const { data: auditLog = [] } = useQuery<any[]>({
+    queryKey: ["/api/contractors/onboarding-audit"],
   });
 
   const toggleRequirementMutation = useMutation({
@@ -333,6 +337,9 @@ export default function ContractorPortalAdmin() {
           </TabsTrigger>
           <TabsTrigger value="requirements" className="flex items-center gap-2">
             <Settings className="w-4 h-4" /> Requirements
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="flex items-center gap-2">
+            <History className="w-4 h-4" /> Activity
           </TabsTrigger>
         </TabsList>
 
@@ -652,9 +659,25 @@ export default function ContractorPortalAdmin() {
               <CardDescription>Configure which document types are required for contractor onboarding. Required documents must be uploaded before a contractor can submit for site approval.</CardDescription>
             </CardHeader>
             <CardContent>
-              {requirementsDef.length === 0 ? (
+              {reqLoading ? (
                 <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" /><span>Loading requirements…</span>
+                </div>
+              ) : reqError ? (
+                <div className="text-center py-8 space-y-3">
+                  <AlertTriangle className="w-8 h-8 mx-auto text-amber-500" />
+                  <p className="font-medium text-sm">Failed to load requirements</p>
+                  <Button variant="outline" size="sm" onClick={() => refetchReqs()} className="gap-2">
+                    <RefreshCw className="w-3 h-3" />Retry
+                  </Button>
+                </div>
+              ) : requirementsDef.length === 0 ? (
+                <div className="text-center py-8 space-y-3">
+                  <Settings className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-sm text-muted-foreground">No requirements found</p>
+                  <Button variant="outline" size="sm" onClick={() => refetchReqs()} className="gap-2">
+                    <RefreshCw className="w-3 h-3" />Restore UK defaults
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -676,6 +699,62 @@ export default function ContractorPortalAdmin() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Activity / Audit tab */}
+        <TabsContent value="audit">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><History className="w-5 h-5" /> Activity Log</CardTitle>
+              <CardDescription>Recent onboarding events across all contractor companies — approvals, blocked check-ins, and document decisions.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {auditLog.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">No activity recorded yet.</div>
+              ) : (
+                <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-1">
+                  {auditLog.map((entry: any) => {
+                    const icons: Record<string, React.ReactNode> = {
+                      approved_for_site: <CheckCircle2 className="w-4 h-4 text-green-600" />,
+                      changes_requested: <RefreshCw className="w-4 h-4 text-amber-600" />,
+                      submitted: <Send className="w-4 h-4 text-blue-600" />,
+                      check_in_blocked: <ShieldOff className="w-4 h-4 text-red-500" />,
+                      document_approved: <CheckCheck className="w-4 h-4 text-green-600" />,
+                      document_rejected: <XCircle className="w-4 h-4 text-red-500" />,
+                      induction_sent: <MailCheck className="w-4 h-4 text-indigo-500" />,
+                    };
+                    const labels: Record<string, string> = {
+                      approved_for_site: "Approved for site",
+                      changes_requested: "Changes requested",
+                      submitted: "Submitted for review",
+                      check_in_blocked: "Check-in blocked",
+                      document_approved: "Document approved",
+                      document_rejected: "Document rejected",
+                      induction_sent: "Induction email sent",
+                    };
+                    return (
+                      <div key={entry.id} className="flex items-start gap-3 p-3 border rounded-lg text-sm hover:bg-muted/20 transition-colors">
+                        <div className="flex-shrink-0 mt-0.5">{icons[entry.action] ?? <History className="w-4 h-4 text-slate-400" />}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">{labels[entry.action] ?? entry.action}</p>
+                          {(entry.company_name || entry.worker_first_name) && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {entry.company_name}{entry.worker_first_name && ` · ${entry.worker_first_name} ${entry.worker_last_name}`}
+                            </p>
+                          )}
+                          {entry.reason && <p className="text-xs text-amber-700 mt-0.5 truncate">{entry.reason}</p>}
+                        </div>
+                        <div className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0 text-right">
+                          <p>{new Date(entry.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="opacity-70">{entry.actor}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
