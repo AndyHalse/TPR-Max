@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import RAMSManagement from "@/components/RAMSManagement";
-import { apiRequest, getCsrfToken } from "@/lib/queryClient";
+import { apiRequest, getCsrfToken, objectUrl } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
@@ -2910,7 +2910,7 @@ export default function ContractorDetails() {
               </div>
               <div className="flex flex-col gap-2 pt-2">
                 {selectedDocumentDetail.uploaded.documentUrl && (
-                  <Button variant="outline" className="w-full" onClick={() => window.open(selectedDocumentDetail.uploaded.documentUrl, '_blank')}>
+                  <Button variant="outline" className="w-full" onClick={() => window.open(objectUrl(selectedDocumentDetail.uploaded.documentUrl), '_blank')}>
                     <Eye className="h-4 w-4 mr-2" /> View Document
                   </Button>
                 )}

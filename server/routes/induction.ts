@@ -1787,6 +1787,48 @@ export function registerInductionRoutes(app: Express): void {
     }
   });
 
+  // Approve a worker document
+  app.patch('/api/contractors/workers/:workerId/documents/:documentId/approve', requireAuth, async (req, res) => {
+    try {
+      const { workerId, documentId } = req.params;
+      const username = req.user!.username;
+      const displayName = req.user!.firstName && req.user!.lastName
+        ? `${req.user!.firstName} ${req.user!.lastName}`
+        : username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      const now = new Date();
+
+      const [updated] = await db.update(isolatedSchema.contractorDocuments)
+        .set({ status: 'approved', approvedBy: displayName, approvedAt: now, updatedAt: now })
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.id, documentId),
+          eq(isolatedSchema.contractorDocuments.workerId, workerId)
+        ))
+        .returning();
+
+      if (!updated) return res.status(404).json({ error: 'Document not found' });
+
+      try {
+        const auditTs = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
+        const docLabel = (updated.documentType || updated.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId,
+          changeType: 'document_approved',
+          notes: `Document "${docLabel}" approved by ${displayName} on ${auditTs}.`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        logger.error('Failed to create document approval audit note (continuing):', auditErr);
+      }
+
+      res.json({ success: true, document: updated });
+    } catch (error) {
+      logger.error('Error approving worker document:', error);
+      res.status(500).json({ error: 'Failed to approve document' });
+    }
+  });
+
   // AI document scan — extract expiry date, issuer, and policy number from an uploaded document
   app.post('/api/contractors/documents/scan', requireAuth, async (req, res) => {
     try {

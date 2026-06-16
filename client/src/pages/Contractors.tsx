@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import NdaModal from "@/components/NdaModal";
 import type { CompanySettings } from "@shared/schema";
 import { useLocation } from "wouter";
-import { queryClient, apiRequest, getSessionToken, getCsrfToken } from "@/lib/queryClient";
+import { queryClient, apiRequest, getSessionToken, getCsrfToken, objectUrl } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { StaffSearchSelect } from "@/components/StaffSearchSelect";
 import { Button } from "@/components/ui/button";
@@ -2810,7 +2810,7 @@ export default function Contractors() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-fixed">Document Actions</h3>
                   <div className="space-y-3">
-                    <Button className="w-full" onClick={() => window.open(selectedDocument.documentUrl, '_blank')}>
+                    <Button className="w-full" onClick={() => window.open(objectUrl(selectedDocument.documentUrl), '_blank')}>
                       <ExternalLink className="h-4 w-4 mr-2" />
                       View Document
                     </Button>

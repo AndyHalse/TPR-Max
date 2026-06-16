@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest, getCsrfToken } from '@/lib/queryClient';
+import { apiRequest, getCsrfToken, objectUrl } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
 import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles, Info, ExternalLink, Archive, ArchiveRestore } from 'lucide-react';
 import { format } from 'date-fns';
@@ -526,6 +526,23 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         description: error.message || 'Failed to upload document',
         variant: 'destructive',
       });
+    },
+  });
+
+  // Approve document mutation
+  const approveDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      if (!worker) throw new Error('No worker selected');
+      const response = await apiRequest('PATCH', `/api/contractors/workers/${worker.id}/documents/${documentId}/approve`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/documents`] });
+      toast({ title: 'Approved', description: 'Document approved successfully.' });
+      refetchDocuments();
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to approve document', variant: 'destructive' });
     },
   });
 
@@ -1325,7 +1342,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.open(doc.documentUrl, '_blank')}
+                                onClick={() => window.open(objectUrl(doc.documentUrl), '_blank')}
                                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
                                 data-testid={`button-view-${doc.id}`}
                               >
@@ -1384,8 +1401,37 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 text-xs text-variable pt-2 border-t border-slate-200">
-                            <span>Status: {doc.status}</span>
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                            <div className="flex items-center gap-2">
+                              {doc.status === 'approved' ? (
+                                <Badge className="bg-green-100 text-green-800 border border-green-300 text-xs">
+                                  <CheckCircle className="h-3 w-3 mr-1" /> Approved
+                                </Badge>
+                              ) : doc.status === 'rejected' ? (
+                                <Badge className="bg-red-100 text-red-800 border border-red-300 text-xs">
+                                  <XCircle className="h-3 w-3 mr-1" /> Rejected
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 text-xs">
+                                  <Clock className="h-3 w-3 mr-1" /> Pending Review
+                                </Badge>
+                              )}
+                              {doc.approvedBy && (
+                                <span className="text-xs text-variable">by {doc.approvedBy}</span>
+                              )}
+                            </div>
+                            {doc.status === 'pending' && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-3"
+                                onClick={() => approveDocumentMutation.mutate(doc.id)}
+                                disabled={approveDocumentMutation.isPending}
+                                data-testid={`button-approve-${doc.id}`}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                              </Button>
+                            )}
                           </div>
                         </div>
                       );
