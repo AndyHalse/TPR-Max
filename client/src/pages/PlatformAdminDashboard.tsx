@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,9 @@ export default function PlatformAdminDashboard() {
     title: '', slug: '', summary: '', content: '', author: '', status: 'draft',
     coverImageUrl: '', tags: '',
   });
+  const [blogCoverUploading, setBlogCoverUploading] = useState(false);
+  const [blogCoverDragOver, setBlogCoverDragOver] = useState(false);
+  const blogCoverInputRef = useRef<HTMLInputElement>(null);
 
   // Check authentication
   const { data: admin, isLoading: adminLoading, error } = useQuery<PlatformAdmin>({
@@ -648,6 +651,63 @@ export default function PlatformAdminDashboard() {
       toast({ title: "Error", description: error.message || "Failed to delete post", variant: "destructive" });
     },
   });
+
+  // ── Blog cover image upload ────────────────────────────────────────────────
+  const uploadBlogCoverFile = async (file: File) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Invalid file type', description: 'Only JPEG, PNG, GIF and WebP images are allowed.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Maximum file size is 5 MB.', variant: 'destructive' });
+      return;
+    }
+    setBlogCoverUploading(true);
+    try {
+      const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+      const { csrfToken } = await csrfResponse.json();
+      const formData = new FormData();
+      formData.append('image', file);
+      const uploadResponse = await fetch('/platform-admin/blog/upload-image', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-CSRF-Token': csrfToken },
+        body: formData,
+      });
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to upload image');
+      }
+      const { coverImageUrl } = await uploadResponse.json();
+      setBlogForm((f) => ({ ...f, coverImageUrl }));
+    } catch (error: any) {
+      toast({ title: 'Upload failed', description: error.message || 'Failed to upload image', variant: 'destructive' });
+    } finally {
+      setBlogCoverUploading(false);
+    }
+  };
+
+  const handleBlogCoverDrop = (e: React.DragEvent) => {
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Not an image', description: 'Please drop an image file (JPEG, PNG, GIF or WebP).', variant: 'destructive' });
+      return;
+    }
+    uploadBlogCoverFile(file);
+  };
+
+  const handleBlogCoverPaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) { uploadBlogCoverFile(file); return; }
+      }
+    }
+  };
 
   if (adminLoading) {
     return (
@@ -1475,12 +1535,69 @@ export default function PlatformAdminDashboard() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="blog-cover">Cover Image URL (optional)</Label>
+              <Label>Cover Image (optional)</Label>
+              {/* Drop zone — drag, paste, or click to upload */}
+              <div
+                role="button"
+                tabIndex={0}
+                className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  blogCoverDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+                }`}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setBlogCoverDragOver(true); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setBlogCoverDragOver(false); }}
+                onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setBlogCoverDragOver(false); handleBlogCoverDrop(e); }}
+                onPaste={handleBlogCoverPaste}
+                onClick={() => !blogCoverUploading && blogCoverInputRef.current?.click()}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') blogCoverInputRef.current?.click(); }}
+              >
+                {blogCoverUploading ? (
+                  <div className="flex items-center gap-2 py-1">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                    <span className="text-sm text-gray-500">Uploading…</span>
+                  </div>
+                ) : blogForm.coverImageUrl ? (
+                  <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                    <img
+                      src={blogForm.coverImageUrl}
+                      alt="Cover preview"
+                      className="h-16 w-24 rounded object-cover border"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <div className="text-left">
+                      <p className="text-sm text-gray-600 break-all line-clamp-2">{blogForm.coverImageUrl}</p>
+                      <button
+                        type="button"
+                        className="mt-1 text-xs text-red-500 hover:underline"
+                        onClick={() => setBlogForm((f) => ({ ...f, coverImageUrl: '' }))}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-500">Drag an image here, paste from your clipboard, click to upload, or paste a link below</p>
+                    <p className="text-xs text-gray-400 mt-1">JPEG, PNG, GIF or WebP · max 5 MB</p>
+                  </div>
+                )}
+                <input
+                  ref={blogCoverInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadBlogCoverFile(f);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+              {/* URL fallback input */}
               <Input
                 id="blog-cover"
                 value={blogForm.coverImageUrl}
                 onChange={(e) => setBlogForm((f) => ({ ...f, coverImageUrl: e.target.value }))}
-                placeholder="https://example.com/image.jpg"
+                placeholder="…or paste a URL: https://example.com/image.jpg"
               />
             </div>
             <div className="space-y-2">

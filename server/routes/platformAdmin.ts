@@ -39,6 +39,30 @@ function logoUpload(req: any, res: any, next: any) {
   });
 }
 
+// Separate multer instance for blog cover images — 5 MB limit, no SVG
+const blogImageUploadMulter = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    (cb as any)(new Error('INVALID_FILE_TYPE'));
+  },
+});
+
+function blogImageUpload(req: any, res: any, next: any) {
+  blogImageUploadMulter.single('image')(req, res, (err: any) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ success: false, error: 'File too large. Maximum size is 5 MB.' });
+    }
+    if (err.message === 'INVALID_FILE_TYPE') {
+      return res.status(400).json({ success: false, error: 'Invalid file type. Only JPEG, PNG, GIF and WebP images are allowed.' });
+    }
+    return res.status(500).json({ success: false, error: 'File upload failed.' });
+  });
+}
+
 // ─── In-memory OTP store ───────────────────────────────────────────────────
 interface PendingOtp {
   adminId: string;
@@ -774,6 +798,36 @@ export function registerPlatformAdminRoutes(app: Express): void {
         success: false,
         error: 'Failed to upload logo'
       });
+    }
+  });
+
+  app.post("/platform-admin/blog/upload-image", requirePlatformAdmin, blogImageUpload, async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No image file uploaded' });
+      }
+
+      logger.info(`Uploading blog cover image: ${req.file.originalname} (${req.file.mimetype}, ${req.file.size} bytes)`);
+
+      const path = await import('path');
+      const { objectStorageClient } = await import('../objectStorage');
+
+      const ext = path.default.extname(req.file.originalname).toLowerCase() || '.jpg';
+      const fileName = `blog-cover-${Date.now()}${ext}`;
+      const bucketName = 'replit-objstore-9ec67884-ec26-4167-84d1-c8ceecee21b7';
+      const objectName = `public/${fileName}`;
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
+
+      logger.info(`Blog cover image uploaded successfully: ${fileName}`);
+
+      // Return full display path so it can be stored directly in coverImageUrl
+      res.json({ success: true, coverImageUrl: `/public-objects/${fileName}` });
+    } catch (error) {
+      logger.error('Error uploading blog cover image:', error);
+      res.status(500).json({ success: false, error: 'Failed to upload image' });
     }
   });
 
