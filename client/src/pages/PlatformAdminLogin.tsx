@@ -62,6 +62,7 @@ export default function PlatformAdminLogin() {
       return response.json();
     },
     onSuccess: (data) => {
+      clearSessionToken();
       toast({ title: "Verified", description: `Welcome back, ${data.admin.firstName}!` });
       window.location.href = "/platform-admin/dashboard";
     },

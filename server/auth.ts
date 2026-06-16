@@ -909,8 +909,16 @@ export async function loadUser(req: Request, res: Response, next: NextFunction) 
   // customer context — not from the shared session cookie. This ensures req.user
   // is always consistent with the per-tab authenticated identity, even when
   // another window has switched the cookie to a different customer.
+  //
+  // SECURITY: Never process Bearer tokens on platform-admin routes. Platform
+  // admin auth is purely cookie/session based (requirePlatformAdmin checks
+  // req.session.platformAdminId). If a stale customer Bearer token is somehow
+  // present in the browser, we must not let it trigger an early return that
+  // bypasses the session-cookie path and leaves req.session.platformAdminId
+  // invisible to requirePlatformAdmin.
   const authHeader = req.headers['authorization'];
-  if (authHeader && authHeader.startsWith('Bearer ')) {
+  const isPlatformAdminPath = req.originalUrl?.startsWith('/platform-admin/');
+  if (!isPlatformAdminPath && authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
     try {
       const { userId, customerId } = verifySessionToken(token);

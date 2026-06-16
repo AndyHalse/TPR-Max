@@ -330,11 +330,15 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // Skip CSRF for login/logout/2fa-verify and platform-admin auth only
+    // Skip CSRF for login/logout/2fa-verify and ALL platform-admin routes.
+    // Platform-admin routes authenticate via their own requirePlatformAdmin
+    // middleware (session cookie); CSRF adds no meaningful extra protection here
+    // and the retry-on-403 path was causing intermittent 401s under certain
+    // browser/tab combinations.
     if (req.originalUrl === '/api/auth/login' || 
         req.originalUrl === '/api/auth/logout' ||
         req.originalUrl === '/api/auth/verify-2fa' ||
-        req.originalUrl.startsWith('/platform-admin/auth') ||
+        req.originalUrl.startsWith('/platform-admin/') ||
         (process.env.NODE_ENV !== 'production' && req.originalUrl.startsWith('/api/super-admin/'))) {
       return next();
     }
