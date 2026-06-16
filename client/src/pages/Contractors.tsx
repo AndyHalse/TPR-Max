@@ -3125,7 +3125,7 @@ export default function Contractors() {
               <p className="text-xs text-variable">Required for CO2 emission calculations</p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Vehicle Fuel Type</label>
+              <label className="text-sm font-medium text-slate-700">Transport Method</label>
               <select
                 value={workerForm.transportMethod}
                 onChange={(e) => setWorkerForm({ ...workerForm, transportMethod: e.target.value })}

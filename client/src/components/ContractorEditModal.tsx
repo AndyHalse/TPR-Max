@@ -751,7 +751,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       <p className="text-xs text-variable mt-1">For CO2 emissions calculation</p>
                     </div>
                     <div>
-                      <Label htmlFor="transportMethod">Vehicle Fuel Type</Label>
+                      <Label htmlFor="transportMethod">Transport Method</Label>
                       <select
                         id="transportMethod"
                         value={formData.transportMethod}
