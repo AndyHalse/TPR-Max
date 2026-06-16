@@ -17,11 +17,109 @@ interface CertType {
 
 interface UploadState {
   file: File | null;
+  fileName: string;
   expiry: string;
   issuedBy: string;
   uploading: boolean;
   done: boolean;
   error: string;
+}
+
+interface DocCardProps {
+  cert: CertType;
+  state: UploadState;
+  existingDoc: any;
+  accentColor: string;
+  onFileChange: (file: File | null, fileName: string) => void;
+  onFieldChange: (patch: Partial<UploadState>) => void;
+  onUpload: () => void;
+}
+
+// Defined outside the page component so React never remounts it on parent re-renders
+function DocCard({ cert, state, existingDoc, accentColor, onFileChange, onFieldChange, onUpload }: DocCardProps) {
+  const isDone = state.done || (existingDoc && existingDoc.status !== 'expired');
+
+  return (
+    <div className={`border rounded-xl p-4 transition-all ${isDone ? 'border-green-200 bg-green-50' : 'border-slate-200 bg-white'}`}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-medium text-sm text-slate-800">{cert.name}</p>
+            {isDone ? (
+              <Badge className="bg-green-100 text-green-700 text-xs border-0">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                {state.done ? 'Uploaded — Pending Review' : 'Already uploaded'}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-slate-400 border-slate-300 text-xs">Required</Badge>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">{cert.legal_basis}{cert.notes ? ` — ${cert.notes}` : ''}</p>
+          {existingDoc?.expiryDate && !state.done && (
+            <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+              <Clock className="w-3 h-3" />Current expires: {new Date(existingDoc.expiryDate).toLocaleDateString('en-GB')}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!isDone && (
+        <div className="space-y-3 border-t border-slate-100 pt-3">
+          <div>
+            <Label className="text-xs text-slate-600 mb-1 block">Select file (PDF, image, or Word document)</Label>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+              className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+              onChange={e => {
+                const f = e.target.files?.[0] || null;
+                onFileChange(f, f?.name || '');
+              }}
+            />
+            {state.fileName && !state.file && (
+              <p className="text-xs text-slate-500 mt-1">Selected: {state.fileName}</p>
+            )}
+          </div>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-slate-600 mb-1 block">
+                Expiry date{cert.requires_expiry ? '' : ' (optional)'}
+              </Label>
+              <Input
+                type="date"
+                className="h-8 text-sm w-full"
+                value={state.expiry}
+                onChange={e => onFieldChange({ expiry: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600 mb-1 block">Issued by (optional)</Label>
+              <Input
+                type="text"
+                placeholder="Insurer / body"
+                className="h-8 text-sm"
+                value={state.issuedBy}
+                onChange={e => onFieldChange({ issuedBy: e.target.value })}
+              />
+            </div>
+          </div>
+          {state.error && <p className="text-xs text-red-600">{state.error}</p>}
+          <Button
+            size="sm"
+            className="w-full text-white"
+            style={{ backgroundColor: accentColor }}
+            onClick={onUpload}
+            disabled={state.uploading}
+          >
+            {state.uploading
+              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Uploading…</>
+              : <><Upload className="w-3.5 h-3.5 mr-1.5" />Upload {cert.name.split(' ').slice(0, 3).join(' ')}</>
+            }
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface Props { token: string; }
@@ -43,7 +141,7 @@ export default function WorkerDocumentUpload({ token }: Props) {
   });
 
   const getDocState = (key: string): UploadState =>
-    uploadStates[key] ?? { file: null, expiry: '', issuedBy: '', uploading: false, done: false, error: '' };
+    uploadStates[key] ?? { file: null, fileName: '', expiry: '', issuedBy: '', uploading: false, done: false, error: '' };
 
   const setDocState = (key: string, patch: Partial<UploadState>) =>
     setUploadStates(prev => ({ ...prev, [key]: { ...getDocState(key), ...patch } }));
@@ -123,9 +221,7 @@ export default function WorkerDocumentUpload({ token }: Props) {
     ? (settings.logoUrl.startsWith('/uploads/') ? `/objects${settings.logoUrl}` : settings.logoUrl)
     : null;
 
-  const activeCerts: CertType[] = certificationTypes.length > 0
-    ? certificationTypes
-    : [];
+  const activeCerts: CertType[] = certificationTypes.length > 0 ? certificationTypes : [];
 
   const uploadedCount = activeCerts.filter(d => {
     const state = getDocState(d.key);
@@ -137,77 +233,6 @@ export default function WorkerDocumentUpload({ token }: Props) {
   const trainingDocs = activeCerts.filter(d => d.category === 'training');
   const otherDocs = activeCerts.filter(d => !['legal', 'site', 'training'].includes(d.category));
 
-  const DocCard = ({ cert }: { cert: CertType }) => {
-    const state = getDocState(cert.key);
-    const existing = getExistingDoc(cert.key);
-    const isDone = state.done || (existing && existing.status !== 'expired');
-
-    return (
-      <div className={`border rounded-xl p-4 transition-all ${isDone ? 'border-green-200 bg-green-50' : 'border-slate-200 bg-white'}`}>
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-sm text-slate-800">{cert.name}</p>
-              {isDone ? (
-                <Badge className="bg-green-100 text-green-700 text-xs border-0">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  {state.done ? 'Uploaded — Pending Review' : 'Already uploaded'}
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-slate-400 border-slate-300 text-xs">Required</Badge>
-              )}
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">{cert.legal_basis}{cert.notes ? ` — ${cert.notes}` : ''}</p>
-            {existing?.expiryDate && !state.done && (
-              <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                <Clock className="w-3 h-3" />Current expires: {new Date(existing.expiryDate).toLocaleDateString('en-GB')}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {!isDone && (
-          <div className="space-y-3 border-t border-slate-100 pt-3">
-            <div>
-              <Label className="text-xs text-slate-600 mb-1 block">Select file (PDF, image, or Word document)</Label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
-                onChange={e => setDocState(cert.key, { file: e.target.files?.[0] || null })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-slate-600 mb-1 block">
-                  Expiry date{cert.requires_expiry ? '' : ' (optional)'}
-                </Label>
-                <Input type="date" className="h-8 text-sm" value={getDocState(cert.key).expiry} onChange={e => setDocState(cert.key, { expiry: e.target.value })} />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600 mb-1 block">Issued by (optional)</Label>
-                <Input type="text" placeholder="Insurer / body" className="h-8 text-sm" value={getDocState(cert.key).issuedBy} onChange={e => setDocState(cert.key, { issuedBy: e.target.value })} />
-              </div>
-            </div>
-            {state.error && <p className="text-xs text-red-600">{state.error}</p>}
-            <Button
-              size="sm"
-              className="w-full text-white"
-              style={{ backgroundColor: accentColor }}
-              onClick={() => handleUpload(cert)}
-              disabled={state.uploading}
-            >
-              {state.uploading
-                ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Uploading…</>
-                : <><Upload className="w-3.5 h-3.5 mr-1.5" />Upload {cert.name.split(' ').slice(0, 3).join(' ')}</>
-              }
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const DocSection = ({ title, badge, items }: { title: string; badge: string; items: CertType[] }) => {
     if (items.length === 0) return null;
     return (
@@ -216,7 +241,18 @@ export default function WorkerDocumentUpload({ token }: Props) {
           <h3 className="font-semibold text-slate-700">{title}</h3>
           <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: `${accentColor}20`, color: accentColor }}>{badge}</span>
         </div>
-        {items.map(cert => <DocCard key={cert.key} cert={cert} />)}
+        {items.map(cert => (
+          <DocCard
+            key={cert.key}
+            cert={cert}
+            state={getDocState(cert.key)}
+            existingDoc={getExistingDoc(cert.key)}
+            accentColor={accentColor}
+            onFileChange={(file, fileName) => setDocState(cert.key, { file, fileName })}
+            onFieldChange={patch => setDocState(cert.key, patch)}
+            onUpload={() => handleUpload(cert)}
+          />
+        ))}
       </div>
     );
   };

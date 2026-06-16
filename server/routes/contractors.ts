@@ -2598,11 +2598,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <li>Right to Work (passport, driving licence, or biometric residence permit)</li>
         <li>CSCS Card</li>
         <li>IPAF Card (if working at height)</li>
-        <li>Public Liability Insurance</li>
-        <li>Employers' Liability Insurance</li>
-        <li>Health &amp; Safety Policy</li>
         <li>Training Certificates</li>
-        <li>Other relevant certifications</li>
+        <li>Other relevant worker certifications</li>
       </ul>
     </div>
     <p style="margin-top:16px;font-size:13px;color:#6b7280">Each document must be uploaded as a PDF, image, or Word file. Please include the expiry date where applicable. Documents will be reviewed by our team before being marked as compliant.</p>
