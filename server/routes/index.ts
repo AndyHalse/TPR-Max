@@ -51,12 +51,14 @@ import { registerContractorWorkerDbsRoutes } from './contractorWorkerDbs';
 import { registerContractorWorkerCertsRoutes } from './contractorWorkerCerts';
 import { registerContractorEquipmentRoutes } from './contractorEquipment';
 import { registerBugReportRoutes } from './bugReports';
+import { registerSeoRoutes } from '../seo';
 
 export async function registerSplitRoutes(
   app: Express,
   server: Server,
   setupAutomaticDailyReset?: (customerId?: string) => Promise<void>
 ): Promise<void> {
+  registerSeoRoutes(app);
   registerAuthRoutes(app);
   registerSsoRoutes(app);
   registerPlatformAdminRoutes(app);
