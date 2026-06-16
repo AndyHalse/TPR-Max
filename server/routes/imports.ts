@@ -2349,11 +2349,13 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
       const pool = (customerDb2 as any).$client ?? (customerDb2 as any).session?.client;
 
-      // ── Step 1: Collect all sample entity IDs (@example.com marker) ────────
-      const staffRes   = await pool.query(`SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`);
-      const workerRes  = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE email LIKE '%@example.com'`);
-      const companyRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com'`);
-      const visitorRes = await pool.query(`SELECT id FROM "${schemaName}".visitors WHERE email LIKE '%@example.com'`);
+      // ── Step 1: Collect all sample entity IDs (@acsltd.eu marker) ─────────
+      // The sample data loader writes @acsltd.eu emails; the status check also
+      // queries @acsltd.eu — this must match or removal appears to do nothing.
+      const staffRes   = await pool.query(`SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@acsltd.eu'`);
+      const workerRes  = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE email LIKE '%@acsltd.eu'`);
+      const companyRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@acsltd.eu'`);
+      const visitorRes = await pool.query(`SELECT id FROM "${schemaName}".visitors WHERE email LIKE '%@acsltd.eu'`);
 
       const staffIds:   string[] = staffRes.rows.map((r: any) => r.id);
       const workerIds:  string[] = workerRes.rows.map((r: any) => r.id);
@@ -2468,12 +2470,12 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       }
 
       // ── Step 6: Main records (dependency order: workers → companies → visitors → members → staff) ──
-      await del('contractor_workers',   `WHERE email LIKE '%@example.com'`);
+      await del('contractor_workers',   `WHERE email LIKE '%@acsltd.eu'`);
       if (companyIds.length > 0) {
         await del('contractor_companies', `WHERE id IN (${inP(companyIds)})`, companyIds);
       }
-      await del('visitors', `WHERE email LIKE '%@example.com'`);
-      await del('members',  `WHERE email LIKE '%@example.com'`);
+      await del('visitors', `WHERE email LIKE '%@acsltd.eu'`);
+      await del('members',  `WHERE email LIKE '%@acsltd.eu'`);
       if (staffIds.length > 0) {
         await del('staff', `WHERE id IN (${inP(staffIds)})`, staffIds);
       }
