@@ -316,12 +316,16 @@ export function registerBugReportRoutes(app: Express) {
           reportNumber: bugReports.reportNumber,
           status: bugReports.status,
           reporterFeedback: bugReports.reporterFeedback,
+          feedbackTokenExpiresAt: bugReports.feedbackTokenExpiresAt,
         })
         .from(bugReports)
         .where(eq(bugReports.feedbackToken, token))
         .limit(1);
 
       if (!report) return res.status(404).json({ error: 'Token not found or already used.' });
+      if (report.feedbackTokenExpiresAt && report.feedbackTokenExpiresAt < new Date()) {
+        return res.status(404).json({ error: 'This link has expired.' });
+      }
 
       const alreadyResponded = report.reporterFeedback !== null;
       return res.json({
@@ -346,6 +350,9 @@ export function registerBugReportRoutes(app: Express) {
         .limit(1);
 
       if (!report) return res.status(404).json({ error: 'Token not found or already used.' });
+      if (report.feedbackTokenExpiresAt && report.feedbackTokenExpiresAt < new Date()) {
+        return res.status(404).json({ error: 'This link has expired.' });
+      }
 
       // Idempotent — if already confirmed, just return success
       if (report.reporterFeedback === 'confirmed') {
@@ -409,6 +416,9 @@ export function registerBugReportRoutes(app: Express) {
         .limit(1);
 
       if (!report) return res.status(404).json({ error: 'Token not found or already used.' });
+      if (report.feedbackTokenExpiresAt && report.feedbackTokenExpiresAt < new Date()) {
+        return res.status(404).json({ error: 'This link has expired.' });
+      }
 
       // Idempotent
       if (report.reporterFeedback === 'still_broken') {
@@ -568,6 +578,7 @@ export function registerBugReportRoutes(app: Express) {
 
             // Save token (and reset any prior feedback) before sending email
             setData.feedbackToken = feedbackToken;
+            setData.feedbackTokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
             setData.reporterFeedback = null;
 
             const html = buildFixedEmailHtml({
@@ -610,6 +621,7 @@ export function registerBugReportRoutes(app: Express) {
             emailSkippedReason = 'send_failed';
             // Don't save feedbackToken if email failed
             delete setData.feedbackToken;
+            delete setData.feedbackTokenExpiresAt;
             delete setData.reporterFeedback;
           }
         }

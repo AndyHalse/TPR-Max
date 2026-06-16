@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { Loader2, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useRef } from "react";
 
 type PageState =
   | { phase: "loading" }
-  | { phase: "confirming" }
+  | { phase: "confirm_prompt"; reportNumber: string }
   | { phase: "confirm_done"; reportNumber: string }
   | { phase: "reopen_form"; reportNumber: string }
   | { phase: "reopen_done"; reportNumber: string }
@@ -46,9 +47,8 @@ export default function BugFeedback() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const didAutoConfirm = useRef(false);
 
-  // Load report info from token
+  // Load report info from token — never changes state, never consumes token
   useEffect(() => {
     if (!token) { setState({ phase: "invalid" }); return; }
 
@@ -65,30 +65,41 @@ export default function BugFeedback() {
           return;
         }
         if (response === "fixed") {
-          setState({ phase: "confirming" });
-        } else if (response === "broken") {
-          setState({ phase: "reopen_form", reportNumber: data.reportNumber });
+          // Show a confirm button — never auto-confirm on page load
+          setState({ phase: "confirm_prompt", reportNumber: data.reportNumber });
         } else {
-          // No ?r= param — default to "still broken" form
+          // "broken" or no ?r= param — show the reopen form
           setState({ phase: "reopen_form", reportNumber: data.reportNumber });
         }
       })
-      .catch(() => setState({ phase: "error", message: "Something went wrong. Please try again." }));
+      .catch(() => setState({ phase: "error", message: "Something went wrong loading this page. Please try again." }));
   }, [token]);
 
-  // Auto-confirm when phase is "confirming"
-  useEffect(() => {
-    if (state.phase !== "confirming" || didAutoConfirm.current) return;
-    didAutoConfirm.current = true;
-
-    fetch(`/api/bug-feedback/${token}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then((r) => {
-        if (!r.ok) throw new Error("Confirm failed");
-        return r.json();
-      })
-      .then((data) => setState({ phase: "confirm_done", reportNumber: data.reportNumber }))
-      .catch(() => setState({ phase: "error", message: "We couldn't record your confirmation. Please try clicking the link again." }));
-  }, [state.phase, token]);
+  async function handleConfirm() {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const r = await fetch(`/api/bug-feedback/${token}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (r.status === 404) {
+        setState({ phase: "invalid" });
+        return;
+      }
+      const data = await r.json();
+      if (!r.ok) {
+        setSubmitError(data.error || "Something went wrong. Please try again.");
+        return;
+      }
+      setState({ phase: "confirm_done", reportNumber: data.reportNumber });
+    } catch {
+      setSubmitError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -139,10 +150,32 @@ export default function BugFeedback() {
             </div>
           )}
 
-          {state.phase === "confirming" && (
-            <div className="flex flex-col items-center py-8 gap-3 text-slate-500">
-              <Loader2 className="w-8 h-8 animate-spin text-green-600" />
-              <p>Recording your confirmation…</p>
+          {state.phase === "confirm_prompt" && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
+                <h2 className="text-xl font-bold text-slate-800">Glad to hear it!</h2>
+              </div>
+              <p className="text-slate-600 text-sm">
+                Can you confirm report <strong>{state.reportNumber}</strong> is now sorted?
+              </p>
+
+              {submitError && (
+                <p className="text-sm text-red-600 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {submitError}
+                </p>
+              )}
+
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleConfirm}
+                disabled={submitting}
+              >
+                {submitting
+                  ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Recording…</>
+                  : <><CheckCircle2 className="w-4 h-4 mr-2" />Yes, it&apos;s fixed</>}
+              </Button>
             </div>
           )}
 
