@@ -1301,7 +1301,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
     content: z.string().min(1, 'Content is required'),
     author: z.string().min(1, 'Author is required'),
     status: z.enum(['draft', 'published']).default('draft'),
-    coverImageUrl: z.string().url().optional().nullable(),
+    coverImageUrl: z.string().refine(
+      (v) => /^https?:\/\//i.test(v) || v.startsWith('/'),
+      'Cover image must be a full URL (https://...) or an uploaded image path (/public-objects/...)'
+    ).optional().nullable(),
     tags: z.array(z.string()).default([]),
     publishedAt: z.string().optional().nullable(),
   });
