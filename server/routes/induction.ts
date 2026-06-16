@@ -82,6 +82,42 @@ const inductionGenerationStatus = new Map<string, {
   error?: string;
 }>();
 
+// Ensure status table exists (fire-and-forget — non-fatal if DB isn't ready yet)
+db.execute(sql`
+  CREATE TABLE IF NOT EXISTS induction_generation_status (
+    status_key   TEXT PRIMARY KEY,
+    status       TEXT NOT NULL DEFAULT 'idle',
+    step         INTEGER NOT NULL DEFAULT 0,
+    total_steps  INTEGER NOT NULL DEFAULT 5,
+    message      TEXT NOT NULL DEFAULT '',
+    error        TEXT,
+    started_at   BIGINT,
+    completed_at BIGINT,
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`).catch(e => logger.warn('[Induction] Could not create status table (non-fatal):', e));
+
+/** Write a generation status entry to the DB — fire-and-forget so it never blocks generation. */
+function persistGenerationStatus(statusKey: string, s: {
+  status: string; step: number; totalSteps: number; message: string;
+  startedAt: number; completedAt?: number; error?: string;
+}) {
+  db.execute(sql`
+    INSERT INTO induction_generation_status
+      (status_key, status, step, total_steps, message, error, started_at, completed_at, updated_at)
+    VALUES
+      (${statusKey}, ${s.status}, ${s.step}, ${s.totalSteps}, ${s.message},
+       ${s.error ?? null}, ${s.startedAt}, ${s.completedAt ?? null}, NOW())
+    ON CONFLICT (status_key) DO UPDATE SET
+      status       = EXCLUDED.status,
+      step         = EXCLUDED.step,
+      message      = EXCLUDED.message,
+      error        = EXCLUDED.error,
+      completed_at = EXCLUDED.completed_at,
+      updated_at   = NOW()
+  `).catch(() => { /* non-fatal */ });
+}
+
 // Injected into every served induction HTML to fix CSP-blocked inline onclick
 // handlers on the Previous/Next/Pause buttons. Removes the Pause button and
 // rewires navigation via addEventListener (allowed by script-src-attr 'none').
@@ -285,6 +321,43 @@ export async function setupAutomaticDailyReset(specificCustomerId?: string) {
 }
 
 export function registerInductionRoutes(app: Express): void {
+  // One-off data migration: move any tenant still on 'gpt-5' default to 'claude-sonnet-4-6'.
+  // Runs at startup, fire-and-forget — logs per-tenant update counts.
+  (async () => {
+    try {
+      const customers = await customerDbService.getAllCustomers();
+      for (const customer of customers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+
+          // 1. induction_settings.model_type
+          const r1 = await custDb.execute(sql`
+            UPDATE induction_settings
+            SET model_type = 'claude-sonnet-4-6'
+            WHERE model_type = 'gpt-5'
+          `);
+          // 2. company_settings.openai_model (column ensured by column-migration)
+          const r2 = await custDb.execute(sql`
+            UPDATE company_settings
+            SET openai_model = 'claude-sonnet-4-6'
+            WHERE openai_model = 'gpt-5'
+          `);
+          const n1 = (r1 as any).rowCount ?? 0;
+          const n2 = (r2 as any).rowCount ?? 0;
+          if (n1 > 0 || n2 > 0) {
+            logger.info(`[Claude migration] ${customer.id}: induction_settings=${n1} row(s), company_settings=${n2} row(s) updated`);
+          }
+        } catch (custErr) {
+          // Tables may not exist yet for brand-new tenants — non-fatal
+          logger.debug(`[Claude migration] Skipping ${customer.id}: ${(custErr as Error).message}`);
+        }
+      }
+      logger.info('[Claude migration] Done — all tenants checked for gpt-5 → claude-sonnet-4-6');
+    } catch (migErr) {
+      logger.warn('[Claude migration] Could not run model migration (non-fatal):', migErr);
+    }
+  })();
+
   // ID Card Design API endpoints - NOW WITH PROPER CUSTOMER ISOLATION!
 
 
@@ -861,12 +934,49 @@ export function registerInductionRoutes(app: Express): void {
       const { roleType } = req.params;
       const customerId = req.customerId || 'default';
       const statusKey = `${customerId}-${roleType}`;
-      const status = inductionGenerationStatus.get(statusKey);
-      if (!status) {
-        res.json({ status: 'idle', step: 0, totalSteps: 5, message: 'No generation in progress' });
-      } else {
-        res.json(status);
+
+      // Fast path: in-memory cache (valid for the current process lifetime)
+      const memStatus = inductionGenerationStatus.get(statusKey);
+      if (memStatus) {
+        return res.json(memStatus);
       }
+
+      // Fallback: DB — recovers correct state after a server restart
+      try {
+        const result = await db.execute(sql`
+          SELECT status, step, total_steps, message, error, started_at, completed_at, updated_at
+          FROM induction_generation_status WHERE status_key = ${statusKey}
+        `);
+        const row = (result as any).rows?.[0];
+        if (row) {
+          const NON_TERMINAL = ['pending', 'generating_script', 'building_slides', 'creating_questions', 'saving'];
+          let resolvedStatus: string = row.status;
+          let resolvedMessage: string = row.message;
+          let resolvedError: string | undefined = row.error ?? undefined;
+
+          // Timeout guard: non-terminal for >10 min since last DB write → surface as failed
+          if (NON_TERMINAL.includes(row.status)) {
+            const updatedAt = new Date(row.updated_at).getTime();
+            if (Date.now() - updatedAt > 10 * 60 * 1000) {
+              resolvedStatus = 'failed';
+              resolvedMessage = 'Generation timed out — please try again';
+              resolvedError = 'Timed out';
+            }
+          }
+
+          return res.json({
+            status: resolvedStatus,
+            step: row.step,
+            totalSteps: row.total_steps,
+            message: resolvedMessage,
+            startedAt: Number(row.started_at),
+            ...(row.completed_at ? { completedAt: Number(row.completed_at) } : {}),
+            ...(resolvedError ? { error: resolvedError } : {}),
+          });
+        }
+      } catch (_dbErr) { /* non-fatal — fall through to idle */ }
+
+      res.json({ status: 'idle', step: 0, totalSteps: 5, message: 'No generation in progress' });
     } catch (error) {
       res.status(500).json({ error: 'Failed to get status' });
     }
@@ -910,6 +1020,16 @@ export function registerInductionRoutes(app: Express): void {
   app.patch('/api/induction/questions/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const customerId = req.customerId;
+      if (!customerId) return res.status(401).json({ error: 'Authentication required' });
+
+      // Tenant isolation: verify this question belongs to the logged-in customer
+      const [existing] = await db.select({ videoId: inductionQuestions.videoId })
+        .from(inductionQuestions).where(eq(inductionQuestions.id, id));
+      if (!existing || !existing.videoId?.startsWith(`${customerId}-`)) {
+        return res.status(404).json({ error: 'Question not found' });
+      }
+
       const { questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, category } = req.body;
       const updateData: Record<string, any> = {};
       if (questionText !== undefined) updateData.questionText = questionText.trim();
@@ -932,6 +1052,16 @@ export function registerInductionRoutes(app: Express): void {
   app.delete('/api/induction/questions/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const customerId = req.customerId;
+      if (!customerId) return res.status(401).json({ error: 'Authentication required' });
+
+      // Tenant isolation: verify this question belongs to the logged-in customer
+      const [existing] = await db.select({ videoId: inductionQuestions.videoId })
+        .from(inductionQuestions).where(eq(inductionQuestions.id, id));
+      if (!existing || !existing.videoId?.startsWith(`${customerId}-`)) {
+        return res.status(404).json({ error: 'Question not found' });
+      }
+
       await db.delete(inductionQuestions).where(eq(inductionQuestions.id, id));
       return res.json({ success: true });
     } catch (error) {
@@ -4151,36 +4281,8 @@ export function registerInductionRoutes(app: Express): void {
     }
   });
 
-  app.put('/api/induction/settings/:id', requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updateData = insertInductionSettingsSchema.partial().parse(req.body);
-      
-      const [updatedSetting] = await db
-        .update(inductionSettings)
-        .set({ 
-          ...updateData,
-          updatedAt: new Date()
-        })
-        .where(eq(inductionSettings.id, id))
-        .returning();
-      
-      if (!updatedSetting) {
-        return res.status(404).json({ error: 'Induction setting not found' });
-      }
-      
-      res.json({ success: true, setting: updatedSetting });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          error: 'Invalid data', 
-          details: error.errors 
-        });
-      }
-      logger.error('Error updating induction settings:', error);
-      res.status(500).json({ error: 'Failed to update induction settings' });
-    }
-  });
+  // PUT /api/induction/settings/:id was removed — no UI code calls it.
+  // Settings are managed via PATCH /:roleType/toggle and PUT /:roleType/scenes.
 
   // Toggle kiosk enabled / send link enabled per roleType (customer-isolated)
   app.patch('/api/induction/settings/:roleType/toggle', requireAuth, async (req, res) => {
@@ -4450,7 +4552,9 @@ export function registerInductionRoutes(app: Express): void {
       (async () => {
         const startedAt = inductionGenerationStatus.get(statusKey)!.startedAt;
         const setStatus = (status: any, step: number, message: string, extra: any = {}) => {
-          inductionGenerationStatus.set(statusKey, { status, step, totalSteps: 5, message, startedAt, ...extra });
+          const entry = { status, step, totalSteps: 5, message, startedAt, ...extra };
+          inductionGenerationStatus.set(statusKey, entry);
+          persistGenerationStatus(statusKey, entry);
         };
 
         try {
@@ -4459,12 +4563,12 @@ export function registerInductionRoutes(app: Express): void {
           const custDb = await customerDbService.getCustomerDatabase(inductionVContext.customerId);
 
           let videoFormat = 'hybrid_enhanced';
-          let modelType = 'gpt-5';
+          let modelType = 'claude-sonnet-4-6';
           try {
             const rows = await custDb.select().from(isolatedSchema.inductionSettings);
             const roleSetting = rows.find((s: any) => s.roleType === roleType);
             videoFormat = roleSetting?.videoFormat || 'hybrid_enhanced';
-            modelType = roleSetting?.modelType || 'gpt-5';
+            modelType = roleSetting?.modelType || 'claude-sonnet-4-6';
           } catch (_e) {
             logger.info('Using default video settings');
           }
@@ -4661,15 +4765,17 @@ export function registerInductionRoutes(app: Express): void {
       
     } catch (error: any) {
       logger.error('Error starting video generation:', error);
-      inductionGenerationStatus.set(statusKey, {
-        status: 'failed',
+      const failedEntry = {
+        status: 'failed' as const,
         step: 0,
         totalSteps: 5,
         message: 'Failed to start generation',
         startedAt: Date.now(),
         completedAt: Date.now(),
         error: error.message || 'Unknown error'
-      });
+      };
+      inductionGenerationStatus.set(statusKey, failedEntry);
+      persistGenerationStatus(statusKey, failedEntry);
       if (!res.headersSent) {
         res.status(500).json({ 
           error: 'Failed to start video generation',

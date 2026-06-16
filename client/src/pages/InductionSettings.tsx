@@ -213,8 +213,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  interface AiKeyStatus { hasKey: boolean; isActive: boolean; status: string; }
-  interface AiKeysResponse { openai: AiKeyStatus; gemini: AiKeyStatus; claude: AiKeyStatus; }
   const { data: aiKeys } = useQuery<AiKeysResponse>({ queryKey: ['/api/settings/ai-keys'], staleTime: 60000 });
 
   // ── Generation state ──
@@ -1427,14 +1425,22 @@ export default function InductionSettings() {
         setQs(prev => ({ ...prev, message: `Writing slides for ${ROLE_LABELS[role]}…`, percent: Math.round(base) }));
         const r = await apiRequest('POST', `/api/induction/generate-video/${role}`, {});
         const d = await r.json();
-        if (!d.started) throw new Error(d.error || 'Could not start slide generation. Please try again.');
+        if (!d.started) {
+          const msg = d.error === 'Generation already in progress'
+            ? `A generation for ${ROLE_LABELS[role]} is already running — please wait for it to finish, then try Quick Start again.`
+            : (d.error || 'Could not start slide generation. Please try again.');
+          throw new Error(msg);
+        }
         await pollRoleUntilDone(role, (pct) =>
           setQs(prev => ({ ...prev, percent: Math.round(base + (pct / 100) * slice * 0.75) }))
         );
         // Generate questions
         setQs(prev => ({ ...prev, message: `Generating questions for ${ROLE_LABELS[role]}…`, percent: Math.round(base + slice * 0.8) }));
         const qr = await apiRequest('POST', `/api/induction/generate-questions/${role}`, {});
-        await qr.json();
+        const qd = await qr.json();
+        if (qd && qd.success === false) {
+          throw new Error(qd.error || `Could not generate questions for ${ROLE_LABELS[role]}.`);
+        }
         setQs(prev => ({ ...prev, percent: Math.round(base + slice) }));
       }
       setQs(prev => ({ ...prev, phase: 'done', percent: 100, message: '' }));

@@ -412,7 +412,7 @@ export const companySettings = pgTable("company_settings", {
   biometricDevices: text("biometric_devices").array().default([]), // Array of configured device IDs
   readerSettings: text("reader_settings").default("{}"), // JSON string for device-specific settings
   // AI and Video Generation Settings
-  openaiModel: text("openai_model").default("gpt-5"), // gpt-4, gpt-5, gpt-6, gpt-7, claude-3-5-sonnet, claude-3-opus, claude-3-haiku
+  openaiModel: text("openai_model").default("claude-sonnet-4-6"), // gpt-4o, claude-sonnet-4-6, claude-3-5-sonnet, claude-3-opus
   claudeModel: text("claude_model").default("claude-3-5-sonnet"), // claude-3-5-sonnet, claude-3-opus, claude-3-haiku
   openaiTemperature: text("openai_temperature").default("0.7"), // 0.0-2.0 for creativity control
   openaiMaxTokens: text("openai_max_tokens").default("4000"), // Token limit per request
@@ -1206,7 +1206,7 @@ export const inductionSettings = pgTable("induction_settings", {
   videoDescription: text("video_description"),
   videoDurationMinutes: integer("video_duration_minutes").default(15),
   videoFormat: text("video_format").default("interactive_slides").notNull(), // 'interactive_slides', 'full_video', 'hybrid_enhanced'
-  modelType: text("model_type").default("gpt-5").notNull(), // 'gpt-4o', 'gpt-5', 'gpt-6', 'gpt-7'
+  modelType: text("model_type").default("claude-sonnet-4-6").notNull(), // 'gpt-4o', 'claude-sonnet-4-6', 'claude-3-5-sonnet', 'claude-3-opus'
   passPercentage: integer("pass_percentage").default(80), // Minimum percentage to pass
   isActive: boolean("is_active").default(true).notNull(),
   kioskEnabled: boolean("kiosk_enabled").default(false).notNull(), // Show induction during kiosk check-in
