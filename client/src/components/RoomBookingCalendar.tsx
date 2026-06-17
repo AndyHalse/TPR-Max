@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { CalendarDays, Clock, Users, MapPin, Eye, Edit, Trash2, Plus, Repeat } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 import { format, addDays, startOfDay, endOfDay, isSameDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { RoomBooking, MeetingRoom } from '@shared/schema';
@@ -53,14 +54,10 @@ export function RoomBookingCalendar({
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         ...(selectedRoomId && { room_id: selectedRoomId })
-        // Note: Don't filter by tenant_id for calendar view - we want to see all bookings for proper availability checking
       });
-      
-      const response = await fetch(`/api/room-bookings?${params}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
-      }
-      return response.json();
+      // Fix 2: use apiRequest so the per-tab Bearer token is sent (tenant isolation)
+      const res = await apiRequest('GET', `/api/room-bookings?${params}`);
+      return res.json();
     },
   });
 
@@ -356,7 +353,11 @@ export function RoomBookingCalendar({
                 <ScrollArea className="h-96">
                   <div className="space-y-4">
                     {selectedDateBookings
-                      .sort((a, b) => new Date(a.startDateTime as any).getTime() - new Date(b.startDateTime as any).getTime())
+                      .sort((a, b) => {
+                        const aTime = (a as any).startDateTime || (a as any).startTime;
+                        const bTime = (b as any).startDateTime || (b as any).startTime;
+                        return new Date(aTime).getTime() - new Date(bTime).getTime();
+                      })
                       .map((booking) => (
                         <BookingCard key={booking.id} booking={booking} />
                       ))}
@@ -380,7 +381,7 @@ export function RoomBookingCalendar({
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {rooms.slice(0, 6).map((room) => {
-                const roomBookings = selectedDateBookings.filter(b => b.roomId === room.id);
+                const roomBookings = selectedDateBookings.filter(b => (b as any).meetingRoomId === room.id);
                 const isAvailable = roomBookings.length === 0;
                 
                 return (

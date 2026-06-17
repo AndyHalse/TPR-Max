@@ -223,12 +223,8 @@ export function RoomBookingForm({
       const excludeParam = editBooking ? `&excludeBookingId=${editBooking.id}` : '';
       const url = `/api/room-bookings/check-availability?roomId=${encodeURIComponent(roomId)}&startDateTime=${encodeURIComponent(startISO)}&endDateTime=${encodeURIComponent(endISO)}${excludeParam}`;
       
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error('Failed to check availability');
-      }
-      
+      // Fix 2: use apiRequest so the Bearer token is sent (tenant isolation)
+      const response = await apiRequest('GET', url);
       const data = await response.json();
       
       if (data.available) {

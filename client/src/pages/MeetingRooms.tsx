@@ -38,8 +38,10 @@ import {
   DoorOpen,
   Repeat,
   UserCheck,
-  Mail
+  Mail,
+  Info
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function MeetingRooms() {
   const [selectedRoom, setSelectedRoom] = useState<MeetingRoom | null>(null);
@@ -71,7 +73,6 @@ export default function MeetingRooms() {
       hasAirCon: false,
       hasCatering: false,
       isActive: true,
-      isSharedRoom: true,
     },
   });
 
@@ -144,7 +145,6 @@ export default function MeetingRooms() {
       hasAirCon: room.hasAirCon,
       hasCatering: room.hasCatering,
       isActive: room.isActive,
-      isSharedRoom: room.isSharedRoom,
     });
     setIsDialogOpen(true);
   };
@@ -266,9 +266,21 @@ export default function MeetingRooms() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-fixed">
-            Meeting Rooms & Booking Management
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-fixed">
+              Meeting Rooms & Booking Management
+            </h1>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-gray-400 hover:text-blue-500 cursor-pointer flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs">
+                  <p>Create and manage bookable meeting rooms for your site. Use the Rooms tab to add facilities and capacity, then the Calendar tab to view and create reservations. Bookings can be one-off or recurring.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <p className="text-sm sm:text-base text-variable mt-1 hidden sm:block">
             Manage meeting rooms, view bookings calendar, and create new reservations
           </p>
@@ -349,7 +361,7 @@ export default function MeetingRooms() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="capacity"
@@ -359,34 +371,14 @@ export default function MeetingRooms() {
                         <FormControl>
                           <Input 
                             type="number" 
-                            min="2" 
+                            min="1" 
                             max="100"
                             {...field} 
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 2)}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
                             data-testid="input-room-capacity"
                           />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isSharedRoom"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-sm font-medium">Shared Room</FormLabel>
-                          <p className="text-xs text-variable">Available to all tenants</p>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-is-shared"
-                          />
-                        </FormControl>
                       </FormItem>
                     )}
                   />
@@ -634,24 +626,28 @@ export default function MeetingRooms() {
                 <Users className="h-3 w-3" />
                 {room.capacity} people
               </span>
-              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getAllocationTypeColor(room.isSharedRoom)}`}>
-                {room.isSharedRoom ? '🌐 Shared' : '🏢 Tenant Only'}
-              </span>
             </div>
 
             {/* Facilities */}
-            <div className="flex items-center gap-1.5 flex-wrap mb-3">
-              <span className="text-[10px] font-medium text-variable">Facilities:</span>
-              {getFacilityLabels(room).length > 0 ? (
-                getFacilityLabels(room).map(({ icon, label }) => (
-                  <span key={label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-white/50 border border-white/40 text-variable">
-                    {icon} {label}
-                  </span>
-                ))
-              ) : (
-                <span className="text-[10px] text-variable">Basic room</span>
-              )}
-            </div>
+            <TooltipProvider delayDuration={200}>
+              <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                <span className="text-[10px] font-medium text-variable">Facilities:</span>
+                {getFacilityLabels(room).length > 0 ? (
+                  getFacilityLabels(room).map(({ icon, label }) => (
+                    <Tooltip key={label}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-white/50 border border-white/40 text-variable cursor-default">
+                          {icon} {label}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p>{label}</p></TooltipContent>
+                    </Tooltip>
+                  ))
+                ) : (
+                  <span className="text-[10px] text-variable">Basic room</span>
+                )}
+              </div>
+            </TooltipProvider>
 
             {/* Action row */}
             <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">

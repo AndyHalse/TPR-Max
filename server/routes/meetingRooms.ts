@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { z } from 'zod';
 import { logger } from '../utils/logger';
 import {
   requireAuth,
@@ -12,6 +13,48 @@ import { emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 
+// ── Amenity helpers (Fix 3: map boolean fields ↔ equipment text array) ─────
+type AmenityBody = { hasProjector?: boolean; hasVideoConference?: boolean; hasWhiteboard?: boolean; hasTV?: boolean; hasAirCon?: boolean; hasCatering?: boolean };
+
+function amenitiesToEquipment(body: AmenityBody): string[] {
+  const items: string[] = [];
+  if (body.hasProjector)       items.push('projector');
+  if (body.hasVideoConference) items.push('video_conference');
+  if (body.hasWhiteboard)      items.push('whiteboard');
+  if (body.hasTV)              items.push('tv');
+  if (body.hasAirCon)         items.push('air_con');
+  if (body.hasCatering)       items.push('catering');
+  return items;
+}
+
+function equipmentToAmenities(room: { equipment?: string[] | null }) {
+  const e = room.equipment || [];
+  return {
+    hasProjector:       e.includes('projector'),
+    hasVideoConference: e.includes('video_conference'),
+    hasWhiteboard:      e.includes('whiteboard'),
+    hasTV:              e.includes('tv'),
+    hasAirCon:          e.includes('air_con'),
+    hasCatering:        e.includes('catering'),
+  };
+}
+
+// ── Zod schema for room create / update (Fix 5) ───────────────────────────
+const roomCreateSchema = z.object({
+  name:               z.string().min(1, 'Room name is required').max(200),
+  location:           z.string().max(500).optional(),
+  capacity:           z.number().int().min(1, 'Capacity must be at least 1'),
+  description:        z.string().max(2000).optional(),
+  isActive:           z.boolean().optional(),
+  hasProjector:       z.boolean().optional(),
+  hasVideoConference: z.boolean().optional(),
+  hasWhiteboard:      z.boolean().optional(),
+  hasTV:              z.boolean().optional(),
+  hasAirCon:          z.boolean().optional(),
+  hasCatering:        z.boolean().optional(),
+});
+const roomUpdateSchema = roomCreateSchema.partial();
+
 export function registerMeetingRoomRoutes(app: Express): void {
 
   // ===== MEETING ROOM ENDPOINTS =====
@@ -24,7 +67,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       const roomsDb = await customerDbService.getCustomerDatabase(context.customerId);
       const rooms = await roomsDb.select().from(isolatedSchema.meetingRooms);
       
-      res.json(rooms);
+      res.json(rooms.map(r => ({ ...r, ...equipmentToAmenities(r) })));
     } catch (error) {
       logger.error("Error fetching meeting rooms:", error);
       res.status(500).json({ error: "Failed to fetch meeting rooms" });
@@ -43,7 +86,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(404).json({ error: "Meeting room not found" });
       }
       
-      res.json(room);
+      res.json({ ...room, ...equipmentToAmenities(room) });
     } catch (error) {
       logger.error("Error fetching meeting room:", error);
       res.status(500).json({ error: "Failed to fetch meeting room" });
@@ -52,11 +95,25 @@ export function registerMeetingRoomRoutes(app: Express): void {
 
   app.post("/api/meeting-rooms", requireAuth, async (req, res) => {
     try {
-      const roomData = req.body;
+      // Fix 4: role guard
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: "Administrator or manager access required" });
+      }
+      // Fix 5: Zod validation
+      const parsed = roomCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid room data" });
+      }
+      const { name, location, capacity, description, isActive, ...amenityFlags } = parsed.data;
       const mrCreateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const mrCreateDb = await customerDbService.getCustomerDatabase(mrCreateContext.customerId);
-      const [room] = await mrCreateDb.insert(isolatedSchema.meetingRooms).values(roomData).returning();
-      res.json(room);
+      // Fix 3: map amenity booleans → equipment array
+      const [room] = await mrCreateDb.insert(isolatedSchema.meetingRooms).values({
+        name, location, capacity, description,
+        isActive: isActive ?? true,
+        equipment: amenitiesToEquipment(amenityFlags),
+      }).returning();
+      res.json({ ...room, ...equipmentToAmenities(room) });
     } catch (error) {
       logger.error("Error creating meeting room:", error);
       res.status(500).json({ error: "Failed to create meeting room" });
@@ -65,18 +122,47 @@ export function registerMeetingRoomRoutes(app: Express): void {
 
   app.patch("/api/meeting-rooms/:id", requireAuth, async (req, res) => {
     try {
+      // Fix 4: role guard
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: "Administrator or manager access required" });
+      }
+      // Fix 5: Zod validation
+      const parsed = roomUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid room data" });
+      }
       const { id } = req.params;
-      const updates = req.body;
+      const { hasProjector, hasVideoConference, hasWhiteboard, hasTV, hasAirCon, hasCatering, ...rest } = parsed.data;
       const mrUpdateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const mrUpdateDb = await customerDbService.getCustomerDatabase(mrUpdateContext.customerId);
+
+      // Fix 3: only update equipment when amenity flags are present in the payload
+      const setObj: Record<string, any> = { ...rest };
+      const amenityFlags = { hasProjector, hasVideoConference, hasWhiteboard, hasTV, hasAirCon, hasCatering };
+      if (Object.values(amenityFlags).some(v => v !== undefined)) {
+        // Merge with existing equipment so unmentioned flags are preserved
+        const [existing] = await mrUpdateDb.select().from(isolatedSchema.meetingRooms).where(eq(isolatedSchema.meetingRooms.id, id));
+        if (existing) {
+          const cur = equipmentToAmenities(existing);
+          setObj.equipment = amenitiesToEquipment({
+            hasProjector:       amenityFlags.hasProjector       ?? cur.hasProjector,
+            hasVideoConference: amenityFlags.hasVideoConference ?? cur.hasVideoConference,
+            hasWhiteboard:      amenityFlags.hasWhiteboard      ?? cur.hasWhiteboard,
+            hasTV:              amenityFlags.hasTV              ?? cur.hasTV,
+            hasAirCon:          amenityFlags.hasAirCon          ?? cur.hasAirCon,
+            hasCatering:        amenityFlags.hasCatering        ?? cur.hasCatering,
+          });
+        }
+      }
+
       const [room] = await mrUpdateDb.update(isolatedSchema.meetingRooms)
-        .set(updates).where(eq(isolatedSchema.meetingRooms.id, id)).returning();
+        .set(setObj).where(eq(isolatedSchema.meetingRooms.id, id)).returning();
       
       if (!room) {
         return res.status(404).json({ error: "Meeting room not found" });
       }
       
-      res.json(room);
+      res.json({ ...room, ...equipmentToAmenities(room) });
     } catch (error) {
       logger.error("Error updating meeting room:", error);
       res.status(500).json({ error: "Failed to update meeting room" });
@@ -85,6 +171,10 @@ export function registerMeetingRoomRoutes(app: Express): void {
 
   app.delete("/api/meeting-rooms/:id", requireAuth, async (req, res) => {
     try {
+      // Fix 4: role guard
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: "Administrator or manager access required" });
+      }
       const { id } = req.params;
       const mrDelContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const mrDelDb = await customerDbService.getCustomerDatabase(mrDelContext.customerId);
@@ -197,8 +287,23 @@ export function registerMeetingRoomRoutes(app: Express): void {
       }
       
       const bookingsDb = await customerDbService.getCustomerDatabase(customerId);
-      const rawBookings = await bookingsDb.select().from(isolatedSchema.roomBookings);
-      
+
+      // Fix 7: apply server-side date / room filters
+      const { start_date, end_date, room_id } = req.query as Record<string, string | undefined>;
+      const now = new Date();
+      const windowStart = start_date ? new Date(start_date) : now;
+      const windowEnd   = end_date   ? new Date(end_date)   : new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+      const conditions = [
+        sql`${isolatedSchema.roomBookings.startTime} < ${windowEnd}`,
+        sql`${isolatedSchema.roomBookings.endTime}   > ${windowStart}`,
+      ];
+      if (room_id) conditions.push(eq(isolatedSchema.roomBookings.meetingRoomId, room_id));
+
+      const rawBookings = await bookingsDb.select().from(isolatedSchema.roomBookings)
+        .where(and(...conditions))
+        .orderBy(sql`${isolatedSchema.roomBookings.startTime} asc`);
+
       const allRooms = await bookingsDb.select().from(isolatedSchema.meetingRooms);
       const roomMap = new Map(allRooms.map(r => [r.id, r]));
       
@@ -415,37 +520,51 @@ export function registerMeetingRoomRoutes(app: Express): void {
         if (vals.length > 0) await bookingDb.insert(isolatedSchema.roomBookingAttendees).values(vals);
       };
 
+      // Fix 6: conflict-check + insert + attendees inside a single transaction
       const createSingleBooking = async (startTime: Date, endTime: Date, recurrencePattern?: string) => {
-        // Conflict check
-        const conflicts = await bookingDb.select().from(isolatedSchema.roomBookings)
-          .where(and(
-            eq(isolatedSchema.roomBookings.meetingRoomId, bookingData.roomId),
-            ne(isolatedSchema.roomBookings.status, 'cancelled'),
-            sql`${isolatedSchema.roomBookings.startTime} < ${endTime}`,
-            sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`
-          ));
-        if (conflicts.length > 0) return null; // skip conflicting slot
+        return bookingDb.transaction(async (tx) => {
+          // Re-check inside transaction to prevent double-booking
+          const conflicts = await tx.select().from(isolatedSchema.roomBookings)
+            .where(and(
+              eq(isolatedSchema.roomBookings.meetingRoomId, bookingData.roomId),
+              ne(isolatedSchema.roomBookings.status, 'cancelled'),
+              sql`${isolatedSchema.roomBookings.startTime} < ${endTime}`,
+              sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`
+            ));
+          if (conflicts.length > 0) return null; // skip conflicting slot
 
-        const [booking] = await bookingDb.insert(isolatedSchema.roomBookings)
-          .values({
-            title: bookingData.title,
-            description: bookingData.description,
-            meetingRoomId: bookingData.roomId,
-            bookedByStaffId,
-            startTime,
-            endTime,
-            status: 'confirmed',
-            expectedAttendees: bookingData.expectedAttendees || 1,
-            isRecurring: !!recurrencePattern,
-            recurrencePattern: recurrencePattern || null,
-            requiresCatering: bookingData.cateringRequired || false,
-            cateringNotes: bookingData.cateringNotes || null,
-            specialRequirements: bookingData.technicalRequirements || null,
-            isPrivate: false,
-          })
-          .returning();
-        await insertAttendees(booking.id);
-        return booking;
+          const [booking] = await tx.insert(isolatedSchema.roomBookings)
+            .values({
+              title: bookingData.title,
+              description: bookingData.description,
+              meetingRoomId: bookingData.roomId,
+              bookedByStaffId,
+              startTime,
+              endTime,
+              status: 'confirmed',
+              expectedAttendees: bookingData.expectedAttendees || 1,
+              isRecurring: !!recurrencePattern,
+              recurrencePattern: recurrencePattern || null,
+              requiresCatering: bookingData.cateringRequired || false,
+              cateringNotes: bookingData.cateringNotes || null,
+              specialRequirements: bookingData.technicalRequirements || null,
+              isPrivate: false,
+            })
+            .returning();
+
+          // Insert attendees inside same transaction
+          const vals: any[] = [];
+          for (const sid of staffAttendeeIds) {
+            const s = staffMap.get(sid);
+            vals.push({ bookingId: booking.id, staffId: sid, name: s ? `${s.firstName} ${s.lastName}` : 'Unknown', email: s?.email || '' });
+          }
+          for (const email of externalAttendeeEmails) {
+            vals.push({ bookingId: booking.id, email, name: email, staffId: null });
+          }
+          if (vals.length > 0) await tx.insert(isolatedSchema.roomBookingAttendees).values(vals);
+
+          return booking;
+        });
       };
 
       // ── Recurring path ────────────────────────────────────────────────────────
@@ -562,6 +681,16 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(404).json({ error: "Room booking not found" });
       }
 
+      // Fix 4: allow admin/manager or the booking owner
+      const isAdminOrManager = ['admin', 'manager'].includes(req.user!.role);
+      if (!isAdminOrManager) {
+        const [requesterStaff] = await patchDb.select().from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.userId, req.user!.id));
+        if (!requesterStaff || requesterStaff.id !== currentBooking.bookedByStaffId) {
+          return res.status(403).json({ error: "You can only edit your own bookings" });
+        }
+      }
+
       // Build an explicit update object using the real column names
       const updates: Record<string, any> = {};
       if (body.title !== undefined)                   updates.title = body.title;
@@ -603,29 +732,39 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(404).json({ error: "Room booking not found" });
       }
 
+      // Fix 1: check undefined (not truthiness) so empty arrays are handled correctly
       const { staffAttendeeIds, externalAttendeeEmails } = body;
-      if (staffAttendeeIds || externalAttendeeEmails) {
-        await patchDb.delete(isolatedSchema.roomBookingAttendees)
-          .where(eq(isolatedSchema.roomBookingAttendees.bookingId, id));
+      if (staffAttendeeIds !== undefined || externalAttendeeEmails !== undefined) {
+        const sids: string[] = staffAttendeeIds || [];
+        const emails: string[] = externalAttendeeEmails || [];
 
-        const patchAttendeeValues: any[] = [];
-        for (const sid of (staffAttendeeIds || [])) {
-          patchAttendeeValues.push({ bookingId: id, staffId: sid, email: '' });
-        }
-        for (const email of (externalAttendeeEmails || [])) {
-          patchAttendeeValues.push({ bookingId: id, email, staffId: null });
-        }
-        if (patchAttendeeValues.length > 0) {
-          await patchDb.insert(isolatedSchema.roomBookingAttendees).values(patchAttendeeValues);
-        }
+        // Pre-load staff in one query so we have name + email
+        const patchStaffMembers = sids.length > 0
+          ? await patchDb.select().from(isolatedSchema.staff).where(inArray(isolatedSchema.staff.id, sids))
+          : [];
+        const patchStaffMap = new Map(patchStaffMembers.map(s => [s.id, s]));
+
+        // Wrap delete + re-insert in a transaction so a failure can't leave 0 attendees
+        await patchDb.transaction(async (tx) => {
+          await tx.delete(isolatedSchema.roomBookingAttendees)
+            .where(eq(isolatedSchema.roomBookingAttendees.bookingId, id));
+
+          const patchAttendeeValues: any[] = [];
+          for (const sid of sids) {
+            const s = patchStaffMap.get(sid);
+            patchAttendeeValues.push({ bookingId: id, staffId: sid, name: s ? `${s.firstName} ${s.lastName}` : 'Unknown', email: s?.email || '' });
+          }
+          for (const email of emails) {
+            patchAttendeeValues.push({ bookingId: id, email, name: email, staffId: null });
+          }
+          if (patchAttendeeValues.length > 0) {
+            await tx.insert(isolatedSchema.roomBookingAttendees).values(patchAttendeeValues);
+          }
+        });
 
         const [patchFullBooking] = await patchDb.select().from(isolatedSchema.roomBookings)
           .where(eq(isolatedSchema.roomBookings.id, id));
         if (patchFullBooking) {
-          const patchStaffAttendees = staffAttendeeIds?.length > 0 
-            ? await patchDb.select().from(isolatedSchema.staff).where(inArray(isolatedSchema.staff.id, staffAttendeeIds))
-            : [];
-          
           try {
             const [patchRoom] = await patchDb.select().from(isolatedSchema.meetingRooms)
               .where(eq(isolatedSchema.meetingRooms.id, patchFullBooking.meetingRoomId));
@@ -636,8 +775,8 @@ export function registerMeetingRoomRoutes(app: Express): void {
               patchFullBooking, 
               patchRoom, 
               patchOrganizer, 
-              patchStaffAttendees,
-              externalAttendeeEmails || [],
+              patchStaffMembers,
+              emails,
               patchSettings ? { companyName: patchSettings.companyName, logoUrl: patchSettings.logoUrl, address: patchSettings.address, phone: patchSettings.phone, website: patchSettings.website, email: patchSettings.email } : undefined
             );
           } catch (emailError) {
@@ -669,6 +808,15 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       if (!fullBooking) {
         return res.status(404).json({ error: "Room booking not found" });
+      }
+
+      // Fix 4: allow admin/manager or the booking owner
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        const [requesterStaff] = await cancelDb.select().from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.userId, req.user!.id));
+        if (!requesterStaff || requesterStaff.id !== fullBooking.bookedByStaffId) {
+          return res.status(403).json({ error: "You can only cancel your own bookings" });
+        }
       }
       
       const [booking] = await cancelDb.update(isolatedSchema.roomBookings)
@@ -726,6 +874,15 @@ export function registerMeetingRoomRoutes(app: Express): void {
         .where(eq(isolatedSchema.roomBookings.id, id));
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
+      }
+
+      // Fix 4: allow admin/manager or the booking owner
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        const [requesterStaff] = await delBookingDb.select().from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.userId, req.user!.id));
+        if (!requesterStaff || requesterStaff.id !== booking.bookedByStaffId) {
+          return res.status(403).json({ error: "You can only delete your own bookings" });
+        }
       }
       
       const [deletedBooking] = await delBookingDb.delete(isolatedSchema.roomBookings)
