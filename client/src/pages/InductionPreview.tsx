@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function InductionPreview() {
   const [, params] = useRoute("/induction-preview/:roleType");
@@ -28,8 +29,11 @@ export default function InductionPreview() {
       setMode("custom");
       setIsLoading(false);
     } else {
-      // AI slides — this endpoint is public (no auth required)
-      fetch(`/api/induction/video/${roleType}`)
+      // AI slides — use apiRequest so the Bearer token is sent from localStorage.
+      // Bare fetch() omits the token, causing the server to fall through to legacy
+      // global HTML (data:text/html;base64,...) instead of the customer-isolated
+      // generatedHtml column which contains the AI-generated slide images.
+      apiRequest("GET", `/api/induction/video/${roleType}`)
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return res.text();
