@@ -1076,8 +1076,9 @@ Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting,
       if (error?.response) {
         logger.error('API Response:', error.response.data);
       }
-      // Return empty array rather than failing completely
-      return new Array(selectedScenes.length).fill('');
+      // Generate SVG fallbacks for every scene — never return blank images
+      logger.warn('⚠️ Falling back to SVG safety images for all scenes');
+      return selectedScenes.map((scene, i) => this.generateFallbackImage((scene as any).imagePrompt || '', i + 1));
     }
   }
 
