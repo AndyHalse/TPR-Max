@@ -1763,6 +1763,8 @@ export default function InductionSettings() {
                   <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
                   <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
                   <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                  <SelectItem value="gemini-3.0-flash">Gemini 3.0 Flash</SelectItem>
+                  <SelectItem value="gemini-3.1-flash">Gemini 3.1 Flash</SelectItem>
                 </SelectContent>
               </Select>
               {(currentSettings?.openaiModel || 'claude-sonnet-4-6').startsWith('claude-') && aiKeys !== undefined && !aiKeys.claude.hasKey && (

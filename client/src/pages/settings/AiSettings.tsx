@@ -115,6 +115,8 @@ export default function AiSettings() {
             <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
             <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
             <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+            <SelectItem value="gemini-3.0-flash">Gemini 3.0 Flash</SelectItem>
+            <SelectItem value="gemini-3.1-flash">Gemini 3.1 Flash</SelectItem>
           </SelectContent>
         </Select>
         {(currentSettings?.openaiModel || "gpt-4o").startsWith("claude-") && aiKeyStatus !== undefined && !aiKeyStatus.claude.hasKey && (
@@ -171,7 +173,7 @@ export default function AiSettings() {
     {([ 
       { id: 'openai' as const, label: 'OpenAI', description: 'For GPT-4, GPT-4o, GPT-4.1, GPT-5 models', placeholder: 'sk-...', badgeClass: 'border-green-300 text-green-700 dark:text-green-400', fieldKey: 'openaiKey' },
       { id: 'claude' as const, label: 'Anthropic (Claude)', description: 'For Claude 3 Haiku, 3.5 Sonnet, Sonnet 4, Opus 4', placeholder: 'sk-ant-...', badgeClass: 'border-purple-300 text-purple-700 dark:text-purple-400', fieldKey: 'claudeKey' },
-      { id: 'gemini' as const, label: 'Google Gemini', description: 'For Gemini 2.0 Flash, 2.5 Flash, 2.5 Pro models', placeholder: 'AIza...', badgeClass: 'border-blue-300 text-blue-700 dark:text-blue-400', fieldKey: 'geminiKey' },
+      { id: 'gemini' as const, label: 'Google Gemini', description: 'For Gemini 2.5 Flash, 2.5 Pro, Gemini 3 and Imagen 4 models', placeholder: 'AIza... or AQ...', badgeClass: 'border-blue-300 text-blue-700 dark:text-blue-400', fieldKey: 'geminiKey' },
     ]).map(({ id, label, description, placeholder, badgeClass, fieldKey }) => {
       const status = aiKeyStatus?.[id];
       const inputVal = aiKeyInputs[id];

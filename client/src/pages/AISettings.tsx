@@ -287,8 +287,7 @@ export default function AISettings() {
       return key.startsWith('sk-') && key.length >= 20;
     } else if (type === 'gemini') {
       const k = key.trim();
-      if (k.startsWith('AIza') && k.length >= 20) return true;
-      return k.length >= 20 && /^[A-Za-z0-9_\-.]+$/.test(k);
+      return k.length >= 20 && !/\s/.test(k);
     } else if (type === 'claude') {
       return key.startsWith('sk-ant-') && key.length >= 20;
     }
