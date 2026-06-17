@@ -6,8 +6,9 @@ import { db } from '../db';
 import { eq, and, desc } from 'drizzle-orm';
 import * as isolatedSchema from '../isolatedSchema';
 import multer from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
+import { randomUUID } from 'crypto';
+import { z } from 'zod';
+import { ObjectStorageService, objectStorageClient } from '../objectStorage';
 import {
   evacuations,
   ramsDocuments,
@@ -17,17 +18,44 @@ import {
   insertRamsAcknowledgementSchema,
 } from '@shared/schema';
 
-const EVIDENCE_UPLOAD_DIR = path.resolve('./uploads/martyn-law');
-if (!fs.existsSync(EVIDENCE_UPLOAD_DIR)) fs.mkdirSync(EVIDENCE_UPLOAD_DIR, { recursive: true });
+const objectStorage = new ObjectStorageService();
 
-const evidenceStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, EVIDENCE_UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-  },
+// Fix 5: memory storage + MIME whitelist (no disk writes)
+const ALLOWED_EVIDENCE_MIMETYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/jpeg',
+  'image/png',
+]);
+const evidenceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Fix 6: Zod validation schema for PUT /api/martyn-law body
+const martynLawBodySchema = z.object({
+  venueType: z.string().max(200).optional().nullable(),
+  venueCapacity: z.number().int().min(0).optional().nullable(),
+  isInScope: z.boolean().optional(),
+  scopeNotes: z.string().optional().nullable(),
+  supervisorName: z.string().max(200).optional().nullable(),
+  supervisorRole: z.string().max(200).optional().nullable(),
+  supervisorPhone: z.string().max(50).optional().nullable(),
+  supervisorEmail: z.union([z.string().email(), z.literal(''), z.null()]).optional(),
+  supervisorStaffId: z.string().optional().nullable(),
+  siaProviderName: z.string().max(200).optional().nullable(),
+  siaLicenseNumber: z.string().max(100).optional().nullable(),
+  siaExpiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  actionPlan: z.string().optional().nullable(),
+  evacuationProcedure: z.string().optional().nullable(),
+  lockdownProcedure: z.string().optional().nullable(),
+  communicationPlan: z.string().optional().nullable(),
+  checklistItems: z.array(z.any()).optional().nullable(),
+  evidenceLog: z.array(z.any()).optional().nullable(),
+  lastReviewedBy: z.string().max(200).optional().nullable(),
+  lastReviewerStaffId: z.string().optional().nullable(),
+  recordReviewNow: z.boolean().optional(),
 });
-const evidenceUpload = multer({ storage: evidenceStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ─── One-time startup: ensure customer_id column exists in shared RAMS tables ─
 // The RAMS tables live in the public (shared) schema.  This migration is safe
@@ -233,94 +261,118 @@ export function registerRamsRoutes(app: Express): void {
   app.put("/api/martyn-law", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
+
+      // Fix 1: role check — only admin/manager may write
+      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
+        return res.status(403).json({ error: 'Administrator or manager access required' });
+      }
+
+      // Fix 6: Zod payload validation
+      const parsed = martynLawBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+      }
+      const body = parsed.data;
+
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
-      const {
-        venueType, venueCapacity, isInScope, scopeNotes,
-        supervisorName, supervisorRole, supervisorPhone, supervisorEmail, supervisorStaffId,
-        siaProviderName, siaLicenseNumber, siaExpiryDate,
-        actionPlan, evacuationProcedure, lockdownProcedure, communicationPlan,
-        checklistItems, evidenceLog,
-        lastReviewedBy, lastReviewerStaffId,
-        recordReviewNow,
-      } = req.body;
+      // Fix 4 + Fix 8: load existing row first (for diff AND to build audit log in memory)
+      const existingRows = await custDb
+        .select()
+        .from(isolatedSchema.martynLawConfig)
+        .where(eq(isolatedSchema.martynLawConfig.customerId, customerId))
+        .limit(1);
+      const existing = (existingRows[0] as any) || null;
+
+      // Fix 4: build honest change summary
+      const changes: string[] = [];
+      if (existing) {
+        if (body.venueType !== undefined && body.venueType !== existing.venueType) changes.push('Venue type');
+        if (body.venueCapacity !== undefined && body.venueCapacity !== existing.venueCapacity) changes.push('Capacity');
+        if (body.isInScope !== undefined && body.isInScope !== existing.isInScope) changes.push('In-scope status');
+        if (body.supervisorName !== undefined && body.supervisorName !== existing.supervisorName) changes.push('Supervisor');
+        if (body.siaProviderName !== undefined && body.siaProviderName !== existing.siaProviderName) changes.push('SIA provider');
+        if (body.siaExpiryDate !== undefined) {
+          const nD = body.siaExpiryDate ? new Date(body.siaExpiryDate).toDateString() : null;
+          const oD = existing.siaExpiryDate ? new Date(existing.siaExpiryDate).toDateString() : null;
+          if (nD !== oD) changes.push('SIA expiry');
+        }
+        if (body.actionPlan !== undefined && body.actionPlan !== existing.actionPlan) changes.push('Action plan');
+        if (body.evacuationProcedure !== undefined && body.evacuationProcedure !== existing.evacuationProcedure) changes.push('Evacuation procedure');
+        if (body.lockdownProcedure !== undefined && body.lockdownProcedure !== existing.lockdownProcedure) changes.push('Lockdown procedure');
+        if (body.communicationPlan !== undefined && body.communicationPlan !== existing.communicationPlan) changes.push('Communication plan');
+        if (body.checklistItems) {
+          try {
+            const oldChecked = (JSON.parse(existing.checklistItems || '[]') as any[]).filter((i: any) => i.completed).length;
+            const newChecked = body.checklistItems.filter((i: any) => i.completed).length;
+            if (newChecked !== oldChecked) changes.push(`Checklist (${newChecked > oldChecked ? '+' : ''}${newChecked - oldChecked})`);
+          } catch { /* ignore */ }
+        }
+        if (body.evidenceLog) {
+          try {
+            const oldCount = (JSON.parse(existing.evidenceLog || '[]') as any[]).length;
+            const newCount = body.evidenceLog.length;
+            if (newCount !== oldCount) changes.push(`Evidence (${newCount > oldCount ? '+' : ''}${newCount - oldCount})`);
+          } catch { /* ignore */ }
+        }
+        if (body.recordReviewNow && body.lastReviewedBy) changes.push('Annual review recorded');
+      }
+
+      // Fix 8: build audit log in-memory, include in single UPDATE (no separate read-then-write)
+      const userName = (req.user as any)?.username || (req.user as any)?.name || 'Unknown user';
+      const actionText = changes.length > 0 ? `Updated: ${changes.join(', ')}` : 'Record saved';
+      const newAuditEntry = { timestamp: new Date().toISOString(), action: actionText, userName };
+      const existingAuditLog: any[] = (() => {
+        try { return JSON.parse(existing?.auditLog || '[]'); } catch { return []; }
+      })();
+      existingAuditLog.push(newAuditEntry);
+      const trimmedAuditLog = existingAuditLog.slice(-200);
 
       const updateData: any = {
-        venueType: venueType ?? null,
-        venueCapacity: venueCapacity ?? null,
-        isInScope: isInScope ?? false,
-        scopeNotes: scopeNotes ?? null,
-        supervisorName: supervisorName ?? null,
-        supervisorRole: supervisorRole ?? null,
-        supervisorPhone: supervisorPhone ?? null,
-        supervisorEmail: supervisorEmail ?? null,
-        siaProviderName: siaProviderName ?? null,
-        siaLicenseNumber: siaLicenseNumber ?? null,
-        siaExpiryDate: siaExpiryDate ? new Date(siaExpiryDate) : null,
-        actionPlan: actionPlan ?? null,
-        evacuationProcedure: evacuationProcedure ?? null,
-        lockdownProcedure: lockdownProcedure ?? null,
-        communicationPlan: communicationPlan ?? null,
-        checklistItems: checklistItems ? JSON.stringify(checklistItems) : null,
-        evidenceLog: evidenceLog ? JSON.stringify(evidenceLog) : null,
-        lastReviewedAt: (recordReviewNow && lastReviewedBy) ? new Date() : undefined,
-        lastReviewedBy: lastReviewedBy ?? null,
+        venueType: body.venueType ?? null,
+        venueCapacity: body.venueCapacity ?? null,
+        isInScope: body.isInScope ?? false,
+        scopeNotes: body.scopeNotes ?? null,
+        supervisorName: body.supervisorName ?? null,
+        supervisorRole: body.supervisorRole ?? null,
+        supervisorPhone: body.supervisorPhone ?? null,
+        supervisorEmail: body.supervisorEmail || null,
+        supervisorStaffId: body.supervisorStaffId ?? null,
+        siaProviderName: body.siaProviderName ?? null,
+        siaLicenseNumber: body.siaLicenseNumber ?? null,
+        siaExpiryDate: body.siaExpiryDate ? new Date(body.siaExpiryDate) : null,
+        actionPlan: body.actionPlan ?? null,
+        evacuationProcedure: body.evacuationProcedure ?? null,
+        lockdownProcedure: body.lockdownProcedure ?? null,
+        communicationPlan: body.communicationPlan ?? null,
+        checklistItems: body.checklistItems ? JSON.stringify(body.checklistItems) : null,
+        evidenceLog: body.evidenceLog ? JSON.stringify(body.evidenceLog) : null,
+        lastReviewedAt: (body.recordReviewNow && body.lastReviewedBy) ? new Date() : undefined,
+        lastReviewedBy: body.lastReviewedBy ?? null,
+        lastReviewerStaffId: body.lastReviewerStaffId ?? null,
+        auditLog: JSON.stringify(trimmedAuditLog),
         updatedAt: new Date(),
       };
 
-      // Build new audit entry
-      const userName = (req.user as any)?.username || (req.user as any)?.name || 'Unknown user';
-      const newAuditEntry = {
-        timestamp: new Date().toISOString(),
-        action: "Record saved",
-        userName,
-      };
-
-      const existing = await custDb.select({ id: isolatedSchema.martynLawConfig.id }).from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
       let result: any;
-      if (existing.length) {
-        const updated = await custDb.update(isolatedSchema.martynLawConfig).set(updateData).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).returning();
+      if (existing) {
+        const updated = await custDb.update(isolatedSchema.martynLawConfig)
+          .set(updateData)
+          .where(eq(isolatedSchema.martynLawConfig.customerId, customerId))
+          .returning();
         result = updated[0];
       } else {
-        const inserted = await custDb.insert(isolatedSchema.martynLawConfig).values({ ...updateData, customerId }).returning();
+        const inserted = await custDb.insert(isolatedSchema.martynLawConfig)
+          .values({ ...updateData, customerId })
+          .returning();
         result = inserted[0];
       }
-
-      // Append to audit log via raw SQL (column added by migration 054)
-      try {
-        const currentAuditRaw = await custDb.execute(
-          `SELECT audit_log FROM martyn_law_config WHERE customer_id = $1` as any,
-          [customerId] as any
-        );
-        const existingLog = currentAuditRaw.rows?.[0]?.audit_log
-          ? JSON.parse(currentAuditRaw.rows[0].audit_log as string)
-          : [];
-        existingLog.push(newAuditEntry);
-        // Keep last 200 entries
-        const trimmed = existingLog.slice(-200);
-        await custDb.execute(
-          `UPDATE martyn_law_config SET audit_log = $1 WHERE customer_id = $2` as any,
-          [JSON.stringify(trimmed), customerId] as any
-        );
-        result.auditLog = trimmed;
-      } catch (auditErr: any) {
-        logger.warn('audit_log update skipped (column may not exist yet):', auditErr.message?.substring(0, 80));
-        result.auditLog = [];
-      }
-
-      // Store supervisorStaffId and lastReviewerStaffId via raw SQL (extra fields not in Drizzle schema)
-      try {
-        await custDb.execute(
-          `UPDATE martyn_law_config SET supervisor_staff_id = $1, last_reviewer_staff_id = $2 WHERE customer_id = $3` as any,
-          [supervisorStaffId || null, lastReviewerStaffId || null, customerId] as any
-        );
-      } catch { /* columns added by migration */ }
 
       res.json({
         ...result,
         checklistItems: result.checklistItems ? JSON.parse(result.checklistItems) : null,
         evidenceLog: result.evidenceLog ? JSON.parse(result.evidenceLog) : null,
-        auditLog: result.auditLog || [],
+        auditLog: result.auditLog ? JSON.parse(result.auditLog) : [],
       });
     } catch (error: any) {
       logger.error("PUT /api/martyn-law error:", error);
@@ -332,17 +384,37 @@ export function registerRamsRoutes(app: Express): void {
   // MARTYN'S LAW EVIDENCE DOCUMENT UPLOAD
   // ============================================================
 
-  app.post("/api/martyn-law/evidence/upload", requireAuth, evidenceUpload.single("file"), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "No file provided" });
-    const url = `/api/martyn-law/evidence/file/${req.file.filename}`;
-    res.json({ url, name: req.file.originalname });
-  });
+  // Fix 1 + 2 + 5: role-gated, object-storage, MIME-validated evidence upload
+  app.post("/api/martyn-law/evidence/upload", requireAuth, evidenceUpload.single("file"), async (req: any, res) => {
+    try {
+      // Fix 1: role check
+      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
+        return res.status(403).json({ error: 'Administrator or manager access required' });
+      }
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
 
-  app.get("/api/martyn-law/evidence/file/:filename", requireAuth, (req, res) => {
-    const filename = path.basename(req.params.filename); // prevent path traversal
-    const filepath = path.join(EVIDENCE_UPLOAD_DIR, filename);
-    if (!fs.existsSync(filepath)) return res.status(404).json({ error: "File not found" });
-    res.sendFile(filepath);
+      // Fix 5: server-side MIME check
+      if (!ALLOWED_EVIDENCE_MIMETYPES.has(req.file.mimetype)) {
+        return res.status(400).json({ error: 'File type not allowed. Accepted: PDF, Word, Excel, JPEG, PNG.' });
+      }
+
+      // Fix 2: save to object storage (not local disk)
+      const customerId = req.customerId!;
+      const objectId = randomUUID();
+      const privateDir = objectStorage.getPrivateObjectDir();
+      const fullPath = `${privateDir}/${customerId}/martyn-law/${objectId}`;
+      const parts = fullPath.slice(1).split('/');
+      await objectStorageClient.bucket(parts[0]).file(parts.slice(1).join('/')).save(req.file.buffer, {
+        contentType: req.file.mimetype,
+        resumable: false,
+      });
+
+      // Fix 3: customer-scoped URL — /objects route already enforces customerId matches session
+      res.json({ url: `/objects/${customerId}/martyn-law/${objectId}`, name: req.file.originalname });
+    } catch (error: any) {
+      logger.error("POST /api/martyn-law/evidence/upload error:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
   });
 
   // ============================================================

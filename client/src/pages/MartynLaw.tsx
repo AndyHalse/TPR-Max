@@ -230,6 +230,13 @@ export default function MartynLaw() {
     queryKey: ["/api/compliance/summary"],
   });
 
+  // Fix 1: role-based UI gating
+  const { data: currentUser } = useQuery<{ id: string; username: string; role: string }>({
+    queryKey: ["/api/auth/me"],
+    staleTime: 60_000,
+  });
+  const isManager = ['admin', 'manager'].includes(currentUser?.role ?? '');
+
   const [form, setForm] = useState<MartynLawData>({});
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [evidence, setEvidence] = useState<EvidenceEntry[]>([]);
@@ -250,17 +257,26 @@ export default function MartynLaw() {
 
   const [recordReviewNow, setRecordReviewNow] = useState(false);
 
+  // Fix 9: return JSON from mutationFn so onSuccess can re-sync state
   const saveMutation = useMutation({
-    mutationFn: (payload: MartynLawData) =>
-      apiRequest("PUT", "/api/martyn-law", {
+    mutationFn: async (payload: MartynLawData) => {
+      const res = await apiRequest("PUT", "/api/martyn-law", {
         ...payload,
         checklistItems: checklist,
         evidenceLog: evidence,
         recordReviewNow,
-      }),
-    onSuccess: () => {
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
       setRecordReviewNow(false);
       queryClient.invalidateQueries({ queryKey: ["/api/martyn-law"] });
+      // Fix 9: re-sync local state from server response so banner updates immediately
+      if (data) {
+        setForm(data);
+        setChecklist(data.checklistItems?.length ? data.checklistItems : DEFAULT_CHECKLIST);
+        setEvidence(data.evidenceLog || []);
+      }
       toast({ title: "Saved", description: "Martyn's Law compliance record updated." });
     },
     onError: () => toast({ title: "Save failed", variant: "destructive" }),
@@ -270,7 +286,25 @@ export default function MartynLaw() {
   const totalCount = checklist.length;
   const pct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const toggleItem = (id: string) =>
+  // Fix 10: overdue review / SIA expiry flags
+  const reviewOverdue = (() => {
+    if (!form.lastReviewedAt) return false;
+    const ms = Date.now() - new Date(form.lastReviewedAt).getTime();
+    return ms > 365 * 24 * 60 * 60 * 1000;
+  })();
+  const siaExpirySoon = (() => {
+    if (!form.siaExpiryDate) return false;
+    const exp = new Date(form.siaExpiryDate);
+    const daysLeft = (exp.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+    return daysLeft <= 30;
+  })();
+  const siaExpired = (() => {
+    if (!form.siaExpiryDate) return false;
+    return new Date(form.siaExpiryDate) < new Date();
+  })();
+
+  const toggleItem = (id: string) => {
+    if (!isManager) return;
     setChecklist(prev =>
       prev.map(item =>
         item.id === id
@@ -278,6 +312,7 @@ export default function MartynLaw() {
           : item
       )
     );
+  };
 
   const handleFileAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -372,10 +407,16 @@ export default function MartynLaw() {
           <Button variant="outline" size="sm" onClick={() => window.open("/api/compliance/report", "_blank")}>
             <Download size={14} className="mr-1.5" />Report
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
-            <Save size={14} className="mr-1.5" />
-            {saveMutation.isPending ? "Saving…" : "Save All"}
-          </Button>
+          {isManager ? (
+            <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
+              <Save size={14} className="mr-1.5" />
+              {saveMutation.isPending ? "Saving…" : "Save All"}
+            </Button>
+          ) : (
+            <Badge variant="outline" className="text-amber-700 border-amber-400 dark:text-amber-300 text-xs px-2 py-1">
+              <Info size={11} className="mr-1" />View only
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -645,6 +686,16 @@ export default function MartynLaw() {
                   onChange={e => setForm(f => ({ ...f, siaExpiryDate: e.target.value }))}
                   className="mt-1"
                 />
+                {siaExpired && (
+                  <p className="mt-1.5 text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium">
+                    <AlertTriangle size={12} />SIA licence has expired — renew urgently.
+                  </p>
+                )}
+                {!siaExpired && siaExpirySoon && (
+                  <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
+                    <AlertTriangle size={12} />SIA licence expires within 30 days.
+                  </p>
+                )}
               </div>
             </div>
           </GlassCard>
@@ -681,14 +732,28 @@ export default function MartynLaw() {
                   <span>Record a new annual review with today's date when I save. Leave unticked to edit this page without changing the last review date.</span>
                 </label>
               </div>
-              {form.lastReviewedAt && (
-                <div>
-                  <Label>Last Review Date (auto-recorded)</Label>
-                  <div className="mt-1 p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
-                    {format(new Date(form.lastReviewedAt), "dd MMMM yyyy")}
+              <div className="space-y-2">
+                {form.lastReviewedAt && (
+                  <div>
+                    <Label>Last Review Date (auto-recorded)</Label>
+                    <div className="mt-1 p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
+                      {format(new Date(form.lastReviewedAt), "dd MMMM yyyy")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+                {reviewOverdue && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                    <AlertTriangle size={13} className="flex-shrink-0" />
+                    Annual review is overdue — Martyn's Law requires a review at least once every 12 months.
+                  </div>
+                )}
+                {!form.lastReviewedAt && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-xs text-amber-700 dark:text-amber-300">
+                    <AlertTriangle size={13} className="flex-shrink-0" />
+                    No annual review recorded yet.
+                  </div>
+                )}
+              </div>
             </div>
           </GlassCard>
         </TabsContent>
@@ -709,7 +774,9 @@ export default function MartynLaw() {
                 <div
                   key={item.id}
                   onClick={() => toggleItem(item.id)}
-                  className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer select-none ${
+                  className={`flex items-start gap-3 p-3 rounded-lg border transition-colors select-none ${
+                    isManager ? "cursor-pointer" : "cursor-default"
+                  } ${
                     item.completed
                       ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
                       : "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
@@ -815,7 +882,7 @@ export default function MartynLaw() {
 
         {/* ── EVIDENCE LOG TAB ──────────────────────────────────────────────── */}
         <TabsContent value="evidence" className="space-y-4 mt-4">
-          <GlassCard>
+          {isManager && <GlassCard>
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2">
               <Plus size={16} />Add Evidence Entry
               <MLTip text="Keep a log of every compliance activity — training sessions, drills, reviews, audits. Attach supporting documents (certificates, attendance sheets, reports) as proof. Regulators may inspect this log." />
@@ -917,7 +984,7 @@ export default function MartynLaw() {
                 </Button>
               </div>
             </div>
-          </GlassCard>
+          </GlassCard>}
 
           <GlassCard>
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
@@ -935,7 +1002,7 @@ export default function MartynLaw() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-xs">{entry.type}</Badge>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{entry.date}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{format(new Date(entry.date), "dd MMM yyyy")}</span>
                         {entry.documentUrl && entry.documentName && (
                           <a
                             href={entry.documentUrl}
@@ -950,12 +1017,14 @@ export default function MartynLaw() {
                       <p className="text-sm text-gray-800 dark:text-gray-200 mt-1">{entry.description}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">By: {entry.conductedBy}</p>
                     </div>
-                    <button
-                      onClick={() => removeEvidence(entry.id)}
-                      className="text-gray-400 hover:text-red-500 flex-shrink-0 mt-1"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    {isManager && (
+                      <button
+                        onClick={() => removeEvidence(entry.id)}
+                        className="text-gray-400 hover:text-red-500 flex-shrink-0 mt-1"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1064,10 +1133,10 @@ export default function MartynLaw() {
           <GlassCard>
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2">
               <History size={16} />Audit Trail
-              <MLTip text="Every time this compliance record is saved, an entry is automatically created here recording who made changes and when. This provides a tamper-evident change history useful for regulatory inspection." />
+              <MLTip text="Every time this compliance record is saved, an entry is automatically created recording who made the change, when, and a summary of which fields were updated. Useful for regulatory inspection." />
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Automatically records every save of this compliance record — who, when, and what changed.
+              Automatically records every save — who, when, and what changed.
             </p>
             {auditLog.length === 0 ? (
               <div className="text-center py-10 text-gray-400 dark:text-gray-500">
