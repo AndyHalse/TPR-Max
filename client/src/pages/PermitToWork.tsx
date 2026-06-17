@@ -107,6 +107,9 @@ interface Permit {
   cancelledByName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
+  submittedAt: string | null;
+  submittedById: string | null;
+  submittedByName: string | null;
   createdById: string | null;
   createdByName: string | null;
   createdAt: string;
@@ -411,7 +414,7 @@ export default function PermitToWork() {
                                   <ChevronRight className="h-4 w-4 mr-2" /> Submit for Authorisation
                                 </DropdownMenuItem>
                               )}
-                              {permit.status === 'submitted' && isManager && (
+                              {permit.status === 'submitted' && isManager && permit.createdById !== user?.id && (
                                 <>
                                   <DropdownMenuItem onClick={() => setActionDialogState({ type: 'authorise', permitId: permit.id, permitNumber: permit.permitNumber })}>
                                     <CheckCircle2 className="h-4 w-4 mr-2 text-blue-500" /> Authorise
@@ -421,12 +424,12 @@ export default function PermitToWork() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              {permit.status === 'authorised' && (
+                              {permit.status === 'authorised' && isManager && (
                                 <DropdownMenuItem onClick={() => actionMutation.mutate({ type: 'activate', permitId: permit.id, body: {} })}>
                                   <Play className="h-4 w-4 mr-2 text-emerald-500" /> Activate (Start Work)
                                 </DropdownMenuItem>
                               )}
-                              {permit.status === 'active' && (
+                              {permit.status === 'active' && isManager && (
                                 <>
                                   <DropdownMenuItem onClick={() => setActionDialogState({ type: 'suspend', permitId: permit.id, permitNumber: permit.permitNumber })}>
                                     <Pause className="h-4 w-4 mr-2 text-orange-500" /> Suspend
@@ -436,7 +439,7 @@ export default function PermitToWork() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              {permit.status === 'suspended' && (
+                              {permit.status === 'suspended' && isManager && (
                                 <>
                                   <DropdownMenuItem onClick={() => actionMutation.mutate({ type: 'resume', permitId: permit.id, body: {} })}>
                                     <Play className="h-4 w-4 mr-2 text-blue-500" /> Resume
@@ -1489,12 +1492,12 @@ function PermitDetailView({
                 </Button>
               </>
             )}
-            {permit.status === 'authorised' && (
+            {permit.status === 'authorised' && isManager && (
               <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => onQuickAction('activate')}>
                 <Play className="h-4 w-4 mr-1" /> Activate (Start Work)
               </Button>
             )}
-            {permit.status === 'active' && (
+            {permit.status === 'active' && isManager && (
               <>
                 <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => onAction('suspend')}>
                   <Pause className="h-4 w-4 mr-1" /> Suspend
@@ -1504,7 +1507,7 @@ function PermitDetailView({
                 </Button>
               </>
             )}
-            {permit.status === 'suspended' && (
+            {permit.status === 'suspended' && isManager && (
               <>
                 <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => onQuickAction('resume')}>
                   <Play className="h-4 w-4 mr-1" /> Resume
@@ -1655,7 +1658,8 @@ function PermitDetailView({
           <div className="space-y-3 text-sm">
             {[
               { label: 'Permit created', date: permit.createdAt, by: permit.createdByName, color: 'bg-gray-400' },
-              permit.status !== 'draft' ? { label: 'Submitted for authorisation', date: null, color: 'bg-amber-400' } : null,
+              permit.submittedAt ? { label: 'Submitted for authorisation', date: permit.submittedAt, by: permit.submittedByName, color: 'bg-amber-400' } :
+                permit.status !== 'draft' ? { label: 'Submitted for authorisation', date: null, color: 'bg-amber-400' } : null,
               permit.authorisedAt ? { label: 'Authorised', date: permit.authorisedAt, by: permit.authorisedByName, color: 'bg-blue-500', note: permit.authNotes } : null,
               permit.rejectionReason ? { label: 'Rejected', date: (permit as any).rejectedAt, color: 'bg-red-500', note: permit.rejectionReason } : null,
               (permit as any).actualStartAt ? { label: 'Work started (activated)', date: (permit as any).actualStartAt, color: 'bg-emerald-500' } : null,

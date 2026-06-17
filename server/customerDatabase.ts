@@ -1005,6 +1005,10 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS cancelled_by_name TEXT`).catch(() => {});
       await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP`).catch(() => {});
       await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS submitted_by_id VARCHAR`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS submitted_by_name TEXT`).catch(() => {});
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS ptw_permit_number_unique ON "${schemaName}".permit_to_work (permit_number)`).catch(() => {});
       logger.info(`✅ Permit to Work tables ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Permit to Work table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

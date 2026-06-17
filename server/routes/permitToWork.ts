@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, inArray, lt, lte, isNull, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
-import { PTW_CHECKLISTS, PERMIT_TYPE_LABELS } from '../utils/ptwChecklists';
+import { PTW_CHECKLISTS, PERMIT_TYPE_LABELS, PTW_COMPANY_DOC_LABELS } from '../utils/ptwChecklists';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const objectStorage = new ObjectStorageService();
@@ -28,74 +28,62 @@ const requirePermitToWorkFeature = async (req: any, res: any, next: any) => {
   }
 };
 
-async function ensureTables(custDb: any, schemaName: string) {
-  await custDb.execute(`CREATE TABLE IF NOT EXISTS ${schemaName}.permit_to_work (
-    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    permit_number TEXT NOT NULL,
-    permit_type TEXT NOT NULL,
-    work_description TEXT NOT NULL,
-    work_location TEXT NOT NULL,
-    contractor_company_id VARCHAR, contractor_company_name TEXT,
-    contractor_worker_id VARCHAR, contractor_worker_name TEXT,
-    staff_id VARCHAR, staff_name TEXT,
-    planned_start_date TEXT NOT NULL, planned_start_time TEXT NOT NULL,
-    planned_end_date TEXT NOT NULL, planned_end_time TEXT NOT NULL,
-    actual_start_at TIMESTAMP, actual_end_at TIMESTAMP,
-    permit_valid_from TIMESTAMP NOT NULL, permit_valid_until TIMESTAMP NOT NULL,
-    status TEXT NOT NULL DEFAULT 'draft',
-    authorised_by_id VARCHAR, authorised_by_name TEXT, authorised_at TIMESTAMP, auth_notes TEXT,
-    rejected_by_id VARCHAR, rejected_at TIMESTAMP, rejection_reason TEXT,
-    closed_by_id VARCHAR, closed_by_name TEXT, closed_at TIMESTAMP,
-    closure_notes TEXT, work_completed_satisfactorily BOOLEAN,
-    suspended_by_id VARCHAR, suspended_at TIMESTAMP, suspension_reason TEXT,
-    linked_ppm_work_order_id VARCHAR, linked_incident_id VARCHAR, linked_compliance_cert_id VARCHAR,
-    expiry_alerted_at TIMESTAMP, overdue_closure_alerted_at TIMESTAMP,
-    created_by_id VARCHAR, created_by_name TEXT,
-    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
-  )`);
-  await custDb.execute(`CREATE TABLE IF NOT EXISTS ${schemaName}.permit_checklist (
-    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    permit_id VARCHAR NOT NULL REFERENCES ${schemaName}.permit_to_work(id) ON DELETE CASCADE,
-    checklist_section TEXT NOT NULL, item_description TEXT NOT NULL,
-    is_required BOOLEAN NOT NULL DEFAULT true,
-    response TEXT, responded_by_id VARCHAR, responded_at TIMESTAMP,
-    notes TEXT, display_order INTEGER NOT NULL DEFAULT 0
-  )`);
-  await custDb.execute(`CREATE TABLE IF NOT EXISTS ${schemaName}.permit_attachments (
-    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    permit_id VARCHAR NOT NULL REFERENCES ${schemaName}.permit_to_work(id) ON DELETE CASCADE,
-    document_type TEXT NOT NULL, file_name TEXT NOT NULL, file_url TEXT NOT NULL,
-    uploaded_by_id VARCHAR, uploaded_by_name TEXT,
-    uploaded_at TIMESTAMP DEFAULT NOW()
-  )`);
-  await custDb.execute(`CREATE TABLE IF NOT EXISTS ${schemaName}.ptw_company_documents (
-    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    document_type TEXT NOT NULL,
-    title TEXT NOT NULL,
-    notes TEXT,
-    file_url TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    expiry_date TEXT,
-    uploaded_by_id VARCHAR, uploaded_by_name TEXT,
-    uploaded_at TIMESTAMP DEFAULT NOW(),
-    replaced_at TIMESTAMP,
-    expiry_alerted_at TIMESTAMP
-  )`);
-  await custDb.execute(`ALTER TABLE ${schemaName}.ptw_company_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`).catch(() => {});
+async function generatePermitNumber(custDb: any, year: number): Promise<string> {
+  const prefix = `PTW-${year}-`;
+  // Query only current year's permits instead of full table scan
+  const rows = await custDb.select({ permitNumber: isolatedSchema.permitToWork.permitNumber })
+    .from(isolatedSchema.permitToWork)
+    .where(sql`permit_number LIKE ${prefix + '%'}`);
+  const maxSeq = (rows as any[]).reduce((max: number, r: any) => {
+    const n = parseInt((r.permitNumber as string).split('-')[2] ?? '0', 10);
+    return isNaN(n) ? max : Math.max(max, n);
+  }, 0);
+  return `${prefix}${(maxSeq + 1).toString().padStart(3, '0')}`;
 }
 
-async function generatePermitNumber(custDb: any, year: number): Promise<string> {
-  const all = await custDb.select({ permitNumber: isolatedSchema.permitToWork.permitNumber })
-    .from(isolatedSchema.permitToWork);
-  const prefix = `PTW-${year}-`;
-  const maxSeq = all
-    .filter((r: any) => r.permitNumber?.startsWith(prefix))
-    .reduce((max: number, r: any) => {
-      const parts = (r.permitNumber as string).split('-');
-      const n = parts.length === 3 ? parseInt(parts[2], 10) : 0;
-      return n > max ? n : max;
-    }, 0);
-  return `${prefix}${(maxSeq + 1).toString().padStart(3, '0')}`;
+// Convert a Europe/London wall-clock date+time string to the correct UTC instant.
+// Prevents BST/GMT drift when the server runs in UTC.
+function londonToUtc(date: string, time: string): Date {
+  const asUtc = new Date(`${date}T${time}:00Z`); // treat input as UTC first for a reference point
+  const londonStr = asUtc.toLocaleString('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  // en-GB format: "20/06/2026, 09:00:00"
+  const [datePart, timePart] = londonStr.split(', ');
+  const [dd, mm, yyyy] = datePart.split('/');
+  const londonAsUtc = new Date(`${yyyy}-${mm}-${dd}T${timePart}Z`);
+  // Correction: if London is UTC+1 (BST), londonAsUtc is 1h ahead of asUtc.
+  // We want the UTC that displays as our target London time, so subtract the over-shoot.
+  const correctionMs = asUtc.getTime() - londonAsUtc.getTime();
+  return new Date(asUtc.getTime() + correctionMs);
+}
+
+// Validate that a checklist is ready for submission/authorisation.
+// Returns { valid: true } or { valid: false, message: string }.
+function validateChecklist(checklist: any[]): { valid: boolean; message?: string } {
+  const incomplete = checklist.filter((i: any) => i.isRequired && !i.response);
+  if (incomplete.length > 0) {
+    return { valid: false, message: `Checklist is no longer complete — ${incomplete.length} required item(s) unanswered. Ask the requester to update it before authorising.` };
+  }
+  const noNotes = checklist.filter((i: any) => i.response === 'no' && !i.notes);
+  if (noNotes.length > 0) {
+    return { valid: false, message: `Checklist is no longer complete — ${noNotes.length} "No" answer(s) missing a mitigating control note. Ask the requester to update it before authorising.` };
+  }
+  return { valid: true };
+}
+
+// Best-effort async delete of an object-storage file given its /objects/... URL.
+function deleteStorageFile(fileUrl: string | null | undefined): void {
+  if (!fileUrl?.startsWith('/objects/')) return;
+  const privateDir = objectStorage.getPrivateObjectDir(); // e.g. '.private'
+  const key = fileUrl.slice('/objects/'.length); // 'customer/uploads/uuid'
+  const fullPath = `${privateDir}/${key}`;
+  const parts = (fullPath.startsWith('.') ? fullPath.slice(1) : fullPath).split('/').filter(Boolean);
+  if (parts.length < 2) return;
+  objectStorageClient.bucket(parts[0]).file(parts.slice(1).join('/')).delete().catch(() => {});
 }
 
 async function notifyAdmins(custDb: any, customer: any, settings: any, subject: string, html: string, text: string) {
@@ -140,8 +128,8 @@ export function registerPermitToWorkRoutes(app: Express): void {
 
       const year = new Date().getFullYear();
       const permitNumber = await generatePermitNumber(custDb, year);
-      const permitValidFrom = new Date(`${plannedStartDate}T${plannedStartTime}:00`);
-      const permitValidUntil = new Date(`${plannedEndDate}T${plannedEndTime}:00`);
+      const permitValidFrom = londonToUtc(plannedStartDate, plannedStartTime);
+      const permitValidUntil = londonToUtc(plannedEndDate, plannedEndTime);
 
       if (permitValidUntil <= permitValidFrom) {
         return res.status(400).json({ error: 'End date/time must be after start date/time.' });
@@ -293,6 +281,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
         fileUrl = `/objects/${ptwReplaceCustomerId}/uploads/${objectId}`;
       }
 
+      // Delete the old storage object if we're uploading a replacement file
+      if (req.file) {
+        deleteStorageFile(existingDoc.file_url);
+      }
+
       const uploadedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const result = await custDb.execute(
         sql`UPDATE ${sql.raw(schemaName)}.ptw_company_documents
@@ -316,7 +309,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const { docId } = req.params;
+      // Fetch the file URL before deleting so we can remove the storage object
+      const docResult = await custDb.execute(sql`SELECT file_url FROM ${sql.raw(schemaName)}.ptw_company_documents WHERE id = ${docId}`);
+      const docToDelete = (docResult.rows || docResult)[0];
       await custDb.execute(sql`DELETE FROM ${sql.raw(schemaName)}.ptw_company_documents WHERE id = ${docId}`);
+      if (docToDelete?.file_url) deleteStorageFile(docToDelete.file_url);
       res.json({ success: true });
     } catch (err) {
       logger.error('DELETE /api/ptw/company-documents/:docId', err);
@@ -355,8 +352,8 @@ export function registerPermitToWorkRoutes(app: Express): void {
       if ((permit as any).status !== 'draft') return res.status(400).json({ error: 'Only draft permits can be edited.' });
 
       const { workDescription, workLocation, plannedStartDate, plannedStartTime, plannedEndDate, plannedEndTime } = req.body;
-      const permitValidFrom = new Date(`${plannedStartDate}T${plannedStartTime}:00`);
-      const permitValidUntil = new Date(`${plannedEndDate}T${plannedEndTime}:00`);
+      const permitValidFrom = londonToUtc(plannedStartDate, plannedStartTime);
+      const permitValidUntil = londonToUtc(plannedEndDate, plannedEndTime);
 
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
         .set({ workDescription, workLocation, plannedStartDate, plannedStartTime, plannedEndDate, plannedEndTime, permitValidFrom, permitValidUntil, updatedAt: new Date() })
@@ -460,8 +457,19 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const noResponse = (checklist as any[]).filter(i => i.response === 'no' && !i.notes);
       if (noResponse.length > 0) return res.status(400).json({ error: 'Items answered "No" must have a mitigating control note.', noResponse });
 
+      const submittedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
-        .set({ status: 'submitted', updatedAt: new Date() })
+        .set({
+          status: 'submitted',
+          submittedAt: new Date(),
+          submittedById: req.user!.id,
+          submittedByName,
+          // Clear stale rejection data so it doesn't show on a re-submitted permit
+          rejectionReason: null,
+          rejectedAt: null,
+          rejectedById: null,
+          updatedAt: new Date(),
+        })
         .where(eq(isolatedSchema.permitToWork.id, id)).returning();
 
       // Notify admins/managers
@@ -511,6 +519,12 @@ export function registerPermitToWorkRoutes(app: Express): void {
       if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can authorise permits.' });
       if ((permit as any).createdById === req.user!.id) return res.status(403).json({ error: 'You cannot authorise a permit you created.' });
 
+      // Re-validate checklist — it can be edited in 'submitted' status, so re-check before approving
+      const authChecklist = await custDb.select().from(isolatedSchema.permitChecklist)
+        .where(eq(isolatedSchema.permitChecklist.permitId, id));
+      const clResult = validateChecklist(authChecklist as any[]);
+      if (!clResult.valid) return res.status(400).json({ error: clResult.message });
+
       const { authNotes } = req.body;
       const authorisedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
@@ -534,6 +548,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'submitted') return res.status(400).json({ error: 'Only submitted permits can be rejected.' });
       if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can reject permits.' });
+      if ((permit as any).createdById === req.user!.id) return res.status(403).json({ error: 'You cannot reject a permit you created.' });
 
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
         .set({ status: 'draft', rejectedById: req.user!.id, rejectedAt: new Date(), rejectionReason, updatedAt: new Date() })
@@ -553,6 +568,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'authorised') return res.status(400).json({ error: 'Permit must be authorised before activation.' });
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can activate permits.' });
 
       const now = new Date();
       const validFrom = new Date((permit as any).permitValidFrom);
@@ -580,6 +596,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'active') return res.status(400).json({ error: 'Only active permits can be suspended.' });
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can suspend permits.' });
 
       const suspendedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
@@ -600,6 +617,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'suspended') return res.status(400).json({ error: 'Permit must be suspended to resume.' });
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can resume permits.' });
       const now = new Date();
       if (now > new Date((permit as any).permitValidUntil)) {
         return res.status(400).json({ error: 'Permit validity window has passed. Close this permit and raise a new one.' });
@@ -625,6 +643,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
       if ((permit as any).status !== 'active' && (permit as any).status !== 'suspended') {
         return res.status(400).json({ error: 'Permit must be active or suspended to close.' });
       }
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can close permits.' });
       const closedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
         .set({ status: 'completed', closedById: req.user!.id, closedByName, closedAt: new Date(), actualEndAt: new Date(), closureNotes: closureNotes || null, workCompletedSatisfactorily: workCompletedSatisfactorily ?? true, updatedAt: new Date() })
@@ -731,7 +750,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
       if ((permit as any).status !== 'draft' && (permit as any).status !== 'submitted') {
         return res.status(400).json({ error: 'Attachments can only be deleted in draft or submitted status.' });
       }
+      // Fetch the attachment first so we can delete the storage object
+      const [attachmentToDelete] = await custDb.select().from(isolatedSchema.permitAttachments)
+        .where(eq(isolatedSchema.permitAttachments.id, attachmentId));
       await custDb.delete(isolatedSchema.permitAttachments).where(eq(isolatedSchema.permitAttachments.id, attachmentId));
+      if (attachmentToDelete?.fileUrl) deleteStorageFile(attachmentToDelete.fileUrl);
       res.json({ success: true });
     } catch (err) {
       logger.error('DELETE /api/ptw/:id/attachments/:attachmentId', err);
@@ -803,16 +826,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
                AND (expiry_alerted_at IS NULL OR expiry_alerted_at < ${sevenDaysAgo.toISOString()})`
           ).catch(() => ({ rows: [] }));
           const companyDocs = companyDocsResult.rows || companyDocsResult;
-          const DOC_TYPE_LABELS: Record<string, string> = {
-            pli: 'Public Liability Insurance (PLI)',
-            eli: 'Employers\' Liability Insurance (ELI)',
-            hs_policy: 'Health & Safety Policy',
-          };
           for (const doc of companyDocs) {
             const expiryDate = new Date(doc.expiry_date);
             const isExpired = expiryDate < now;
             const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            const docLabel = DOC_TYPE_LABELS[doc.document_type] || doc.document_type;
+            const docLabel = PTW_COMPANY_DOC_LABELS[doc.document_type] || doc.document_type;
             const expiryStr = expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
             const subject = isExpired
               ? `🚨 Compliance Document EXPIRED — ${docLabel}`

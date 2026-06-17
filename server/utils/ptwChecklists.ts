@@ -106,3 +106,11 @@ export const PERMIT_TYPE_LABELS: Record<string, string> = {
   asbestos: 'Asbestos',
   general_high_risk: 'General High Risk',
 };
+
+// Single source of truth for company compliance document type labels.
+// Keys must match the stored document_type values in ptw_company_documents.
+export const PTW_COMPANY_DOC_LABELS: Record<string, string> = {
+  public_liability_insurance:    'Public Liability Insurance (PLI)',
+  employers_liability_insurance: "Employers' Liability Insurance (ELI)",
+  health_safety_policy:          'Health & Safety Policy',
+};
