@@ -351,9 +351,23 @@ export default function MartynLaw() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Martyn's Law Compliance</h1>
           <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs">UK Protect Duty</Badge>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          UK legislation requiring qualifying venues to implement protective security measures and maintain a written security plan.
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            UK legislation requiring qualifying venues to implement protective security measures and maintain a written security plan.
+          </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0">
+                <Info size={14} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+              <p><strong>Martyn's Law (Terrorism (Protection of Premises) Act 2025)</strong> — Enacted following the 2017 Manchester Arena attack, it places a legal duty on qualifying venues to implement proportionate protective security and preparedness measures.</p>
+              <p><strong>Standard Tier</strong> (200–799 capacity): Implement reasonably practicable protective security measures. <strong>Enhanced Tier</strong> (800+ capacity): Requires a trained Designated Security Supervisor and a detailed written security plan.</p>
+              <p>Failure to comply can result in enforcement notices, unlimited fines, or prosecution. This module helps you document your compliance — it is not a substitute for qualified legal or security advice.</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => window.open("/api/compliance/report", "_blank")}>
             <Download size={14} className="mr-1.5" />Report
