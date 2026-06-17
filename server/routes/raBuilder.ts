@@ -5,9 +5,11 @@ import { simpleDatabaseService } from '../simpleDatabaseService';
 import { databaseService } from '../databaseService';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc } from 'drizzle-orm';
 import { AiModelManager } from '../managers/AiModelManager';
 import { ResultUtils } from '../utils/result';
+import { db } from '../db';
+import { ramsDocuments as sharedRamsDocuments } from '@shared/schema';
 
 const requireRaBuilderFeature = async (req: any, res: any, next: any) => {
   try {
@@ -97,6 +99,26 @@ export function registerRaBuilderRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const { id } = req.params;
       const parsed = isolatedSchema.insertRaBuilderAssessmentSchema.partial().parse(req.body);
+
+      // Fix 3: keep the shared RAMS document in step with the assessment's status.
+      // When the status dropdown changes, reflect that in the register immediately.
+      if (parsed.status !== undefined) {
+        const [existing] = await custDb
+          .select()
+          .from(isolatedSchema.raBuilderAssessments)
+          .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+        if (existing?.linkedRamsDocumentId) {
+          const active = parsed.status === 'approved';
+          await db
+            .update(sharedRamsDocuments)
+            .set({ isActive: active, status: active ? 'approved' : 'expired' })
+            .where(and(
+              eq(sharedRamsDocuments.id, existing.linkedRamsDocumentId),
+              eq(sharedRamsDocuments.customerId, req.customerId!),
+            ));
+        }
+      }
+
       const [row] = await custDb
         .update(isolatedSchema.raBuilderAssessments)
         .set({ ...parsed, updatedAt: new Date() })
@@ -124,9 +146,13 @@ export function registerRaBuilderRoutes(app: Express): void {
         .where(eq(isolatedSchema.raBuilderAssessments.id, id));
 
       if (existing?.linkedRamsDocumentId) {
-        await custDb
-          .delete(isolatedSchema.ramsDocuments)
-          .where(eq(isolatedSchema.ramsDocuments.id, existing.linkedRamsDocumentId));
+        // Fix 1: doc lives in the shared table, not the isolated one
+        await db
+          .delete(sharedRamsDocuments)
+          .where(and(
+            eq(sharedRamsDocuments.id, existing.linkedRamsDocumentId),
+            eq(sharedRamsDocuments.customerId, req.customerId!),
+          ));
       }
 
       await custDb
@@ -151,6 +177,32 @@ export function registerRaBuilderRoutes(app: Express): void {
         .where(eq(isolatedSchema.raBuilderAssessments.id, id));
       if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
 
+      // Fix 4: idempotent approve — if already published, re-affirm and return.
+      if (assessment.linkedRamsDocumentId) {
+        await db
+          .update(sharedRamsDocuments)
+          .set({ isActive: true, status: 'approved' })
+          .where(and(
+            eq(sharedRamsDocuments.id, assessment.linkedRamsDocumentId),
+            eq(sharedRamsDocuments.customerId, req.customerId!),
+          ));
+        const [reaffirmed] = await custDb
+          .update(isolatedSchema.raBuilderAssessments)
+          .set({ status: 'approved', updatedAt: new Date() })
+          .where(eq(isolatedSchema.raBuilderAssessments.id, id))
+          .returning();
+        return res.json(reaffirmed);
+      }
+
+      // Fix 2: block publishing an assessment with no hazards.
+      const hazards = await custDb
+        .select()
+        .from(isolatedSchema.raBuilderHazards)
+        .where(eq(isolatedSchema.raBuilderHazards.assessmentId, id));
+      if (hazards.length === 0) {
+        return res.status(400).json({ error: 'Add at least one hazard before publishing this assessment to the RAMS library.' });
+      }
+
       // Create expiry date — nextReviewDate or 12 months from now
       let expiryDate: Date;
       if (assessment.nextReviewDate) {
@@ -160,16 +212,17 @@ export function registerRaBuilderRoutes(app: Express): void {
         expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       }
 
-      // Create RAMS document record
+      // Fix 1: insert into the shared table that the RAMS register reads.
       const ramsIdRef = 'RA-' + id.substring(0, 8).toUpperCase();
-      const [ramsDoc] = await custDb
-        .insert(isolatedSchema.ramsDocuments)
+      const [ramsDoc] = await db
+        .insert(sharedRamsDocuments)
         .values({
+          customerId: req.customerId!,
           ramsIdRef,
           documentName: `${assessment.title} (RA Builder)`,
           documentUrl: `/ra-builder?open=${id}`,
           expiryDate,
-          status: 'valid',
+          status: 'approved',
           isActive: true,
         })
         .returning();
@@ -198,6 +251,22 @@ export function registerRaBuilderRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const { id } = req.params;
+
+      // Fix 3: deactivate the linked shared RAMS doc so it drops out of the register.
+      const [existing] = await custDb
+        .select()
+        .from(isolatedSchema.raBuilderAssessments)
+        .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+      if (existing?.linkedRamsDocumentId) {
+        await db
+          .update(sharedRamsDocuments)
+          .set({ isActive: false, status: 'expired' })
+          .where(and(
+            eq(sharedRamsDocuments.id, existing.linkedRamsDocumentId),
+            eq(sharedRamsDocuments.customerId, req.customerId!),
+          ));
+      }
+
       const [row] = await custDb
         .update(isolatedSchema.raBuilderAssessments)
         .set({ status: 'archived', updatedAt: new Date() })

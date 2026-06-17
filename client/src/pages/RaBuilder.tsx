@@ -358,7 +358,7 @@ export default function RaBuilder() {
       toast({ title: "Assessment approved and added to RAMS library" });
       queryClient.invalidateQueries({ queryKey: ["/api/ra-builder/assessments"] });
     },
-    onError: () => toast({ title: "Failed to approve assessment", variant: "destructive" }),
+    onError: (err: any) => toast({ title: err?.message || "Failed to approve assessment", variant: "destructive" }),
   });
 
   const addHazardMutation = useMutation({
@@ -888,18 +888,22 @@ export default function RaBuilder() {
                     {assessment.status === "approved" && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
-                            className="w-full"
-                            style={{ backgroundColor: "#2460A9" }}
-                            onClick={() => approveMutation.mutate()}
-                            disabled={approveMutation.isPending}
-                          >
-                            {approveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                            Approve & Publish to RAMS Library
-                          </Button>
+                          <span className="w-full">
+                            <Button
+                              className="w-full"
+                              style={hazards.length > 0 ? { backgroundColor: "#2460A9" } : {}}
+                              onClick={() => approveMutation.mutate()}
+                              disabled={approveMutation.isPending || hazards.length === 0}
+                            >
+                              {approveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                              Approve & Publish to RAMS Library
+                            </Button>
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs text-xs" side="top">
-                          Approving this assessment will automatically create a record in the RAMS document library and link it to the relevant contractor company if applicable.
+                          {hazards.length === 0
+                            ? "Add at least one hazard before you can publish this assessment."
+                            : "Approving this assessment will automatically create a record in the RAMS document library and link it to the relevant contractor company if applicable."}
                         </TooltipContent>
                       </Tooltip>
                     )}
