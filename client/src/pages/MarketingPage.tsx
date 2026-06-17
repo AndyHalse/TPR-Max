@@ -512,8 +512,8 @@ export default function MarketingPage() {
               Real Screens. Real Emergencies.
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              Complete Accountability —{" "}
-              <span className="text-red-600">Before & During</span> an Emergency
+              Emergency Mustering & Evacuation Roll Call —{" "}
+              <span className="text-red-600">Complete Accountability</span> Before & During an Emergency
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               TPR keeps your Fire Marshals informed at all times. Pre-loaded with permanent
@@ -633,8 +633,8 @@ export default function MarketingPage() {
               One Platform Solution
             </Badge>
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-4">
-              Stop Juggling Multiple Systems.
-              <span className="text-emerald-600"> Consolidate Everything.</span>
+              One Platform for Contractor Compliance & Site Safety.
+              <span className="text-emerald-600"> Stop Juggling Multiple Systems.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               Most organisations manage health & safety, contractor compliance, and site safety across 6–10 separate tools. TPR replaces them all — one login, one database, one subscription.
@@ -767,8 +767,8 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              26 Powerful Modules.{" "}
-              <span style={{ color: "#2460A9" }}>One Platform.</span>
+              26 Modules. One{" "}
+              <span style={{ color: "#2460A9" }}>Connected Workforce & Site Safety Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               Every tool your organisation needs — from visitor sign-in and site audits to statutory compliance certificates, HR lifecycle management, risk assessments, and high-risk work permits — built in and ready to use from day one.
@@ -1036,8 +1036,8 @@ export default function MarketingPage() {
               Deep-Dive Feature Tour
             </Badge>
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-              Explore Every Module
-              <span style={{ color: "#2460A9" }}> In Detail</span>
+              Explore Every Module — Contractor Induction, Visitor Management,
+              <span style={{ color: "#2460A9" }}> Audit, PPM & More</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               Select any module below to see exactly what it does, how it looks, and why it matters for your organisation.
@@ -3819,8 +3819,8 @@ export default function MarketingPage() {
               UK Industries
             </Badge>
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-              Tailored for
-              <span style={{ color: "#2460A9" }}> Your Industry</span>
+              Contractor Compliance & Site Safety Software —
+              <span style={{ color: "#2460A9" }}> Tailored for Your Industry</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               TPR is built around UK Health &amp; Safety legislation and the compliance challenges real British organisations face every day.
