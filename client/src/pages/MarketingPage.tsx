@@ -4191,11 +4191,13 @@ export default function MarketingPage() {
               <ul className="space-y-3 flex-1 mb-8">
                 {[
                   "Contractor sign-in, passes & compliance",
-                  "RAMS management",
+                  "RAMS management & document control",
                   "AI Safety inductions",
                   "Permit to Work system",
-                  "Incident Reports & PDF export",
+                  "H&S Incident Reports & RIDDOR export",
+                  "Fire Risk Assessment (RRO 2005)",
                   "Time & Attendance tracking",
+                  "Meeting Rooms & Booking",
                   "Members module",
                   "Full analytics & audit logs",
                 ].map(f => (
@@ -4223,17 +4225,18 @@ export default function MarketingPage() {
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">All Pro features, plus:</div>
               <ul className="space-y-3 flex-1 mb-8">
                 {[
-                  "AI-powered induction video generation",
+                  "Lone Worker Protection system",
+                  "CDM 2015 project management",
+                  "Martyn's Law / Protect Duty module",
                   "Audits & Inspections engine (UK templates)",
                   "Risk Assessment Builder (6 RA types)",
-                  "Compliance Certificate Register",
                   "HR Lifecycle management & Right to Work",
+                  "Compliance Certificate Register",
                   "PPM Annual Planner & asset registry",
-                  "Martyn's Law / Protect Duty module",
-                  "CDM 2015 project management",
                   "Help Desk & reactive maintenance",
-                  "Lone Worker Protection system",
-                  "Suprema/BioStar 2 hardware integration",
+                  "AI-powered induction video generation",
+                  "CO2 Sustainability Reporting",
+                  "Paxton Net2 & BioStar 2 hardware integrations",
                   "Portfolio dashboard (multi-site)",
                   "Template Library — 50+ pre-built H&S frameworks",
                   "Microsoft Teams event notifications",
