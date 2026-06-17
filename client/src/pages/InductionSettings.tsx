@@ -271,7 +271,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   useEffect(() => { setFailureFeedbackLevel(settings?.failureFeedbackLevel ?? 'questions_topics'); }, [settings?.failureFeedbackLevel]);
 
   // ── Queries ──
-  const { data: slidesData, isLoading: slidesLoading, refetch: refetchSlides } = useQuery<{ scenes: InductionScene[] }>({
+  const { data: slidesData, isLoading: slidesLoading, isError: slidesError, refetch: refetchSlides } = useQuery<{ scenes: InductionScene[] }>({
     queryKey: ['/api/induction/settings', roleType, 'scenes'],
     queryFn: async () => { const r = await apiRequest('GET', `/api/induction/settings/${roleType}/scenes`); return r.json(); },
   });
@@ -306,8 +306,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     onError: () => toast({ title: 'Error saving slides', variant: 'destructive' }),
   });
 
+  const [uploadingSlideIdx, setUploadingSlideIdx] = useState<number | null>(null);
   const uploadSlidePictureMutation = useMutation({
     mutationFn: async ({ sceneIdx, file }: { sceneIdx: number; file: File }) => {
+      setUploadingSlideIdx(sceneIdx);
       const fd = new FormData(); fd.append('photo', file);
       const sessionToken = getSessionToken();
       const csrfToken = getCsrfToken();
@@ -320,14 +322,19 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         credentials: 'include',
         headers,
       });
-      if (!r.ok) throw new Error('Upload failed');
-      return r.json() as Promise<{ url: string }>;
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || `Upload failed (${r.status})`);
+      return data as { url: string };
     },
     onSuccess: (data, { sceneIdx }) => {
+      setUploadingSlideIdx(null);
       setEditedScenes(prev => prev.map((s, i) => i === sceneIdx ? { ...s, imageUrl: data.url } : s));
       toast({ title: 'Photo uploaded', description: 'Save slides to apply the photo.' });
     },
-    onError: () => toast({ title: 'Photo upload failed', variant: 'destructive' }),
+    onError: (err: any) => {
+      setUploadingSlideIdx(null);
+      toast({ title: 'Photo upload failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+    },
   });
 
   const createCpMutation = useMutation({
@@ -801,7 +808,13 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
               </div>
             </div>
             {slidesLoading && <div className="text-center py-6 text-sm text-variable">Loading slides…</div>}
-            {!slidesLoading && editedScenes.length === 0 && (
+            {slidesError && (
+              <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                Could not load slides. <button className="underline ml-1" onClick={() => refetchSlides()}>Try again</button>
+              </div>
+            )}
+            {!slidesLoading && !slidesError && editedScenes.length === 0 && (
               <div className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                 <Layers className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm text-variable">No slides yet — generate the induction first.</p>
@@ -841,8 +854,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                                 </Button>
                               </div>
                             ) : (
-                              <Button variant="outline" size="sm" disabled={uploadSlidePictureMutation.isPending} onClick={() => photoInputRefs.current[idx]?.click()}>
-                                <Upload className="w-3.5 h-3.5 mr-1.5" />{uploadSlidePictureMutation.isPending ? 'Uploading…' : 'Upload Photo'}
+                              <Button variant="outline" size="sm" disabled={uploadingSlideIdx === idx} onClick={() => photoInputRefs.current[idx]?.click()}>
+                                <Upload className="w-3.5 h-3.5 mr-1.5" />{uploadingSlideIdx === idx ? 'Uploading…' : 'Upload Photo'}
                               </Button>
                             )}
                             <input ref={(el) => { photoInputRefs.current[idx] = el; }} type="file" accept="image/*" className="hidden"

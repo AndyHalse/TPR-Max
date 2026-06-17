@@ -5307,24 +5307,34 @@ export function registerInductionRoutes(app: Express): void {
 
   app.post('/api/induction/settings/:roleType/scenes/photo', requireAuth, slidePhotoUpload.single('photo'), async (req, res) => {
     try {
-      if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
       const { roleType } = req.params;
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const VALID_ROLE_TYPES = ['staff', 'contractor', 'visitor'];
+      if (!VALID_ROLE_TYPES.includes(roleType)) {
+        return res.status(400).json({ error: `Invalid roleType "${roleType}" — must be one of: ${VALID_ROLE_TYPES.join(', ')}` });
+      }
+      if (!req.customerId) {
+        logger.warn('⚠️ Slide photo upload: no customerId on request');
+        return res.status(403).json({ error: 'No customer context — please log in again' });
+      }
+      if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+
+      logger.info(`🖼️ Slide photo upload attempt: roleType=${roleType} customer=${req.customerId} size=${req.file.size}`);
+
       const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
       const mimeType = req.file.mimetype || 'image/jpeg';
       const objectId = randomUUID();
       const objectStorageService = new ObjectStorageService();
       const privateObjectDir = objectStorageService.getPrivateObjectDir();
-      const fullPath = `${privateObjectDir}/induction-slides/${context.customerId}/${roleType}/${objectId}.${ext}`;
+      const fullPath = `${privateObjectDir}/induction-slides/${req.customerId}/${roleType}/${objectId}.${ext}`;
       const { bucketName, objectName } = parseObjectStoragePath(fullPath);
       const bucket = objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
       await file.save(req.file.buffer, { contentType: mimeType });
-      const storedPath = `/induction-slides/${context.customerId}/${roleType}/${objectId}.${ext}`;
-      logger.info(`🖼️ Slide photo saved: ${storedPath}`);
+      const storedPath = `/induction-slides/${req.customerId}/${roleType}/${objectId}.${ext}`;
+      logger.info(`✅ Slide photo saved: ${storedPath}`);
       return res.json({ success: true, url: storedPath });
     } catch (error: any) {
-      logger.error('Error uploading slide photo:', error);
+      logger.error('❌ Error uploading slide photo:', error);
       res.status(500).json({ error: error.message || 'Failed to upload photo' });
     }
   });
