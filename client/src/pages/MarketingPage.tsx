@@ -4223,6 +4223,7 @@ export default function MarketingPage() {
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">All Pro features, plus:</div>
               <ul className="space-y-3 flex-1 mb-8">
                 {[
+                  "AI-powered induction video generation",
                   "Audits & Inspections engine (UK templates)",
                   "Risk Assessment Builder (6 RA types)",
                   "Compliance Certificate Register",
