@@ -1020,67 +1020,56 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
     const selectedScenes = scenes; // Use all scenes to ensure every page has an image
     
     try {
-      logger.info(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (parallel processing for speed)...`);
-      
-      // Parallelize image generation for 3x-5x speed improvement
-      const imagePromises = selectedScenes.map(async (scene, i) => {
-        logger.info(`🖼️ Starting image generation ${i + 1}/${selectedScenes.length}`);
-        
-        // Enhanced prompt with latest DALL-E 3 capabilities for photorealistic safety training
-        const companyBranding = "professional blue and safety orange"; // Use consistent corporate theme
-        const enhancedPrompt = `Ultra-realistic corporate safety training photograph for ${this.companySettings?.companyName || "professional workplace"} induction. ${scene.imagePrompt}. 
-        
-        Visual Style: Photorealistic, high-end corporate photography with perfect lighting and composition.
-        Color Scheme: ${companyBranding} theme with modern professional aesthetics.
-        Environment: State-of-the-art modern workplace with contemporary safety equipment and infrastructure.
-        Quality: 4K professional photography quality, crystal clear focus, perfect exposure.
-        People: Diverse, professional individuals demonstrating proper safety procedures, modern business attire with appropriate PPE.
-        Equipment: Latest generation safety equipment, modern facilities, contemporary industrial design.
-        Composition: Dynamic angles showing clear demonstration of safety concepts without relying on text.
-        Lighting: Professional studio-quality lighting highlighting safety features and proper procedures.
-        
-        CRITICAL: Create photorealistic images without any text, logos, or written content. Focus on clear visual demonstration of safety concepts through body language, equipment positioning, and environmental cues.
-        Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting, amateur composition.`;
-        
+      logger.info(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (sequential to respect rate limits)...`);
+
+      // Process images one-at-a-time. Firing all requests simultaneously causes
+      // gpt-image-1 to rate-limit after the first 1-2 and everything falls back to SVG.
+      const imageUrls: string[] = [];
+
+      for (let i = 0; i < selectedScenes.length; i++) {
+        const scene = selectedScenes[i];
+        logger.info(`🖼️ Generating image ${i + 1}/${selectedScenes.length}...`);
+
+        const enhancedPrompt = `Ultra-realistic corporate safety training photograph for ${this.companySettings?.companyName || "professional workplace"} induction. ${scene.imagePrompt}.
+
+Visual Style: Photorealistic, high-end corporate photography with perfect lighting and composition.
+Environment: State-of-the-art modern workplace with contemporary safety equipment and infrastructure.
+Quality: 4K professional photography quality, crystal clear focus, perfect exposure.
+People: Diverse, professional individuals demonstrating proper safety procedures, modern business attire with appropriate PPE.
+Equipment: Latest generation safety equipment, modern facilities, contemporary industrial design.
+Composition: Dynamic angles showing clear demonstration of safety concepts without relying on text.
+Lighting: Professional studio-quality lighting highlighting safety features and proper procedures.
+
+CRITICAL: Create photorealistic images without any text, logos, or written content. Focus on clear visual demonstration of safety concepts through body language, equipment positioning, and environmental cues.
+Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting, amateur composition.`;
+
         try {
-          // Use scene title for theme detection, fallback to generic label
           const sceneTitle = (scene as any).title || `Safety Image ${i + 1}`;
           const result = await this.services.imageGenerator.generate(
             sceneTitle,
             sceneTitle,
             enhancedPrompt
           );
-          
+
           if (ResultUtils.isSuccess(result)) {
             logger.info(`✅ Image ${i + 1} generated successfully`);
-            return result.data.url;
+            imageUrls.push(result.data.url);
           } else {
-            logger.info(`⚠️ Image ${i + 1} generation failed: ${result.error?.message}`);
-            return this.generateFallbackImage(scene.imagePrompt, i + 1);
+            logger.warn(`⚠️ Image ${i + 1} generation failed: ${result.error?.message}`);
+            imageUrls.push(this.generateFallbackImage(scene.imagePrompt, i + 1));
           }
         } catch (error) {
           logger.error(`❌ Failed to generate image ${i + 1}:`, error);
-          logger.info(`🔄 Using fallback image generation for image ${i + 1}...`);
-          return this.generateFallbackImage(scene.imagePrompt, i + 1);
+          imageUrls.push(this.generateFallbackImage(scene.imagePrompt, i + 1));
         }
-      });
-      
-      // Process in batches of 3 to avoid rate limits while maximizing speed
-      const batchSize = 3;
-      const imageUrls: string[] = [];
-      
-      for (let i = 0; i < imagePromises.length; i += batchSize) {
-        const batch = imagePromises.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch);
-        imageUrls.push(...batchResults);
-        
-        // Small delay between batches to respect rate limits
-        if (i + batchSize < imagePromises.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Brief pause between requests to stay within rate limits
+        if (i < selectedScenes.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
       }
-      
-      logger.info(`🎉 Successfully generated ${imageUrls.filter(url => url).length}/${selectedScenes.length} AI images in parallel`);
+
+      logger.info(`🎉 Successfully generated ${imageUrls.filter(url => url && !url.startsWith('data:image/svg')).length}/${selectedScenes.length} AI images`);
       return imageUrls;
     } catch (error: any) {
       logger.error('❌ Error generating scene images:', error);

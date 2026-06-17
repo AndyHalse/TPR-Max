@@ -14,8 +14,16 @@ import { logger } from '../utils/logger';
 // - Gemini 3.0-flash provides superior image quality and faster processing
 // - Used as primary image generator for production induction content
 
-// This API key is from Gemini Developer API Key, not vertex AI API Key
-const ai = new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "" });
+// Initialised lazily inside generate() so env vars are read at call-time, not at import-time.
+// Uses Replit AI Integrations — requires AI_INTEGRATIONS_GEMINI_API_KEY + AI_INTEGRATIONS_GEMINI_BASE_URL.
+function buildGeminiClient(): GoogleGenAI {
+  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "";
+  const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || "";
+  return new GoogleGenAI({
+    apiKey,
+    ...(baseUrl ? { httpOptions: { apiVersion: "", baseUrl } } : {}),
+  });
+}
 
 export class GeminiImageGenerator implements IImageGenerator {
   async generate(
@@ -49,6 +57,7 @@ SAFETY FOCUS:
 
 Generate a clear, professional safety training image suitable for UK workplace induction.`;
 
+      const ai = buildGeminiClient();
       // Use Gemini 2.0-flash-preview for image generation (preview variant supports image output)
       const response = await ai.models.generateContent({
         model: "gemini-2.0-flash-preview-image-generation",
