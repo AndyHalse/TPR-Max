@@ -28,7 +28,11 @@ async function resolveAnthropicKey(customerId?: string): Promise<string | null> 
       const apiKeys = await databaseService.getCustomerApiKeys({ customerId });
       const claudeRow = apiKeys.find((k: any) => k.serviceType === 'claude' && k.status === 'active');
       if (claudeRow?.encryptedKey) {
-        const key = decryptData(claudeRow.encryptedKey);
+        const key = decryptData(
+          claudeRow.encryptedKey,
+          claudeRow.initializationVector,
+          claudeRow.authTag || ''
+        );
         if (key) return key;
       }
     } catch (err) {
