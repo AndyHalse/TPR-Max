@@ -14,7 +14,10 @@ import { ObjectStorageService, objectStorageClient, parseObjectPath as parseObje
 import { calculateRIDDORDeadline, getDaysUntilRIDDORDeadline, RIDDOR_CATEGORY_LABELS, type RIDDORCategory } from '../utils/riddorUtils';
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
 
+const ensuredSchemas = new Set<string>();
+
 async function ensureHsIncidentsTable(custDb: any, schemaName: string) {
+  if (ensuredSchemas.has(schemaName)) return;
   const pool = (custDb as any).$client ?? (custDb as any).session?.client;
   await pool.query(`
     CREATE TABLE IF NOT EXISTS "${schemaName}".hs_incidents (
@@ -53,6 +56,50 @@ async function ensureHsIncidentsTable(custDb: any, schemaName: string) {
   await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS photo_url TEXT`);
   // Migrate legacy near_miss records to new record_type field
   await pool.query(`UPDATE "${schemaName}".hs_incidents SET record_type = 'near_miss' WHERE is_near_miss = TRUE AND record_type = 'incident'`);
+  // Audit trail table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "${schemaName}".hs_incident_audit (
+      id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      incident_id VARCHAR,
+      action TEXT NOT NULL,
+      actor_user_id VARCHAR,
+      actor_username TEXT,
+      before JSONB,
+      after JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  ensuredSchemas.add(schemaName);
+}
+
+// Interpret a datetime-local string (yyyy-MM-ddTHH:mm) as Europe/London wall-clock time
+function parseAsLondonTime(dtLocalStr: string): Date {
+  if (!dtLocalStr) return new Date(NaN);
+  const approx = new Date(dtLocalStr + ':00.000Z');
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    timeZoneName: 'shortOffset',
+  } as any).formatToParts(approx);
+  const tzPart = (parts.find((p: any) => p.type === 'timeZoneName')?.value) ?? 'GMT';
+  const match = tzPart.match(/GMT([+-]\d+)?/);
+  const offsetH = match?.[1] ? parseInt(match[1], 10) : 0;
+  const wallMs = new Date(dtLocalStr + ':00Z').getTime();
+  return new Date(wallMs - offsetH * 3600000);
+}
+
+async function writeIncidentAudit(custDb: any, req: any, action: string, incidentId: string, before: any, after: any) {
+  try {
+    await custDb.insert(isolatedSchema.hsIncidentAudit).values({
+      incidentId,
+      action,
+      actorUserId: (req as any).userId ?? null,
+      actorUsername: req.user?.username ?? null,
+      before: before ?? null,
+      after: after ?? null,
+    });
+  } catch (e) {
+    logger.error('Failed to write incident audit entry:', e);
+  }
 }
 
 const requireBbsFeature = async (req: any, res: any, next: any) => {
@@ -69,6 +116,13 @@ const requireBbsFeature = async (req: any, res: any, next: any) => {
 };
 
 export function registerHsIncidentRoutes(app: Express): void {
+
+  const requireManager = (req: any, res: any, next: any) => {
+    if (!['admin', 'manager'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: 'You need manager or admin permissions to do this.' });
+    }
+    next();
+  };
 
   // GET all H&S incidents
   app.get('/api/hs-incidents', requireAuth, async (req, res) => {
@@ -93,7 +147,14 @@ export function registerHsIncidentRoutes(app: Express): void {
       await ensureHsIncidentsTable(custDb, schemaName);
 
       const body = req.body as any;
-      const incidentDate = new Date(body.incidentDate);
+      if (!body.title || !String(body.title).trim()) {
+        return res.status(400).json({ error: 'A title is required.' });
+      }
+      const parsedDate = parseAsLondonTime(body.incidentDate);
+      if (!body.incidentDate || isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ error: 'A valid incident date and time is required.' });
+      }
+      const incidentDate = parsedDate;
       const recordType: string = body.recordType || (body.isNearMiss ? 'near_miss' : 'incident');
       const isBbs = recordType === 'good_spot' || recordType === 'positive_action';
       const isNearMiss = recordType === 'near_miss';
@@ -177,6 +238,7 @@ export function registerHsIncidentRoutes(app: Express): void {
         }).catch(() => {});
       }
 
+      await writeIncidentAudit(custDb, req, 'create', created.id, null, created);
       res.status(201).json(created);
     } catch (err) {
       logger.error('Error creating H&S incident:', err);
@@ -192,7 +254,16 @@ export function registerHsIncidentRoutes(app: Express): void {
       await ensureHsIncidentsTable(custDb, schemaName);
 
       const body = req.body as any;
-      const incidentDate = body.incidentDate ? new Date(body.incidentDate) : undefined;
+      if (!body.title || !String(body.title).trim()) {
+        return res.status(400).json({ error: 'A title is required.' });
+      }
+      if (body.incidentDate !== undefined) {
+        const parsedDate = parseAsLondonTime(body.incidentDate);
+        if (isNaN(parsedDate.getTime())) {
+          return res.status(400).json({ error: 'A valid incident date and time is required.' });
+        }
+      }
+      const incidentDate = body.incidentDate ? parseAsLondonTime(body.incidentDate) : undefined;
       const recordType: string = body.recordType || (body.isNearMiss ? 'near_miss' : 'incident');
       const isBbs = recordType === 'good_spot' || recordType === 'positive_action';
       const isNearMiss = recordType === 'near_miss';
@@ -249,12 +320,17 @@ export function registerHsIncidentRoutes(app: Express): void {
       }
       if (body.photoUrl !== undefined) updates.photoUrl = body.photoUrl || null;
 
+      const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
+        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+      if (!beforeRow) return res.status(404).json({ error: 'Incident not found' });
+
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set(updates)
         .where(eq(isolatedSchema.hsIncidents.id, req.params.id))
         .returning();
 
       if (!updated) return res.status(404).json({ error: 'Incident not found' });
+      await writeIncidentAudit(custDb, req, 'update', req.params.id, beforeRow, updated);
       res.json(updated);
     } catch (err) {
       logger.error('Error updating H&S incident:', err);
@@ -262,10 +338,16 @@ export function registerHsIncidentRoutes(app: Express): void {
     }
   });
 
-  // DELETE incident
-  app.delete('/api/hs-incidents/:id', requireAuth, async (req, res) => {
+  // DELETE incident — managers/admins only; full audit entry written before deletion
+  app.delete('/api/hs-incidents/:id', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureHsIncidentsTable(custDb, schemaName);
+      const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
+        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+      if (!beforeRow) return res.status(404).json({ error: 'Incident not found' });
+      await writeIncidentAudit(custDb, req, 'delete', req.params.id, beforeRow, null);
       await custDb.delete(isolatedSchema.hsIncidents)
         .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
       res.json({ success: true });
@@ -280,11 +362,15 @@ export function registerHsIncidentRoutes(app: Express): void {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const { resolvedBy, resolutionNotes } = req.body as { resolvedBy: string; resolutionNotes: string };
+      const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
+        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+      if (!beforeRow) return res.status(404).json({ error: 'Record not found' });
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set({ resolved: true, resolvedBy: resolvedBy || null, resolvedAt: new Date(), resolutionNotes: resolutionNotes || null, updatedAt: new Date() })
         .where(eq(isolatedSchema.hsIncidents.id, req.params.id))
         .returning();
       if (!updated) return res.status(404).json({ error: 'Record not found' });
+      await writeIncidentAudit(custDb, req, 'resolve', req.params.id, beforeRow, updated);
       res.json(updated);
     } catch (err) {
       logger.error('Error resolving Good Spot:', err);
@@ -292,16 +378,20 @@ export function registerHsIncidentRoutes(app: Express): void {
     }
   });
 
-  // PATCH mark as reported to HSE
-  app.patch('/api/hs-incidents/:id/riddor-reported', requireAuth, async (req, res) => {
+  // PATCH mark as reported to HSE — managers/admins only (legal action)
+  app.patch('/api/hs-incidents/:id/riddor-reported', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const { reference } = req.body as { reference: string };
+      const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
+        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+      if (!beforeRow) return res.status(404).json({ error: 'Incident not found' });
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set({ riddorReportedAt: new Date(), riddorReference: reference, updatedAt: new Date() })
         .where(eq(isolatedSchema.hsIncidents.id, req.params.id))
         .returning();
       if (!updated) return res.status(404).json({ error: 'Incident not found' });
+      await writeIncidentAudit(custDb, req, 'riddor_reported', req.params.id, beforeRow, updated);
       res.json(updated);
     } catch (err) {
       logger.error('Error marking RIDDOR reported:', err);
@@ -789,18 +879,22 @@ ${!isBbsRecord ? `
   app.post('/api/hs-incidents/photo', requireAuth, incidentPhotoUpload.single('photo'), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
-      const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+      const rawExt = (req.file.originalname.split('.').pop() || '').toLowerCase();
+      const allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'];
+      const ext = allowed.includes(rawExt)
+        ? rawExt
+        : (req.file.mimetype.split('/')[1] || 'jpg').replace(/[^a-z0-9]/g, '');
       const mimeType = req.file.mimetype || 'image/jpeg';
       const objectId = randomUUID();
       const objectStorageService = new ObjectStorageService();
       const privateObjectDir = objectStorageService.getPrivateObjectDir();
-      const customerId = req.customerId || 'default';
-      const fullPath = `${privateObjectDir}/hs-incidents/${customerId}/${objectId}.${ext}`;
+      const customerId = req.customerId!;
+      const fullPath = `${privateObjectDir}/${customerId}/hs-incidents/${objectId}.${ext}`;
       const { bucketName, objectName } = parseObjectStoragePath(fullPath);
       const bucket = objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
       await file.save(req.file.buffer, { contentType: mimeType });
-      const storedPath = `/hs-incidents/${customerId}/${objectId}.${ext}`;
+      const storedPath = `/${customerId}/hs-incidents/${objectId}.${ext}`;
       logger.info(`📷 Incident photo saved: ${storedPath}`);
       return res.json({ success: true, url: storedPath });
     } catch (error: any) {

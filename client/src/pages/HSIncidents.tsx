@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, objectUrl, getSessionToken, getCsrfToken } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -355,7 +355,18 @@ export default function HSIncidents() {
       try {
         const fd = new FormData();
         fd.append("photo", photoFile.file);
-        const uploadRes = await apiRequest("POST", "/api/hs-incidents/photo", fd as any);
+        const token = getSessionToken();
+        const csrf = getCsrfToken();
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        if (csrf) headers["x-csrf-token"] = csrf;
+        const uploadRes = await fetch("/api/hs-incidents/photo", {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: fd,
+        });
+        if (!uploadRes.ok) throw new Error("upload failed");
         const uploadData = await uploadRes.json();
         photoUrl = uploadData.url || null;
       } catch {
@@ -1004,8 +1015,8 @@ export default function HSIncidents() {
                       {incident.description && <div className="mt-1 text-xs">{incident.description}</div>}
                       {incident.photoUrl && (
                         <div className="mt-2">
-                          <a href={`/objects${incident.photoUrl}`} target="_blank" rel="noopener noreferrer">
-                            <img src={`/objects${incident.photoUrl}`} alt="Hazard photo" className="h-20 w-auto rounded border object-cover hover:opacity-90 transition-opacity" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                          <a href={objectUrl(`/objects${incident.photoUrl}`)} target="_blank" rel="noopener noreferrer">
+                            <img src={objectUrl(`/objects${incident.photoUrl}`)} alt="Hazard photo" className="h-20 w-auto rounded border object-cover hover:opacity-90 transition-opacity" onError={e => { e.currentTarget.style.display = 'none'; }} />
                           </a>
                         </div>
                       )}
@@ -1265,7 +1276,7 @@ export default function HSIncidents() {
               {(form.photoUrl || photoFile) ? (
                 <div className="relative inline-block">
                   <img
-                    src={photoFile ? photoFile.preview : `/objects${form.photoUrl}`}
+                    src={photoFile ? photoFile.preview : objectUrl(`/objects${form.photoUrl}`)}
                     alt="Evidence photo"
                     className="h-28 w-auto rounded border object-cover"
                     onError={e => { e.currentTarget.style.display = 'none'; }}

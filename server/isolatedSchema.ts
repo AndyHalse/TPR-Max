@@ -2533,6 +2533,18 @@ export const insertHsIncidentSchema = createInsertSchema(hsIncidents).omit({ id:
 export type InsertHsIncident = z.infer<typeof insertHsIncidentSchema>;
 export type HsIncident = typeof hsIncidents.$inferSelect;
 
+// Append-only audit trail — who changed what, when, with before/after snapshots
+export const hsIncidentAudit = pgTable("hs_incident_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  incidentId: varchar("incident_id"),
+  action: text("action").notNull(), // 'create' | 'update' | 'delete' | 'riddor_reported' | 'resolve'
+  actorUserId: varchar("actor_user_id"),
+  actorUsername: text("actor_username"),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 // ── Fire Risk Assessments (RRO 2005) ─────────────────────────────────────────
 
 export const fireRiskAssessments = pgTable("fire_risk_assessments", {
