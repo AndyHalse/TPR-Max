@@ -58,8 +58,9 @@ function resolveInductionModel(
     'Claude 3.5 Sonnet (Anthropic)':     'claude-3-5-sonnet-20241022',
     'Claude 3 Opus (Anthropic)':         'claude-3-opus-20240229',
     'Claude 3 Haiku (Anthropic)':        'claude-3-haiku-20240307',
-    'GPT-4':                              'gpt-4',
+    'GPT-4':                              'gpt-4o',
     'GPT-4o':                             'gpt-4o',
+    'gpt-4':                              'gpt-4o',
     'Gemini Pro (Google)':                'gemini-2.5-flash',
     'Gemini 2.5 Flash (Google)':          'gemini-2.5-flash',
     // Short IDs from old dropdown values

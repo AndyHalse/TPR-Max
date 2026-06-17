@@ -453,7 +453,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     stopPolling();
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/induction/status/${roleType}`, { credentials: 'include' });
+        const sessionToken = getSessionToken();
+        const pollHeaders: Record<string, string> = {};
+        if (sessionToken) pollHeaders['Authorization'] = `Bearer ${sessionToken}`;
+        const res = await fetch(`/api/induction/status/${roleType}`, { credentials: 'include', headers: pollHeaders });
         if (!res.ok) { if (res.status === 401) stopPolling(); return; }
         const sd: GenerationStatus = await res.json();
         setGenerationStatus(sd);
@@ -1426,7 +1429,10 @@ export default function InductionSettings() {
       const iv = setInterval(async () => {
         if (qsAbortRef.current.abort) { clearInterval(iv); reject(new Error('Aborted')); return; }
         try {
-          const res = await fetch(`/api/induction/status/${role}`, { credentials: 'include' });
+          const _st = getSessionToken();
+          const _ph: Record<string, string> = {};
+          if (_st) _ph['Authorization'] = `Bearer ${_st}`;
+          const res = await fetch(`/api/induction/status/${role}`, { credentials: 'include', headers: _ph });
           const s = await res.json();
           if (s.status === 'done') { clearInterval(iv); onProgress(100); resolve(); }
           else if (s.status === 'failed') { clearInterval(iv); reject(new Error(s.error || 'Slide generation failed')); }
