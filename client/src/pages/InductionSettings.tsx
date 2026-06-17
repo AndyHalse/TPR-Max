@@ -328,8 +328,14 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     },
     onSuccess: (data, { sceneIdx }) => {
       setUploadingSlideIdx(null);
-      setEditedScenes(prev => prev.map((s, i) => i === sceneIdx ? { ...s, imageUrl: data.url } : s));
-      toast({ title: 'Photo uploaded', description: 'Save slides to apply the photo.' });
+      // Build the updated scenes synchronously so we can persist immediately
+      const updatedScenes = editedScenes.map((s, i) => i === sceneIdx ? { ...s, imageUrl: data.url } : s);
+      setEditedScenes(updatedScenes);
+      // Auto-persist so imageUrl reaches the DB before any Generate run
+      apiRequest('PUT', `/api/induction/settings/${roleType}/scenes`, { scenes: updatedScenes })
+        .then(() => refetchSlides())
+        .catch(() => {});
+      toast({ title: 'Photo uploaded', description: 'Custom photo saved — it will appear on this slide when you generate.' });
     },
     onError: (err: any) => {
       setUploadingSlideIdx(null);

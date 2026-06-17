@@ -15,7 +15,7 @@ import { logger } from '../utils/logger';
 // - Used as primary image generator for production induction content
 
 // This API key is from Gemini Developer API Key, not vertex AI API Key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "" });
 
 export class GeminiImageGenerator implements IImageGenerator {
   async generate(
