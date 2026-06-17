@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { MessageCircle, X, Send, Bot, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -119,7 +120,7 @@ export default function ChatbotWidget() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3">
       {isOpen && (
         <div className="w-[22rem] max-w-[calc(100vw-3rem)] flex flex-col rounded-2xl shadow-2xl border border-gray-200 bg-white overflow-hidden"
           style={{ height: "28rem" }}>
@@ -230,10 +231,10 @@ export default function ChatbotWidget() {
                 onClick={sendMessage}
                 disabled={!inputValue.trim() || isLoading}
                 aria-label="Send message"
-                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white transition-opacity disabled:opacity-40"
+                className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white transition-opacity disabled:opacity-40"
                 style={{ backgroundColor: "#2460A9" }}
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-3.5 w-3.5" />
               </button>
             </div>
             <p className="text-[10px] text-gray-400 mt-1.5 text-center">
@@ -243,21 +244,30 @@ export default function ChatbotWidget() {
         </div>
       )}
 
-      <button
-        onClick={() => setIsOpen((o) => !o)}
-        aria-label={isOpen ? "Close help assistant" : "Open help assistant"}
-        className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95 relative"
-        style={{ backgroundColor: "#2460A9" }}
-      >
-        {isOpen ? (
-          <X className="h-6 w-6" />
-        ) : (
-          <>
-            <MessageCircle className="h-6 w-6" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" title="Help available" />
-          </>
-        )}
-      </button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setIsOpen((o) => !o)}
+              aria-label={isOpen ? "Close help assistant" : "Open help assistant"}
+              className="w-9 h-9 rounded-full shadow-lg flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95 relative"
+              style={{ backgroundColor: "#2460A9" }}
+            >
+              {isOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <>
+                  <MessageCircle className="h-4 w-4" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+                </>
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="bg-slate-900 text-white">
+            <p>Help Assistant</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }

@@ -206,26 +206,20 @@ export default function ReportProblemButton() {
 
   return (
     <>
-      <div className="fixed bottom-16 right-4 sm:bottom-24 sm:right-6 z-40">
+      <div className="fixed bottom-16 right-4 z-40">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={handleOpen}
                 disabled={capturing}
-                size="lg"
-                className="h-10 w-10 sm:h-14 sm:w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 bg-amber-500 hover:bg-amber-600 text-white"
+                size="icon"
+                className="h-9 w-9 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 bg-amber-500 hover:bg-amber-600 text-white"
               >
                 {capturing ? (
-                  <>
-                    <Loader2 size={18} className="sm:hidden animate-spin" />
-                    <Loader2 size={24} className="hidden sm:block animate-spin" />
-                  </>
+                  <Loader2 size={15} className="animate-spin" />
                 ) : (
-                  <>
-                    <Bug size={18} className="sm:hidden" />
-                    <Bug size={24} className="hidden sm:block" />
-                  </>
+                  <Bug size={15} />
                 )}
               </Button>
             </TooltipTrigger>

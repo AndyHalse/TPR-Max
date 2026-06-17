@@ -3,6 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { requireAuth } from '../auth';
 import { askHelpAssistant } from '../chatbotService';
 import { logger } from '../utils/logger';
+import { databaseService } from '../databaseService';
+import { decryptData } from '../utils/encryption';
 
 const chatbotLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -19,6 +21,22 @@ const chatbotLimiter = rateLimit({
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_MESSAGES = 10;
+
+async function resolveAnthropicKey(customerId?: string): Promise<string | null> {
+  if (customerId) {
+    try {
+      const apiKeys = await databaseService.getCustomerApiKeys({ customerId });
+      const claudeRow = apiKeys.find((k: any) => k.serviceType === 'claude' && k.status === 'active');
+      if (claudeRow?.encryptedKey) {
+        const key = decryptData(claudeRow.encryptedKey);
+        if (key) return key;
+      }
+    } catch (err) {
+      logger.warn('⚠️ chatbot: could not load customer Claude key, falling back to platform key', err);
+    }
+  }
+  return process.env.ANTHROPIC_API_KEY || null;
+}
 
 export function registerChatbotRoutes(app: Express): void {
   app.post('/api/chatbot/ask', requireAuth, chatbotLimiter, async (req, res) => {
@@ -48,15 +66,16 @@ export function registerChatbotRoutes(app: Express): void {
         }
       }
 
-      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const customerId = (req as any).customerId as string | undefined;
+      const username = (req as any).user?.username || 'unknown';
+
+      const apiKey = await resolveAnthropicKey(customerId);
       if (!apiKey) {
-        logger.warn('⚠️ chatbot: ANTHROPIC_API_KEY not set — help assistant unavailable');
-        return res.status(503).json({ error: 'Help assistant is not configured on this platform.' });
+        logger.warn('⚠️ chatbot: no Claude API key available for customer', customerId);
+        return res.status(503).json({ error: 'Help assistant requires a Claude API key. Please add one in Settings → AI.' });
       }
 
-      const customerId = (req as any).customerId || 'unknown';
-      const username = (req as any).user?.username || 'unknown';
-      logger.info(`💬 chatbot: request from ${username} (${customerId}), page="${currentPage ?? 'unknown'}", turns=${messages.length}`);
+      logger.info(`💬 chatbot: request from ${username} (${customerId ?? 'unknown'}), page="${currentPage ?? 'unknown'}", turns=${messages.length}`);
 
       const { answer, success } = await askHelpAssistant({
         messages,
