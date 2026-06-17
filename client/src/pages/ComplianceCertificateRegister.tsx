@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ShieldCheck, AlertTriangle, XCircle, Clock, Upload, Download, Eye, Plus, Settings,
-  CheckCircle2, FileText, ChevronDown, ChevronRight, Info, RefreshCw, Layers
+  CheckCircle2, FileText, ChevronDown, ChevronRight, Info, RefreshCw, Layers, Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -58,6 +58,7 @@ interface StatusSummary {
   expiring_soon: number;
   expired: number;
   no_certificate: number;
+  no_expiry: number;
   overallStatus: string;
 }
 
@@ -208,6 +209,34 @@ export default function ComplianceCertificateRegister() {
     onError: () => toast({ title: 'Failed to delete', variant: 'destructive' }),
   });
 
+  const [editCert, setEditCert] = useState<Certificate | null>(null);
+  const [editForm, setEditForm] = useState({ issueDate: '', expiryDate: '', referenceNumber: '', issuedBy: '', issuingCompany: '', notes: '' });
+
+  const openEdit = (cert: Certificate) => {
+    setEditCert(cert);
+    setEditForm({
+      issueDate: cert.issueDate ?? '',
+      expiryDate: cert.expiryDate ?? '',
+      referenceNumber: cert.referenceNumber ?? '',
+      issuedBy: cert.issuedBy ?? '',
+      issuingCompany: cert.issuingCompany ?? '',
+      notes: cert.notes ?? '',
+    });
+  };
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof editForm }) =>
+      apiRequest('PATCH', `/api/compliance-certificates/${id}`, data).then(r => (r as Response).json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/types'] });
+      qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/status-summary'] });
+      if (viewHistoryTypeId) qc.invalidateQueries({ queryKey: [`/api/compliance-certificates/by-type/${viewHistoryTypeId}`] });
+      setEditCert(null);
+      toast({ title: 'Certificate record updated.' });
+    },
+    onError: (e: any) => toast({ title: e?.error || 'Failed to update certificate', variant: 'destructive' }),
+  });
+
   const filteredTypes = certTypes.filter(t => {
     if (!t.isActive) return false;
     if (statusFilter === 'all') return true;
@@ -286,6 +315,9 @@ export default function ComplianceCertificateRegister() {
               <div className="text-center"><div className="text-2xl font-bold">{summary.expiring_soon}</div><div className="text-white/75">Expiring</div></div>
               <div className="text-center"><div className="text-2xl font-bold">{summary.expired}</div><div className="text-white/75">Expired</div></div>
               <div className="text-center"><div className="text-2xl font-bold">{summary.no_certificate}</div><div className="text-white/75">Missing</div></div>
+              {(summary.no_expiry ?? 0) > 0 && (
+                <div className="text-center"><div className="text-2xl font-bold">{summary.no_expiry}</div><div className="text-white/75">No Expiry</div></div>
+              )}
             </div>
           </div>
         </div>
@@ -628,6 +660,12 @@ export default function ComplianceCertificateRegister() {
                           </Button>
                         </>
                       )}
+                      <Button
+                        size="sm" variant="outline"
+                        onClick={() => openEdit(cert)}
+                      >
+                        <Pencil className="h-3 w-3 mr-1" /> Edit
+                      </Button>
                       {!cert.isCurrent && (
                         <Button
                           size="sm" variant="ghost"
@@ -648,6 +686,67 @@ export default function ComplianceCertificateRegister() {
             <Button variant="outline" onClick={() => setViewHistoryTypeId(null)}>Close</Button>
             <Button onClick={() => { setViewHistoryTypeId(null); setUploadTypeId(historyType?.id || null); }}>
               <Upload className="h-4 w-4 mr-1.5" /> Upload New Certificate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Certificate Dialog */}
+      <Dialog open={!!editCert} onOpenChange={open => { if (!open) setEditCert(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" /> Edit Certificate Record
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Correct the details for this certificate record.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Issue Date *</Label>
+                <Input type="date" value={editForm.issueDate} onChange={e => setEditForm(p => ({ ...p, issueDate: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Expiry Date</Label>
+                <Input type="date" value={editForm.expiryDate} onChange={e => setEditForm(p => ({ ...p, expiryDate: e.target.value }))} />
+                <p className="text-xs text-gray-500 mt-1">Leave blank if no fixed expiry.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Reference / Certificate No.</Label>
+                <Input value={editForm.referenceNumber} onChange={e => setEditForm(p => ({ ...p, referenceNumber: e.target.value }))} placeholder="e.g. GS/2025/001" />
+              </div>
+              <div>
+                <Label>Issued By (Person)</Label>
+                <Input value={editForm.issuedBy} onChange={e => setEditForm(p => ({ ...p, issuedBy: e.target.value }))} placeholder="Inspector name" />
+              </div>
+            </div>
+            <div>
+              <Label>Issuing Company / Organisation</Label>
+              <Input value={editForm.issuingCompany} onChange={e => setEditForm(p => ({ ...p, issuingCompany: e.target.value }))} placeholder="e.g. ABC Gas Services Ltd" />
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCert(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!editCert) return;
+                if (!editForm.issueDate) { toast({ title: 'Issue date is required', variant: 'destructive' }); return; }
+                if (editForm.expiryDate && editForm.expiryDate < editForm.issueDate) {
+                  toast({ title: 'Expiry date cannot be before the issue date', variant: 'destructive' }); return;
+                }
+                editMutation.mutate({ id: editCert.id, data: editForm });
+              }}
+              disabled={editMutation.isPending}
+            >
+              {editMutation.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2590,6 +2590,7 @@ export const complianceCertificates = pgTable("compliance_certificates", {
   notes: text("notes"),
   isCurrent: boolean("is_current").default(true).notNull(),
   expiryAlertedAt: timestamp("expiry_alerted_at"),
+  expiryAlertPhase: text("expiry_alert_phase"), // 'expiring' | 'expired' | null — which alert phase was last sent
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });

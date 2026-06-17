@@ -15,6 +15,9 @@ import { calculateCertificateStatus, calculateNextDueDate, getDaysUntilExpiry, g
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const objectStorage = new ObjectStorageService();
 
+// DDL guard — run CREATE TABLE + ALTER once per customer schema per process lifetime
+const bootstrappedSchemas = new Set<string>();
+
 const requireComplianceCertificatesFeature = async (req: any, res: any, next: any) => {
   try {
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
@@ -29,6 +32,8 @@ const requireComplianceCertificatesFeature = async (req: any, res: any, next: an
 };
 
 async function ensureTables(custDb: any, schemaName: string) {
+  if (bootstrappedSchemas.has(schemaName)) return;  // DDL already run this process
+
   await custDb.execute(`CREATE TABLE IF NOT EXISTS ${schemaName}.compliance_certificate_types (
     id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
     certificate_type TEXT NOT NULL,
@@ -58,9 +63,16 @@ async function ensureTables(custDb: any, schemaName: string) {
     notes TEXT,
     is_current BOOLEAN NOT NULL DEFAULT true,
     expiry_alerted_at TIMESTAMP,
+    expiry_alert_phase TEXT,
     deleted_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW()
   )`);
+
+  // Bring existing tenant schemas up to date (idempotent)
+  await custDb.execute(`ALTER TABLE ${schemaName}.compliance_certificates
+    ADD COLUMN IF NOT EXISTS expiry_alert_phase TEXT`);
+
+  bootstrappedSchemas.add(schemaName);
 }
 
 export function registerComplianceCertificateRoutes(app: Express): void {
@@ -265,6 +277,11 @@ export function registerComplianceCertificateRoutes(app: Express): void {
 
       const { certificateTypeId, issueDate, expiryDate, referenceNumber, issuedBy, issuingCompany, documentUrl, fileName, linkedPpmWorkOrderId, notes } = req.body;
 
+      if (!issueDate) return res.status(400).json({ error: 'Issue date is required' });
+      if (expiryDate && expiryDate < issueDate) {
+        return res.status(400).json({ error: 'Expiry date cannot be before the issue date' });
+      }
+
       const [certType] = await custDb.select().from(isolatedSchema.complianceCertificateTypes)
         .where(eq(isolatedSchema.complianceCertificateTypes.id, certificateTypeId)) as any[];
       if (!certType) return res.status(404).json({ error: 'Certificate type not found' });
@@ -272,28 +289,33 @@ export function registerComplianceCertificateRoutes(app: Express): void {
       const nextDueDate = calculateNextDueDate(issueDate, certType.frequency, certType.customDays);
       const status = calculateCertificateStatus(expiryDate || nextDueDate, certType.reminderDaysBefore);
 
-      // Mark previous current certificate of same type as not current
-      await custDb.update(isolatedSchema.complianceCertificates)
-        .set({ isCurrent: false })
-        .where(and(eq(isolatedSchema.complianceCertificates.certificateTypeId, certificateTypeId), eq(isolatedSchema.complianceCertificates.isCurrent, true)));
-
-      const [created] = await custDb.insert(isolatedSchema.complianceCertificates).values({
-        certificateTypeId,
-        certificateType: certType.certificateType,
-        issueDate,
-        expiryDate: expiryDate || null,
-        nextDueDate: nextDueDate || null,
-        referenceNumber: referenceNumber || null,
-        issuedBy: issuedBy || null,
-        issuingCompany: issuingCompany || null,
-        documentUrl: documentUrl || null,
-        fileName: fileName || null,
-        status,
-        linkedPpmWorkOrderId: linkedPpmWorkOrderId || null,
-        uploadedBy: req.user!.id,
-        notes: notes || null,
-        isCurrent: true,
-      }).returning();
+      // Atomic renewal: demote previous current + insert new in a single transaction
+      const created = await custDb.transaction(async (tx: any) => {
+        await tx.update(isolatedSchema.complianceCertificates)
+          .set({ isCurrent: false })
+          .where(and(
+            eq(isolatedSchema.complianceCertificates.certificateTypeId, certificateTypeId),
+            eq(isolatedSchema.complianceCertificates.isCurrent, true)
+          ));
+        const [row] = await tx.insert(isolatedSchema.complianceCertificates).values({
+          certificateTypeId,
+          certificateType: certType.certificateType,
+          issueDate,
+          expiryDate: expiryDate || null,
+          nextDueDate: nextDueDate || null,
+          referenceNumber: referenceNumber || null,
+          issuedBy: issuedBy || null,
+          issuingCompany: issuingCompany || null,
+          documentUrl: documentUrl || null,
+          fileName: fileName || null,
+          status,
+          linkedPpmWorkOrderId: linkedPpmWorkOrderId || null,
+          uploadedBy: req.user!.id,
+          notes: notes || null,
+          isCurrent: true,
+        }).returning();
+        return row;
+      });
       res.status(201).json(created);
     } catch (err) {
       logger.error('POST /api/compliance-certificates', err);
@@ -351,6 +373,53 @@ export function registerComplianceCertificateRoutes(app: Express): void {
     } catch (err) {
       logger.error('GET /api/compliance-certificates/:id/download', err);
       res.status(500).json({ error: 'Failed to download document' });
+    }
+  });
+
+  // ─── PATCH edit a certificate record ─────────────────────────────────────────
+  app.patch('/api/compliance-certificates/:id', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureTables(custDb, schemaName);
+
+      const { id } = req.params;
+      const { issueDate, expiryDate, referenceNumber, issuedBy, issuingCompany, notes } = req.body;
+
+      const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates)
+        .where(eq(isolatedSchema.complianceCertificates.id, id)) as any[];
+      if (!cert) return res.status(404).json({ error: 'Certificate not found' });
+
+      if (!issueDate) return res.status(400).json({ error: 'Issue date is required' });
+      if (expiryDate && expiryDate < issueDate) {
+        return res.status(400).json({ error: 'Expiry date cannot be before the issue date' });
+      }
+
+      const [certType] = await custDb.select().from(isolatedSchema.complianceCertificateTypes)
+        .where(eq(isolatedSchema.complianceCertificateTypes.id, cert.certificateTypeId)) as any[];
+
+      const nextDueDate = calculateNextDueDate(issueDate, certType?.frequency ?? 'annual', certType?.customDays);
+      const status = calculateCertificateStatus(expiryDate || nextDueDate, certType?.reminderDaysBefore ?? 30);
+
+      const [updated] = await custDb.update(isolatedSchema.complianceCertificates)
+        .set({
+          issueDate,
+          expiryDate: expiryDate || null,
+          nextDueDate: nextDueDate || null,
+          referenceNumber: referenceNumber || null,
+          issuedBy: issuedBy || null,
+          issuingCompany: issuingCompany || null,
+          notes: notes || null,
+          status,
+          expiryAlertedAt: null,    // re-evaluate alerts against the corrected dates
+          expiryAlertPhase: null,
+        })
+        .where(eq(isolatedSchema.complianceCertificates.id, id)).returning();
+
+      res.json(updated);
+    } catch (err) {
+      logger.error('PATCH /api/compliance-certificates/:id', err);
+      res.status(500).json({ error: 'Failed to update certificate' });
     }
   });
 
@@ -418,8 +487,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
               .where(and(
                 eq(isolatedSchema.complianceCertificates.certificateTypeId, certType.id),
                 eq(isolatedSchema.complianceCertificates.isCurrent, true),
-                isNull(isolatedSchema.complianceCertificates.deletedAt),
-                isNull(isolatedSchema.complianceCertificates.expiryAlertedAt)
+                isNull(isolatedSchema.complianceCertificates.deletedAt)
               )).catch(() => []) as any[];
 
             if (!cert) continue;
@@ -428,6 +496,22 @@ export function registerComplianceCertificateRoutes(app: Express): void {
 
             const status = calculateCertificateStatus(dueDate, certType.reminderDaysBefore);
             if (status !== 'expiring_soon' && status !== 'expired') continue;
+
+            // Phase-aware escalation: expiring once → expired once → weekly while still expired
+            const phase = (cert as any).expiryAlertPhase as string | null;
+            const lastAlertAt: Date | null = cert.expiryAlertedAt ? new Date(cert.expiryAlertedAt) : null;
+            const daysSinceLastAlert = lastAlertAt
+              ? Math.floor((Date.now() - lastAlertAt.getTime()) / (1000 * 60 * 60 * 24))
+              : Infinity;
+
+            let shouldSend = false;
+            let newPhase = phase;
+            if (status === 'expiring_soon') {
+              if (phase !== 'expiring' && phase !== 'expired') { shouldSend = true; newPhase = 'expiring'; }
+            } else { // expired
+              if (phase !== 'expired' || daysSinceLastAlert >= 7) { shouldSend = true; newPhase = 'expired'; }
+            }
+            if (!shouldSend) continue;
 
             const days = getDaysUntilExpiry(dueDate);
             const isExpired = status === 'expired';
@@ -471,9 +555,9 @@ export function registerComplianceCertificateRoutes(app: Express): void {
 
             if (sent) {
               await custDb.update(isolatedSchema.complianceCertificates)
-                .set({ expiryAlertedAt: new Date() })
+                .set({ expiryAlertedAt: new Date(), expiryAlertPhase: newPhase })
                 .where(eq(isolatedSchema.complianceCertificates.id, cert.id));
-              setImmediate(() => logger.info(`📧 [Cert Cron] Expiry alert sent for "${certType.displayName}" (customer ${customer.id})`));
+              setImmediate(() => logger.info(`📧 [Cert Cron] ${newPhase} alert sent for "${certType.displayName}" (customer ${customer.id})`));
             }
           }
         } catch (custErr) {
