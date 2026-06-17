@@ -26,15 +26,48 @@ export class VideoGenerationService {
     this.companySettings = settings || null;
     this.customerId = customerId || null;
     
-    // Create services with company settings for proper branding
+    // Create services with company settings for proper branding.
+    // imageGenerator is re-created with live API keys inside generateSceneImages().
     const defaultServices = ServiceFactory.getDependencies();
     const imageGenerator = new ImageFallbackChain(this.companySettings);
     
     this.services = { 
       ...defaultServices, 
-      imageGenerator, // Override with company-aware image generator
+      imageGenerator,
       ...deps 
     };
+  }
+
+  /**
+   * Resolve the customer's live API keys from the database.
+   * Returns an empty object if customerId is not set or keys can't be loaded.
+   */
+  private async resolveApiKeys(): Promise<{ geminiKey?: string; openaiKey?: string }> {
+    if (!this.customerId) return {};
+    try {
+      const { databaseService } = await import('./databaseService');
+      const { decryptData } = await import('./utils/encryption');
+      const apiKeys = await databaseService.getCustomerApiKeys({ customerId: this.customerId });
+
+      const result: { geminiKey?: string; openaiKey?: string } = {};
+
+      const geminiRow = apiKeys.find((k: any) => k.serviceType === 'gemini' && k.status === 'active');
+      if (geminiRow?.encryptedKey) {
+        result.geminiKey = decryptData(geminiRow.encryptedKey, geminiRow.initializationVector, geminiRow.authTag || '');
+        logger.info('🔑 Resolved customer Gemini API key for image generation');
+      }
+
+      const openaiRow = apiKeys.find((k: any) => k.serviceType === 'openai' && k.status === 'active');
+      if (openaiRow?.encryptedKey) {
+        result.openaiKey = decryptData(openaiRow.encryptedKey, openaiRow.initializationVector, openaiRow.authTag || '');
+        logger.info('🔑 Resolved customer OpenAI API key for image generation');
+      }
+
+      return result;
+    } catch (err: any) {
+      logger.warn('⚠️ Could not resolve customer API keys for image generation:', err.message);
+      return {};
+    }
   }
 
   // OpenAI GPT-5 completion methods - PRODUCTION QUALITY
@@ -1022,45 +1055,42 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
     try {
       logger.info(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (sequential to respect rate limits)...`);
 
-      // Process images one-at-a-time. Firing all requests simultaneously causes
-      // gpt-image-1 to rate-limit after the first 1-2 and everything falls back to SVG.
+      // Resolve the customer's live API keys from the database so we always use
+      // their current keys — not the server env vars which may be expired.
+      const apiKeys = await this.resolveApiKeys();
+      const hasGemini = !!apiKeys.geminiKey;
+      const hasOpenAI = !!apiKeys.openaiKey;
+      logger.info(`🔑 API keys available — Gemini: ${hasGemini}, OpenAI: ${hasOpenAI}`);
+
+      // Build a fresh chain with the live customer keys for this run
+      const imageGenerator = new ImageFallbackChain(this.companySettings, apiKeys);
+
+      // Process images one-at-a-time to stay within rate limits
       const imageUrls: string[] = [];
 
       for (let i = 0; i < selectedScenes.length; i++) {
         const scene = selectedScenes[i];
-        logger.info(`🖼️ Generating image ${i + 1}/${selectedScenes.length}...`);
-
-        const enhancedPrompt = `Ultra-realistic corporate safety training photograph for ${this.companySettings?.companyName || "professional workplace"} induction. ${scene.imagePrompt}.
-
-Visual Style: Photorealistic, high-end corporate photography with perfect lighting and composition.
-Environment: State-of-the-art modern workplace with contemporary safety equipment and infrastructure.
-Quality: 4K professional photography quality, crystal clear focus, perfect exposure.
-People: Diverse, professional individuals demonstrating proper safety procedures, modern business attire with appropriate PPE.
-Equipment: Latest generation safety equipment, modern facilities, contemporary industrial design.
-Composition: Dynamic angles showing clear demonstration of safety concepts without relying on text.
-Lighting: Professional studio-quality lighting highlighting safety features and proper procedures.
-
-CRITICAL: Create photorealistic images without any text, logos, or written content. Focus on clear visual demonstration of safety concepts through body language, equipment positioning, and environmental cues.
-Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting, amateur composition.`;
+        const sceneTitle = (scene as any).title || `Safety Image ${i + 1}`;
+        logger.info(`🖼️ Generating image ${i + 1}/${selectedScenes.length}: "${sceneTitle}"...`);
 
         try {
-          const sceneTitle = (scene as any).title || `Safety Image ${i + 1}`;
-          const result = await this.services.imageGenerator.generate(
+          const result = await imageGenerator.generate(
             sceneTitle,
             sceneTitle,
-            enhancedPrompt
+            scene.imagePrompt || sceneTitle
           );
 
           if (ResultUtils.isSuccess(result)) {
-            logger.info(`✅ Image ${i + 1} generated successfully`);
+            const model = (result.data as any)?.meta?.model || 'unknown';
+            logger.info(`✅ Image ${i + 1} generated via ${model}`);
             imageUrls.push(result.data.url);
           } else {
-            logger.warn(`⚠️ Image ${i + 1} generation failed: ${result.error?.message}`);
-            imageUrls.push(this.generateFallbackImage(scene.imagePrompt, i + 1));
+            logger.warn(`⚠️ Image ${i + 1} chain exhausted: ${result.error?.message}`);
+            imageUrls.push(this.generateFallbackImage((scene as any).imagePrompt || '', i + 1));
           }
         } catch (error) {
-          logger.error(`❌ Failed to generate image ${i + 1}:`, error);
-          imageUrls.push(this.generateFallbackImage(scene.imagePrompt, i + 1));
+          logger.error(`❌ Unexpected error for image ${i + 1}:`, error);
+          imageUrls.push(this.generateFallbackImage((scene as any).imagePrompt || '', i + 1));
         }
 
         // Brief pause between requests to stay within rate limits
@@ -1069,13 +1099,11 @@ Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting,
         }
       }
 
-      logger.info(`🎉 Successfully generated ${imageUrls.filter(url => url && !url.startsWith('data:image/svg')).length}/${selectedScenes.length} AI images`);
+      const aiCount = imageUrls.filter(url => url && !url.startsWith('data:image/svg')).length;
+      logger.info(`🎉 Image generation complete: ${aiCount}/${selectedScenes.length} photorealistic, ${selectedScenes.length - aiCount} SVG fallback`);
       return imageUrls;
     } catch (error: any) {
       logger.error('❌ Error generating scene images:', error);
-      if (error?.response) {
-        logger.error('API Response:', error.response.data);
-      }
       // Generate SVG fallbacks for every scene — never return blank images
       logger.warn('⚠️ Falling back to SVG safety images for all scenes');
       return selectedScenes.map((scene, i) => this.generateFallbackImage((scene as any).imagePrompt || '', i + 1));
