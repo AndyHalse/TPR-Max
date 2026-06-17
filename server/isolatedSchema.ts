@@ -2723,6 +2723,8 @@ export const auditTemplates = pgTable("audit_templates", {
   estimatedMinutes: integer("estimated_minutes"),
   passScore: integer("pass_score").default(80),
   isActive: boolean("is_active").default(true).notNull(),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: text("deleted_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2764,6 +2766,9 @@ export const auditRecords = pgTable("audit_records", {
   accessToken: varchar("access_token"),
   accessTokenExpiresAt: timestamp("access_token_expires_at"),
   overdueAlertedAt: timestamp("overdue_alerted_at"),
+  completedBy: text("completed_by"),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: text("deleted_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2807,12 +2812,24 @@ export const auditCorrectiveActions = pgTable("audit_corrective_actions", {
   closedAt: timestamp("closed_at"),
   closedBy: text("closed_by"),
   overdueAlertedAt: timestamp("overdue_alerted_at"),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: text("deleted_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertAuditCorrectiveActionSchema = createInsertSchema(auditCorrectiveActions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAuditCorrectiveActionSchema = createInsertSchema(auditCorrectiveActions).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true, deletedBy: true });
 export type InsertAuditCorrectiveAction = z.infer<typeof insertAuditCorrectiveActionSchema>;
+
+// Append-only audit activity log — records sensitive audit events
+export const auditActivityLog = pgTable("audit_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id"),
+  actorName: text("actor_name").notNull(),
+  action: text("action").notNull(),
+  detail: text("detail"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 // Risk Assessment Builder

@@ -9,7 +9,7 @@ import { ObjectStorageService } from '../objectStorage';
 import { EmailService } from '../emailService';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, and, sql, desc, or, lt, isNull, inArray, count } from 'drizzle-orm';
+import { eq, and, sql, desc, or, lt, isNull, gte, inArray, count } from 'drizzle-orm';
 
 // ── Audit feature gate ───────────────────────────────────────────────────────
 const requireAuditFeature = async (req: any, res: any, next: any) => {
@@ -52,6 +52,10 @@ export function registerAuditEngineRoutes(app: Express): void {
         if (record) return { custDb, record };
       } catch { /* fall through to legacy scan */ }
     }
+    // Fix 7: Reject malformed tokens before scanning every customer database.
+    // Valid tokens look like <customerId>.<48 hex chars>. Anything else is bogus.
+    const hexPart = dotIndex > 0 ? token.slice(dotIndex + 1) : token;
+    if (!/^[0-9a-f]{48}$/.test(hexPart)) return null;
     // Legacy fallback: tokens issued before customerId prefix was added
     const allCustomers = await customerDbService.getAllCustomers();
     for (const customer of allCustomers) {
@@ -61,6 +65,28 @@ export function registerAuditEngineRoutes(app: Express): void {
       if (record) return { custDb, record };
     }
     return null;
+  }
+
+  function isMgr(req: any): boolean {
+    return req.user?.role === 'admin' || req.user?.role === 'manager';
+  }
+
+  async function appendAuditLog(custDb: any, entry: {
+    auditId?: string | null;
+    actorName: string;
+    action: string;
+    detail?: string | null;
+  }): Promise<void> {
+    try {
+      await custDb.insert(isolatedSchema.auditActivityLog).values({
+        auditId: entry.auditId ?? null,
+        actorName: entry.actorName,
+        action: entry.action,
+        detail: entry.detail ?? null,
+      });
+    } catch (err: any) {
+      logger.warn(`[AuditActivityLog] Failed to write log: ${err.message}`);
+    }
   }
 
   // ── PUBLIC ENDPOINTS (registered BEFORE auth middleware) ─────────────────
@@ -94,6 +120,10 @@ export function registerAuditEngineRoutes(app: Express): void {
       if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
         return res.status(410).json({ error: 'This link has expired.' });
       }
+      // Fix 4: Lock completed audits — no further changes allowed.
+      if (record.status === 'completed') {
+        return res.status(410).json({ error: 'This audit has already been submitted and can no longer be changed.' });
+      }
       await custDb.update(isolatedSchema.auditRecordItems)
         .set({ response, note, photoUrl, photoFileName })
         .where(and(
@@ -110,13 +140,17 @@ export function registerAuditEngineRoutes(app: Express): void {
   app.post('/api/audits/public/:token/submit', auditPublicRateLimit, async (req, res) => {
     try {
       const { token } = req.params;
-      const { summary } = req.body;
       const resolved = await resolveAuditDb(token);
       if (!resolved) return res.status(404).json({ error: 'Audit not found.' });
       const { custDb, record } = resolved;
       if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
         return res.status(410).json({ error: 'This link has expired.' });
       }
+      // Fix 4: Prevent re-submission of a completed audit.
+      if (record.status === 'completed') {
+        return res.status(410).json({ error: 'This audit has already been submitted and can no longer be changed.' });
+      }
+      const { summary, completedByName } = req.body;
       const items = await custDb.select().from(isolatedSchema.auditRecordItems)
         .where(eq(isolatedSchema.auditRecordItems.auditId, record.id));
       const passCount = items.filter((i: any) => i.response === 'pass').length;
@@ -133,7 +167,7 @@ export function registerAuditEngineRoutes(app: Express): void {
       const passThreshold = template?.passScore ?? 80;
       const passed = hasCriticalFail ? false : score >= passThreshold;
       const [updated] = await custDb.update(isolatedSchema.auditRecords)
-        .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary: summary || null, updatedAt: new Date() })
+        .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary: summary || null, completedBy: completedByName || null, updatedAt: new Date() })
         .where(eq(isolatedSchema.auditRecords.id, record.id))
         .returning();
 
@@ -163,6 +197,12 @@ export function registerAuditEngineRoutes(app: Express): void {
       }
 
       const naCount = items.filter((i: any) => i.response === 'na').length;
+      await appendAuditLog(custDb, {
+        auditId: record.id,
+        actorName: completedByName || record.conductedBy,
+        action: 'record.completed',
+        detail: `Mobile audit submitted. Score: ${score}%, ${passed ? 'PASSED' : 'FAILED'}`,
+      });
       return res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount, autoActionsCreated });
     } catch (error: unknown) {
       logger.error('POST /api/audits/public/:token/submit', error);
@@ -175,19 +215,39 @@ export function registerAuditEngineRoutes(app: Express): void {
       const { token } = req.params;
       const { data, mimeType, fileName, itemId } = req.body;
       if (!data || !mimeType || !fileName) return res.status(400).json({ error: 'Missing file data' });
+
+      // Fix 5: Allow images only.
+      const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+      if (!ALLOWED_MIME.includes(mimeType)) {
+        return res.status(400).json({ error: 'Only image files (JPEG, PNG, WebP, HEIC) are allowed.' });
+      }
+
+      const buffer = Buffer.from(data, 'base64');
+
+      // Fix 5: Cap file size at 6 MB.
+      if (buffer.length > 6 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Image too large. Please use a smaller photo.' });
+      }
+
+      // Fix 5: Sanitise filename — strip path separators and unsafe characters.
+      const safeFileName = fileName.replace(/^.*[\\/]/, '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'upload';
+
       const resolved = await resolveAuditDb(token);
       if (!resolved) return res.status(404).json({ error: 'Audit not found.' });
       const { custDb, record } = resolved;
       if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
         return res.status(410).json({ error: 'This link has expired.' });
       }
-      const buffer = Buffer.from(data, 'base64');
+      // Fix 4: Reject uploads for completed audits.
+      if (record.status === 'completed') {
+        return res.status(410).json({ error: 'This audit has already been submitted and can no longer be changed.' });
+      }
       const storage = new ObjectStorageService();
-      const uploadPath = `audit-photos/${record.id}/${Date.now()}-${fileName}`;
+      const uploadPath = `audit-photos/${record.id}/${Date.now()}-${safeFileName}`;
       const fileUrl = await storage.uploadFile(buffer, uploadPath, mimeType);
       if (itemId) {
         await custDb.update(isolatedSchema.auditRecordItems)
-          .set({ photoUrl: fileUrl, photoFileName: fileName })
+          .set({ photoUrl: fileUrl, photoFileName: safeFileName })
           .where(and(
             eq(isolatedSchema.auditRecordItems.id, itemId),
             eq(isolatedSchema.auditRecordItems.auditId, record.id)
@@ -210,6 +270,7 @@ export function registerAuditEngineRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const templates = await custDb.select().from(isolatedSchema.auditTemplates)
+        .where(isNull(isolatedSchema.auditTemplates.deletedAt))
         .orderBy(desc(isolatedSchema.auditTemplates.createdAt));
       const itemCounts = await custDb.select({
         templateId: isolatedSchema.auditTemplateItems.templateId,
@@ -529,10 +590,18 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.delete('/api/audits/templates/:id', requireAuth, async (req, res) => {
     try {
+      if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      await custDb.delete(isolatedSchema.auditTemplates)
+      await custDb.update(isolatedSchema.auditTemplates)
+        .set({ deletedAt: new Date(), deletedBy: req.user!.name || req.user!.username })
         .where(eq(isolatedSchema.auditTemplates.id, req.params.id));
+      await appendAuditLog(custDb, {
+        auditId: null,
+        actorName: req.user!.name || req.user!.username,
+        action: 'template.deleted',
+        detail: `Template ${req.params.id} soft-deleted`,
+      });
       res.json({ ok: true });
     } catch (error: unknown) {
       logger.error('DELETE /api/audits/templates/:id', error);
@@ -609,9 +678,17 @@ export function registerAuditEngineRoutes(app: Express): void {
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10));
+      const pageSize = Math.min(200, Math.max(1, parseInt(String(req.query.pageSize ?? '50'), 10)));
+      const offset = (page - 1) * pageSize;
+      const [{ total }] = await custDb.select({ total: count() })
+        .from(isolatedSchema.auditRecords)
+        .where(isNull(isolatedSchema.auditRecords.deletedAt));
       const records = await custDb.select().from(isolatedSchema.auditRecords)
-        .orderBy(desc(isolatedSchema.auditRecords.createdAt));
-      res.json(records);
+        .where(isNull(isolatedSchema.auditRecords.deletedAt))
+        .orderBy(desc(isolatedSchema.auditRecords.createdAt))
+        .limit(pageSize).offset(offset);
+      res.json({ records, total: Number(total), page, pageSize });
     } catch (error: unknown) {
       logger.error('GET /api/audits/records', error);
       res.status(500).json({ error: 'Failed to fetch audit records' });
@@ -620,6 +697,7 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.post('/api/audits/records', requireAuth, async (req, res) => {
     try {
+      if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
       const parsed = isolatedSchema.insertAuditRecordSchema.parse(req.body);
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -653,12 +731,17 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.put('/api/audits/records/:id', requireAuth, async (req, res) => {
     try {
+      if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const parsed = isolatedSchema.insertAuditRecordSchema.partial().parse(req.body);
+      // Fix 3: Strip read-only/server-computed fields before parsing to prevent score tampering.
+      const { overallScore: _s, passed: _p, status: _st, conductedAt: _ca,
+              accessToken: _at, accessTokenExpiresAt: _ate,
+              deletedAt: _da, deletedBy: _db, completedBy: _cb, ...safeBody } = req.body;
+      const parsed = isolatedSchema.insertAuditRecordSchema.partial().parse(safeBody);
       const [record] = await custDb.update(isolatedSchema.auditRecords)
         .set({ ...parsed, updatedAt: new Date() })
-        .where(eq(isolatedSchema.auditRecords.id, req.params.id))
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), isNull(isolatedSchema.auditRecords.deletedAt)))
         .returning();
       if (!record) return res.status(404).json({ error: 'Audit record not found' });
       res.json(record);
@@ -670,10 +753,25 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.delete('/api/audits/records/:id', requireAuth, async (req, res) => {
     try {
+      if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      await custDb.delete(isolatedSchema.auditRecords)
+      const [existing] = await custDb.select().from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), isNull(isolatedSchema.auditRecords.deletedAt)));
+      if (!existing) return res.status(404).json({ error: 'Audit record not found' });
+      // Fix 1: Block deletion of completed audits.
+      if (existing.status === 'completed') {
+        return res.status(403).json({ error: 'Completed audit records cannot be deleted.' });
+      }
+      await custDb.update(isolatedSchema.auditRecords)
+        .set({ deletedAt: new Date(), deletedBy: req.user!.name || req.user!.username })
         .where(eq(isolatedSchema.auditRecords.id, req.params.id));
+      await appendAuditLog(custDb, {
+        auditId: req.params.id,
+        actorName: req.user!.name || req.user!.username,
+        action: 'record.deleted',
+        detail: `Audit record soft-deleted (was ${existing.status})`,
+      });
       res.json({ ok: true });
     } catch (error: unknown) {
       logger.error('DELETE /api/audits/records/:id', error);
@@ -746,8 +844,9 @@ export function registerAuditEngineRoutes(app: Express): void {
       const passThreshold = template?.passScore ?? 80;
       const passed = hasCriticalFail ? false : score >= passThreshold;
       const summary = req.body.summary || record.summary || null;
+      const completedByName = req.body.completedByName || req.user!.name || req.user!.username;
       const [updated] = await custDb.update(isolatedSchema.auditRecords)
-        .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary, updatedAt: new Date() })
+        .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary, completedBy: completedByName, updatedAt: new Date() })
         .where(eq(isolatedSchema.auditRecords.id, req.params.id))
         .returning();
 
@@ -774,6 +873,12 @@ export function registerAuditEngineRoutes(app: Express): void {
         }
       }
 
+      await appendAuditLog(custDb, {
+        auditId: req.params.id,
+        actorName: completedByName,
+        action: 'record.completed',
+        detail: `Desktop audit submitted. Score: ${score}%, ${passed ? 'PASSED' : 'FAILED'}`,
+      });
       res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount, items, autoActionsCreated });
     } catch (error: unknown) {
       logger.error('POST /api/audits/records/:id/submit', error);
@@ -890,7 +995,10 @@ export function registerAuditEngineRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const actions = await custDb.select().from(isolatedSchema.auditCorrectiveActions)
-        .where(eq(isolatedSchema.auditCorrectiveActions.auditId, req.params.id))
+        .where(and(
+          eq(isolatedSchema.auditCorrectiveActions.auditId, req.params.id),
+          isNull(isolatedSchema.auditCorrectiveActions.deletedAt)
+        ))
         .orderBy(desc(isolatedSchema.auditCorrectiveActions.createdAt));
       res.json(actions);
     } catch (error: unknown) {
@@ -901,6 +1009,7 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.post('/api/audits/records/:id/actions', requireAuth, async (req, res) => {
     try {
+      if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const parsed = isolatedSchema.insertAuditCorrectiveActionSchema.parse({ ...req.body, auditId: req.params.id });
@@ -917,6 +1026,7 @@ export function registerAuditEngineRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const actions = await custDb.select().from(isolatedSchema.auditCorrectiveActions)
+        .where(isNull(isolatedSchema.auditCorrectiveActions.deletedAt))
         .orderBy(desc(isolatedSchema.auditCorrectiveActions.createdAt));
       res.json(actions);
     } catch (error: unknown) {
@@ -944,10 +1054,21 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.delete('/api/audits/actions/:id', requireAuth, async (req, res) => {
     try {
+      if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      await custDb.delete(isolatedSchema.auditCorrectiveActions)
+      const [existing] = await custDb.select().from(isolatedSchema.auditCorrectiveActions)
         .where(eq(isolatedSchema.auditCorrectiveActions.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: 'Action not found' });
+      await custDb.update(isolatedSchema.auditCorrectiveActions)
+        .set({ deletedAt: new Date(), deletedBy: req.user!.name || req.user!.username })
+        .where(eq(isolatedSchema.auditCorrectiveActions.id, req.params.id));
+      await appendAuditLog(custDb, {
+        auditId: existing.auditId,
+        actorName: req.user!.name || req.user!.username,
+        action: 'action.deleted',
+        detail: `Corrective action soft-deleted: "${existing.title}"`,
+      });
       res.json({ ok: true });
     } catch (error: unknown) {
       logger.error('DELETE /api/audits/actions/:id', error);
@@ -974,6 +1095,12 @@ export function registerAuditEngineRoutes(app: Express): void {
         .where(eq(isolatedSchema.auditCorrectiveActions.id, req.params.id))
         .returning();
       if (!action) return res.status(404).json({ error: 'Action not found' });
+      await appendAuditLog(custDb, {
+        auditId: action.auditId,
+        actorName: req.user!.name || req.user!.username,
+        action: 'action.closed',
+        detail: `Corrective action closed: "${action.title}"`,
+      });
       res.json(action);
     } catch (error: unknown) {
       logger.error('POST /api/audits/actions/:id/close', error);
@@ -987,43 +1114,68 @@ export function registerAuditEngineRoutes(app: Express): void {
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const allRecords = await custDb.select().from(isolatedSchema.auditRecords)
-        .orderBy(desc(isolatedSchema.auditRecords.createdAt));
-      const allActions = await custDb.select().from(isolatedSchema.auditCorrectiveActions);
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const ninetyDaysAgo = new Date(today); ninetyDaysAgo.setDate(today.getDate() - 90);
       const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-      const totalScheduled = allRecords.filter(r => r.status === 'scheduled').length;
-      const overdueCount = allRecords.filter(r => r.status === 'overdue').length;
-      const completedThisMonth = allRecords.filter(r =>
-        r.status === 'completed' && r.conductedAt && new Date(r.conductedAt) >= firstOfMonth
-      ).length;
-      const openActions = allActions.filter(a => a.status === 'open' || a.status === 'in_progress').length;
-      const overdueActions = allActions.filter(a => a.status === 'overdue').length;
-
-      const last90Completed = allRecords.filter(r =>
-        r.status === 'completed' && r.conductedAt && new Date(r.conductedAt) >= ninetyDaysAgo
-      );
-      const passRate = last90Completed.length > 0
-        ? Math.round((last90Completed.filter(r => r.passed).length / last90Completed.length) * 100)
+      // Fix 8: Use DB aggregation instead of loading all rows into JS.
+      const [{ totalScheduled }] = await custDb.select({ totalScheduled: count() })
+        .from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.status, 'scheduled'), isNull(isolatedSchema.auditRecords.deletedAt)));
+      const [{ overdueCount }] = await custDb.select({ overdueCount: count() })
+        .from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.status, 'overdue'), isNull(isolatedSchema.auditRecords.deletedAt)));
+      const [{ completedThisMonth }] = await custDb.select({ completedThisMonth: count() })
+        .from(isolatedSchema.auditRecords)
+        .where(and(
+          eq(isolatedSchema.auditRecords.status, 'completed'),
+          gte(isolatedSchema.auditRecords.conductedAt, firstOfMonth),
+          isNull(isolatedSchema.auditRecords.deletedAt)
+        ));
+      const [{ openActions }] = await custDb.select({ openActions: count() })
+        .from(isolatedSchema.auditCorrectiveActions)
+        .where(and(
+          or(eq(isolatedSchema.auditCorrectiveActions.status, 'open'), eq(isolatedSchema.auditCorrectiveActions.status, 'in_progress')),
+          isNull(isolatedSchema.auditCorrectiveActions.deletedAt)
+        ));
+      const [{ overdueActions }] = await custDb.select({ overdueActions: count() })
+        .from(isolatedSchema.auditCorrectiveActions)
+        .where(and(eq(isolatedSchema.auditCorrectiveActions.status, 'overdue'), isNull(isolatedSchema.auditCorrectiveActions.deletedAt)));
+      const [{ last90Total }] = await custDb.select({ last90Total: count() })
+        .from(isolatedSchema.auditRecords)
+        .where(and(
+          eq(isolatedSchema.auditRecords.status, 'completed'),
+          gte(isolatedSchema.auditRecords.conductedAt, ninetyDaysAgo),
+          isNull(isolatedSchema.auditRecords.deletedAt)
+        ));
+      const [{ last90Passed }] = await custDb.select({ last90Passed: count() })
+        .from(isolatedSchema.auditRecords)
+        .where(and(
+          eq(isolatedSchema.auditRecords.status, 'completed'),
+          eq(isolatedSchema.auditRecords.passed, true),
+          gte(isolatedSchema.auditRecords.conductedAt, ninetyDaysAgo),
+          isNull(isolatedSchema.auditRecords.deletedAt)
+        ));
+      const passRate = Number(last90Total) > 0
+        ? Math.round((Number(last90Passed) / Number(last90Total)) * 100)
         : 0;
 
-      const recentAudits = allRecords
-        .filter(r => r.status === 'completed')
-        .slice(0, 10);
+      const recentAudits = await custDb.select().from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.status, 'completed'), isNull(isolatedSchema.auditRecords.deletedAt)))
+        .orderBy(desc(isolatedSchema.auditRecords.conductedAt))
+        .limit(10);
 
-      const upcomingAudits = allRecords
-        .filter(r => r.status === 'scheduled' && r.scheduledDate)
-        .sort((a, b) => (a.scheduledDate ?? '').localeCompare(b.scheduledDate ?? ''))
-        .slice(0, 10);
+      const upcomingAudits = await custDb.select().from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.status, 'scheduled'), isNull(isolatedSchema.auditRecords.deletedAt)))
+        .orderBy(isolatedSchema.auditRecords.scheduledDate)
+        .limit(10);
 
       res.json({
-        totalScheduled,
-        overdueCount,
-        completedThisMonth,
-        openActions,
-        overdueActions,
+        totalScheduled: Number(totalScheduled),
+        overdueCount: Number(overdueCount),
+        completedThisMonth: Number(completedThisMonth),
+        openActions: Number(openActions),
+        overdueActions: Number(overdueActions),
         passRate,
         recentAudits,
         upcomingAudits,

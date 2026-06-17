@@ -1116,6 +1116,25 @@ export class CustomerDatabaseService {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      // Soft-delete + completedBy columns (June 2026)
+      await pool.query(`ALTER TABLE "${schemaName}".audit_templates ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+      await pool.query(`ALTER TABLE "${schemaName}".audit_templates ADD COLUMN IF NOT EXISTS deleted_by TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".audit_records ADD COLUMN IF NOT EXISTS completed_by TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".audit_records ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+      await pool.query(`ALTER TABLE "${schemaName}".audit_records ADD COLUMN IF NOT EXISTS deleted_by TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".audit_corrective_actions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+      await pool.query(`ALTER TABLE "${schemaName}".audit_corrective_actions ADD COLUMN IF NOT EXISTS deleted_by TEXT`);
+      // Append-only activity log table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".audit_activity_log (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          audit_id VARCHAR,
+          actor_name TEXT NOT NULL,
+          action TEXT NOT NULL,
+          detail TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
       logger.info(`✅ Audit Engine tables ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Audit Engine table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

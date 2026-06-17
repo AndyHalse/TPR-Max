@@ -48,12 +48,26 @@ const CATEGORY_COLORS: Record<string, string> = {
   custom: "bg-gray-100 text-gray-800",
 };
 
-async function fileToBase64(file: File): Promise<string> {
+// Fix 6: Resize image to max 1280px and re-encode as JPEG before sending.
+// This keeps phone photos well under the 6 MB server limit.
+async function resizeImageToJpeg(file: File, maxDim = 1280, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const ratio = Math.min(maxDim / img.width, maxDim / img.height, 1);
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read image")); };
+    img.src = url;
   });
 }
 
@@ -112,11 +126,12 @@ export default function AuditMobile({ token }: { token: string }) {
     setUploadingItem(itemId);
     setUploadErrors(prev => ({ ...prev, [itemId]: "" }));
     try {
-      const b64 = await fileToBase64(file);
+      const b64 = await resizeImageToJpeg(file);
+      const safeFileName = file.name.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '.jpg');
       const res = await fetch(`/api/audits/public/${token}/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: b64, mimeType: file.type, fileName: file.name, itemId }),
+        body: JSON.stringify({ data: b64, mimeType: "image/jpeg", fileName: safeFileName, itemId }),
       });
       if (!res.ok) {
         const { error: errMsg } = await res.json().catch(() => ({ error: "Upload failed" }));
@@ -140,7 +155,7 @@ export default function AuditMobile({ token }: { token: string }) {
       const res = await fetch(`/api/audits/public/${token}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summary: summaryText }),
+        body: JSON.stringify({ summary: summaryText, completedByName: record?.conductedBy }),
       });
       if (!res.ok) throw new Error((await res.json())?.error ?? "Submit failed");
       return res.json();

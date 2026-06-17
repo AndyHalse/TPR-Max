@@ -63,6 +63,14 @@ interface AuditRecord {
   passed?: boolean | null;
   summary?: string | null;
   accessToken?: string | null;
+  completedBy?: string | null;
+}
+
+interface AuditRecordsPage {
+  records: AuditRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 interface AuditRecordItem {
@@ -1194,6 +1202,8 @@ export default function Audits() {
   const [showCapaDialog, setShowCapaDialog] = useState(false);
   const [capaContext, setCapaContext] = useState<{ auditId: string; auditItemId?: string; title?: string } | null>(null);
   const [closingAction, setClosingAction] = useState<AuditCorrectiveAction | null>(null);
+  const [recordPage, setRecordPage] = useState(1);
+  const recordPageSize = 50;
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [actionStatusFilter, setActionStatusFilter] = useState("all");
@@ -1211,10 +1221,18 @@ export default function Audits() {
     staleTime: 30000,
   });
 
-  const { data: records = [], isLoading: recordsLoading } = useQuery<AuditRecord[]>({
-    queryKey: ["/api/audits/records"],
+  const { data: recordsPage, isLoading: recordsLoading } = useQuery<AuditRecordsPage>({
+    queryKey: ["/api/audits/records", recordPage, recordPageSize],
+    queryFn: async () => {
+      const res = await fetch(`/api/audits/records?page=${recordPage}&pageSize=${recordPageSize}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch records");
+      return res.json();
+    },
     staleTime: 30000,
   });
+  const records: AuditRecord[] = recordsPage?.records ?? [];
+  const recordsTotal = recordsPage?.total ?? 0;
+  const recordsTotalPages = Math.max(1, Math.ceil(recordsTotal / recordPageSize));
 
   const { data: actions = [], isLoading: actionsLoading } = useQuery<AuditCorrectiveAction[]>({
     queryKey: ["/api/audits/actions"],
@@ -1293,6 +1311,9 @@ export default function Audits() {
       toast({ title: "Mobile link copied to clipboard", description: "Expires in 7 days." });
     } catch { toast({ title: "Error generating link", variant: "destructive" }); }
   }
+
+  // Reset to page 1 when filters change so results stay coherent.
+  useEffect(() => { setRecordPage(1); }, [statusFilter, categoryFilter]);
 
   const filteredRecords = records.filter(r => {
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
@@ -1533,6 +1554,7 @@ export default function Audits() {
             </GlassCard>
           ) : (
             <div className="space-y-3">
+              {recordsLoading && <p className="text-sm text-slate-500 text-center py-4">Loading…</p>}
               {filteredRecords.map(r => (
                 <GlassCard key={r.id} id={`item-${r.id}`} className={`p-4${highlightedId === String(r.id) ? ' ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -1552,6 +1574,7 @@ export default function Audits() {
                         {r.scheduledDate && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{fmtDate(r.scheduledDate)}</span>}
                         {r.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{r.location}</span>}
                         {r.conductedBy && <span className="flex items-center gap-1"><User className="h-3 w-3" />{r.conductedBy}</span>}
+                        {r.completedBy && r.completedBy !== r.conductedBy && <span className="flex items-center gap-1 text-green-700"><CheckCircle2 className="h-3 w-3" />Completed by {r.completedBy}</span>}
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
@@ -1575,6 +1598,13 @@ export default function Audits() {
                   </div>
                 </GlassCard>
               ))}
+              {recordsTotalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <Button size="sm" variant="outline" disabled={recordPage <= 1} onClick={() => setRecordPage(p => p - 1)}>Prev</Button>
+                  <span className="text-xs text-slate-500">Page {recordPage} of {recordsTotalPages} ({recordsTotal} total)</span>
+                  <Button size="sm" variant="outline" disabled={recordPage >= recordsTotalPages} onClick={() => setRecordPage(p => p + 1)}>Next</Button>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
