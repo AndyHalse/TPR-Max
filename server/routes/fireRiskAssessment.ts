@@ -5,9 +5,14 @@ import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import * as isolatedSchema from '../isolatedSchema';
 import { EmailService } from '../emailService';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, isNull, and, sql } from 'drizzle-orm';
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
 import { logger } from '../utils/logger';
+
+// ── Fix 6: HTML escape for email bodies ────────────────────────────────────
+function esc(s: any): string {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 const requireFireRiskAssessmentFeature = async (req: any, res: any, next: any) => {
   try {
@@ -22,7 +27,12 @@ const requireFireRiskAssessmentFeature = async (req: any, res: any, next: any) =
   }
 };
 
-async function ensureFraTable(custDb: any, schemaName: string) {
+// ── Fix 8: Run DDL once per customer per process ───────────────────────────
+const ensuredFraSchemas = new Set<string>();
+
+async function ensureFraTables(custDb: any, schemaName: string) {
+  if (ensuredFraSchemas.has(schemaName)) return;
+
   await custDb.execute(sql.raw(`
     CREATE TABLE IF NOT EXISTS ${schemaName}.fire_risk_assessments (
       id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -39,9 +49,11 @@ async function ensureFraTable(custDb: any, schemaName: string) {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `));
-}
 
-async function ensureFraActionsTable(custDb: any, schemaName: string) {
+  // Fix 2: soft-delete columns (idempotent)
+  await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fire_risk_assessments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`));
+  await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fire_risk_assessments ADD COLUMN IF NOT EXISTS deleted_by TEXT DEFAULT NULL`));
+
   await custDb.execute(sql.raw(`
     CREATE TABLE IF NOT EXISTS ${schemaName}.fra_action_items (
       id SERIAL PRIMARY KEY,
@@ -55,30 +67,70 @@ async function ensureFraActionsTable(custDb: any, schemaName: string) {
       completed_by TEXT DEFAULT NULL,
       completion_notes TEXT DEFAULT NULL,
       reminder_sent_at TIMESTAMPTZ DEFAULT NULL,
+      deleted_at TIMESTAMPTZ DEFAULT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `));
+  // Idempotent column add for existing action tables
+  await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fra_action_items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`));
+
+  // Fix 3: audit table
+  await custDb.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS ${schemaName}.fra_audit (
+      id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      fra_id VARCHAR,
+      action_item_id INTEGER,
+      event TEXT NOT NULL,
+      performed_by TEXT,
+      details JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `));
+
+  ensuredFraSchemas.add(schemaName);
 }
 
+// ── Fix 3: Audit trail helper ──────────────────────────────────────────────
+async function writeFraAudit(custDb: any, schemaName: string, fraId: string | null, actionItemId: number | null, event: string, performedBy: string, details?: any) {
+  try {
+    await custDb.insert(isolatedSchema.fraAudit).values({
+      fraId,
+      actionItemId,
+      event,
+      performedBy,
+      details: details ?? null,
+    });
+  } catch (e) {
+    logger.error('Failed to write FRA audit entry:', e);
+  }
+}
+
+// ── Fix 12: BST-aware FRA status computation ──────────────────────────────
 function computeFraStatus(nextReviewDate: string): 'current' | 'review_due' | 'overdue' {
-  const review = new Date(nextReviewDate);
-  const now = new Date();
-  const msUntil = review.getTime() - now.getTime();
+  if (!nextReviewDate) return 'current';
+  const [y, m, d] = nextReviewDate.split('-').map(Number);
+  if (!y || !m || !d) return 'current';
+  // Determine London offset on that date to avoid UTC/BST drift at midnight
+  const approx = new Date(Date.UTC(y, m - 1, d, 12));
+  const londonParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', timeZoneName: 'shortOffset' } as any).formatToParts(approx);
+  const tzPart = (londonParts.find((p: any) => p.type === 'timeZoneName')?.value) ?? 'GMT';
+  const tzMatch = tzPart.match(/GMT([+-]\d+)?/);
+  const offsetH = tzMatch?.[1] ? parseInt(tzMatch[1], 10) : 0;
+  const reviewMs = Date.UTC(y, m - 1, d) - offsetH * 3600000;
+  const msUntil = reviewMs - Date.now();
   const daysUntil = msUntil / (1000 * 60 * 60 * 24);
   if (daysUntil < 0) return 'overdue';
   if (daysUntil <= 30) return 'review_due';
   return 'current';
 }
 
-function priorityOrder(p: string): number {
-  return { critical: 1, high: 2, medium: 3, low: 4 }[p] ?? 5;
-}
-
 async function getActionSummary(custDb: any, schemaName: string, fraId?: string) {
   const pool = (custDb as any).$client ?? (custDb as any).session?.client;
   const params: any[] = [];
-  const whereClause = fraId ? (params.push(fraId), `WHERE fra_id = $1`) : '';
+  const whereClause = fraId
+    ? (params.push(fraId), `WHERE fra_id = $1 AND deleted_at IS NULL`)
+    : 'WHERE deleted_at IS NULL';
   const rows = await pool.query(`
     SELECT
       COUNT(*) FILTER (WHERE priority = 'critical') AS critical,
@@ -107,45 +159,84 @@ async function getActionSummary(custDb: any, schemaName: string, fraId?: string)
   };
 }
 
+// ── Fix 6: Critical alert emailer (escaped) ────────────────────────────────
+async function sendCriticalActionAlert(customerId: string, companyName: string, adminEmail: string, actionBody: any) {
+  try {
+    const emailSvc = new EmailService(customerId);
+    await emailSvc.sendEmail({
+      to: adminEmail,
+      subject: `🚨 Critical Fire Safety Action Added — ${companyName}`,
+      companyName,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+          <div style="background:#dc2626;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+            <h2 style="margin:0">🚨 Critical Fire Safety Action Recorded</h2>
+            <p style="margin:4px 0 0">${esc(companyName)}</p>
+          </div>
+          <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+            <p>A <strong>critical priority</strong> fire safety action has been logged and requires <strong>immediate attention</strong>.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0">
+              <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Action</td><td style="padding:6px;border:1px solid #e5e7eb">${esc(actionBody.description)}</td></tr>
+              ${actionBody.location ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Location</td><td style="padding:6px;border:1px solid #e5e7eb">${esc(actionBody.location)}</td></tr>` : ''}
+              ${actionBody.assignedTo ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Assigned to</td><td style="padding:6px;border:1px solid #e5e7eb">${esc(actionBody.assignedTo)}</td></tr>` : ''}
+              ${actionBody.dueDate ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Due date</td><td style="padding:6px;border:1px solid #e5e7eb;color:#dc2626">${new Date(actionBody.dueDate).toLocaleDateString('en-GB')}</td></tr>` : ''}
+            </table>
+            <p>Critical actions represent an immediate risk to life and must be resolved without delay.</p>
+            <p style="color:#6b7280;font-size:12px">Outstanding critical actions may be treated as non-compliance under the Regulatory Reform (Fire Safety) Order 2005.</p>
+          </div>
+        </div>
+      `,
+      text: `CRITICAL FIRE SAFETY ACTION\n\n${actionBody.description}${actionBody.location ? `\nLocation: ${actionBody.location}` : ''}${actionBody.assignedTo ? `\nAssigned to: ${actionBody.assignedTo}` : ''}${actionBody.dueDate ? `\nDue: ${new Date(actionBody.dueDate).toLocaleDateString('en-GB')}` : ''}\n\nCritical actions represent an immediate risk to life.`,
+    });
+  } catch (emailErr) {
+    logger.error('Error sending critical action email:', emailErr);
+  }
+}
+
 export function registerFireRiskAssessmentRoutes(app: Express): void {
   app.use('/api/fire-risk-assessments', requireAuth, requireFireRiskAssessmentFeature);
 
-  // ── GET all FRAs ──────────────────────────────────────────────────────────
+  // Fix 1: Role gate for all write operations
+  const requireManager = (req: any, res: any, next: any) => {
+    if (!['admin', 'manager'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: 'You need manager or admin permissions to do this.' });
+    }
+    next();
+  };
+
+  // ── GET all FRAs — Fix 2: exclude soft-deleted, Fix 9: no writes on read ─
   app.get('/api/fire-risk-assessments', requireAuth, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureFraTable(custDb, schemaName);
+      await ensureFraTables(custDb, schemaName);
+
       const fras = await custDb.select().from(isolatedSchema.fireRiskAssessments)
+        .where(isNull(isolatedSchema.fireRiskAssessments.deletedAt))
         .orderBy(desc(isolatedSchema.fireRiskAssessments.assessmentDate));
 
-      for (const fra of fras) {
-        if (fra.status === 'superseded') continue;
-        const newStatus = computeFraStatus(fra.nextReviewDate);
-        if (newStatus !== fra.status) {
-          await custDb.update(isolatedSchema.fireRiskAssessments)
-            .set({ status: newStatus, updatedAt: new Date() })
-            .where(eq(isolatedSchema.fireRiskAssessments.id, fra.id));
-          fra.status = newStatus;
-        }
-      }
+      // Fix 9: compute status for display without persisting
+      const result = fras.map(fra => ({
+        ...fra,
+        status: fra.status === 'superseded' ? 'superseded' : computeFraStatus(fra.nextReviewDate),
+      }));
 
-      res.json(fras);
+      res.json(result);
     } catch (err) {
       logger.error('Error fetching FRAs:', err);
       res.status(500).json({ error: 'Failed to fetch fire risk assessments' });
     }
   });
 
-  // ── GET compliance status (enhanced with action items) ────────────────────
+  // ── GET compliance status ─────────────────────────────────────────────────
   app.get('/api/fire-risk-assessments/status', requireAuth, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureFraTable(custDb, schemaName);
-      await ensureFraActionsTable(custDb, schemaName);
+      await ensureFraTables(custDb, schemaName);
 
       const fras = await custDb.select().from(isolatedSchema.fireRiskAssessments)
+        .where(isNull(isolatedSchema.fireRiskAssessments.deletedAt))
         .orderBy(desc(isolatedSchema.fireRiskAssessments.assessmentDate));
 
       const current = fras.find(f => f.status !== 'superseded') || null;
@@ -167,6 +258,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       const daysSince = Math.floor((now.getTime() - assessmentDate.getTime()) / (1000 * 60 * 60 * 24));
       const daysUntil = Math.ceil((reviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       const isOverdue = daysUntil < 0;
+      const computedStatus = computeFraStatus(current.nextReviewDate);
 
       const summary = await getActionSummary(custDb, schemaName, current.id);
 
@@ -184,7 +276,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         daysSinceLastAssessment: daysSince,
         daysUntilReview: daysUntil,
         isOverdue,
-        currentFRA: current,
+        currentFRA: { ...current, status: computedStatus },
         actionItems: {
           total: summary.total,
           outstanding: summary.outstanding,
@@ -200,22 +292,23 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── GET outstanding actions across ALL FRAs (dashboard widget) ─────────────
+  // ── GET outstanding actions across ALL FRAs ───────────────────────────────
   app.get('/api/fire-risk-assessments/actions/outstanding', requireAuth, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureFraActionsTable(custDb, schemaName);
+      await ensureFraTables(custDb, schemaName);
 
-      const rows = await custDb.execute(sql.raw(`
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const rows = await pool.query(`
         SELECT a.*, f.title as fra_title
-        FROM ${schemaName}.fra_action_items a
-        JOIN ${schemaName}.fire_risk_assessments f ON f.id = a.fra_id
-        WHERE a.completed_at IS NULL
+        FROM "${schemaName}".fra_action_items a
+        JOIN "${schemaName}".fire_risk_assessments f ON f.id = a.fra_id
+        WHERE a.completed_at IS NULL AND a.deleted_at IS NULL AND f.deleted_at IS NULL
         ORDER BY
           CASE a.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
           a.due_date ASC NULLS LAST
-      `));
+      `);
 
       res.json(rows.rows);
     } catch (err) {
@@ -228,8 +321,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   app.get('/api/fire-risk-assessments/:id', requireAuth, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureFraTables(custDb, schemaName);
       const [fra] = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-        .where(eq(isolatedSchema.fireRiskAssessments.id, req.params.id));
+        .where(and(
+          eq(isolatedSchema.fireRiskAssessments.id, req.params.id),
+          isNull(isolatedSchema.fireRiskAssessments.deletedAt),
+        ));
       if (!fra) return res.status(404).json({ error: 'FRA not found' });
       res.json(fra);
     } catch (err) {
@@ -238,20 +336,35 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── POST create FRA ────────────────────────────────────────────────────────
-  app.post('/api/fire-risk-assessments', requireAuth, async (req, res) => {
+  // ── POST create FRA — Fix 1 role, Fix 7 validation ───────────────────────
+  app.post('/api/fire-risk-assessments', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureFraTable(custDb, schemaName);
+      await ensureFraTables(custDb, schemaName);
 
       const body = req.body as any;
+
+      // Fix 7: validate required fields
+      if (!body.assessorName?.trim()) {
+        return res.status(400).json({ error: 'Assessor name is required.' });
+      }
+      if (!body.assessmentDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.assessmentDate) || isNaN(new Date(body.assessmentDate).getTime())) {
+        return res.status(400).json({ error: 'A valid assessment date (YYYY-MM-DD) is required.' });
+      }
+      if (!body.nextReviewDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.nextReviewDate) || isNaN(new Date(body.nextReviewDate).getTime())) {
+        return res.status(400).json({ error: 'A valid next review date (YYYY-MM-DD) is required.' });
+      }
+      if (new Date(body.nextReviewDate) <= new Date(body.assessmentDate)) {
+        return res.status(400).json({ error: 'Next review date must be after the assessment date.' });
+      }
+
       const status = computeFraStatus(body.nextReviewDate);
 
       await custDb.execute(sql.raw(`
         UPDATE ${schemaName}.fire_risk_assessments
         SET status = 'superseded', updated_at = NOW()
-        WHERE status != 'superseded'
+        WHERE status != 'superseded' AND deleted_at IS NULL
       `));
 
       const [created] = await custDb.insert(isolatedSchema.fireRiskAssessments).values({
@@ -265,6 +378,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         findingsSummary: body.findingsSummary || null,
       }).returning();
 
+      await writeFraAudit(custDb, schemaName, created.id, null, 'created', req.user!.username, { title: created.title, assessorName: created.assessorName });
       res.status(201).json(created);
     } catch (err) {
       logger.error('Error creating FRA:', err);
@@ -272,11 +386,33 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── PUT update FRA ────────────────────────────────────────────────────────
-  app.put('/api/fire-risk-assessments/:id', requireAuth, async (req, res) => {
+  // ── PUT update FRA — Fix 1 role, Fix 7 validation ────────────────────────
+  app.put('/api/fire-risk-assessments/:id', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureFraTables(custDb, schemaName);
+
       const body = req.body as any;
+
+      // Fix 7: validate if provided
+      if (body.assessorName !== undefined && !body.assessorName?.trim()) {
+        return res.status(400).json({ error: 'Assessor name cannot be blank.' });
+      }
+      if (body.assessmentDate !== undefined && (!/^\d{4}-\d{2}-\d{2}$/.test(body.assessmentDate) || isNaN(new Date(body.assessmentDate).getTime()))) {
+        return res.status(400).json({ error: 'A valid assessment date (YYYY-MM-DD) is required.' });
+      }
+      if (body.nextReviewDate !== undefined && (!/^\d{4}-\d{2}-\d{2}$/.test(body.nextReviewDate) || isNaN(new Date(body.nextReviewDate).getTime()))) {
+        return res.status(400).json({ error: 'A valid next review date (YYYY-MM-DD) is required.' });
+      }
+      if (body.assessmentDate && body.nextReviewDate && new Date(body.nextReviewDate) <= new Date(body.assessmentDate)) {
+        return res.status(400).json({ error: 'Next review date must be after the assessment date.' });
+      }
+
+      const [before] = await custDb.select().from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), isNull(isolatedSchema.fireRiskAssessments.deletedAt)));
+      if (!before) return res.status(404).json({ error: 'FRA not found' });
+
       const updates: Record<string, any> = { updatedAt: new Date() };
       if (body.title !== undefined) updates.title = body.title;
       if (body.assessorName !== undefined) updates.assessorName = body.assessorName;
@@ -295,6 +431,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         .returning();
 
       if (!updated) return res.status(404).json({ error: 'FRA not found' });
+      await writeFraAudit(custDb, schemaName, req.params.id, null, 'updated', req.user!.username, { before, after: updates });
       res.json(updated);
     } catch (err) {
       logger.error('Error updating FRA:', err);
@@ -302,12 +439,39 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── DELETE FRA ────────────────────────────────────────────────────────────
-  app.delete('/api/fire-risk-assessments/:id', requireAuth, async (req, res) => {
+  // ── DELETE FRA — Fix 1 role, Fix 2 soft-delete, Fix 3 audit, Fix 10 promote
+  app.delete('/api/fire-risk-assessments/:id', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
-      await custDb.delete(isolatedSchema.fireRiskAssessments)
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureFraTables(custDb, schemaName);
+
+      const [before] = await custDb.select().from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), isNull(isolatedSchema.fireRiskAssessments.deletedAt)));
+      if (!before) return res.status(404).json({ error: 'FRA not found' });
+
+      const wasActive = before.status !== 'superseded';
+
+      await custDb.update(isolatedSchema.fireRiskAssessments)
+        .set({ deletedAt: new Date(), deletedBy: req.user!.username, updatedAt: new Date() })
         .where(eq(isolatedSchema.fireRiskAssessments.id, req.params.id));
+
+      await writeFraAudit(custDb, schemaName, req.params.id, null, 'deleted', req.user!.username, { title: before.title, assessmentDate: before.assessmentDate });
+
+      // Fix 10: promote the most recent remaining FRA if the deleted one was active
+      if (wasActive) {
+        const remaining = await custDb.select().from(isolatedSchema.fireRiskAssessments)
+          .where(isNull(isolatedSchema.fireRiskAssessments.deletedAt))
+          .orderBy(desc(isolatedSchema.fireRiskAssessments.assessmentDate))
+          .limit(1);
+        if (remaining[0]) {
+          const newStatus = computeFraStatus(remaining[0].nextReviewDate);
+          await custDb.update(isolatedSchema.fireRiskAssessments)
+            .set({ status: newStatus, updatedAt: new Date() })
+            .where(eq(isolatedSchema.fireRiskAssessments.id, remaining[0].id));
+        }
+      }
+
       res.json({ success: true });
     } catch (err) {
       logger.error('Error deleting FRA:', err);
@@ -315,21 +479,26 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── GET action items for a specific FRA ───────────────────────────────────
+  // ── GET action items for a specific FRA — Fix 11 pagination ──────────────
   app.get('/api/fire-risk-assessments/:fraId/actions', requireAuth, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureFraActionsTable(custDb, schemaName);
+      await ensureFraTables(custDb, schemaName);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+      const limit = Math.min(parseInt(String(req.query.limit ?? '200'), 10), 500);
+      const offset = parseInt(String(req.query.offset ?? '0'), 10);
+
       const rows = await pool.query(`
         SELECT * FROM "${schemaName}".fra_action_items
-        WHERE fra_id = $1
+        WHERE fra_id = $1 AND deleted_at IS NULL
         ORDER BY
           CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
           due_date ASC NULLS LAST,
           created_at ASC
-      `, [req.params.fraId]);
+        LIMIT $2 OFFSET $3
+      `, [req.params.fraId, limit, offset]);
 
       const summary = await getActionSummary(custDb, schemaName, req.params.fraId);
 
@@ -340,12 +509,12 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── POST create action item ───────────────────────────────────────────────
-  app.post('/api/fire-risk-assessments/:fraId/actions', requireAuth, async (req, res) => {
+  // ── POST create action item — Fix 1 role, Fix 3 audit, Fix 6 escape ───────
+  app.post('/api/fire-risk-assessments/:fraId/actions', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureFraActionsTable(custDb, schemaName);
+      await ensureFraTables(custDb, schemaName);
 
       const body = req.body as any;
       if (!body.description?.trim()) {
@@ -371,44 +540,15 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       ]);
 
       const created = rows.rows[0];
+      await writeFraAudit(custDb, schemaName, req.params.fraId, created.id, 'action_created', req.user!.username, { description: created.description, priority: created.priority });
 
-      // If critical action — send immediate alert
       if (body.priority === 'critical') {
-        try {
-          const settingsRows = await custDb.execute(sql.raw(
-            `SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`
-          ));
-          const settings = settingsRows.rows[0] as any;
-          if (settings?.email) {
-            const emailSvc = new EmailService(req.customerId!);
-            await emailSvc.sendEmail({
-              to: settings.email,
-              subject: `🚨 Critical Fire Safety Action Added — ${settings.site_name || settings.company_name}`,
-              companyName: settings.company_name || 'TPR Max',
-              html: `
-                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
-                  <div style="background:#dc2626;color:#fff;padding:20px;border-radius:8px 8px 0 0">
-                    <h2 style="margin:0">🚨 Critical Fire Safety Action Recorded</h2>
-                    <p style="margin:4px 0 0">${settings.company_name || 'TPR Max'}</p>
-                  </div>
-                  <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
-                    <p>A <strong>critical priority</strong> fire safety action has been logged and requires <strong>immediate attention</strong>.</p>
-                    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-                      <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Action</td><td style="padding:6px;border:1px solid #e5e7eb">${body.description}</td></tr>
-                      ${body.location ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Location</td><td style="padding:6px;border:1px solid #e5e7eb">${body.location}</td></tr>` : ''}
-                      ${body.assignedTo ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Assigned to</td><td style="padding:6px;border:1px solid #e5e7eb">${body.assignedTo}</td></tr>` : ''}
-                      ${body.dueDate ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Due date</td><td style="padding:6px;border:1px solid #e5e7eb;color:#dc2626">${new Date(body.dueDate).toLocaleDateString('en-GB')}</td></tr>` : ''}
-                    </table>
-                    <p>Critical actions represent an immediate risk to life and must be resolved without delay. Log in to TPR Max to update the status once resolved.</p>
-                    <p style="color:#6b7280;font-size:12px">Outstanding critical actions may be treated as non-compliance under the Regulatory Reform (Fire Safety) Order 2005.</p>
-                  </div>
-                </div>
-              `,
-              text: `CRITICAL FIRE SAFETY ACTION\n\n${body.description}${body.location ? `\nLocation: ${body.location}` : ''}${body.assignedTo ? `\nAssigned to: ${body.assignedTo}` : ''}${body.dueDate ? `\nDue: ${new Date(body.dueDate).toLocaleDateString('en-GB')}` : ''}\n\nCritical actions represent an immediate risk to life. Log in to TPR Max to resolve.`,
-            });
-          }
-        } catch (emailErr) {
-          logger.error('Error sending critical action email:', emailErr);
+        const settingsRows = await custDb.execute(sql.raw(
+          `SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`
+        ));
+        const settings = settingsRows.rows[0] as any;
+        if (settings?.email) {
+          await sendCriticalActionAlert(req.customerId!, settings.company_name || 'TPR Max', settings.email, body);
         }
       }
 
@@ -419,17 +559,33 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── PUT update action item ────────────────────────────────────────────────
-  app.put('/api/fire-risk-assessments/:fraId/actions/:actionId', requireAuth, async (req, res) => {
+  // ── PUT update action item — Fix 1 role, Fix 5 priority validate + escalate
+  app.put('/api/fire-risk-assessments/:fraId/actions/:actionId', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureFraTables(custDb, schemaName);
+
       const body = req.body as any;
       const actionId = parseInt(req.params.actionId, 10);
 
+      // Fix 5: validate priority
+      if (body.priority !== undefined && !['critical', 'high', 'medium', 'low'].includes(body.priority)) {
+        return res.status(400).json({ error: 'Priority must be critical, high, medium, or low' });
+      }
+
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+      // Read before for audit + escalation detection
+      const beforeRows = await pool.query(
+        `SELECT * FROM "${schemaName}".fra_action_items WHERE id = $1 AND fra_id = $2 AND deleted_at IS NULL`,
+        [actionId, req.params.fraId]
+      );
+      if (!beforeRows.rows[0]) return res.status(404).json({ error: 'Action item not found' });
+      const oldPriority = beforeRows.rows[0].priority;
+
       const params: any[] = [];
-      const setParts: string[] = ["updated_at = NOW()"];
+      const setParts: string[] = ['updated_at = NOW()'];
       if (body.description !== undefined) { params.push(body.description); setParts.push(`description = $${params.length}`); }
       if (body.priority !== undefined) { params.push(body.priority); setParts.push(`priority = $${params.length}`); }
       if (body.location !== undefined) { params.push(body.location || null); setParts.push(`location = $${params.length}`); }
@@ -448,6 +604,25 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       `, params);
 
       if (!rows.rows[0]) return res.status(404).json({ error: 'Action item not found' });
+      await writeFraAudit(custDb, schemaName, req.params.fraId, actionId, 'action_updated', req.user!.username, { before: beforeRows.rows[0], after: body });
+
+      // Fix 5: send alert if escalated to critical
+      if (body.priority === 'critical' && oldPriority !== 'critical') {
+        const settingsRows = await custDb.execute(sql.raw(
+          `SELECT company_name, email FROM ${schemaName}.company_settings LIMIT 1`
+        ));
+        const settings = settingsRows.rows[0] as any;
+        if (settings?.email) {
+          const updated = rows.rows[0];
+          await sendCriticalActionAlert(req.customerId!, settings.company_name || 'TPR Max', settings.email, {
+            description: updated.description,
+            location: updated.location,
+            assignedTo: updated.assigned_to,
+            dueDate: updated.due_date,
+          });
+        }
+      }
+
       res.json(rows.rows[0]);
     } catch (err) {
       logger.error('Error updating FRA action:', err);
@@ -455,18 +630,21 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
     }
   });
 
-  // ── PATCH mark action complete ─────────────────────────────────────────────
-  app.patch('/api/fire-risk-assessments/:fraId/actions/:actionId/complete', requireAuth, async (req, res) => {
+  // ── PATCH mark action complete — Fix 1 role, Fix 4 use req.user ──────────
+  app.patch('/api/fire-risk-assessments/:fraId/actions/:actionId/complete', requireAuth, requireManager, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureFraTables(custDb, schemaName);
+
       const body = req.body as any;
       const actionId = parseInt(req.params.actionId, 10);
 
-      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
-      const completedBy = body.completedBy || 'Unknown';
+      // Fix 4: always capture the authenticated user, ignore client-supplied completedBy
+      const completedBy = req.user!.username;
       const notes = body.completionNotes || null;
 
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
       const rows = await pool.query(`
         UPDATE "${schemaName}".fra_action_items
         SET
@@ -475,15 +653,69 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
           completion_notes = $2,
           updated_at = NOW()
         WHERE id = $3 AND fra_id = $4
-          AND completed_at IS NULL
+          AND completed_at IS NULL AND deleted_at IS NULL
         RETURNING *
       `, [completedBy, notes, actionId, req.params.fraId]);
 
       if (!rows.rows[0]) return res.status(404).json({ error: 'Action item not found or already completed' });
+      await writeFraAudit(custDb, schemaName, req.params.fraId, actionId, 'action_completed', req.user!.username, { completedBy, notes });
       res.json(rows.rows[0]);
     } catch (err) {
       logger.error('Error completing FRA action:', err);
       res.status(500).json({ error: 'Failed to complete action item' });
+    }
+  });
+
+  // ── PATCH reopen a completed action — Fix 10 ─────────────────────────────
+  app.patch('/api/fire-risk-assessments/:fraId/actions/:actionId/reopen', requireAuth, requireManager, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureFraTables(custDb, schemaName);
+
+      const actionId = parseInt(req.params.actionId, 10);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const rows = await pool.query(`
+        UPDATE "${schemaName}".fra_action_items
+        SET completed_at = NULL, completed_by = NULL, completion_notes = NULL, updated_at = NOW()
+        WHERE id = $1 AND fra_id = $2 AND completed_at IS NOT NULL AND deleted_at IS NULL
+        RETURNING *
+      `, [actionId, req.params.fraId]);
+
+      if (!rows.rows[0]) return res.status(404).json({ error: 'Action item not found or not completed' });
+      await writeFraAudit(custDb, schemaName, req.params.fraId, actionId, 'action_reopened', req.user!.username, {});
+      res.json(rows.rows[0]);
+    } catch (err) {
+      logger.error('Error reopening FRA action:', err);
+      res.status(500).json({ error: 'Failed to reopen action item' });
+    }
+  });
+
+  // ── DELETE action item (soft-delete) — Fix 10 ────────────────────────────
+  app.delete('/api/fire-risk-assessments/:fraId/actions/:actionId', requireAuth, requireManager, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureFraTables(custDb, schemaName);
+
+      const actionId = parseInt(req.params.actionId, 10);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+      const beforeRows = await pool.query(
+        `SELECT * FROM "${schemaName}".fra_action_items WHERE id = $1 AND fra_id = $2 AND deleted_at IS NULL`,
+        [actionId, req.params.fraId]
+      );
+      if (!beforeRows.rows[0]) return res.status(404).json({ error: 'Action item not found' });
+
+      await pool.query(
+        `UPDATE "${schemaName}".fra_action_items SET deleted_at = NOW() WHERE id = $1`,
+        [actionId]
+      );
+      await writeFraAudit(custDb, schemaName, req.params.fraId, actionId, 'action_deleted', req.user!.username, { description: beforeRows.rows[0].description });
+      res.json({ success: true });
+    } catch (err) {
+      logger.error('Error deleting FRA action:', err);
+      res.status(500).json({ error: 'Failed to delete action item' });
     }
   });
 
@@ -500,8 +732,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         try {
           const custDb = await customerDbService.getCustomerDatabase(customer.id);
           const schemaName = customerDbService.generateSchemaName(customer.id);
-          await ensureFraTable(custDb, schemaName);
-          await ensureFraActionsTable(custDb, schemaName);
+          await ensureFraTables(custDb, schemaName);
 
           const settingsRows = await custDb.execute(sql.raw(
             `SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`
@@ -516,6 +747,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
 
           // ── FRA Review Reminders ─────────────────────────────────────────
           const fras = await custDb.select().from(isolatedSchema.fireRiskAssessments)
+            .where(isNull(isolatedSchema.fireRiskAssessments.deletedAt))
             .orderBy(desc(isolatedSchema.fireRiskAssessments.assessmentDate));
 
           const toRemind = fras.filter(f => {
@@ -543,12 +775,12 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
                 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
                   <div style="background:${isOverdue ? '#dc2626' : '#d97706'};color:#fff;padding:20px;border-radius:8px 8px 0 0">
                     <h2 style="margin:0">${isOverdue ? '🚨 Fire Risk Assessment OVERDUE' : '📋 Fire Risk Assessment Review Due'}</h2>
-                    <p style="margin:4px 0 0">${companyName}</p>
+                    <p style="margin:4px 0 0">${esc(companyName)}</p>
                   </div>
                   <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
                     <p>Your Fire Risk Assessment is <strong>${isOverdue ? 'overdue' : 'due for review'}</strong>.</p>
                     <table style="width:100%;border-collapse:collapse;margin:16px 0">
-                      <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Last assessment</td><td style="padding:6px;border:1px solid #e5e7eb">${new Date(fra.assessmentDate).toLocaleDateString('en-GB')} by ${fra.assessorName}</td></tr>
+                      <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Last assessment</td><td style="padding:6px;border:1px solid #e5e7eb">${new Date(fra.assessmentDate).toLocaleDateString('en-GB')} by ${esc(fra.assessorName)}</td></tr>
                       <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Review due by</td><td style="padding:6px;border:1px solid #e5e7eb;color:${isOverdue ? '#dc2626' : '#d97706'}">${reviewDate.toLocaleDateString('en-GB')}</td></tr>
                       ${isOverdue ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Status</td><td style="padding:6px;border:1px solid #e5e7eb;color:#dc2626;font-weight:bold">OVERDUE by ${Math.abs(daysUntil)} days</td></tr>` : ''}
                     </table>
@@ -576,6 +808,8 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
             FROM ${schemaName}.fra_action_items a
             JOIN ${schemaName}.fire_risk_assessments f ON f.id = a.fra_id
             WHERE a.completed_at IS NULL
+              AND a.deleted_at IS NULL
+              AND f.deleted_at IS NULL
               AND a.due_date IS NOT NULL
               AND a.due_date <= '${sevenDaysAhead.toISOString().slice(0, 10)}'
               AND (a.reminder_sent_at IS NULL OR a.reminder_sent_at < '${sevenDaysAgo.toISOString()}')
@@ -586,7 +820,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
 
           const actionItems = actionRows.rows as any[];
 
-          // Immediately email any overdue critical actions individually
+          // Individually email overdue critical actions
           const overduecrits = actionItems.filter(a => a.priority === 'critical' && new Date(a.due_date) < now);
           for (const action of overduecrits) {
             const daysOverdue = Math.floor((now.getTime() - new Date(action.due_date).getTime()) / (1000 * 60 * 60 * 24));
@@ -598,14 +832,14 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
                 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
                   <div style="background:#dc2626;color:#fff;padding:20px;border-radius:8px 8px 0 0">
                     <h2 style="margin:0">🚨 Critical Fire Safety Action Overdue</h2>
-                    <p style="margin:4px 0 0">${companyName}</p>
+                    <p style="margin:4px 0 0">${esc(companyName)}</p>
                   </div>
                   <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
                     <p>The following <strong>critical</strong> fire safety action is overdue by <strong>${daysOverdue} day${daysOverdue !== 1 ? 's' : ''}</strong> and requires immediate resolution.</p>
                     <table style="width:100%;border-collapse:collapse;margin:16px 0">
-                      <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Action</td><td style="padding:6px;border:1px solid #e5e7eb">${action.description}</td></tr>
-                      ${action.location ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Location</td><td style="padding:6px;border:1px solid #e5e7eb">${action.location}</td></tr>` : ''}
-                      ${action.assigned_to ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Assigned to</td><td style="padding:6px;border:1px solid #e5e7eb">${action.assigned_to}</td></tr>` : ''}
+                      <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Action</td><td style="padding:6px;border:1px solid #e5e7eb">${esc(action.description)}</td></tr>
+                      ${action.location ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Location</td><td style="padding:6px;border:1px solid #e5e7eb">${esc(action.location)}</td></tr>` : ''}
+                      ${action.assigned_to ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Assigned to</td><td style="padding:6px;border:1px solid #e5e7eb">${esc(action.assigned_to)}</td></tr>` : ''}
                       <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Was due</td><td style="padding:6px;border:1px solid #e5e7eb;color:#dc2626;font-weight:bold">${new Date(action.due_date).toLocaleDateString('en-GB')} (${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue)</td></tr>
                     </table>
                     <p>Outstanding critical actions may be treated as non-compliance under the Regulatory Reform (Fire Safety) Order 2005.</p>
@@ -616,7 +850,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
             });
           }
 
-          // Send one digest for all other due-soon / non-critical overdue actions
+          // Digest for all other due-soon / non-critical overdue actions
           const digestItems = actionItems.filter(a => !(a.priority === 'critical' && new Date(a.due_date) < now));
           if (digestItems.length > 0) {
             const criticals = digestItems.filter(a => a.priority === 'critical');
@@ -626,7 +860,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
             const formatAction = (a: any) => {
               const daysLeft = Math.ceil((new Date(a.due_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
               const dueTxt = daysLeft < 0 ? `${Math.abs(daysLeft)} days overdue` : `due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`;
-              return `<li style="margin-bottom:6px">${a.description}${a.location ? ` — <em>${a.location}</em>` : ''}${a.assigned_to ? ` — Assigned: ${a.assigned_to}` : ''}<br><span style="color:${daysLeft < 0 ? '#dc2626' : '#b45309'}">${new Date(a.due_date).toLocaleDateString('en-GB')} (${dueTxt})</span></li>`;
+              return `<li style="margin-bottom:6px">${esc(a.description)}${a.location ? ` — <em>${esc(a.location)}</em>` : ''}${a.assigned_to ? ` — Assigned: ${esc(a.assigned_to)}` : ''}<br><span style="color:${daysLeft < 0 ? '#dc2626' : '#b45309'}">${new Date(a.due_date).toLocaleDateString('en-GB')} (${dueTxt})</span></li>`;
             };
 
             const htmlSections = [
@@ -643,13 +877,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
                 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
                   <div style="background:#d97706;color:#fff;padding:20px;border-radius:8px 8px 0 0">
                     <h2 style="margin:0">⚠ Fire Safety Actions Outstanding</h2>
-                    <p style="margin:4px 0 0">${companyName}</p>
+                    <p style="margin:4px 0 0">${esc(companyName)}</p>
                   </div>
                   <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
                     <p>The following fire safety actions from your Fire Risk Assessment require attention:</p>
                     ${htmlSections}
                     <p>Log in to TPR Max to update the status of these actions or mark them as complete once resolved.</p>
-                    <p style="color:#6b7280;font-size:12px">Outstanding actions from your fire risk assessment may be treated as non-compliance under the Regulatory Reform (Fire Safety) Order 2005.</p>
+                    <p style="color:#6b7280;font-size:12px">Outstanding actions may be treated as non-compliance under the Regulatory Reform (Fire Safety) Order 2005.</p>
                   </div>
                 </div>
               `,
@@ -660,7 +894,6 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
             });
           }
 
-          // Mark reminder_sent_at on all processed actions
           if (actionItems.length > 0) {
             const ids = actionItems.map(a => a.id).join(',');
             await custDb.execute(sql.raw(

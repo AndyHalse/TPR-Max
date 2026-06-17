@@ -2558,13 +2558,25 @@ export const fireRiskAssessments = pgTable("fire_risk_assessments", {
   status: text("status").notNull().default("current"), // current | review_due | overdue | superseded
   findingsSummary: text("findings_summary"),
   reminderSentAt: timestamp("reminder_sent_at"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  deletedBy: text("deleted_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertFireRiskAssessmentSchema = createInsertSchema(fireRiskAssessments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFireRiskAssessmentSchema = createInsertSchema(fireRiskAssessments).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true, deletedBy: true });
 export type InsertFireRiskAssessment = z.infer<typeof insertFireRiskAssessmentSchema>;
 export type FireRiskAssessment = typeof fireRiskAssessments.$inferSelect;
+
+export const fraAudit = pgTable("fra_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  fraId: varchar("fra_id"),
+  actionItemId: integer("action_item_id"),
+  event: text("event").notNull(), // created | updated | deleted | action_created | action_updated | action_completed | action_reopened | action_deleted
+  performedBy: text("performed_by"),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
 
 // ── Compliance Certificate Register ───────────────────────────────────────────
 

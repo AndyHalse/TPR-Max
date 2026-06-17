@@ -109,7 +109,6 @@ const emptyActionForm = {
 };
 
 const emptyCompleteForm = {
-  completedBy: "",
   completionNotes: "",
 };
 
@@ -122,6 +121,12 @@ const PRIORITY_CONFIG = {
 
 export default function FireRiskAssessmentPage() {
   const { toast } = useToast();
+
+  const { data: currentUser } = useQuery<{ id: string; username: string; role: string }>({
+    queryKey: ["/api/auth/me"],
+  });
+  const isManager = ['admin', 'manager'].includes(currentUser?.role ?? '');
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -254,6 +259,28 @@ export default function FireRiskAssessmentPage() {
     onError: () => toast({ title: "Failed to complete action", variant: "destructive" }),
   });
 
+  const reopenActionMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("PATCH", `/api/fire-risk-assessments/${currentFra!.id}/actions/${id}/reopen`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fire-risk-assessments", currentFra?.id, "actions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fire-risk-assessments/status"] });
+      toast({ title: "Action reopened" });
+    },
+    onError: () => toast({ title: "Failed to reopen action", variant: "destructive" }),
+  });
+
+  const deleteActionMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("DELETE", `/api/fire-risk-assessments/${currentFra!.id}/actions/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fire-risk-assessments", currentFra?.id, "actions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fire-risk-assessments/status"] });
+      toast({ title: "Action removed" });
+    },
+    onError: () => toast({ title: "Failed to remove action", variant: "destructive" }),
+  });
+
   async function handlePdfFile(file: File) {
     if (!file) return;
     if (file.type !== "application/pdf") {
@@ -352,11 +379,9 @@ export default function FireRiskAssessmentPage() {
 
   function handleCompleteSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!completeForm.completedBy.trim()) return;
     completeActionMutation.mutate({
       id: completingActionId!,
       data: {
-        completedBy: completeForm.completedBy,
         completionNotes: completeForm.completionNotes || null,
       },
     });
@@ -471,19 +496,30 @@ export default function FireRiskAssessmentPage() {
               )}
             </div>
           </div>
-          <div className="flex gap-1 shrink-0">
-            <Button size="sm" variant="ghost" onClick={() => handleEditAction(action)} title="Edit">
-              <Edit size={13} />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-green-700 border-green-300 hover:bg-green-50 text-xs h-7 px-2"
-              onClick={() => { setCompletingActionId(action.id); setCompleteForm({ ...emptyCompleteForm }); }}
-            >
-              <CheckCircle size={12} className="mr-1" /> Mark Complete
-            </Button>
-          </div>
+          {isManager && (
+            <div className="flex gap-1 shrink-0">
+              <Button size="sm" variant="ghost" onClick={() => handleEditAction(action)} title="Edit">
+                <Edit size={13} />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-green-700 border-green-300 hover:bg-green-50 text-xs h-7 px-2"
+                onClick={() => { setCompletingActionId(action.id); setCompleteForm({ ...emptyCompleteForm }); }}
+              >
+                <CheckCircle size={12} className="mr-1" /> Mark Complete
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-500 hover:text-red-700"
+                onClick={() => deleteActionMutation.mutate(action.id)}
+                title="Remove action"
+              >
+                <Trash2 size={13} />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -514,9 +550,11 @@ export default function FireRiskAssessmentPage() {
             </TooltipProvider>
           </div>
         </div>
-        <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); setUploadedFileName(null); }}>
-          <Plus size={16} className="mr-1" /> {currentFra ? "Record New Review" : "Record FRA"}
-        </Button>
+        {isManager && (
+          <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); setUploadedFileName(null); }}>
+            <Plus size={16} className="mr-1" /> {currentFra ? "Record New Review" : "Record FRA"}
+          </Button>
+        )}
       </div>
 
       {/* Status banner */}
@@ -557,14 +595,16 @@ export default function FireRiskAssessmentPage() {
                 </div>
               )}
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button size="sm" variant="ghost" onClick={() => handleEdit(currentFra)}>
-                <Edit size={14} />
-              </Button>
-              <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => setDeleteId(currentFra.id)}>
-                <Trash2 size={14} />
-              </Button>
-            </div>
+            {isManager && (
+              <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="ghost" onClick={() => handleEdit(currentFra)}>
+                  <Edit size={14} />
+                </Button>
+                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => setDeleteId(currentFra.id)}>
+                  <Trash2 size={14} />
+                </Button>
+              </div>
+            )}
           </div>
         </GlassCard>
       )}
@@ -588,9 +628,11 @@ export default function FireRiskAssessmentPage() {
                 </p>
               )}
             </div>
-            <Button size="sm" onClick={() => { setShowActionForm(true); setEditingActionId(null); setActionForm({ ...emptyActionForm }); }}>
-              <Plus size={14} className="mr-1" /> Add Action
-            </Button>
+            {isManager && (
+              <Button size="sm" onClick={() => { setShowActionForm(true); setEditingActionId(null); setActionForm({ ...emptyActionForm }); }}>
+                <Plus size={14} className="mr-1" /> Add Action
+              </Button>
+            )}
           </div>
 
           {outstandingActions.length === 0 && completedActions.length === 0 && (
@@ -639,9 +681,22 @@ export default function FireRiskAssessmentPage() {
                             <p className="text-xs text-muted-foreground mt-1 italic">"{action.completion_notes}"</p>
                           )}
                         </div>
-                        <Badge className={`text-xs shrink-0 ${PRIORITY_CONFIG[action.priority]?.color}`}>
-                          {PRIORITY_CONFIG[action.priority]?.label}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Badge className={`text-xs ${PRIORITY_CONFIG[action.priority]?.color}`}>
+                            {PRIORITY_CONFIG[action.priority]?.label}
+                          </Badge>
+                          {isManager && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-amber-600 hover:text-amber-800 h-6 px-1 text-xs"
+                              onClick={() => reopenActionMutation.mutate(action.id)}
+                              title="Reopen this action"
+                            >
+                              Reopen
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -702,9 +757,11 @@ export default function FireRiskAssessmentPage() {
                             </Button>
                           </a>
                         )}
-                        <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => setDeleteId(fra.id)}>
-                          <Trash2 size={13} />
-                        </Button>
+                        {isManager && (
+                          <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => setDeleteId(fra.id)}>
+                            <Trash2 size={13} />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -969,18 +1026,9 @@ export default function FireRiskAssessmentPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Mark Action as Complete</DialogTitle>
-            <DialogDescription>Record who resolved this action and how. Completed actions remain on record as evidence of compliance.</DialogDescription>
+            <DialogDescription>Record how this action was resolved. Completion is attributed to your account. Completed actions remain on record as evidence of compliance.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCompleteSubmit} className="space-y-4">
-            <div>
-              <Label>Completed by *</Label>
-              <Input
-                required
-                value={completeForm.completedBy}
-                onChange={e => setCompleteForm(f => ({ ...f, completedBy: e.target.value }))}
-                placeholder="Name of person who resolved this action"
-              />
-            </div>
             <div>
               <Label>Completion notes</Label>
               <Textarea
