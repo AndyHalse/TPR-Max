@@ -134,8 +134,10 @@ export function validateApiKeyFormat(apiKey: string, serviceType: 'openai' | 'ge
     // OpenAI keys start with sk- and are typically 48+ characters
     return trimmedKey.startsWith('sk-') && trimmedKey.length >= 20;
   } else if (serviceType === 'gemini') {
-    // Gemini keys are typically 39 characters alphanumeric with dashes/underscores
-    return trimmedKey.length >= 20 && /^[A-Za-z0-9_-]+$/.test(trimmedKey);
+    // Google Gemini / Google AI Studio keys start with "AIza" and are 39 chars.
+    // Also accept any key 20+ chars that looks like a generic API key.
+    if (trimmedKey.startsWith('AIza') && trimmedKey.length >= 20) return true;
+    return trimmedKey.length >= 20 && /^[A-Za-z0-9_\-\.]+$/.test(trimmedKey);
   } else if (serviceType === 'claude') {
     // Anthropic Claude keys start with sk-ant-
     return trimmedKey.startsWith('sk-ant-') && trimmedKey.length >= 20;

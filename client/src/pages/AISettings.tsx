@@ -286,7 +286,9 @@ export default function AISettings() {
     if (type === 'openai') {
       return key.startsWith('sk-') && key.length >= 20;
     } else if (type === 'gemini') {
-      return key.length >= 20 && /^[A-Za-z0-9_-]+$/.test(key);
+      const k = key.trim();
+      if (k.startsWith('AIza') && k.length >= 20) return true;
+      return k.length >= 20 && /^[A-Za-z0-9_\-.]+$/.test(k);
     } else if (type === 'claude') {
       return key.startsWith('sk-ant-') && key.length >= 20;
     }
