@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, getSessionToken } from "@/lib/queryClient";
+import { apiRequest, getSessionToken, getCsrfToken } from "@/lib/queryClient";
 import {
   Users, Video, FileQuestion, Eye, Sparkles, CheckCircle, XCircle,
   RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
@@ -309,12 +309,16 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const uploadSlidePictureMutation = useMutation({
     mutationFn: async ({ sceneIdx, file }: { sceneIdx: number; file: File }) => {
       const fd = new FormData(); fd.append('photo', file);
-      const token = getSessionToken();
+      const sessionToken = getSessionToken();
+      const csrfToken = getCsrfToken();
+      const headers: Record<string, string> = {};
+      if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`;
+      if (csrfToken) headers['x-csrf-token'] = csrfToken;
       const r = await fetch(`/api/induction/settings/${roleType}/scenes/photo`, {
         method: 'POST',
         body: fd,
         credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers,
       });
       if (!r.ok) throw new Error('Upload failed');
       return r.json() as Promise<{ url: string }>;
