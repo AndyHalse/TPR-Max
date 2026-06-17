@@ -49,9 +49,9 @@ SAFETY FOCUS:
 
 Generate a clear, professional safety training image suitable for UK workplace induction.`;
 
-      // Use Gemini 2.0-flash for superior induction video image quality (currently available)
+      // Use Gemini 2.0-flash-preview for image generation (preview variant supports image output)
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-image-generation",
+        model: "gemini-2.0-flash-preview-image-generation",
         contents: [{ role: "user", parts: [{ text: geminiPrompt }] }],
         config: {
           responseModalities: [Modality.TEXT, Modality.IMAGE],
@@ -87,7 +87,7 @@ Generate a clear, professional safety training image suitable for UK workplace i
       return ResultUtils.success({
         url,
         meta: {
-          model: "gemini-2.0-flash-image-generation",
+          model: "gemini-2.0-flash-preview-image-generation",
           prompt: geminiPrompt,
           quality: "ultra_high",
           fallback: false

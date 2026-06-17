@@ -4607,6 +4607,43 @@ export function registerInductionRoutes(app: Express): void {
           setStatus('building_slides', 2, `Building ${scenes.length} slides with AI images...`);
           logger.info(`🎨 Step 2: Generating images for ${scenes.length} scenes...`);
 
+          // Load any custom per-slide photos the admin uploaded before this regeneration.
+          // We key by scene index (position) so custom photos survive full regenerations.
+          const existingCustomImages: Record<number, string> = {};
+          try {
+            const [existingRow] = await custDb
+              .select({ scenesData: isolatedSchema.inductionSettings.scenesData })
+              .from(isolatedSchema.inductionSettings)
+              .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+            if (existingRow?.scenesData) {
+              const existingScenes: any[] = JSON.parse(existingRow.scenesData);
+              const objectStorageService = new ObjectStorageService();
+              const privateObjectDir = objectStorageService.getPrivateObjectDir();
+              for (let i = 0; i < existingScenes.length; i++) {
+                const existingImageUrl = existingScenes[i]?.imageUrl;
+                if (existingImageUrl) {
+                  try {
+                    const fullPath = `${privateObjectDir}${existingImageUrl}`;
+                    const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+                    const bucket = objectStorageClient.bucket(bucketName);
+                    const [fileBytes] = await bucket.file(objectName).download();
+                    const ext = existingImageUrl.split('.').pop()?.toLowerCase() || 'jpg';
+                    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+                    existingCustomImages[i] = `data:${mime};base64,${fileBytes.toString('base64')}`;
+                    logger.info(`📷 Loaded custom slide photo for scene ${i}: ${existingImageUrl}`);
+                  } catch (imgErr) {
+                    logger.warn(`⚠️ Could not load custom slide photo for scene ${i}: ${existingImageUrl}`);
+                  }
+                }
+              }
+              if (Object.keys(existingCustomImages).length > 0) {
+                logger.info(`✅ Preserving ${Object.keys(existingCustomImages).length} custom slide photo(s) through regeneration`);
+              }
+            }
+          } catch (existingErr) {
+            logger.warn('⚠️ Could not load existing scenesData for custom photo preservation (non-fatal):', existingErr);
+          }
+
           let sceneImages: string[] = [];
           let sceneAudio: string[] = [];
 
@@ -4620,6 +4657,31 @@ export function registerInductionRoutes(app: Express): void {
           } else {
             sceneImages = await videoService.generateSceneImages(scenes);
           }
+
+          // Overlay custom uploaded photos on top of AI-generated images (by scene index)
+          for (const [idxStr, customDataUrl] of Object.entries(existingCustomImages)) {
+            const idx = Number(idxStr);
+            if (idx < sceneImages.length) {
+              sceneImages[idx] = customDataUrl;
+              logger.info(`📷 Using custom uploaded photo for scene ${idx} instead of AI image`);
+            }
+          }
+
+          // Carry the custom imageUrl path back onto each scene object so it's preserved in scenesData
+          try {
+            const [preserveRow] = await custDb
+              .select({ scenesData: isolatedSchema.inductionSettings.scenesData })
+              .from(isolatedSchema.inductionSettings)
+              .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+            if (preserveRow?.scenesData) {
+              const existingScenes: any[] = JSON.parse(preserveRow.scenesData);
+              for (let i = 0; i < scenes.length && i < existingScenes.length; i++) {
+                if (existingScenes[i]?.imageUrl) {
+                  scenes[i].imageUrl = existingScenes[i].imageUrl;
+                }
+              }
+            }
+          } catch (_) { /* non-fatal */ }
 
           logger.info(`✅ Images ready: ${sceneImages.filter(Boolean).length}/${scenes.length} generated`);
 
