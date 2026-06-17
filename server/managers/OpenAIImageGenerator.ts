@@ -68,7 +68,9 @@ Requirements:
       const imageBytes = result.generatedImages?.[0]?.image?.imageBytes;
       if (!imageBytes) throw new Error('No image bytes returned from Imagen 4');
 
-      const base64 = Buffer.from(imageBytes).toString('base64');
+      // The SDK returns imageBytes as an already base64-encoded string — use it directly.
+      // Do NOT re-encode with Buffer.from().toString('base64') or the result is double-encoded.
+      const base64 = typeof imageBytes === 'string' ? imageBytes : Buffer.from(imageBytes as Uint8Array).toString('base64');
       logger.info(`✅ [Imagen4] Success for: ${title}`);
 
       return ResultUtils.success({

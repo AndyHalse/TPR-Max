@@ -12,3 +12,4 @@
 - [Logo token missing on session-cookie login](logo-token-pattern.md) — tprmax-logo-token set only on Login.tsx flow; session-cookie logins skip it so getLogoSrc stage-0 must fall through to /api/company-logo (stage 1) when no token exists.
 - [contractorWorkers induction field mismatch](contractor-induction-field.md) — contractorWorkers isolated schema uses siteInductionCompleted/siteInductionCompletedAt (site_induction_completed); never use inductionCompleted on this table.
 - [objectUrl token pattern for img tags](object-url-token-pattern.md) — img tags can't send Bearer headers; use objectUrl() from queryClient.ts to append ?token= so /objects/... route authenticates via query param.
+- [Imagen4 imageBytes double-encoding](imagen4-double-encoding.md) — SDK returns imageBytes as already-base64 string; Buffer.from(str).toString('base64') double-encodes it; always check typeof before encoding.
