@@ -862,7 +862,7 @@ export default function PpmDashboard() {
 
       {dataUpdatedAt > 0 && (
         <p className="text-xs text-gray-400 -mt-3">
-          Last updated {new Date(dataUpdatedAt).toLocaleTimeString()}
+          Last updated {new Date(dataUpdatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
         </p>
       )}
 

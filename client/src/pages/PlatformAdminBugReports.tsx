@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2, Mail, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
+import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2, Mail, CheckCircle2, AlertCircle, RotateCcw, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,116 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 const STATUSES = ["new", "in_progress", "fixed", "closed", "reopened"] as const;
+
+// Route → likely source file map (derived from client/src/App.tsx imports)
+const ROUTE_TO_FILE: Record<string, string> = {
+  "/": "client/src/pages/Dashboard.tsx",
+  "/staff": "client/src/pages/StaffManagement.tsx",
+  "/visitors": "client/src/pages/Visitors.tsx",
+  "/members": "client/src/pages/Members.tsx",
+  "/contractors": "client/src/pages/ContractorManagement.tsx",
+  "/contractors/legacy": "client/src/pages/Contractors.tsx",
+  "/contractor-portal-admin": "client/src/pages/ContractorPortalAdmin.tsx",
+  "/checkin": "client/src/pages/VisitorCheckIn.tsx",
+  "/muster": "client/src/pages/EmergencyMuster.tsx",
+  "/incident-reports": "client/src/pages/IncidentReports.tsx",
+  "/ppm": "client/src/pages/PPM.tsx",
+  "/audits": "client/src/pages/Audits.tsx",
+  "/helpdesk": "client/src/pages/HelpDesk.tsx",
+  "/martyn-law": "client/src/pages/MartynLaw.tsx",
+  "/fire-marshal-panel": "client/src/pages/FireMarshalPanel.tsx",
+  "/fire-marshal-mobile": "client/src/pages/FireMarshalMobile.tsx",
+  "/reports": "client/src/pages/Reports.tsx",
+  "/time-attendance": "client/src/pages/TimeAttendance.tsx",
+  "/settings": "client/src/pages/Settings.tsx",
+  "/settings/ai": "client/src/pages/AISettings.tsx",
+  "/induction-settings": "client/src/pages/InductionSettings.tsx",
+  "/email-outbox": "client/src/pages/EmailOutbox.tsx",
+  "/meeting-rooms": "client/src/pages/MeetingRooms.tsx",
+  "/billing": "client/src/pages/Billing.tsx",
+  "/profile": "client/src/pages/Profile.tsx",
+  "/hs-incidents": "client/src/pages/HSIncidents.tsx",
+  "/fire-risk-assessment": "client/src/pages/FireRiskAssessment.tsx",
+  "/compliance-certificates": "client/src/pages/ComplianceCertificates.tsx",
+  "/compliance-dashboard": "client/src/pages/ComplianceDashboard.tsx",
+  "/permit-to-work": "client/src/pages/PermitToWork.tsx",
+  "/ra-builder": "client/src/pages/RaBuilder.tsx",
+  "/template-library": "client/src/pages/TemplateLibrary.tsx",
+  "/hr": "client/src/pages/Hr.tsx",
+};
+
+function resolveSourceFile(pageUrl: string | null): string {
+  if (!pageUrl) return "Unknown — search client/src/pages";
+  // Strip query string and hash
+  const path = pageUrl.split("?")[0].split("#")[0];
+  // Exact match
+  if (ROUTE_TO_FILE[path]) return ROUTE_TO_FILE[path];
+  // Dynamic: /contractors/:id
+  if (/^\/contractors\/[^/]+$/.test(path)) return "client/src/pages/ContractorDetails.tsx (param: contractor id)";
+  // Dynamic: /hr/staff/:id or /hr/*
+  if (/^\/hr\/staff\/[^/]+$/.test(path)) return "client/src/pages/hr/StaffProfile.tsx (param: staff id)";
+  // Partial prefix match (longest first)
+  const sorted = Object.keys(ROUTE_TO_FILE).sort((a, b) => b.length - a.length);
+  for (const route of sorted) {
+    if (path.startsWith(route + "/")) return `${ROUTE_TO_FILE[route]} (sub-path: ${path})`;
+  }
+  return "Unknown — search client/src/pages";
+}
+
+function buildAiPromptText(detail: BugReportDetail): string {
+  const totalImages = (detail.screenshot ? 1 : 0) + (detail.attachments?.length ?? 0);
+  const sourceFile = resolveSourceFile(detail.pageUrl);
+  const lines: string[] = [
+    "You are fixing a bug in the TPR Max codebase (React + TypeScript front end in",
+    "client/src, Express + TypeScript API in server/). Use the report below to find",
+    "the root cause and propose a fix. Do not guess — read the named source file",
+    "first, and ask for the screenshots if you need them.",
+    "",
+    `# Bug ${detail.reportNumber}`,
+    `- Reported: ${new Date(detail.createdAt).toLocaleString("en-GB")}`,
+    `- Status: ${STATUS_CONFIG[detail.status]?.label ?? detail.status}`,
+    `- Reporter: ${detail.reporterName || "Unknown"}${detail.reporterEmail ? ` <${detail.reporterEmail}>` : ""}`,
+    `- Customer / tenant: ${detail.customerName || detail.customerId || "Unknown"}`,
+    ...(detail.appVersion ? [`- App version: ${detail.appVersion}`] : []),
+    ...(detail.errorId ? [`- Error ref: ${detail.errorId}`] : []),
+    ...(detail.browserInfo ? [`- Browser: ${detail.browserInfo}`] : []),
+    ...(detail.screenSize ? [`- Screen: ${detail.screenSize}`] : []),
+    "",
+    "## Where it happened",
+    `- Route (URL path): ${detail.pageUrl || "Unknown"}`,
+    `- Likely source file: ${sourceFile}`,
+    "  (If the route is dynamic or unknown, say \"Unknown — search client/src/pages\".)",
+    "",
+    "## What the user reported",
+    detail.description,
+    "",
+    "## Console / network logs at the time",
+    detail.consoleErrors || "None captured.",
+    "",
+    "## What the user did just before (most recent last)",
+    detail.breadcrumbs || "No breadcrumb trail captured.",
+  ];
+
+  if (detail.reopenReason) {
+    lines.push("", "## Reporter's reopen note", detail.reopenReason);
+  }
+
+  lines.push(
+    "",
+    "## Screenshots",
+    totalImages > 0
+      ? `${totalImages} image(s) were attached but are NOT included in this text. They are visible in Platform Admin and in the report PDF (use the "Download PDF" button). Ask the user to paste them if the cause isn't clear from the data above.`
+      : "No screenshots were attached.",
+    "",
+    "## Your task",
+    "1. Read the likely source file and trace the code path the user hit.",
+    "2. Identify the root cause.",
+    "3. Propose the smallest correct fix, and call out any tenant-isolation,",
+    "   permissions, or input-validation concerns you notice while there.",
+  );
+
+  return lines.join("\n");
+}
 
 function buildCopyText(detail: BugReportDetail): string {
   const totalImages =
@@ -181,6 +291,16 @@ export default function PlatformAdminBugReports() {
   function handleSaveNotes() {
     if (selectedId) {
       patchMutation.mutate({ id: selectedId, body: { adminNotes: detailNotes } });
+    }
+  }
+
+  async function handleCopyForAi() {
+    if (!detail) return;
+    try {
+      await navigator.clipboard.writeText(buildAiPromptText(detail));
+      toast({ title: "Copied for AI", description: "Paste it into Claude Code or Replit." });
+    } catch (_) {
+      toast({ title: "Copy failed", description: "Your browser blocked clipboard access.", variant: "destructive" });
     }
   }
 
@@ -470,6 +590,15 @@ export default function PlatformAdminBugReports() {
                     </DialogDescription>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5"
+                      onClick={handleCopyForAi}
+                      title="Copy as a ready-to-paste prompt for Claude Code / Replit"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" /> Copy for AI
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

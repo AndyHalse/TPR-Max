@@ -2907,3 +2907,15 @@ export const insertRaBuilderHazardSchema = createInsertSchema(raBuilderHazards).
 export type InsertRaBuilderHazard = z.infer<typeof insertRaBuilderHazardSchema>;
 export type RaBuilderHazard = typeof raBuilderHazards.$inferSelect;
 export type AuditCorrectiveAction = typeof auditCorrectiveActions.$inferSelect;
+
+// ── PPM Audit Trail ───────────────────────────────────────────────────────────
+export const ppmAudit = pgTable("ppm_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  workOrderId: varchar("work_order_id"),
+  assetId: varchar("asset_id"),
+  scheduleId: varchar("schedule_id"),
+  event: text("event").notNull(),
+  performedBy: text("performed_by"),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});

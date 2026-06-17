@@ -316,6 +316,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     setAllFeaturesOnMigration,
     addInductionFailureFeedbackLevelMigration,
     addSsoCredentialsMigration,
+    addPpmAuditTableMigration,
     {
       version: '20260513_047_add_sso_fields',
       description: 'Add Azure Entra ID SSO columns to company_settings and users',
@@ -2813,6 +2814,36 @@ const addInductionFailureFeedbackLevelMigration: Migration = {
       logger.info("✅ [057] induction_settings.failure_feedback_level ensured");
     } catch (err: any) {
       logger.info(`⚠️ [057] induction_settings.failure_feedback_level: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+// Migration 058 — Create ppm_audit table for PPM audit trail
+const addPpmAuditTableMigration: Migration = {
+  version: '20260617_058_add_ppm_audit_table',
+  description: 'Create ppm_audit table for PPM module audit trail',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS ppm_audit (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          work_order_id TEXT,
+          asset_id TEXT,
+          schedule_id TEXT,
+          event TEXT NOT NULL,
+          performed_by TEXT,
+          details JSONB,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      logger.info('✅ [058] ppm_audit table ensured');
+    } catch (err: any) {
+      // 23505 = duplicate key (type already exists from concurrent migration run) — table already there
+      if (err?.code === '23505' || err?.message?.includes('already exists')) {
+        logger.info('✅ [058] ppm_audit table already exists — skipping');
+      } else {
+        throw err;
+      }
     }
   }
 };

@@ -2569,7 +2569,7 @@ export default function PPM() {
   }
 
   function handleDeleteDemo() {
-    if (!confirm("This will permanently delete ALL demo PPM data and the demo contractor companies, leaving the system clean and ready for real use. Continue?")) return;
+    if (!confirm("This will permanently delete ALL demo PPM data and the demo contractor companies. This action is blocked if completed work orders exist — please ensure all demo work orders are in 'scheduled' status before wiping. Continue?")) return;
     deleteDemoMutation.mutate();
   }
 

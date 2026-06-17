@@ -792,31 +792,99 @@ export default function SiteInduction() {
     if (!lockReason && tokenData?.quizCompletedAt && !tokenData.quizPassed) {
       const elapsed = Date.now() - new Date(tokenData.quizCompletedAt).getTime();
       const secsLeft = Math.max(0, Math.ceil((10 * 60 * 1000 - elapsed) / 1000));
-      if (secsLeft > 0) {
-        const minsDisplay = Math.floor(secsLeft / 60);
-        const secsDisplay = secsLeft % 60;
-        return (
-          <div className="space-y-6">
-            <Card className="border-amber-200">
-              <CardContent className="p-8 text-center space-y-5">
-                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
-                  <Clock className="w-8 h-8 text-amber-500" />
+      const attemptsUsed = tokenData.quizAttempts ?? 0;
+      const attemptsRemaining = Math.max(0, 5 - attemptsUsed);
+      const minsDisplay = Math.floor(secsLeft / 60);
+      const secsDisplay = secsLeft % 60;
+      return (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          {/* Failure notice */}
+          <Card className="border-red-200">
+            <CardContent className="p-6 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Please Wait Before Retrying</h2>
-                  <p className="text-gray-600 mt-2 max-w-sm mx-auto">
-                    A short cooldown is required between attempts. This gives you time to review the topics before trying again.
+                  <h2 className="text-lg font-bold text-gray-900">You did not pass this attempt</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    You need {tokenData.passThreshold ?? 80}% to pass.
+                    {attemptsRemaining > 0
+                      ? ` You have ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining (${attemptsUsed} of 5 used).`
+                      : ' You have used all 5 attempts — please contact the site operator.'}
                   </p>
                 </div>
-                <div className="text-4xl font-mono font-bold text-amber-600 tabular-nums">
-                  {String(minsDisplay).padStart(2, '0')}:{String(secsDisplay).padStart(2, '0')}
-                </div>
-                <p className="text-sm text-gray-500">The quiz will unlock automatically when the timer reaches zero.</p>
-              </CardContent>
-            </Card>
-          </div>
-        );
-      }
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Countdown or retry prompt */}
+          <Card className="border-amber-200">
+            <CardContent className="p-6 text-center space-y-4">
+              {secsLeft > 0 ? (
+                <>
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
+                    <Clock className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Cooldown — review the questions below before retrying</p>
+                    <div className="text-4xl font-mono font-bold text-amber-600 tabular-nums mt-2">
+                      {String(minsDisplay).padStart(2, '0')}:{String(secsDisplay).padStart(2, '0')}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+                    <RefreshCw className="w-6 h-6 text-green-600" />
+                  </div>
+                  <p className="text-sm font-semibold text-green-800">Cooldown complete — you can retry now</p>
+                  {attemptsRemaining > 0 && (
+                    <Button onClick={retryQuiz} className="bg-amber-600 hover:bg-amber-700 text-white">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry Quiz
+                    </Button>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Read-only question review */}
+          {questions.length > 0 && (
+            <div className="border border-orange-200 rounded-xl overflow-hidden">
+              <div className="bg-orange-600 px-4 py-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-white shrink-0" />
+                <span className="text-white text-sm font-semibold">Questions to review ({questions.length} total)</span>
+              </div>
+              <ul className="divide-y divide-orange-100">
+                {questions.map((q, idx) => (
+                  <li key={q.id} className="px-4 py-4 bg-orange-50 space-y-2">
+                    <p className="text-sm font-semibold text-gray-800">
+                      Q{idx + 1}{q.category ? ` — ${q.category}` : ''}: {q.question}
+                    </p>
+                    <ul className="space-y-1">
+                      {q.options.map((opt: string) => (
+                        <li
+                          key={opt}
+                          className={`text-sm px-3 py-1.5 rounded-md border ${
+                            opt === q.correctAnswer
+                              ? 'bg-green-50 border-green-300 text-green-800 font-medium'
+                              : 'bg-white border-gray-200 text-gray-500'
+                          }`}
+                        >
+                          {opt === q.correctAnswer && <span className="mr-1">✓</span>}
+                          {opt}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
     }
 
     if (lockReason) {

@@ -6,12 +6,43 @@ import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { EmailService } from '../emailService';
-import { ObjectStorageService } from '../objectStorage';
+import { ObjectStorageService, objectStorageClient } from '../objectStorage';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, sql, desc, or, not, ne, isNotNull, gt, gte, lt, lte, inArray, count, like } from 'drizzle-orm';
 import { ppmTokenCacheGet, ppmTokenCacheSet, ppmTokenCacheEvict, ppmPublicRateLimit } from '../routeState';
 import { getCompanyComplianceStatus, getWorkerClearanceStatus } from '../utils/contractorCompliance';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function logPpmAudit(
+  custDb: Awaited<ReturnType<typeof customerDbService.getCustomerDatabase>>,
+  event: string,
+  performedBy: string,
+  details?: Record<string, unknown> & { workOrderId?: string; assetId?: string; scheduleId?: string },
+): Promise<void> {
+  try {
+    await custDb.insert(isolatedSchema.ppmAudit).values({
+      event,
+      performedBy,
+      workOrderId: details?.workOrderId ?? null,
+      assetId: details?.assetId ?? null,
+      scheduleId: details?.scheduleId ?? null,
+      details: details ? { ...details } : null,
+    });
+  } catch (auditErr) {
+    logger.error("[PPM Audit] Failed to write audit row:", auditErr);
+  }
+}
 
 /**
  * Hard-gate helper: validates that a (company, worker) pair is cleared to be assigned
@@ -103,6 +134,7 @@ app.post("/api/ppm/assets", requireAuth, async (req, res) => {
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
     const [row] = await custDb.insert(isolatedSchema.ppmAssets).values(parsed).returning();
+    await logPpmAudit(custDb, "asset_created", req.user!.username, { assetId: row.id, name: (parsed as any).name });
     res.status(201).json(row);
   } catch (error: unknown) {
     logger.error("POST /api/ppm/assets", error);
@@ -119,6 +151,7 @@ app.put("/api/ppm/assets/:id", requireAuth, async (req, res) => {
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
     const [row] = await custDb.update(isolatedSchema.ppmAssets).set(parsed).where(eq(isolatedSchema.ppmAssets.id, id)).returning();
     if (!row) return res.status(404).json({ error: "Asset not found" });
+    await logPpmAudit(custDb, "asset_updated", req.user!.username, { assetId: id });
     res.json(row);
   } catch (error: unknown) {
     logger.error("PUT /api/ppm/assets/:id", error);
@@ -133,6 +166,7 @@ app.delete("/api/ppm/assets/:id", requireAuth, async (req, res) => {
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
     await custDb.delete(isolatedSchema.ppmAssets).where(eq(isolatedSchema.ppmAssets.id, id));
+    await logPpmAudit(custDb, "asset_deleted", req.user!.username, { assetId: id });
     res.json({ success: true });
   } catch (error: unknown) {
     logger.error("DELETE /api/ppm/assets/:id", error);
@@ -307,6 +341,7 @@ app.post("/api/ppm/schedules", requireAuth, async (req, res) => {
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
     const [row] = await custDb.insert(isolatedSchema.ppmSchedules).values(parsed).returning();
+    await logPpmAudit(custDb, "schedule_created", req.user!.username, { scheduleId: row.id });
     res.status(201).json(row);
   } catch (error: unknown) {
     logger.error("POST /api/ppm/schedules", error);
@@ -328,6 +363,7 @@ app.put("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
     const [row] = await custDb.update(isolatedSchema.ppmSchedules).set(parsed).where(eq(isolatedSchema.ppmSchedules.id, id)).returning();
     if (!row) return res.status(404).json({ error: "Schedule not found" });
+    await logPpmAudit(custDb, "schedule_updated", req.user!.username, { scheduleId: id });
     res.json(row);
   } catch (error: unknown) {
     logger.error("PUT /api/ppm/schedules/:id", error);
@@ -342,6 +378,7 @@ app.delete("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
     await custDb.delete(isolatedSchema.ppmSchedules).where(eq(isolatedSchema.ppmSchedules.id, id));
+    await logPpmAudit(custDb, "schedule_deleted", req.user!.username, { scheduleId: id });
     res.json({ success: true });
   } catch (error: unknown) {
     logger.error("DELETE /api/ppm/schedules/:id", error);
@@ -489,6 +526,7 @@ app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
     const gate = await assertContractorClearance(custDb, parsed.contractorCompanyId, parsed.contractorWorkerId, req.customerId);
     if (gate) return res.status(400).json(gate);
     const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(parsed).returning();
+    await logPpmAudit(custDb, "work_order_created", req.user!.username, { workOrderId: row.id, title: row.title });
     res.json(row);
   } catch (error: unknown) {
     logger.error("POST /api/ppm/work-orders", error);
@@ -559,6 +597,7 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
       }
     }
 
+    await logPpmAudit(custDb, "work_order_updated", req.user!.username, { workOrderId: id, status: updates.status as string | undefined });
     res.json(row);
   } catch (error: unknown) {
     logger.error("PUT /api/ppm/work-orders/:id", error);
@@ -573,7 +612,14 @@ app.delete("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     const { id } = req.params;
     const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const [existing] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id, status: isolatedSchema.ppmWorkOrders.status, title: isolatedSchema.ppmWorkOrders.title })
+      .from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+    if (!existing) return res.status(404).json({ error: "Work order not found" });
+    if (existing.status === "completed") {
+      return res.status(400).json({ error: "Completed work orders cannot be deleted. Change the status first if this record is in error." });
+    }
     await custDb.delete(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+    await logPpmAudit(custDb, "work_order_deleted", req.user!.username, { workOrderId: id, title: existing.title ?? undefined });
     res.json({ success: true });
   } catch (error: unknown) {
     logger.error("DELETE /api/ppm/work-orders/:id", error);
@@ -617,6 +663,7 @@ app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => 
       accessToken,
       accessTokenExpiresAt,
     }).returning();
+    await logPpmAudit(custDb, "work_order_duplicated", req.user!.username, { workOrderId: copy.id, sourceId: id });
     res.json(copy);
   } catch (error: unknown) {
     logger.error("POST /api/ppm/work-orders/:id/duplicate", error);
@@ -697,8 +744,8 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
                 <p style="font-size:16px;color:#1f2937">Hello ${recipientName},</p>
                 <p style="color:#374151">You have been assigned a Planned Preventative Maintenance work order.</p>
                 <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin:20px 0">
-                  <p style="margin:0 0 8px;font-weight:600;color:#0c4a6e;font-size:15px">${wo.title}</p>
-                  ${wo.description ? `<p style="margin:0 0 8px;color:#374151;font-size:14px">${wo.description}</p>` : ""}
+                  <p style="margin:0 0 8px;font-weight:600;color:#0c4a6e;font-size:15px">${escapeHtml(wo.title)}</p>
+                  ${wo.description ? `<p style="margin:0 0 8px;color:#374151;font-size:14px">${escapeHtml(wo.description)}</p>` : ""}
                   ${wo.dueDate ? `<p style="margin:0;color:#374151;font-size:14px"><strong>Due:</strong> ${new Date(wo.dueDate).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })}</p>` : ""}
                 </div>
                 <div style="text-align:center;margin:28px 0">
@@ -719,6 +766,7 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
         logger.error("PPM work order assignment email failed:", emailErr);
       }
     }
+    await logPpmAudit(custDb, "work_order_assigned", req.user!.username, { workOrderId: id, contractorCompanyId: contractorCompanyId ?? undefined, contractorWorkerId: contractorWorkerId ?? undefined, notificationSent });
     // Return explicit notificationSent flag so UI/callers know whether email was dispatched
     res.json({ ...updated, notificationSent });
   } catch (error: unknown) {
@@ -784,6 +832,7 @@ app.post("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => 
     await custDb.update(isolatedSchema.ppmWorkOrders)
       .set(woDocUpdates as any)
       .where(eq(isolatedSchema.ppmWorkOrders.id, id));
+    await logPpmAudit(custDb, "document_uploaded", req.user!.username, { workOrderId: id, fileName: escapeHtml(fileName), fileType: resolvedFileType });
     res.json(doc);
   } catch (error: unknown) {
     logger.error("POST /api/ppm/work-orders/:id/documents", error);
@@ -831,6 +880,7 @@ app.delete("/api/ppm/work-orders/:id/documents/:docId", requireAuth, async (req,
           .where(eq(isolatedSchema.ppmWorkOrders.id, id));
       }
     }
+    await logPpmAudit(custDb, "document_deleted", req.user!.username, { workOrderId: id, documentId: docId });
     res.json({ success: true });
   } catch (error: unknown) {
     logger.error("DELETE /api/ppm/work-orders/:id/documents/:docId", error);
@@ -914,9 +964,9 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
               </thead>
               <tbody>
                 <tr>
-                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${doc.fileName}</td>
-                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woTitle}</td>
-                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExpired ? "#dc2626" : "#d97706"};font-weight:600">${doc.expiryDate}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${escapeHtml(doc.fileName)}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${escapeHtml(woTitle)}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExpired ? "#dc2626" : "#d97706"};font-weight:600">${escapeHtml(String(doc.expiryDate ?? ""))}</td>
                   <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExpired ? "#dc2626" : "#d97706"}">${isExpired ? "Expired" : "Expiring Soon"}</td>
                 </tr>
               </tbody>
@@ -963,10 +1013,10 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
                 <p style="font-size:16px;color:#1f2937">Hello ${recipientName},</p>
                 <p style="color:#374151">A document on one of your assigned PPM work orders requires attention. Please supply a replacement as soon as possible.</p>
                 <div style="background:#fef2f2;border:1px solid ${accentColor}33;border-radius:8px;padding:16px;margin:20px 0">
-                  <p style="margin:0 0 6px;font-weight:600;color:#1f2937;font-size:15px">${woTitle}</p>
-                  <p style="margin:0 0 4px;font-size:14px;color:#374151"><strong>Document:</strong> ${doc.fileName}</p>
-                  <p style="margin:0 0 4px;font-size:14px;color:${accentColor}"><strong>Expiry Date:</strong> ${doc.expiryDate}</p>
-                  <p style="margin:0;font-size:14px;color:${accentColor}"><strong>Status:</strong> ${statusLabel}</p>
+                  <p style="margin:0 0 6px;font-weight:600;color:#1f2937;font-size:15px">${escapeHtml(woTitle)}</p>
+                  <p style="margin:0 0 4px;font-size:14px;color:#374151"><strong>Document:</strong> ${escapeHtml(doc.fileName)}</p>
+                  <p style="margin:0 0 4px;font-size:14px;color:${accentColor}"><strong>Expiry Date:</strong> ${escapeHtml(String(doc.expiryDate ?? ""))}</p>
+                  <p style="margin:0;font-size:14px;color:${accentColor}"><strong>Status:</strong> ${escapeHtml(statusLabel)}</p>
                 </div>
                 ${workOrderUrl ? `<div style="text-align:center;margin:28px 0"><a href="${workOrderUrl}" style="background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-weight:600;font-size:15px;display:inline-block">View Work Order</a></div>` : ""}
                 <p style="color:#6b7280;font-size:13px">Please upload a valid replacement document at your earliest convenience. If you have any questions, contact ${companyName} directly.</p>
@@ -1051,9 +1101,9 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
 
     const buildRow = (d: typeof expiringDocs[0], isExp: boolean) =>
       `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.fileName}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woMap[d.workOrderId]?.title ?? d.workOrderId}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${d.expiryDate}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${escapeHtml(d.fileName)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${escapeHtml(woMap[d.workOrderId]?.title ?? d.workOrderId)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${escapeHtml(String(d.expiryDate ?? ""))}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"}">${isExp ? "Expired" : "Expiring Soon"}</td>
       </tr>`;
 
@@ -1142,10 +1192,10 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
                 <p style="font-size:16px;color:#1f2937">Hello ${recipientName},</p>
                 <p style="color:#374151">A document on one of your assigned PPM work orders requires attention. Please supply a replacement as soon as possible.</p>
                 <div style="background:#fef2f2;border:1px solid ${accentColor}33;border-radius:8px;padding:16px;margin:20px 0">
-                  <p style="margin:0 0 6px;font-weight:600;color:#1f2937;font-size:15px">${woTitle}</p>
-                  <p style="margin:0 0 4px;font-size:14px;color:#374151"><strong>Document:</strong> ${doc.fileName}</p>
-                  <p style="margin:0 0 4px;font-size:14px;color:${accentColor}"><strong>Expiry Date:</strong> ${doc.expiryDate}</p>
-                  <p style="margin:0;font-size:14px;color:${accentColor}"><strong>Status:</strong> ${statusLabel}</p>
+                  <p style="margin:0 0 6px;font-weight:600;color:#1f2937;font-size:15px">${escapeHtml(woTitle)}</p>
+                  <p style="margin:0 0 4px;font-size:14px;color:#374151"><strong>Document:</strong> ${escapeHtml(doc.fileName)}</p>
+                  <p style="margin:0 0 4px;font-size:14px;color:${accentColor}"><strong>Expiry Date:</strong> ${escapeHtml(String(doc.expiryDate ?? ""))}</p>
+                  <p style="margin:0;font-size:14px;color:${accentColor}"><strong>Status:</strong> ${escapeHtml(statusLabel)}</p>
                 </div>
                 ${workOrderUrl ? `<div style="text-align:center;margin:28px 0"><a href="${workOrderUrl}" style="background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-weight:600;font-size:15px;display:inline-block">View Work Order</a></div>` : ""}
                 <p style="color:#6b7280;font-size:13px">Please upload a valid replacement document at your earliest convenience. If you have any questions, contact ${companyName} directly.</p>
@@ -1385,9 +1435,9 @@ app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) =
 
     const buildRow = (d: typeof expiringDocs[0], isExp: boolean) =>
       `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.fileName}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woMap[d.workOrderId] ?? d.workOrderId}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${d.expiryDate}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${escapeHtml(d.fileName)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${escapeHtml(woMap[d.workOrderId] ?? d.workOrderId)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${escapeHtml(String(d.expiryDate ?? ""))}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"}">${isExp ? "Expired" : "Expiring Soon"}</td>
       </tr>`;
 
@@ -2159,6 +2209,17 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
 
+    // Safety guard: block if any completed work orders exist to prevent accidental data loss
+    const [completedCount] = await custDb
+      .select({ count: count() })
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(eq(isolatedSchema.ppmWorkOrders.status, "completed"));
+    if ((completedCount?.count ?? 0) > 0) {
+      return res.status(400).json({
+        error: `Cannot wipe demo data: ${completedCount.count} completed work order(s) exist. Change their status or delete them individually first.`,
+      });
+    }
+
     // 1. Wipe all PPM data (same FK-safe order as the load step)
     await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
     await custDb.delete(isolatedSchema.ppmWorkOrders);
@@ -2195,6 +2256,7 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
     }
 
     logger.info(`✅ [PPM Demo] Deleted all demo data. ${companiesDeleted} contractor companies removed.`);
+    await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, { companiesDeleted });
     res.json({
       success: true,
       companiesDeleted,
@@ -2210,6 +2272,7 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
 // POST /api/ppm/annual-planner/email — send a formatted annual planner to an email address
 app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
+  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { email, year, message } = req.body as { email?: string; year?: number; message?: string };
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -2290,8 +2353,8 @@ app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
       }).join("");
       return `<tr>
         <td style="padding:6px 10px;font-size:12px;font-weight:600;white-space:nowrap;background:${rowBg};border:1px solid #e5e7eb;min-width:200px;">
-          ${asset.name}
-          <div style="font-size:10px;color:#6b7280;font-weight:400;">${[asset.assetRef, asset.category].filter(Boolean).join(" · ")}</div>
+          ${escapeHtml(asset.name)}
+          <div style="font-size:10px;color:#6b7280;font-weight:400;">${[asset.assetRef, asset.category].filter(Boolean).map(escapeHtml).join(" · ")}</div>
         </td>
         ${cells}
       </tr>`;
@@ -2327,7 +2390,7 @@ app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
       <div style="font-size:11px;color:#6b7280;margin-top:2px;">Assets</div>
     </div>
   </div>
-  ${message ? `<div style="padding:16px 28px;background:#fffbeb;border-top:1px solid #fde68a;font-size:13px;color:#92400e;">${message.replace(/\n/g,"<br>")}</div>` : ""}
+  ${message ? `<div style="padding:16px 28px;background:#fffbeb;border-top:1px solid #fde68a;font-size:13px;color:#92400e;">${escapeHtml(message).replace(/\n/g,"<br>")}</div>` : ""}
   <div style="padding:20px 28px;">
     <h2 style="font-size:15px;margin:0 0 12px 0;color:#1a2e4a;">12-Month Maintenance Grid</h2>
     <div style="overflow-x:auto;">
@@ -2365,7 +2428,7 @@ app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
 app.get("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res) => {
   try {
     const { token } = req.params;
-    if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+    if (!token || !/^[a-f0-9]{48}$/.test(token)) return res.status(400).json({ error: "Invalid token" });
 
     // Helper: resolve work order from a known customer (used by both cache-hit and scan paths)
     const resolveFromCustomer = async (customerId: string) => {
@@ -2430,7 +2493,7 @@ app.get("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
 app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res) => {
   try {
     const { token } = req.params;
-    if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+    if (!token || !/^[a-f0-9]{48}$/.test(token)) return res.status(400).json({ error: "Invalid token" });
     const { status, completionNotes } = req.body;
     const allowedStatuses = ["in_progress", "on_site", "completed"];
     if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
@@ -2517,7 +2580,7 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
 app.post("/api/ppm/work-order/public/:token/arrive", ppmPublicRateLimit, async (req, res) => {
   try {
     const { token } = req.params;
-    if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+    if (!token || !/^[a-f0-9]{48}$/.test(token)) return res.status(400).json({ error: "Invalid token" });
 
     const performArrive = async (customerId: string) => {
       const custDb = await customerDbService.getCustomerDatabase(customerId);
@@ -2580,7 +2643,7 @@ app.post("/api/ppm/work-order/public/:token/arrive", ppmPublicRateLimit, async (
 app.post("/api/ppm/work-order/public/:token/files", ppmPublicRateLimit, async (req, res) => {
   try {
     const { token } = req.params;
-    if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+    if (!token || !/^[a-f0-9]{48}$/.test(token)) return res.status(400).json({ error: "Invalid token" });
     const { data, mimeType, fileName, fileType } = req.body;
     if (!data || !mimeType || !fileName) return res.status(400).json({ error: "Missing required fields: data, mimeType, fileName" });
 
@@ -2646,6 +2709,11 @@ app.post("/api/ppm/work-order/public/:token/files", ppmPublicRateLimit, async (r
           const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
             .values({ workOrderId: wo.id, fileName, fileUrl: objectPath, fileType: resolvedFileType, uploadedBy: "contractor" })
             .returning();
+
+          // Audit: contractor uploaded a document via the public portal
+          await logPpmAudit(custDb, "contractor_document_uploaded", "contractor", {
+            workOrderId: wo.id,
+          });
 
           // Fire-and-forget async AI scan to extract metadata (expiryDate, issuer, ref).
           // Sets scannedAt once complete so the mobile view can distinguish "pending" from "scanned with no results".
@@ -2824,7 +2892,7 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
                   </div>
                   <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
                     <p>The following PPM work order was completed more than 48 hours ago but no service certificate has been uploaded:</p>
-                    <p><strong>${wo.title}</strong>${wo.completedDate ? ` — completed ${wo.completedDate}` : ""}</p>
+                    <p><strong>${escapeHtml(wo.title)}</strong>${wo.completedDate ? ` — completed ${escapeHtml(String(wo.completedDate))}` : ""}</p>
                     <p>Please upload the relevant certificate as soon as possible.</p>
                   </div>
                 </div>
@@ -2855,8 +2923,8 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
         if (notifyEnabled && missingDocsWOs.length > 0 && adminEmail) {
           const rows = missingDocsWOs.map(wo =>
             `<tr>
-              <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${wo.title}</td>
-              <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#dc2626">${wo.dueDate ?? "—"}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${escapeHtml(wo.title)}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#dc2626">${escapeHtml(wo.dueDate ?? "—")}</td>
             </tr>`
           ).join("");
           const sent = await emailSvc.sendEmail({
@@ -2940,9 +3008,9 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
 
               const buildRow = (d: typeof expiringDocs[0], isExp: boolean) =>
                 `<tr>
-                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.fileName}</td>
-                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woMap[d.workOrderId] ?? d.workOrderId}</td>
-                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${d.expiryDate}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${escapeHtml(d.fileName)}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${escapeHtml(woMap[d.workOrderId] ?? d.workOrderId)}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${escapeHtml(String(d.expiryDate ?? ""))}</td>
                   <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"}">${isExp ? "Expired" : "Expiring Soon"}</td>
                 </tr>`;
 
