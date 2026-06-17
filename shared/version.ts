@@ -1,2 +1,2 @@
 // AUTO-GENERATED — do not edit by hand. Regenerated on every server start and build.
-export const APP_VERSION = "v2026.06.17-7dcfb7d3";
+export const APP_VERSION = "v2026.06.17-769696bd";
