@@ -87,24 +87,6 @@ export default function PlatformAdminDashboard() {
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
-  // Traffic analytics state
-  const [trafficRange, setTrafficRange] = useState<'7d' | '30d' | '90d'>('30d');
-
-  const { data: trafficData, isLoading: trafficLoading } = useQuery({
-    queryKey: ['/platform-admin/traffic', trafficRange],
-    queryFn: async () => {
-      const res = await fetch(`/platform-admin/traffic?range=${trafficRange}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch traffic data');
-      return res.json() as Promise<{
-        totals: { views: number; uniqueVisitors: number };
-        series: { date: string; views: number; uniqueVisitors: number }[];
-        topPages: { path: string; views: number }[];
-        topReferrers: { referrerHost: string; views: number }[];
-      }>;
-    },
-    enabled: !!admin,
-  });
-
   // Blog state
   const [showBlogForm, setShowBlogForm] = useState(false);
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
@@ -130,6 +112,24 @@ export default function PlatformAdminDashboard() {
       return response.json();
     },
     retry: false,
+  });
+
+  // Traffic analytics state — must be declared AFTER admin to avoid TDZ crash in production bundle
+  const [trafficRange, setTrafficRange] = useState<'7d' | '30d' | '90d'>('30d');
+
+  const { data: trafficData, isLoading: trafficLoading } = useQuery({
+    queryKey: ['/platform-admin/traffic', trafficRange],
+    queryFn: async () => {
+      const res = await fetch(`/platform-admin/traffic?range=${trafficRange}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch traffic data');
+      return res.json() as Promise<{
+        totals: { views: number; uniqueVisitors: number };
+        series: { date: string; views: number; uniqueVisitors: number }[];
+        topPages: { path: string; views: number }[];
+        topReferrers: { referrerHost: string; views: number }[];
+      }>;
+    },
+    enabled: !!admin,
   });
 
   // Redirect to login if not authenticated
