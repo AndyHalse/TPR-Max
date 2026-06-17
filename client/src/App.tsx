@@ -88,6 +88,7 @@ import ContractorPortalResetPassword from "@/pages/contractor-portal/ContractorP
 import ContractorPortalDashboard from "@/pages/contractor-portal/ContractorPortalDashboard";
 import ContractorPortalDocuments from "@/pages/contractor-portal/ContractorPortalDocuments";
 import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalWorkers";
+import ChatbotWidget from "@/components/ChatbotWidget";
 
 function Router() {
   const [location] = useLocation();
@@ -546,11 +547,12 @@ function Router() {
         }}
       </Route>
       <Route>
-        <Layout>
-          <Switch>
-            <Route path="/">
-              <ErrorBoundary>
-                <Dashboard />
+        <>
+          <Layout>
+            <Switch>
+              <Route path="/">
+                <ErrorBoundary>
+                  <Dashboard />
               </ErrorBoundary>
             </Route>
             <Route path="/staff">
@@ -786,6 +788,8 @@ function Router() {
             <Route component={NotFound} />
           </Switch>
         </Layout>
+        <ChatbotWidget />
+        </>
       </Route>
     </Switch>
   );

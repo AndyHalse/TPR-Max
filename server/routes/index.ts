@@ -51,6 +51,7 @@ import { registerContractorWorkerDbsRoutes } from './contractorWorkerDbs';
 import { registerContractorWorkerCertsRoutes } from './contractorWorkerCerts';
 import { registerContractorEquipmentRoutes } from './contractorEquipment';
 import { registerBugReportRoutes } from './bugReports';
+import { registerChatbotRoutes } from './chatbot';
 import { registerSeoRoutes } from '../seo';
 
 export async function registerSplitRoutes(
@@ -109,5 +110,6 @@ export async function registerSplitRoutes(
   registerContractorWorkerCertsRoutes(app);
   registerContractorEquipmentRoutes(app);
   registerBugReportRoutes(app);
+  registerChatbotRoutes(app);
   await registerRemainingRoutes(app, server);
 }
