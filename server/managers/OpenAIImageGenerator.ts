@@ -1,99 +1,84 @@
 /**
- * GPT-Image-1 Image Generator for Production-Quality Induction Videos
- * Uses Replit AI Integrations - no personal API key required, billed to Replit credits
- * Provides photorealistic, professional workplace safety images
+ * Imagen 4 Image Generator for Production-Quality Induction Videos
+ * Uses Google's Imagen 4 Fast model via the GOOGLE_API_KEY env var (real Google API key).
+ * Replit's AI Integration proxy does NOT support image generation — this bypasses it entirely.
  */
 
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import type { IImageGenerator, ImageGenerationResult, Result } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
 import { logger } from '../utils/logger';
 
-// Using Replit's AI Integrations service - provides OpenAI-compatible API access without requiring your own API key
-// Charges are billed to Replit credits, bypassing personal API billing limits
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-});
+function buildImagenClient(): GoogleGenAI {
+  // GOOGLE_API_KEY is Replit's internal proxy token — the SDK prefers it over
+  // GEMINI_API_KEY, but the proxy does NOT support image generation.
+  // Temporarily remove it so the SDK uses the real GEMINI_API_KEY (AIza...) directly.
+  const savedGoogleKey = process.env.GOOGLE_API_KEY;
+  delete process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || "";
+  const client = new GoogleGenAI({ apiKey });
+  if (savedGoogleKey !== undefined) process.env.GOOGLE_API_KEY = savedGoogleKey;
+  return client;
+}
 
 export class DallE3ImageGenerator implements IImageGenerator {
   constructor(private companySettings?: any) {}
 
   async generate(
-    slideType: string, 
-    title: string, 
+    slideType: string,
+    title: string,
     description: string
   ): Promise<Result<ImageGenerationResult>> {
     try {
       const companyName = this.companySettings?.companyName || 'Modern Workplace';
-      
-      // Build contextual prompt using the actual scene title and description
-      const finalPrompt = `Professional photorealistic workplace safety training image for "${title}". 
-      
-Scene description: ${description}
 
-Visual requirements:
-- Modern corporate environment at ${companyName}
-- Diverse workforce (different ethnicities and genders)
-- Proper safety equipment and signage relevant to the scene
+      const prompt = `Professional photorealistic workplace safety training image for "${title}".
+
+Scene: ${description}
+
+Requirements:
+- Modern corporate or industrial environment at ${companyName}
+- Diverse workforce (varied ethnicities and genders)
+- Correct safety equipment and signage relevant to this scene
 - Clean, well-lit professional setting with bright LED lighting
-- Contemporary workplace design (glass, steel, modern finishes)
-- High-quality commercial photography style
-- Sharp focus, natural lighting, 8K quality
-- Authentic workplace scenario that matches the scene description
+- High-quality commercial photography style, sharp focus
+- Authentic workplace scenario matching the scene description
+- Suitable for UK workplace safety induction training materials`;
 
-Style: Photorealistic corporate photography, professional composition, bright and clear, suitable for safety training materials.`;
+      logger.info(`🎨 Generating Imagen 4 image for: ${title}`);
 
-      logger.info(`🎨 Generating GPT-Image-1 image for: ${title}`);
-      
-      // Generate image using gpt-image-1 via Replit AI Integrations
-      // Note: gpt-image-1 does not support response_format parameter - always returns base64
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: finalPrompt,
-        n: 1,
-        size: "1024x1024", // Standard high-quality size for gpt-image-1
+      const ai = buildImagenClient();
+      const result = await ai.models.generateImages({
+        model: "imagen-4.0-fast-generate-001",
+        prompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: "image/jpeg",
+        },
       });
 
-      if (!response.data || response.data.length === 0) {
-        throw new Error('No image data returned from gpt-image-1');
+      const imageBytes = result.generatedImages?.[0]?.image?.imageBytes;
+      if (!imageBytes) {
+        throw new Error('No image bytes returned from Imagen 4');
       }
 
-      // gpt-image-1 returns base64 data, not URL
-      const imageBase64 = response.data[0].b64_json;
-      
-      if (!imageBase64) {
-        throw new Error('No image data in gpt-image-1 response');
-      }
+      const base64 = Buffer.from(imageBytes).toString('base64');
+      const imageUrl = `data:image/jpeg;base64,${base64}`;
 
-      // Convert to data URL for use in the application
-      const imageUrl = `data:image/png;base64,${imageBase64}`;
-
-      logger.info(`✅ GPT-Image-1 image generated successfully for: ${title}`);
+      logger.info(`✅ Imagen 4 image generated successfully for: ${title}`);
 
       return ResultUtils.success({
         url: imageUrl,
         meta: {
-          model: "gpt-image-1",
-          prompt: finalPrompt,
+          model: "imagen-4.0-fast-generate-001",
+          prompt,
           fallback: false,
           quality: "high",
-          size: "1024x1024"
         }
       });
 
     } catch (error: any) {
-      logger.error('❌ GPT-Image-1 image generation failed:', error.message);
-      
-      // Provide detailed error context
-      if (error.response?.status === 400) {
-        logger.error('❌ Bad request - prompt may have content policy issues');
-      } else if (error.response?.status === 429) {
-        logger.error('❌ Rate limit exceeded - too many requests');
-      } else if (error.response?.status === 500) {
-        logger.error('❌ OpenAI service error');
-      }
-      
+      logger.error(`❌ Imagen 4 image generation failed for "${title}":`, error.message);
       return ResultUtils.error(error);
     }
   }
