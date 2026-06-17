@@ -3,7 +3,7 @@ import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import { eq, sql, desc } from 'drizzle-orm';
+import { eq, sql, desc, and, gte } from 'drizzle-orm';
 import { z } from 'zod';
 import { requirePlatformAdmin } from '../auth';
 import { CustomerDatabaseService } from '../customerDatabase';
@@ -1405,6 +1405,149 @@ export function registerPlatformAdminRoutes(app: Express): void {
     } catch (error) {
       logger.error('Error deleting blog post:', error);
       res.status(500).json({ error: 'Failed to delete blog post' });
+    }
+  });
+
+  // ── First-party analytics ─────────────────────────────────────────────────
+
+  // POST /api/track — public (no auth), fire-and-forget page view beacon
+  const TRACKED_PATHS = ['/', '/marketing', '/about', '/blog'];
+  const BLOG_POST_RE = /^\/blog\/[a-z0-9-]+$/i;
+  const BOT_RE = /bot|crawl|spider|slurp|bingpreview|facebookexternalhit|headless|lighthouse|monitor|pingdom/i;
+  const OWN_HOSTS = new Set(['tpr-max.com', 'www.tpr-max.com', 'localhost']);
+
+  const trackBodySchema = z.object({
+    path: z.string().startsWith('/').max(200),
+    referrer: z.string().max(2000).optional(),
+  });
+
+  app.post('/api/track', async (req, res) => {
+    res.status(204).end();
+    try {
+      const parsed = trackBodySchema.safeParse(req.body);
+      if (!parsed.success) return;
+      const { path, referrer } = parsed.data;
+
+      if (!TRACKED_PATHS.includes(path) && !BLOG_POST_RE.test(path)) return;
+
+      const ua = String(req.headers['user-agent'] || '').slice(0, 500);
+      const isBot = BOT_RE.test(ua);
+
+      const rawIp = String(
+        (req.headers['x-forwarded-for'] as string) || req.ip || ''
+      ).split(',')[0].trim();
+
+      const salt = process.env.ANALYTICS_SALT || process.env.SESSION_SECRET || 'tpr-analytics';
+      const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+      const visitorHash = crypto.createHash('sha256').update(salt + date + rawIp + ua).digest('hex');
+
+      let referrerHost: string | null = null;
+      if (referrer) {
+        try {
+          const host = new URL(referrer).hostname.toLowerCase().replace(/^www\./, '');
+          if (host && !OWN_HOSTS.has(host) && !OWN_HOSTS.has('www.' + host)) {
+            referrerHost = host;
+          }
+        } catch {}
+      }
+
+      await db.insert(sharedSchema.pageViews).values({ path, referrerHost, visitorHash, isBot });
+    } catch {}
+  });
+
+  // GET /platform-admin/traffic — platform admin only
+  app.get('/platform-admin/traffic', requirePlatformAdmin, async (req, res) => {
+    try {
+      const rangeParam = String(req.query.range || '30d');
+      const days = rangeParam === '7d' ? 7 : rangeParam === '90d' ? 90 : 30;
+
+      const windowResult = await db.execute(sql`
+        SELECT
+          ((NOW() AT TIME ZONE 'Europe/London')::date - (${days} - 1) * INTERVAL '1 day')::date AS start_date,
+          (NOW() AT TIME ZONE 'Europe/London')::date AS end_date
+      `);
+      const { start_date, end_date } = (windowResult.rows as any[])[0];
+
+      const totalsResult = await db.execute(sql`
+        SELECT
+          COUNT(*) AS views,
+          COUNT(DISTINCT visitor_hash) AS unique_visitors
+        FROM page_views
+        WHERE is_bot = false
+          AND (created_at AT TIME ZONE 'Europe/London')::date >= ${start_date}::date
+          AND (created_at AT TIME ZONE 'Europe/London')::date <= ${end_date}::date
+      `);
+      const totalsRow = (totalsResult.rows as any[])[0] || {};
+      const totals = {
+        views: Number(totalsRow.views ?? 0),
+        uniqueVisitors: Number(totalsRow.unique_visitors ?? 0),
+      };
+
+      const seriesResult = await db.execute(sql`
+        WITH date_series AS (
+          SELECT generate_series(${start_date}::date, ${end_date}::date, '1 day'::interval)::date AS day
+        ),
+        daily_stats AS (
+          SELECT
+            (created_at AT TIME ZONE 'Europe/London')::date AS day,
+            COUNT(*) AS views,
+            COUNT(DISTINCT visitor_hash) AS unique_visitors
+          FROM page_views
+          WHERE is_bot = false
+            AND (created_at AT TIME ZONE 'Europe/London')::date >= ${start_date}::date
+            AND (created_at AT TIME ZONE 'Europe/London')::date <= ${end_date}::date
+          GROUP BY 1
+        )
+        SELECT
+          to_char(ds.day, 'YYYY-MM-DD') AS date,
+          COALESCE(stats.views, 0)::int AS views,
+          COALESCE(stats.unique_visitors, 0)::int AS unique_visitors
+        FROM date_series ds
+        LEFT JOIN daily_stats stats ON stats.day = ds.day
+        ORDER BY ds.day
+      `);
+      const series = (seriesResult.rows as any[]).map(r => ({
+        date: String(r.date),
+        views: Number(r.views),
+        uniqueVisitors: Number(r.unique_visitors),
+      }));
+
+      const topPagesResult = await db.execute(sql`
+        SELECT path, COUNT(*) AS views
+        FROM page_views
+        WHERE is_bot = false
+          AND (created_at AT TIME ZONE 'Europe/London')::date >= ${start_date}::date
+          AND (created_at AT TIME ZONE 'Europe/London')::date <= ${end_date}::date
+        GROUP BY path
+        ORDER BY views DESC
+        LIMIT 10
+      `);
+      const topPages = (topPagesResult.rows as any[]).map(r => ({
+        path: String(r.path),
+        views: Number(r.views),
+      }));
+
+      const topReferrersResult = await db.execute(sql`
+        SELECT
+          COALESCE(referrer_host, 'Direct') AS referrer_host,
+          COUNT(*) AS views
+        FROM page_views
+        WHERE is_bot = false
+          AND (created_at AT TIME ZONE 'Europe/London')::date >= ${start_date}::date
+          AND (created_at AT TIME ZONE 'Europe/London')::date <= ${end_date}::date
+        GROUP BY referrer_host
+        ORDER BY views DESC
+        LIMIT 10
+      `);
+      const topReferrers = (topReferrersResult.rows as any[]).map(r => ({
+        referrerHost: String(r.referrer_host),
+        views: Number(r.views),
+      }));
+
+      res.json({ totals, series, topPages, topReferrers });
+    } catch (error) {
+      logger.error('Error fetching traffic data:', error);
+      res.status(500).json({ error: 'Failed to fetch traffic data' });
     }
   });
 }

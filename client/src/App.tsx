@@ -111,6 +111,21 @@ function Router() {
     }
   }, []);
 
+  // Fire-and-forget page view beacon — public marketing pages only, no cookies, no PII
+  const BEACON_PATHS = ['/', '/marketing', '/about', '/blog'];
+  useEffect(() => {
+    const isBeaconPath = BEACON_PATHS.includes(location) || /^\/blog\/[^/]+$/.test(location);
+    if (!isBeaconPath) return;
+    const body = JSON.stringify({ path: location, referrer: document.referrer });
+    try {
+      if (typeof navigator.sendBeacon === 'function') {
+        navigator.sendBeacon('/api/track', new Blob([body], { type: 'application/json' }));
+      } else {
+        fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+      }
+    } catch {}
+  }, [location]);
+
   // Route flags — computed before hooks so useQuery is always called unconditionally
   const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
   const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');

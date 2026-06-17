@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug, TrendingUp } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,6 +86,24 @@ export default function PlatformAdminDashboard() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // Traffic analytics state
+  const [trafficRange, setTrafficRange] = useState<'7d' | '30d' | '90d'>('30d');
+
+  const { data: trafficData, isLoading: trafficLoading } = useQuery({
+    queryKey: ['/platform-admin/traffic', trafficRange],
+    queryFn: async () => {
+      const res = await fetch(`/platform-admin/traffic?range=${trafficRange}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch traffic data');
+      return res.json() as Promise<{
+        totals: { views: number; uniqueVisitors: number };
+        series: { date: string; views: number; uniqueVisitors: number }[];
+        topPages: { path: string; views: number }[];
+        topReferrers: { referrerHost: string; views: number }[];
+      }>;
+    },
+    enabled: !!admin,
+  });
 
   // Blog state
   const [showBlogForm, setShowBlogForm] = useState(false);
@@ -799,6 +818,9 @@ export default function PlatformAdminDashboard() {
             <TabsTrigger value="bug-reports">
               <Bug className="w-4 h-4 mr-2" />Bug Reports
             </TabsTrigger>
+            <TabsTrigger value="traffic">
+              <TrendingUp className="w-4 h-4 mr-2" />Traffic
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers">
@@ -1047,6 +1069,147 @@ export default function PlatformAdminDashboard() {
 
           <TabsContent value="bug-reports" className="mt-0">
             <PlatformAdminBugReports />
+          </TabsContent>
+
+          {/* ── Traffic Tab ─────────────────────────────────────────── */}
+          <TabsContent value="traffic">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Website Traffic</h2>
+                  <p className="text-sm text-gray-500">Public marketing pages only — no cookies, no PII, GDPR-friendly</p>
+                </div>
+                <div className="flex gap-2">
+                  {(['7d', '30d', '90d'] as const).map(r => (
+                    <button
+                      key={r}
+                      onClick={() => setTrafficRange(r)}
+                      className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+                        trafficRange === r
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {r === '7d' ? '7 days' : r === '30d' ? '30 days' : '90 days'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {trafficLoading ? (
+                <div className="text-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Loading traffic data...</p>
+                </div>
+              ) : !trafficData || (trafficData.totals.views === 0 && trafficData.series.every(d => d.views === 0)) ? (
+                <div className="text-center py-16">
+                  <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-600 font-medium">No traffic recorded yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Visits to the public site will appear here once the tracker fires</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardDescription>Total page views</CardDescription>
+                        <CardTitle className="text-3xl">{trafficData.totals.views.toLocaleString('en-GB')}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-xs text-gray-500">
+                          Last {trafficRange === '7d' ? '7' : trafficRange === '30d' ? '30' : '90'} days — bots excluded
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardDescription>Unique visitors</CardDescription>
+                        <CardTitle className="text-3xl">{trafficData.totals.uniqueVisitors.toLocaleString('en-GB')}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-xs text-gray-500">Daily fingerprint — no cookies or PII stored</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Page views per day</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={trafficData.series} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="trafficGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fontSize: 11, fill: '#6b7280' }}
+                            tickFormatter={(d: string) => {
+                              try { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); } catch { return d; }
+                            }}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} allowDecimals={false} />
+                          <Tooltip
+                            formatter={(val: number) => [val.toLocaleString('en-GB'), 'Views']}
+                            labelFormatter={(d: string) => {
+                              try { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }); } catch { return d; }
+                            }}
+                          />
+                          <Area type="monotone" dataKey="views" stroke="#2563eb" strokeWidth={2} fill="url(#trafficGrad)" dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Top pages</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {trafficData.topPages.length === 0 ? (
+                          <p className="text-sm text-gray-400 text-center py-4">No data</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {trafficData.topPages.map((p) => (
+                              <div key={p.path} className="flex items-center justify-between text-sm">
+                                <span className="font-mono text-gray-700 dark:text-gray-300 truncate max-w-[70%]">{p.path}</span>
+                                <span className="text-gray-500 font-medium tabular-nums">{p.views.toLocaleString('en-GB')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Top referrers</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {trafficData.topReferrers.length === 0 ? (
+                          <p className="text-sm text-gray-400 text-center py-4">No data</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {trafficData.topReferrers.map((r) => (
+                              <div key={r.referrerHost} className="flex items-center justify-between text-sm">
+                                <span className="text-gray-700 dark:text-gray-300 truncate max-w-[70%]">{r.referrerHost}</span>
+                                <span className="text-gray-500 font-medium tabular-nums">{r.views.toLocaleString('en-GB')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>

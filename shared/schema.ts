@@ -2727,3 +2727,18 @@ export const insertBugReportSchema = createInsertSchema(bugReports).omit({
 
 export type BugReport = typeof bugReports.$inferSelect;
 export type InsertBugReport = z.infer<typeof insertBugReportSchema>;
+
+// ── Page Views ─ first-party traffic analytics (shared DB, platform-admin only) ──
+export const pageViews = pgTable("page_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  path: text("path").notNull(),
+  referrerHost: text("referrer_host"),
+  visitorHash: text("visitor_hash").notNull(),
+  isBot: boolean("is_bot").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  createdAtIdx: index("page_views_created_at_idx").on(t.createdAt),
+  pathIdx: index("page_views_path_idx").on(t.path),
+}));
+
+export type PageView = typeof pageViews.$inferSelect;

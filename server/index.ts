@@ -306,7 +306,8 @@ function createCSRFMiddleware() {
     
     // Skip CSRF only for requests that originate outside the browser app
     // (kiosk devices, public self-service links, fire-marshal mobile URLs)
-    if (req.originalUrl.startsWith('/api/kiosk') ||
+    if (req.originalUrl === '/api/track' ||
+        req.originalUrl.startsWith('/api/kiosk') ||
         req.originalUrl.startsWith('/api/fire-marshal') ||
         req.originalUrl.startsWith('/api/induction/public') ||
         req.originalUrl.startsWith('/api/induction/kiosk') ||
