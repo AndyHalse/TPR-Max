@@ -2324,7 +2324,7 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
                 <h1 style="margin-top: 48px;">${scene.title}</h1>
                 ${sceneImages[index] ? `
                     <div class="scene-image" style="position: relative;">
-                        <img src="${sceneImages[index]}" alt="${scene.title}" />
+                        <img src="${sceneImages[index]}" alt="${scene.title}" onerror="this.onerror=null;this.style.opacity='0';" />
                         <!-- Text overlay for critical information -->
                         <div style="position: absolute; bottom: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px;">
                             <h3 style="color: white; margin: 0; font-size: 1.2rem;">${scene.title}</h3>

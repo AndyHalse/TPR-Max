@@ -134,6 +134,50 @@ const BTN_WIRE_SCRIPT = `<script id="tpr-btn-fix">
 })();
 </script>`;
 
+// Injected into every served induction HTML to recover expired or broken slide images.
+// Old generatedHtml may contain DALL-E CDN URLs (https://oaidalleapiprodscus.blob.core.windows.net/...)
+// which expire after ~1 hour. This script detects load failures and swaps in an SVG placeholder.
+const IMG_ERR_RECOVERY_SCRIPT = `<script id="tpr-img-errfix">
+(function(){
+  var PH='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1792 1024">'+
+    '<defs><linearGradient id="bg" x1="0%25" y1="0%25" x2="100%25" y2="100%25">'+
+    '<stop offset="0%25" stop-color="#1a2e4a"/><stop offset="100%25" stop-color="#0d1a2e"/>'+
+    '</linearGradient></defs>'+
+    '<rect width="1792" height="1024" fill="url(%23bg)" rx="12"/>'+
+    '<rect x="796" y="362" width="200" height="200" rx="100" fill="rgba(255,255,255,0.08)"/>'+
+    '<text x="896" y="480" font-family="Arial,sans-serif" font-size="72" text-anchor="middle" fill="rgba(255,255,255,0.25)">&#128444;</text>'+
+    '<text x="896" y="610" font-family="Arial,sans-serif" font-size="28" text-anchor="middle" fill="rgba(255,255,255,0.4)">Safety Training Image</text>'+
+    '<text x="896" y="655" font-family="Arial,sans-serif" font-size="20" text-anchor="middle" fill="rgba(255,255,255,0.25)">Regenerate induction to refresh images</text>'+
+    '</svg>'
+  );
+  function applyFix(img){
+    if(img._tprErr) return;
+    img._tprErr=true;
+    img.onerror=function(){
+      this.onerror=null;
+      this.src=PH;
+      this.style.opacity='0.75';
+    };
+    // Image already failed to load (broken URL / expired CDN link)
+    if(img.complete && img.naturalWidth===0 && img.src && img.src.indexOf('data:')<0){
+      img.onerror();
+    }
+  }
+  function fixAll(){
+    document.querySelectorAll('.scene-image img').forEach(applyFix);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',fixAll);
+  } else {
+    fixAll();
+  }
+  // Second pass after a short delay — catches images that start loading then fail
+  setTimeout(fixAll, 800);
+  setTimeout(fixAll, 2500);
+})();
+</script>`;
+
 const SLIDE_PERF_PATCH = `<style id="tpr-slide-perf-patch">
 .scene{visibility:hidden!important;pointer-events:none!important;position:absolute!important;top:0;left:0;width:100%;opacity:0!important;transition:opacity 0.25s ease!important;}
 .scene.active{visibility:visible!important;pointer-events:auto!important;position:relative!important;opacity:1!important;display:block!important;animation:tprSlideIn 0.3s ease!important;}
@@ -195,6 +239,16 @@ function patchInductionHtml(html: string): string {
       out = out.slice(0, bodyClose) + BTN_WIRE_SCRIPT + out.slice(bodyClose);
     } else {
       out += BTN_WIRE_SCRIPT;
+    }
+  }
+
+  // ── 5. Image error recovery (handles expired DALL-E CDN URLs in old HTML) ─
+  if (!out.includes('id="tpr-img-errfix"')) {
+    const bodyClose = out.indexOf('</body>');
+    if (bodyClose !== -1) {
+      out = out.slice(0, bodyClose) + IMG_ERR_RECOVERY_SCRIPT + out.slice(bodyClose);
+    } else {
+      out += IMG_ERR_RECOVERY_SCRIPT;
     }
   }
 
