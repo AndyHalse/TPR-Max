@@ -574,11 +574,27 @@ export function registerBugReportRoutes(app: Express) {
             const resolvedNote = resolutionNote ?? current.resolutionNote ?? null;
             const reporterFirstName = current.reporterName?.split(' ')[0] ?? null;
             const baseUrl = getBaseUrl();
-            const feedbackToken = randomBytes(24).toString('base64url');
 
-            // Save token (and reset any prior feedback) before sending email
-            setData.feedbackToken = feedbackToken;
-            setData.feedbackTokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
+            // Reuse existing token if it is still valid and Emma hasn't responded yet.
+            // Generating a new token every time overwrites the DB record and makes any
+            // previously-sent email link return "link expired" — the root cause of BR-020/BR-026.
+            const existingTokenStillValid =
+              current.feedbackToken &&
+              current.feedbackTokenExpiresAt &&
+              current.feedbackTokenExpiresAt > new Date();
+            const reporterAlreadyResponded = current.reporterFeedback !== null;
+
+            const feedbackToken =
+              existingTokenStillValid && !reporterAlreadyResponded
+                ? current.feedbackToken!
+                : randomBytes(24).toString('base64url');
+
+            // Only write token/expiry to DB if we generated a new one
+            if (!existingTokenStillValid || reporterAlreadyResponded) {
+              setData.feedbackToken = feedbackToken;
+              setData.feedbackTokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
+            }
+            // Always reset feedback state so the new email presents a fresh prompt
             setData.reporterFeedback = null;
 
             const html = buildFixedEmailHtml({
