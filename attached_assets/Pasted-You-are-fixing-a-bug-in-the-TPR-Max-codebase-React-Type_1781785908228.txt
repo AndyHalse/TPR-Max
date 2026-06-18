@@ -1,0 +1,50 @@
+You are fixing a bug in the TPR Max codebase (React + TypeScript front end in
+client/src, Express + TypeScript API in server/). Use the report below to find
+the root cause and propose a fix. Do not guess — read the named source file
+first, and ask for the screenshots if you need them.
+
+# Bug BR-027
+- Reported: 18/06/2026, 13:17:25
+- Status: New
+- Reporter: Emma Leschenko <emma@acsltd.eu>
+- Customer / tenant: ACS Safety & Security Ltd
+- App version: v2026.06.18-248a5066
+- Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0
+- Screen: 2142x1082
+
+## Where it happened
+- Route (URL path): /contractors
+- Likely source file: client/src/pages/ContractorManagement.tsx
+  (If the route is dynamic or unknown, say "Unknown — search client/src/pages".)
+
+## What the user reported
+This error reports back on the fix made in BR-025 for the Site induction process. I took the quiz and pressed 'Submit Quiz' and the error below was generated so I couldn't test any further.
+
+## Console / network logs at the time
+None captured.
+
+## What the user did just before (most recent last)
+[2026-06-18T10:33:56.264Z] [CLICK] button:button-save-changes
+[2026-06-18T10:34:02.368Z] [CLICK] button:Send Link
+[2026-06-18T10:53:58.227Z] [CLICK] button:Close
+[2026-06-18T10:54:00.146Z] [CLICK] a:Dashboard
+[2026-06-18T10:54:00.158Z] [ROUTE] /
+[2026-06-18T10:59:38.484Z] [CLICK] button:Upload
+[2026-06-18T11:01:11.303Z] [CLICK] button:Upload
+[2026-06-18T11:01:40.839Z] [CLICK] button:Send Report
+[2026-06-18T12:11:50.899Z] [CLICK] a:Contractors6
+[2026-06-18T12:11:50.906Z] [ROUTE] /contractors
+[2026-06-18T12:12:03.687Z] [CLICK] button:Close
+[2026-06-18T12:12:10.095Z] [CLICK] button:Close
+[2026-06-18T12:15:48.126Z] [CLICK] button:Upload
+[2026-06-18T12:16:46.047Z] [CLICK] button:Upload
+[2026-06-18T12:17:23.744Z] [CLICK] button:Send Report
+
+## Screenshots
+2 image(s) were attached but are NOT included in this text. They are visible in Platform Admin and in the report PDF (use the "Download PDF" button). Ask the user to paste them if the cause isn't clear from the data above.
+
+## Your task
+1. Read the likely source file and trace the code path the user hit.
+2. Identify the root cause.
+3. Propose the smallest correct fix, and call out any tenant-isolation,
+   permissions, or input-validation concerns you notice while there.

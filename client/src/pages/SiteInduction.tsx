@@ -859,28 +859,31 @@ export default function SiteInduction() {
                 <span className="text-white text-sm font-semibold">Questions to review ({questions.length} total)</span>
               </div>
               <ul className="divide-y divide-orange-100">
-                {questions.map((q, idx) => (
-                  <li key={q.id} className="px-4 py-4 bg-orange-50 space-y-2">
-                    <p className="text-sm font-semibold text-gray-800">
-                      Q{idx + 1}{q.category ? ` — ${q.category}` : ''}: {q.question}
-                    </p>
-                    <ul className="space-y-1">
-                      {q.options.map((opt: string) => (
-                        <li
-                          key={opt}
-                          className={`text-sm px-3 py-1.5 rounded-md border ${
-                            opt === q.correctAnswer
-                              ? 'bg-green-50 border-green-300 text-green-800 font-medium'
-                              : 'bg-white border-gray-200 text-gray-500'
-                          }`}
-                        >
-                          {opt === q.correctAnswer && <span className="mr-1">✓</span>}
-                          {opt}
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
+                {questions.map((q, idx) => {
+                  const opts = [q.optionA, q.optionB, q.optionC, q.optionD].filter(Boolean) as string[];
+                  return (
+                    <li key={q.id} className="px-4 py-4 bg-orange-50 space-y-2">
+                      <p className="text-sm font-semibold text-gray-800">
+                        Q{idx + 1}{q.category ? ` — ${q.category}` : ''}: {q.questionText}
+                      </p>
+                      <ul className="space-y-1">
+                        {opts.map((opt: string) => (
+                          <li
+                            key={opt}
+                            className={`text-sm px-3 py-1.5 rounded-md border ${
+                              opt === q.correctAnswer
+                                ? 'bg-green-50 border-green-300 text-green-800 font-medium'
+                                : 'bg-white border-gray-200 text-gray-500'
+                            }`}
+                          >
+                            {opt === q.correctAnswer && <span className="mr-1">✓</span>}
+                            {opt}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -1083,13 +1086,14 @@ export default function SiteInduction() {
                         {questions.map((q, idx) => {
                           const givenAnswer = answers[q.id] || perSceneAnswers[q.id];
                           const wasWrong = givenAnswer && givenAnswer !== q.correctAnswer;
+                          const opts = [q.optionA, q.optionB, q.optionC, q.optionD].filter(Boolean) as string[];
                           return (
                             <li key={q.id} className={`px-4 py-4 space-y-2 ${wasWrong ? 'bg-red-50' : 'bg-green-50'}`}>
                               <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                                 <span className={wasWrong ? 'text-red-500' : 'text-green-600'}>
                                   {wasWrong ? '✗' : '✓'}
                                 </span>
-                                Q{idx + 1}{q.category ? ` — ${q.category}` : ''}: {q.question}
+                                Q{idx + 1}{q.category ? ` — ${q.category}` : ''}: {q.questionText}
                                 {failureFeedbackLevel === 'topics_rewatch' && wasWrong && typeof (q as any).sceneIndex === 'number' && (
                                   <button
                                     onClick={() => rewatchScene((q as any).sceneIndex)}
@@ -1100,7 +1104,7 @@ export default function SiteInduction() {
                                 )}
                               </p>
                               <ul className="space-y-1 pl-4">
-                                {q.options.map((opt: string) => (
+                                {opts.map((opt: string) => (
                                   <li
                                     key={opt}
                                     className={`text-sm px-3 py-1.5 rounded-md border ${
