@@ -125,7 +125,7 @@ export default function FireRiskAssessmentPage() {
   const { data: currentUser } = useQuery<{ id: string; username: string; role: string }>({
     queryKey: ["/api/auth/me"],
   });
-  const isManager = ['admin', 'manager'].includes(currentUser?.role ?? '');
+  const isManager = ['admin', 'manager', 'hr_admin'].includes(currentUser?.role ?? '');
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

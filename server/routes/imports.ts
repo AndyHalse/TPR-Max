@@ -1757,6 +1757,128 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       logger.warn(`Sample Permit to Work data failed: ${e.message}`);
     }
 
+    // ── Fire Risk Assessment ────────────────────────────────────────────────────
+    let fraAdded = 0;
+    let fraActionsAdded = 0;
+    try {
+      // Ensure tables exist before inserting
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".fire_risk_assessments (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          title TEXT NOT NULL DEFAULT 'Fire Risk Assessment',
+          assessor_name TEXT NOT NULL,
+          assessor_company TEXT,
+          assessment_date TEXT NOT NULL,
+          next_review_date TEXT NOT NULL,
+          document_url TEXT,
+          status TEXT NOT NULL DEFAULT 'current',
+          findings_summary TEXT,
+          reminder_sent_at TIMESTAMPTZ,
+          deleted_at TIMESTAMPTZ DEFAULT NULL,
+          deleted_by TEXT DEFAULT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".fra_action_items (
+          id SERIAL PRIMARY KEY,
+          fra_id TEXT NOT NULL REFERENCES "${schemaName}".fire_risk_assessments(id) ON DELETE CASCADE,
+          description TEXT NOT NULL,
+          priority TEXT NOT NULL DEFAULT 'medium',
+          location TEXT,
+          assigned_to TEXT,
+          due_date DATE,
+          completed_at TIMESTAMPTZ DEFAULT NULL,
+          completed_by TEXT DEFAULT NULL,
+          completion_notes TEXT DEFAULT NULL,
+          reminder_sent_at TIMESTAMPTZ DEFAULT NULL,
+          deleted_at TIMESTAMPTZ DEFAULT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      const fraId = 'fra-demo-001';
+      const fraExists = await pool.query(`SELECT id FROM "${schemaName}".fire_risk_assessments WHERE id = $1`, [fraId]);
+      if (fraExists.rows.length === 0) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".fire_risk_assessments
+            (id, title, assessor_name, assessor_company, assessment_date, next_review_date, status, findings_summary)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          fraId,
+          'Fire Risk Assessment',
+          'Andy Halse',
+          'ACS Safety & Security Ltd',
+          '2026-05-09',
+          '2027-05-09',
+          'current',
+          'No fire door fitted at the rear of the warehouse. Fire extinguisher in the loading bay requires annual service. Emergency lighting unit in stairwell B is defective.',
+        ]);
+        fraAdded++;
+
+        const sampleActions = [
+          {
+            description: 'Install compliant self-closing fire door at rear of warehouse',
+            priority: 'high',
+            location: 'Rear warehouse exit',
+            assigned_to: 'Andy Halse',
+            due_date: '2026-10-05',
+            completed_at: null,
+          },
+          {
+            description: 'Service and certify all fire extinguishers — loading bay unit overdue',
+            priority: 'high',
+            location: 'Loading bay',
+            assigned_to: 'Andy Halse',
+            due_date: '2026-10-05',
+            completed_at: null,
+          },
+          {
+            description: 'Replace defective emergency lighting unit in stairwell B',
+            priority: 'medium',
+            location: 'Stairwell B',
+            assigned_to: 'Emma Johnson',
+            due_date: '2026-09-01',
+            completed_at: null,
+          },
+          {
+            description: 'Update fire evacuation procedure notice on all notice boards',
+            priority: 'low',
+            location: 'All areas',
+            assigned_to: 'Emma Johnson',
+            due_date: '2026-07-01',
+            completed_at: new Date('2026-06-15').toISOString(),
+            completed_by: 'Emma Johnson',
+            completion_notes: 'All notice boards updated with revised evacuation routes.',
+          },
+        ];
+
+        for (const action of sampleActions) {
+          await pool.query(`
+            INSERT INTO "${schemaName}".fra_action_items
+              (fra_id, description, priority, location, assigned_to, due_date, completed_at, completed_by, completion_notes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `, [
+            fraId,
+            action.description,
+            action.priority,
+            action.location ?? null,
+            action.assigned_to ?? null,
+            action.due_date ?? null,
+            action.completed_at ?? null,
+            (action as any).completed_by ?? null,
+            (action as any).completion_notes ?? null,
+          ]);
+          fraActionsAdded++;
+        }
+      }
+      logger.info(`✅ Fire Risk Assessment sample data: ${fraAdded} FRA, ${fraActionsAdded} actions`);
+    } catch (e: any) {
+      logger.warn(`Sample Fire Risk Assessment data failed: ${e.message}`);
+    }
+
     // ── H&S Incidents (RIDDOR + Near Miss + BBS) ───────────────────────────────
     let hsIncidentsAdded = 0;
     try {
@@ -2333,8 +2455,8 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits, ${hsIncidentsAdded} H&S incident records — plus HR, certifications, visits, pre-bookings and attendance records`,
-      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded, auditTemplatesAdded, auditRecordsAdded, auditActionsAdded, permitsAdded, hsIncidentsAdded },
+      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits, ${fraAdded} fire risk assessment (${fraActionsAdded} actions), ${hsIncidentsAdded} H&S incident records — plus HR, certifications, visits, pre-bookings and attendance records`,
+      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded, auditTemplatesAdded, auditRecordsAdded, auditActionsAdded, permitsAdded, fraAdded, fraActionsAdded, hsIncidentsAdded },
     });
   } catch (error) {
     logger.error('Error loading sample data:', error);
@@ -2652,6 +2774,14 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         }
         logger.info(`✅ Permit to Work demo data cleared`);
       } catch (e) { logger.warn(`Clear sample: permit_to_work demo — ${(e as any).message}`); }
+
+      // ── Fire Risk Assessment sample data cleanup ────────────────────────────
+      try {
+        await pool.query(`DELETE FROM "${schemaName}".fra_action_items WHERE fra_id = 'fra-demo-001'`).catch(() => {});
+        const fraDelRes = await pool.query(`DELETE FROM "${schemaName}".fire_risk_assessments WHERE id = 'fra-demo-001'`).catch(() => ({ rowCount: 0 }));
+        deleted['fire_risk_assessments'] = (fraDelRes as any)?.rowCount ?? 0;
+        logger.info(`✅ Fire Risk Assessment sample data cleared`);
+      } catch (e) { logger.warn(`Clear sample: fire_risk_assessments — ${(e as any).message}`); }
 
       // ── H&S Incidents sample data cleanup ──────────────────────────────────
       try {
