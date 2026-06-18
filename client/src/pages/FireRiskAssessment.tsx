@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -577,7 +577,7 @@ export default function FireRiskAssessmentPage() {
                 {currentFra.documentUrl && (
                   <div>
                     <a
-                      href={currentFra.documentUrl.startsWith("/objects/") ? currentFra.documentUrl : currentFra.documentUrl}
+                      href={currentFra.documentUrl.startsWith("/objects/") ? objectUrl(currentFra.documentUrl) : currentFra.documentUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-blue-600 hover:underline"
@@ -751,7 +751,7 @@ export default function FireRiskAssessmentPage() {
                     <td className="py-2">
                       <div className="flex gap-1">
                         {fra.documentUrl && (
-                          <a href={fra.documentUrl} target="_blank" rel="noopener noreferrer" title={fra.documentUrl.startsWith("/objects/") ? "View uploaded PDF" : "Open document URL"}>
+                          <a href={fra.documentUrl.startsWith("/objects/") ? objectUrl(fra.documentUrl) : fra.documentUrl} target="_blank" rel="noopener noreferrer" title={fra.documentUrl.startsWith("/objects/") ? "View uploaded PDF" : "Open document URL"}>
                             <Button size="sm" variant="ghost">
                               {fra.documentUrl.startsWith("/objects/") ? <FileText size={13} /> : <Download size={13} />}
                             </Button>
