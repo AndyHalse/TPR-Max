@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, requirePlatformAdmin } from '../auth';
 import { db } from '../db';
-import { bugReports, customers, insertBugReportSchema } from '@shared/schema';
+import { bugReports, bugReportAudit, customers, insertBugReportSchema } from '@shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { EmailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -193,6 +193,27 @@ function buildFixedEmailText(opts: {
 }
 
 export function registerBugReportRoutes(app: Express) {
+  // Ensure the atomic sequence and audit table exist in the shared DB (idempotent).
+  // Using raw SQL so this is safe to run on every server start.
+  db.execute(sql`
+    CREATE SEQUENCE IF NOT EXISTS bug_report_seq;
+    SELECT setval(
+      'bug_report_seq',
+      GREATEST(
+        (SELECT COALESCE(MAX(NULLIF(regexp_replace(report_number, '\D', '', 'g'), '')::int), 0) FROM bug_reports),
+        1
+      ),
+      true
+    );
+    CREATE TABLE IF NOT EXISTS bug_report_audit (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      bug_report_id varchar NOT NULL REFERENCES bug_reports(id),
+      changed_by text,
+      changes jsonb,
+      created_at timestamp DEFAULT now() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS bug_report_audit_report_id_idx ON bug_report_audit(bug_report_id);
+  `).catch(err => logger.error('[bug-reports] Failed to ensure sequence/audit table:', err));
 
   // POST /api/bug-reports — tenant-facing, rate-limited
   app.post('/api/bug-reports', requireAuth, bugReportLimiter, async (req, res) => {
@@ -243,9 +264,8 @@ export function registerBugReportRoutes(app: Express) {
         customerName = customer?.companyName ?? '';
       } catch (_) { /* non-fatal */ }
 
-      const [countRow] = await db.select({ count: sql<number>`count(*)::int` }).from(bugReports);
-      const nextNum = (countRow?.count ?? 0) + 1;
-      const reportNumber = `BR-${String(nextNum).padStart(3, '0')}`;
+      const [{ seq }] = await db.execute(sql`SELECT nextval('bug_report_seq')::int AS seq`) as any;
+      const reportNumber = `BR-${String(seq).padStart(3, '0')}`;
 
       const [inserted] = await db.insert(bugReports).values({
         reportNumber,
@@ -466,9 +486,14 @@ export function registerBugReportRoutes(app: Express) {
 
   // ── Platform admin routes ─────────────────────────────────────────────────
 
-  // GET /platform-admin/bug-reports — all reports, no screenshot (hasScreenshot boolean instead)
-  app.get('/platform-admin/bug-reports', requirePlatformAdmin, async (_req, res) => {
+  // GET /platform-admin/bug-reports — paginated list, no screenshot (hasScreenshot boolean instead)
+  app.get('/platform-admin/bug-reports', requirePlatformAdmin, async (req, res) => {
     try {
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const offset = Number(req.query.offset) || 0;
+
+      const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(bugReports);
+
       const reports = await db.select({
         id: bugReports.id,
         reportNumber: bugReports.reportNumber,
@@ -500,16 +525,18 @@ export function registerBugReportRoutes(app: Express) {
         attachmentCount: sql<number>`coalesce(jsonb_array_length(${bugReports.attachments}), 0)`,
       })
         .from(bugReports)
-        .orderBy(desc(bugReports.createdAt));
+        .orderBy(desc(bugReports.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-      return res.json({ reports });
+      return res.json({ reports, total });
     } catch (error: any) {
       logger.error('Error listing bug reports:', error);
       return res.status(500).json({ error: 'Failed to load bug reports.' });
     }
   });
 
-  // GET /platform-admin/bug-reports/:id — full report including screenshot
+  // GET /platform-admin/bug-reports/:id — full report including screenshot and audit history
   app.get('/platform-admin/bug-reports/:id', requirePlatformAdmin, async (req, res) => {
     try {
       const [report] = await db
@@ -520,7 +547,18 @@ export function registerBugReportRoutes(app: Express) {
       if (!report) return res.status(404).json({ error: 'Report not found.' });
       // Never send feedbackToken to client (security)
       const { feedbackToken: _ft, ...safeReport } = report;
-      return res.json(safeReport);
+
+      // Load audit rows (newest first) — non-fatal if table not yet present
+      let auditLog: any[] = [];
+      try {
+        auditLog = await db
+          .select()
+          .from(bugReportAudit)
+          .where(eq(bugReportAudit.bugReportId, req.params.id))
+          .orderBy(desc(bugReportAudit.createdAt));
+      } catch (_) { /* audit table may not exist yet on first boot */ }
+
+      return res.json({ ...safeReport, auditLog });
     } catch (error: any) {
       logger.error('Error fetching bug report:', error);
       return res.status(500).json({ error: 'Failed to load bug report.' });
@@ -547,10 +585,33 @@ export function registerBugReportRoutes(app: Express) {
       const setData: Record<string, any> = { updatedAt: new Date() };
       if (status !== undefined) {
         setData.status = status;
-        setData.resolvedAt = (status === 'fixed' || status === 'closed') ? new Date() : null;
+        if (status === 'fixed' || status === 'closed') {
+          setData.resolvedAt = current.resolvedAt ?? new Date();   // preserve original resolution time
+        } else {
+          setData.resolvedAt = null;   // reopened / in_progress / new clears it
+        }
       }
       if (adminNotes !== undefined) setData.adminNotes = adminNotes;
       if (resolutionNote !== undefined) setData.resolutionNote = resolutionNote;
+
+      // Build audit diff before update
+      const auditChanges: Array<{ field: string; from: any; to: any }> = [];
+      if (status !== undefined && status !== current.status) {
+        auditChanges.push({ field: 'status', from: current.status, to: status });
+      }
+      if (adminNotes !== undefined && adminNotes !== current.adminNotes) {
+        auditChanges.push({ field: 'adminNotes', from: current.adminNotes, to: adminNotes });
+      }
+      if (resolutionNote !== undefined && resolutionNote !== current.resolutionNote) {
+        auditChanges.push({ field: 'resolutionNote', from: current.resolutionNote, to: resolutionNote });
+      }
+      if (auditChanges.length > 0) {
+        db.insert(bugReportAudit).values({
+          bugReportId: req.params.id,
+          changedBy: (req as any).session?.platformAdminId ?? null,
+          changes: auditChanges,
+        }).catch(auditErr => logger.warn('[bug-reports] Audit insert failed (non-fatal):', auditErr.message?.substring(0, 80)));
+      }
 
       // Detect fixed transition — only fire notification once per transition
       const isFixedTransition =

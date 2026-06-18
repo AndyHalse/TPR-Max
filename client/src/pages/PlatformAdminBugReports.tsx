@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bug, Camera, Download, Maximize2, ChevronDown, X, Copy, Image, FileText, Loader2, Mail, CheckCircle2, AlertCircle, RotateCcw, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,10 +48,19 @@ interface BugReport {
   hasReopenScreenshot: boolean;
 }
 
+interface AuditEntry {
+  id: string;
+  bugReportId: string;
+  changedBy: string | null;
+  changes: Array<{ field: string; from: any; to: any }> | null;
+  createdAt: string;
+}
+
 interface BugReportDetail extends BugReport {
   screenshot: string | null;
   attachments: Attachment[] | null;
   reopenScreenshot: string | null;
+  auditLog: AuditEntry[];
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -178,7 +187,7 @@ function buildCopyText(detail: BugReportDetail): string {
   const totalImages =
     (detail.screenshot ? 1 : 0) + (detail.attachments?.length ?? 0);
   return [
-    `TPR Bug Report ${detail.reportNumber} — ${new Date(detail.createdAt).toLocaleString()}`,
+    `TPR Bug Report ${detail.reportNumber} — ${new Date(detail.createdAt).toLocaleString("en-GB")}`,
     `Reporter: ${detail.reporterName || "—"}${detail.reporterEmail ? ` <${detail.reporterEmail}>` : ""}`,
     `Customer: ${detail.customerName || detail.customerId || "—"}`,
     `Page: ${detail.pageUrl || "—"}`,
@@ -218,14 +227,30 @@ export default function PlatformAdminBugReports() {
   const [showFixConfirm, setShowFixConfirm] = useState(false);
   const [resolutionNoteText, setResolutionNoteText] = useState("");
 
-  const { data, isLoading, isError } = useQuery<{ reports: BugReport[] }>({
-    queryKey: ["/platform-admin/bug-reports"],
+  const [offset, setOffset] = useState(0);
+  const [allReports, setAllReports] = useState<BugReport[]>([]);
+  const [totalReports, setTotalReports] = useState(0);
+  const PAGE_SIZE = 100;
+
+  const { data, isLoading, isError, isFetching } = useQuery<{ reports: BugReport[]; total: number }>({
+    queryKey: ["/platform-admin/bug-reports", offset],
     queryFn: async () => {
-      const r = await fetch("/platform-admin/bug-reports", { credentials: "include" });
+      const r = await fetch(`/platform-admin/bug-reports?limit=${PAGE_SIZE}&offset=${offset}`, { credentials: "include" });
       if (!r.ok) throw new Error("Failed to fetch bug reports");
       return r.json();
     },
   });
+
+  // Accumulate pages: first page replaces, subsequent pages append
+  useEffect(() => {
+    if (!data) return;
+    setTotalReports(data.total);
+    if (offset === 0) {
+      setAllReports(data.reports);
+    } else {
+      setAllReports(prev => [...prev, ...data.reports]);
+    }
+  }, [data]);
 
   const { data: detail, isLoading: detailLoading } = useQuery<BugReportDetail>({
     queryKey: ["/platform-admin/bug-reports", selectedId],
@@ -453,17 +478,16 @@ export default function PlatformAdminBugReports() {
     a.click();
   }
 
-  const reports = data?.reports ?? [];
   // Sort reopened to the top, then by createdAt desc
-  const sorted = [...reports].sort((a, b) => {
+  const sorted = [...allReports].sort((a, b) => {
     const aReopened = a.status === "reopened" ? 0 : 1;
     const bReopened = b.status === "reopened" ? 0 : 1;
     if (aReopened !== bReopened) return aReopened - bReopened;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
   const filtered = statusFilter === "all" ? sorted : sorted.filter((r) => r.status === statusFilter);
-  const openCount = reports.filter((r) => r.status === "new" || r.status === "in_progress" || r.status === "reopened").length;
-  const reopenedCount = reports.filter((r) => r.status === "reopened").length;
+  const openCount = allReports.filter((r) => r.status === "new" || r.status === "in_progress" || r.status === "reopened").length;
+  const reopenedCount = allReports.filter((r) => r.status === "reopened").length;
 
   const allImages: Array<{ dataUrl: string; caption: string; index: number }> = [];
   if (detail) {
@@ -536,6 +560,7 @@ export default function PlatformAdminBugReports() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-mono text-sm font-bold text-amber-600">{report.reportNumber}</span>
+
                       {imgCount > 0 && (
                         <span className="flex items-center gap-0.5 text-xs text-slate-400" title={`${imgCount} image${imgCount !== 1 ? "s" : ""}`}>
                           <Image className="w-3.5 h-3.5" />{imgCount}
@@ -559,7 +584,7 @@ export default function PlatformAdminBugReports() {
                     )}
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {report.reporterName ? `${report.reporterName} · ` : ""}
-                      {new Date(report.createdAt).toLocaleString()}
+                      {new Date(report.createdAt).toLocaleString("en-GB")}
                     </p>
                   </div>
                   <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0 -rotate-90" />
@@ -567,6 +592,21 @@ export default function PlatformAdminBugReports() {
               </Card>
             );
           })}
+
+          {/* Load more */}
+          {allReports.length < totalReports && (
+            <div className="pt-2 text-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOffset(allReports.length)}
+                disabled={isFetching}
+              >
+                {isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : null}
+                Load more ({totalReports - allReports.length} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -586,7 +626,7 @@ export default function PlatformAdminBugReports() {
                     </DialogTitle>
                     <DialogDescription>
                       {detail.customerName || detail.customerId || "Unknown customer"} ·{" "}
-                      {new Date(detail.createdAt).toLocaleString()}
+                      {new Date(detail.createdAt).toLocaleString("en-GB")}
                     </DialogDescription>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 mt-0.5">
@@ -657,13 +697,13 @@ export default function PlatformAdminBugReports() {
                   {detail.resolvedAt && (
                     <div>
                       <span className="font-medium">Resolved: </span>
-                      <span className="text-muted-foreground">{new Date(detail.resolvedAt).toLocaleString()}</span>
+                      <span className="text-muted-foreground">{new Date(detail.resolvedAt).toLocaleString("en-GB")}</span>
                     </div>
                   )}
                   {detail.reporterNotifiedAt && (
                     <div className="col-span-2 flex items-center gap-1.5 text-green-700 dark:text-green-400">
                       <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="text-xs">Reporter notified on {new Date(detail.reporterNotifiedAt).toLocaleString()}</span>
+                      <span className="text-xs">Reporter notified on {new Date(detail.reporterNotifiedAt).toLocaleString("en-GB")}</span>
                     </div>
                   )}
                 </div>
@@ -673,7 +713,7 @@ export default function PlatformAdminBugReports() {
                   <div className="flex items-start gap-2.5 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
                     <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                     <p className="text-sm text-green-700 dark:text-green-400">
-                      ✓ Reporter confirmed fixed on {new Date(detail.reporterConfirmedAt).toLocaleString()}
+                      ✓ Reporter confirmed fixed on {new Date(detail.reporterConfirmedAt).toLocaleString("en-GB")}
                     </p>
                   </div>
                 )}
@@ -684,7 +724,7 @@ export default function PlatformAdminBugReports() {
                       <RotateCcw className="w-4 h-4 text-red-600 flex-shrink-0" />
                       <p className="text-sm font-semibold text-red-700 dark:text-red-400">
                         Reporter says it's still broken
-                        {detail.reopenedAt ? ` · ${new Date(detail.reopenedAt).toLocaleString()}` : ""}
+                        {detail.reopenedAt ? ` · ${new Date(detail.reopenedAt).toLocaleString("en-GB")}` : ""}
                       </p>
                     </div>
                     {detail.reopenReason && (
@@ -833,6 +873,31 @@ export default function PlatformAdminBugReports() {
                     Save Notes
                   </Button>
                 </div>
+
+                {/* Audit history */}
+                {detail.auditLog && detail.auditLog.length > 0 && (
+                  <div>
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">History</Label>
+                    <div className="mt-1 space-y-1">
+                      {detail.auditLog.map((entry) => (
+                        <div key={entry.id} className="text-xs text-muted-foreground bg-slate-50 dark:bg-slate-800 rounded px-3 py-1.5 flex flex-col gap-0.5">
+                          <span className="font-medium text-slate-600 dark:text-slate-300">
+                            {new Date(entry.createdAt).toLocaleString("en-GB")}
+                            {entry.changedBy ? ` · ${entry.changedBy}` : ""}
+                          </span>
+                          {(entry.changes ?? []).map((c, i) => (
+                            <span key={i}>
+                              <span className="font-mono">{c.field}</span>:{" "}
+                              <span className="line-through opacity-60">{String(c.from ?? "—").slice(0, 60)}</span>
+                              {" → "}
+                              <span>{String(c.to ?? "—").slice(0, 60)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

@@ -2697,6 +2697,7 @@ export const bugReports = pgTable("bug_reports", {
   bugStatusIdx: index("bug_reports_status_idx").on(table.status),
   bugCustomerIdIdx: index("bug_reports_customer_id_idx").on(table.customerId),
   bugCreatedAtIdx: index("bug_reports_created_at_idx").on(table.createdAt),
+  bugReportNumberUnique: uniqueIndex("bug_reports_report_number_unique").on(table.reportNumber),
 }));
 
 export const insertBugReportSchema = createInsertSchema(bugReports).omit({
@@ -2724,7 +2725,24 @@ export const insertBugReportSchema = createInsertSchema(bugReports).omit({
     dataUrl: z.string().startsWith("data:image/"),
     caption: z.string().max(200),
   })).max(5).optional(),
+  consoleErrors: z.string().max(20000).optional().nullable(),
+  breadcrumbs:   z.string().max(20000).optional().nullable(),
+  pageUrl:       z.string().max(2000).optional().nullable(),
+  browserInfo:   z.string().max(1000).optional().nullable(),
+  errorId:       z.string().max(200).optional().nullable(),
+  appVersion:    z.string().max(100).optional().nullable(),
 });
+
+// Audit trail — one row per admin action on a bug report
+export const bugReportAudit = pgTable("bug_report_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bugReportId: varchar("bug_report_id").notNull().references(() => bugReports.id),
+  changedBy: text("changed_by"),
+  changes: jsonb("changes").$type<Array<{ field: string; from: any; to: any }>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  bugAuditReportIdx: index("bug_report_audit_report_id_idx").on(table.bugReportId),
+}));
 
 export type BugReport = typeof bugReports.$inferSelect;
 export type InsertBugReport = z.infer<typeof insertBugReportSchema>;
