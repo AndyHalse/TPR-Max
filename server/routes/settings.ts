@@ -744,10 +744,8 @@ export function registerSettingsRoutes(
         if (rawToken) {
           try {
             const { customerId: tokenCustomerId } = verifySessionToken(rawToken);
-            // Staff tokens may read any non-contractor-portal path belonging to their customer.
-            if (req.path.includes('/contractor-portal/')) {
-              return res.status(403).json({ error: 'Not permitted.' });
-            }
+            // Staff tokens may read any path (including contractor-portal documents)
+            // belonging to their own customer — the customer-ID check below enforces that.
             if (pathCustomerId && pathCustomerId !== tokenCustomerId) {
               return res.status(403).json({ error: 'Not permitted.' });
             }
