@@ -85,6 +85,7 @@ import {
   BadgeCheck,
   Tablet,
   ThumbsUp,
+  Linkedin,
 } from "lucide-react";
 
 // Import ACS logo, screenshots and pricing image
@@ -4508,6 +4509,19 @@ export default function MarketingPage() {
                   <span className="font-semibold">Registered Office:</span><br />
                   20-22 Wenlock Road, London N1 7GU
                 </p>
+                <div className="mt-4">
+                  <a
+                    href="https://www.linkedin.com/in/andy-halse/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Follow ACS on LinkedIn"
+                    data-testid="link-footer-linkedin"
+                    className="inline-flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm"
+                  >
+                    <Linkedin className="h-5 w-5" />
+                    <span>Follow us on LinkedIn</span>
+                  </a>
+                </div>
               </div>
             </div>
 
