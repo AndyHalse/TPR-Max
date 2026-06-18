@@ -1,0 +1,47 @@
+You are fixing a bug in the TPR Max codebase (React + TypeScript front end in
+client/src, Express + TypeScript API in server/). Use the report below to find
+the root cause and propose a fix. Do not guess — read the named source file
+first, and ask for the screenshots if you need them.
+
+# Bug BR-025
+- Reported: 17/06/2026, 17:19:15
+- Status: New
+- Reporter: Emma Leschenko <emma@acsltd.eu>
+- Customer / tenant: ACS Safety & Security Ltd
+- App version: v2026.06.17-10f91bcd
+- Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0
+- Screen: 2142x1082
+
+## Where it happened
+- Route (URL path): /contractors
+- Likely source file: client/src/pages/ContractorManagement.tsx
+  (If the route is dynamic or unknown, say "Unknown — search client/src/pages".)
+
+## What the user reported
+This error reports back on the fix made in BR-021. The 10 minute cooldown alert appears without informing the user that they have failed the quiz. It says the lockdown will provide time to review the questions but doesn't present the questions until the next screen. User needs to be informed they have failed and about the 10 minute lockdown and also be presented with the questions to review, of course without the ability to make changes. When the time has elapsed, the user needs to be prompted to re-try the quiz
+
+## Console / network logs at the time
+None captured.
+
+## What the user did just before (most recent last)
+[2026-06-17T15:55:37.324Z] [ROUTE] /
+[2026-06-17T15:55:45.050Z] [CLICK] a:Contractors6
+[2026-06-17T15:55:45.051Z] [ROUTE] /contractors
+[2026-06-17T16:12:09.925Z] [CLICK] a:Dashboard
+[2026-06-17T16:12:09.927Z] [ROUTE] /
+[2026-06-17T16:12:22.252Z] [CLICK] a:Contractors6
+[2026-06-17T16:12:22.253Z] [ROUTE] /contractors
+[2026-06-17T16:12:30.940Z] [CLICK] button:Close
+[2026-06-17T16:12:39.310Z] [CLICK] button:Close
+[2026-06-17T16:16:56.548Z] [CLICK] button:Upload
+[2026-06-17T16:18:19.359Z] [CLICK] button:Upload
+[2026-06-17T16:19:14.952Z] [CLICK] button:Send Report
+
+## Screenshots
+3 image(s) were attached but are NOT included in this text. They are visible in Platform Admin and in the report PDF (use the "Download PDF" button). Ask the user to paste them if the cause isn't clear from the data above.
+
+## Your task
+1. Read the likely source file and trace the code path the user hit.
+2. Identify the root cause.
+3. Propose the smallest correct fix, and call out any tenant-isolation,
+   permissions, or input-validation concerns you notice while there.

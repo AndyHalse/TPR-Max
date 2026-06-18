@@ -788,8 +788,9 @@ export default function SiteInduction() {
     const alreadyMaxed = !quizLocked && tokenData && (tokenData.quizAttempts ?? 0) >= 5 && !tokenData.quizPassed;
     const lockReason = quizLocked || (alreadyMaxed ? 'Maximum quiz attempts reached. You have used all 5 attempts. Please contact the site operator to request a new induction link.' : null);
 
-    // Cooldown gate — enforce before showing questions so the user isn't blocked mid-attempt
-    if (!lockReason && tokenData?.quizCompletedAt && !tokenData.quizPassed) {
+    // Cooldown gate — only shown when navigating back or after clicking Retry (quizResults is null).
+    // When quizResults is set we let the unified failure block below handle the screen instead.
+    if (!lockReason && !quizResults && tokenData?.quizCompletedAt && !tokenData.quizPassed) {
       const elapsed = Date.now() - new Date(tokenData.quizCompletedAt).getTime();
       const secsLeft = Math.max(0, Math.ceil((10 * 60 * 1000 - elapsed) / 1000));
       const attemptsUsed = tokenData.quizAttempts ?? 0;
@@ -1011,68 +1012,111 @@ export default function SiteInduction() {
               const attemptsUsed = tokenData.quizAttempts ?? 0;
               const attemptsRemaining = Math.max(0, 5 - attemptsUsed);
 
-              // Work out which questions were answered incorrectly
-              const wrongQuestions = questions.filter(q => {
-                const given = answers[q.id] || perSceneAnswers[q.id];
-                return given && given !== q.correctAnswer;
-              });
+              // Live cooldown — reuses _cooldownTick so the counter ticks automatically
+              const cooldownMs = 10 * 60 * 1000;
+              const elapsed = tokenData?.quizCompletedAt
+                ? Date.now() - new Date(tokenData.quizCompletedAt).getTime()
+                : cooldownMs;
+              const secsLeft = Math.max(0, Math.ceil((cooldownMs - elapsed) / 1000));
+              const minsDisplay = Math.floor(secsLeft / 60);
+              const secsDisplay = secsLeft % 60;
+              const inCooldown = secsLeft > 0;
 
               return (
                 <div className="mt-6 max-w-lg mx-auto px-2 space-y-4">
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center space-y-4">
-                    <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto" />
-                    <div>
-                      <h3 className="text-xl font-bold text-amber-900 mb-1">Induction Not Passed</h3>
-                      <p className="text-amber-800 font-semibold text-lg">
-                        You scored {quizResults.score}% — you need {tokenData.passThreshold ?? 80}% to pass
-                      </p>
-                      <p className="text-sm text-amber-700 mt-1">
-                        {attemptsRemaining > 0
-                          ? `You have ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining (${attemptsUsed}/5 used)`
-                          : 'You have reached the maximum number of attempts (5)'}
-                      </p>
-                    </div>
-                    {attemptsRemaining > 0 ? (
-                      <Button
-                        onClick={retryQuiz}
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Try Again
-                      </Button>
+
+                  {/* ── Failure notice with score ── */}
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center space-y-2">
+                    <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
+                    <h3 className="text-xl font-bold text-red-900">Induction Not Passed</h3>
+                    <p className="text-red-800 font-semibold text-lg">
+                      You scored {quizResults.score}% — you need {tokenData.passThreshold ?? 80}% to pass
+                    </p>
+                    <p className="text-sm text-red-700">
+                      {attemptsRemaining > 0
+                        ? `You have ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining (${attemptsUsed}/5 used)`
+                        : 'You have reached the maximum number of attempts (5)'}
+                    </p>
+                  </div>
+
+                  {/* ── Cooldown timer / retry button ── */}
+                  <div className={`border rounded-xl p-5 text-center space-y-3 ${inCooldown ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
+                    {inCooldown ? (
+                      <>
+                        <Clock className="w-8 h-8 text-amber-500 mx-auto" />
+                        <p className="text-sm font-semibold text-amber-800">
+                          Please review the questions below — you can retry once the countdown ends
+                        </p>
+                        <div className="text-3xl font-mono font-bold text-amber-600 tabular-nums">
+                          {String(minsDisplay).padStart(2, '0')}:{String(secsDisplay).padStart(2, '0')}
+                        </div>
+                      </>
+                    ) : attemptsRemaining > 0 ? (
+                      <>
+                        <RefreshCw className="w-8 h-8 text-green-600 mx-auto" />
+                        <p className="text-sm font-semibold text-green-800">Cooldown complete — you can retry now</p>
+                        <Button onClick={retryQuiz} className="bg-amber-600 hover:bg-amber-700 text-white">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Retry Quiz
+                        </Button>
+                      </>
                     ) : (
-                      <p className="text-sm text-amber-800 bg-amber-100 border border-amber-200 rounded-lg px-4 py-3">
+                      <p className="text-sm text-red-800 bg-red-100 border border-red-200 rounded-lg px-4 py-3">
                         Please contact the site operator for assistance.
                       </p>
                     )}
                   </div>
 
-                  {/* Wrong-question summary — mode controlled by customer admin */}
-                  {wrongQuestions.length > 0 && failureFeedbackLevel !== 'score_only' && (
+                  {/* ── Full question review (read-only) — controlled by failureFeedbackLevel ── */}
+                  {questions.length > 0 && failureFeedbackLevel !== 'score_only' && (
                     <div className="border border-orange-200 rounded-xl overflow-hidden">
                       <div className="bg-orange-600 px-4 py-3 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-white shrink-0" />
                         <span className="text-white text-sm font-semibold">
-                          Questions to review — {wrongQuestions.length} of {questions.length}
+                          Review the questions — {questions.filter(q => {
+                            const g = answers[q.id] || perSceneAnswers[q.id];
+                            return g && g !== q.correctAnswer;
+                          }).length} incorrect of {questions.length}
                         </span>
                       </div>
                       <ul className="divide-y divide-orange-100">
-                        {wrongQuestions.map(q => {
-                          const questionNumber = questions.findIndex(qq => qq.id === q.id) + 1;
+                        {questions.map((q, idx) => {
+                          const givenAnswer = answers[q.id] || perSceneAnswers[q.id];
+                          const wasWrong = givenAnswer && givenAnswer !== q.correctAnswer;
                           return (
-                            <li key={q.id} className="px-4 py-3 bg-orange-50 flex items-center justify-between gap-3">
-                              <span className="text-sm text-gray-800">
-                                <span className="font-semibold">Question {questionNumber}</span>
-                                {q.category ? ` — ${q.category}` : ''}
-                              </span>
-                              {failureFeedbackLevel === 'topics_rewatch' && typeof (q as any).sceneIndex === 'number' && (
-                                <button
-                                  onClick={() => rewatchScene((q as any).sceneIndex)}
-                                  className="shrink-0 text-xs text-blue-700 underline underline-offset-2 hover:text-blue-900 flex items-center gap-1"
-                                >
-                                  ▶ Rewatch this section
-                                </button>
-                              )}
+                            <li key={q.id} className={`px-4 py-4 space-y-2 ${wasWrong ? 'bg-red-50' : 'bg-green-50'}`}>
+                              <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                                <span className={wasWrong ? 'text-red-500' : 'text-green-600'}>
+                                  {wasWrong ? '✗' : '✓'}
+                                </span>
+                                Q{idx + 1}{q.category ? ` — ${q.category}` : ''}: {q.question}
+                                {failureFeedbackLevel === 'topics_rewatch' && wasWrong && typeof (q as any).sceneIndex === 'number' && (
+                                  <button
+                                    onClick={() => rewatchScene((q as any).sceneIndex)}
+                                    className="ml-auto shrink-0 text-xs text-blue-700 underline underline-offset-2 hover:text-blue-900"
+                                  >
+                                    ▶ Rewatch section
+                                  </button>
+                                )}
+                              </p>
+                              <ul className="space-y-1 pl-4">
+                                {q.options.map((opt: string) => (
+                                  <li
+                                    key={opt}
+                                    className={`text-sm px-3 py-1.5 rounded-md border ${
+                                      opt === q.correctAnswer
+                                        ? 'bg-green-50 border-green-300 text-green-800 font-medium'
+                                        : givenAnswer === opt
+                                        ? 'bg-red-50 border-red-300 text-red-700 line-through'
+                                        : 'bg-white border-gray-200 text-gray-500'
+                                    }`}
+                                  >
+                                    {opt === q.correctAnswer && <span className="mr-1">✓</span>}
+                                    {givenAnswer === opt && opt !== q.correctAnswer && <span className="mr-1">✗</span>}
+                                    {opt}
+                                  </li>
+                                ))}
+                              </ul>
                             </li>
                           );
                         })}
@@ -1080,7 +1124,7 @@ export default function SiteInduction() {
                     </div>
                   )}
 
-                  {/* CDM 2015 topics — shown even on fail */}
+                  {/* ── CDM 2015 topics — shown even on fail ── */}
                   {quizResults.topicsCovered && quizResults.topicsCovered.length > 0 && (
                     <div className="border border-blue-200 rounded-lg overflow-hidden">
                       <div className="bg-blue-700 px-4 py-2 flex items-center gap-2">
