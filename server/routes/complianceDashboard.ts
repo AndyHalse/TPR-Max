@@ -6,8 +6,16 @@ import * as schema from '../isolatedSchema';
 import { eq, ne } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
+// Module-level dashboard cache: 90-second TTL, keyed by customerId
+const _dashboardCache = new Map<string, { data: any; expiresAt: number }>();
+const DASHBOARD_CACHE_TTL_MS = 90_000;
+
 const requireComplianceDashboardFeature = async (req: any, res: any, next: any) => {
   try {
+    const allowedRoles = ['admin', 'manager', 'hr_admin'];
+    if (!allowedRoles.includes(req.user!.role)) {
+      return res.status(403).json({ error: 'You do not have permission to view the Compliance Dashboard. This page is restricted to administrators, managers, and HR admins.' });
+    }
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const settings = await simpleDatabaseService.getCompanySettings(context);
     if (!settings?.featureComplianceDashboard) {
@@ -22,32 +30,56 @@ const requireComplianceDashboardFeature = async (req: any, res: any, next: any) 
 export function registerComplianceDashboardRoutes(app: Express): void {
   app.use('/api/compliance-dashboard', requireAuth, requireComplianceDashboardFeature);
 
-  app.get('/api/compliance-dashboard', requireAuth, async (req, res) => {
+  // Fix 7 — audit log when a user exports a PDF
+  app.post('/api/compliance-dashboard/pdf-export-audit', async (req, res) => {
+    logger.info(`Compliance Dashboard PDF exported by user ${req.user?.username} (customerId: ${req.customerId})`);
+    res.status(204).end();
+  });
+
+  app.get('/api/compliance-dashboard', async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
 
+      // Fix 4 — cache check (bypass with ?refresh=1)
+      const cacheKey = req.customerId!;
+      if (req.query.refresh !== '1') {
+        const cached = _dashboardCache.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+          return res.json(cached.data);
+        }
+      }
+
       const now = new Date();
       const ago12Months = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+      // Fix 2 — track sections that fail to load
+      const loadErrors: string[] = [];
 
       const criticalIssues: any[] = [];
       const warnings: any[] = [];
       const expiryTimeline: any[] = [];
       const contractorRiskMap: Record<string, { id: string; name: string; issues: string[]; issueCount: number }> = {};
 
+      // Fix 6 — compare dates at London-timezone day boundaries for UK accuracy
       function daysUntil(date: Date | string | null | undefined): number | null {
         if (!date) return null;
         const d = date instanceof Date ? date : new Date(date);
         if (isNaN(d.getTime())) return null;
-        return Math.ceil((d.getTime() - now.getTime()) / 86400000);
+        const nowLondon = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
+        const dLondon  = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/London' }));
+        const nowDay = new Date(nowLondon.getFullYear(), nowLondon.getMonth(), nowLondon.getDate());
+        const dDay   = new Date(dLondon.getFullYear(),  dLondon.getMonth(),  dLondon.getDate());
+        return Math.round((dDay.getTime() - nowDay.getTime()) / 86400000);
       }
 
       function isoDate(date: Date | string | null | undefined): string | null {
         if (!date) return null;
         const d = date instanceof Date ? date : new Date(date);
         if (isNaN(d.getTime())) return null;
-        return d.toISOString().split('T')[0];
+        // en-CA gives YYYY-MM-DD in Europe/London timezone
+        return d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
       }
 
       function addTimeline(date: Date | string | null | undefined, category: string, item: string, linkPath?: string) {
@@ -94,7 +126,27 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           }));
         } catch (e2: any) {
           logger.warn('Contractor companies fallback query error (non-fatal):', e2.message);
+          loadErrors.push('Contractor Companies');
         }
+      }
+
+      // Fix 5 — O(1) company name lookup instead of O(n) companies.find() per row
+      const companiesMap = new Map<string, any>(companies.map((c: any) => [c.id, c]));
+
+      // Fix 4 — pre-fetch all company IDs with pending insurance docs (eliminates N+1)
+      const pendingInsuranceCompanyIds = new Set<string>();
+      try {
+        const pendingInsResult = await pool.query(
+          `SELECT DISTINCT company_id FROM "${schemaName}".contractor_documents
+           WHERE document_type IN ('publicLiability','employersLiability')
+             AND status = 'pending'
+             AND is_active = TRUE`
+        );
+        for (const row of pendingInsResult.rows) {
+          if (row.company_id) pendingInsuranceCompanyIds.add(row.company_id);
+        }
+      } catch (e: any) {
+        logger.warn('Pending insurance pre-fetch error (non-fatal):', e.message);
       }
 
       try {
@@ -141,19 +193,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           // Missing-data blindness: companies with no PL and no EL expiry at all
           if (!c.public_liability_expiry_date && !c.employers_liability_expiry_date) {
             insTotal++;
-            let hasPendingInsurance = false;
-            try {
-              const pendingInsResult = await pool.query(
-                `SELECT 1 FROM "${schemaName}".contractor_documents
-                 WHERE company_id = $1
-                   AND document_type IN ('publicLiability','employersLiability')
-                   AND status = 'pending'
-                   AND is_active = TRUE
-                 LIMIT 1`,
-                [c.id]
-              );
-              hasPendingInsurance = pendingInsResult.rows.length > 0;
-            } catch {}
+            // Fix 4 — use pre-fetched Set instead of per-company query
+            const hasPendingInsurance = pendingInsuranceCompanyIds.has(c.id);
             warnings.push({
               id: `ins-missing-${c.id}`, category: 'Contractor Insurance', severity: 'warning',
               title: hasPendingInsurance ? 'Insurance awaiting approval' : 'No insurance on record',
@@ -170,6 +211,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Insurance check error (non-fatal):', e.message);
+        loadErrors.push('Contractor Insurance');
       }
 
       const insScore = insTotal === 0 ? null : Math.round((insCompliant / insTotal) * 100);
@@ -185,7 +227,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       let ramsTotal = rams.length, ramsValid = 0, ramsExpiring = 0, ramsExpired = 0;
 
       for (const r of rams) {
-        const companyName = companies.find(c => c.id === r.companyId)?.company_name;
+        const companyName = companiesMap.get(r.companyId)?.company_name;
         const ramsDays = daysUntil(r.expiryDate);
 
         if (r.status === 'expired' || (ramsDays !== null && ramsDays < 0)) {
@@ -238,6 +280,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         activeWorkerIds = new Set<string>(recentVisitsResult.rows.map((r: any) => r.worker_id).filter(Boolean));
       } catch (e: any) {
         logger.warn('Active worker IDs query error (non-fatal):', e.message);
+        loadErrors.push('Active Workers');
       }
 
       // ── 3. Contractor Inductions ──────────────────────────────────────────────
@@ -254,7 +297,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
         for (const w of activeWorkers) {
           const workerName = `${w.first_name} ${w.last_name}`;
-          const companyName = companies.find(c => c.id === w.company_id)?.company_name ?? '';
+          const companyName = companiesMap.get(w.company_id)?.company_name ?? '';
           const expiryDays = daysUntil(w.site_induction_expiry_date);
 
           if (expiryDays !== null && expiryDays < 0) {
@@ -292,6 +335,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Induction query error (non-fatal):', e.message);
+        loadErrors.push('Contractor Inductions');
       }
 
       const indScore = indTotal === 0 ? null : Math.round((indCompliant / indTotal) * 100);
@@ -311,7 +355,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
         for (const w of activeRtwWorkers) {
           const workerName = `${w.first_name} ${w.last_name}`;
-          const companyName = companies.find(c => c.id === w.company_id)?.company_name ?? '';
+          const companyName = companiesMap.get(w.company_id)?.company_name ?? '';
           const days = daysUntil(w.right_to_work_expiry_date);
           const status = w.right_to_work_status;
 
@@ -352,6 +396,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Worker RTW query error (non-fatal):', e.message);
+        loadErrors.push('Worker Right to Work');
       }
 
       const workerRtwScore = workerRtwTotal === 0 ? null : Math.round((workerRtwCompliant / workerRtwTotal) * 100);
@@ -371,7 +416,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           if (!activeWorkerIds.has(row.worker_id)) continue;
           workerDbsTotal++;
           const workerName = `${row.first_name} ${row.last_name}`;
-          const companyName = companies.find(c => c.id === row.company_id)?.company_name ?? '';
+          const companyName = companiesMap.get(row.company_id)?.company_name ?? '';
           const days = daysUntil(row.policy_expiry_date);
 
           if (days !== null && days < 0) {
@@ -420,7 +465,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           if (!activeWorkerIds.has(row.id)) continue;
           workerDbsTotal++;
           const workerName = `${row.first_name} ${row.last_name}`;
-          const companyName = companies.find(c => c.id === row.company_id)?.company_name ?? '';
+          const companyName = companiesMap.get(row.company_id)?.company_name ?? '';
           warnings.push({
             id: `wdbs-missing-${row.id}`, category: 'Worker DBS', severity: 'warning',
             title: 'Worker DBS required but not on record',
@@ -435,6 +480,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Worker DBS query error (non-fatal):', e.message);
+        loadErrors.push('Worker DBS');
       }
 
       const workerDbsScore = workerDbsTotal === 0 ? null : Math.round((workerDbsCompliant / workerDbsTotal) * 100);
@@ -459,7 +505,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           if (!activeWorkerIds.has(row.worker_id)) continue;
           workerCertTotal++;
           const workerName = `${row.first_name} ${row.last_name}`;
-          const companyName = companies.find(c => c.id === row.company_id)?.company_name ?? '';
+          const companyName = companiesMap.get(row.company_id)?.company_name ?? '';
           const docStatus: string = row.status ?? 'pending';
 
           if (docStatus === 'rejected') {
@@ -523,6 +569,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Worker certifications query error (non-fatal):', e.message);
+        loadErrors.push('Worker Certifications');
       }
 
       const workerCertScore = workerCertTotal === 0 ? null : Math.round((workerCertCompliant / workerCertTotal) * 100);
@@ -549,7 +596,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
         for (const equip of equipResult.rows) {
           equipTotal++;
-          const companyName = companies.find(c => c.id === equip.company_id)?.company_name ?? '';
+          const companyName = companiesMap.get(equip.company_id)?.company_name ?? '';
           const certs = certsByEquip.get(equip.id) ?? [];
 
           if (certs.length === 0) {
@@ -605,6 +652,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Equipment query error (non-fatal):', e.message);
+        loadErrors.push('Equipment');
       }
 
       const equipScore = equipTotal === 0 ? null : Math.round((equipCompliant / equipTotal) * 100);
@@ -645,6 +693,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('RTW query error (non-fatal):', e.message);
+        loadErrors.push('Staff Right to Work');
       }
 
       const rtwScore = rtwTracked === 0 ? null : Math.round((rtwCompliant / rtwTracked) * 100);
@@ -683,6 +732,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Staff DBS query error (non-fatal):', e.message);
+        loadErrors.push('Staff DBS');
       }
 
       const staffDbsScore = staffDbsTotal === 0 ? null : Math.round((staffDbsCompliant / staffDbsTotal) * 100);
@@ -727,6 +777,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Staff training query error (non-fatal):', e.message);
+        loadErrors.push('Staff Training');
       }
 
       const staffTrainingScore = staffTrainingTotal === 0 ? null : Math.round((staffTrainingCompliant / staffTrainingTotal) * 100);
@@ -767,6 +818,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Compliance cert query error (non-fatal):', e.message);
+        loadErrors.push('Compliance Certificates');
       }
 
       const certsScore = certsTotal === 0 ? null : Math.round((certsCompliant / certsTotal) * 100);
@@ -809,6 +861,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Permits query error (non-fatal):', e.message);
+        loadErrors.push('Permits to Work');
       }
 
       const permitsScore = permitsTotal === 0 ? null : Math.round((permitsCompliant / permitsTotal) * 100);
@@ -848,6 +901,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('RA query error (non-fatal):', e.message);
+        loadErrors.push('Risk Assessments');
       }
 
       const raScore = raTotal === 0 ? null : Math.round((raCompliant / raTotal) * 100);
@@ -919,6 +973,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Audit query error (non-fatal):', e.message);
+        loadErrors.push('Audits');
       }
 
       const auditsScore = auditsTotal === 0 ? null : Math.round((auditsCompliant / auditsTotal) * 100);
@@ -961,6 +1016,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('PPM query error (non-fatal):', e.message);
+        loadErrors.push('PPM');
       }
 
       const ppmCompliant = ppmTotal - ppmOverdue;
@@ -994,6 +1050,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('FRA query error (non-fatal):', e.message);
+        loadErrors.push('Fire Risk Assessment');
       }
 
       const fraScore = fraTotal === 0 ? null : Math.round((fraCurrent / fraTotal) * 100);
@@ -1017,6 +1074,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
       } catch (e: any) {
         logger.warn('Document approvals query error (non-fatal):', e.message);
+        loadErrors.push('Document Approvals');
       }
 
       // ── Score helpers ─────────────────────────────────────────────────────────
@@ -1098,7 +1156,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         rtwTracked + staffDbsTotal + staffTrainingTotal +
         certsTotal + permitsTotal + raTotal + auditsTotal + ppmTotal + fraTotal;
 
-      res.json({
+      const responseData = {
         overallScore,
         contractorScore,
         siteScore,
@@ -1114,6 +1172,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         contractorTotal,
         siteTracked,
         siteTotal,
+        loadErrors,
         categories: {
           contractorInsurance: { total: insTotal, compliant: insCompliant, expiring: insExpiring, expired: insExpired, score: insScore },
           rams: { total: ramsTotal, compliant: ramsValid, expiring: ramsExpiring, expired: ramsExpired, score: ramsScore },
@@ -1137,7 +1196,11 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         warnings,
         topContractorRisks,
         expiryTimeline,
-      });
+      };
+
+      // Fix 4 — populate cache then respond
+      _dashboardCache.set(cacheKey, { data: responseData, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
+      res.json(responseData);
     } catch (err: any) {
       logger.error('Compliance dashboard error:', err);
       res.status(500).json({ error: 'Failed to generate compliance dashboard' });

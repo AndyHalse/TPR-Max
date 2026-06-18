@@ -289,6 +289,11 @@ export default function Layout({ children }: LayoutProps) {
     if (hasMenuRestrictions && user?.role !== 'admin') {
       if (!allowedItems!.includes(item.path)) return false;
     }
+    // Fix 1 — Compliance Dashboard is restricted to admin / manager / hr_admin
+    if (item.path === '/compliance-dashboard') {
+      const allowedRoles = ['admin', 'manager', 'hr_admin'];
+      if (!user?.role || !allowedRoles.includes(user.role)) return false;
+    }
     if (!settings) return (item as any).alwaysVisible;
     if (item.featureKey) {
       const platformDisabled = (settings as any).platformDisabledFeatures;

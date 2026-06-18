@@ -12,7 +12,12 @@ export function useContractorManagement() {
   const [, setLocation] = useLocation();
 
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [activeTab, setActiveTab] = useState<"previous"|"walkin"|"prebook"|"contractors"|"co2"|"assign-hs"|"rams"|"ppm"|"cdm">("previous");
+  const [activeTab, setActiveTab] = useState<"previous"|"walkin"|"prebook"|"contractors"|"co2"|"assign-hs"|"rams"|"ppm"|"cdm">(() => {
+    // Fix 3 — honour ?gaps=true deep-link from Compliance Dashboard
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gaps') === 'true') return 'contractors';
+    return 'previous';
+  });
   const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
@@ -41,6 +46,19 @@ export function useContractorManagement() {
   const [selectedCheckInHost, setSelectedCheckInHost] = useState("");
   const [viewingWorker, setViewingWorker] = useState<any | null>(null);
   const [qrPassWorker, setQrPassWorker] = useState<any | null>(null);
+
+  // Fix 3 — consume and strip deep-link URL params on mount so they don't persist on refresh
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('gaps') || params.has('sort') || params.has('docType')) {
+      params.delete('gaps');
+      params.delete('sort');
+      params.delete('docType');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '');
+      window.history.replaceState(null, '', newUrl);
+    }
+  }, []);
 
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role?: string }>({
     queryKey: ["/api/auth/me"],

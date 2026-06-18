@@ -45,6 +45,7 @@ interface DashboardData {
   totalChecks: number;
   trackedCategories: number;
   totalCategories: number;
+  loadErrors?: string[];
   categories: {
     contractorInsurance: CategoryStat;
     rams: CategoryStat;
@@ -289,9 +290,9 @@ function IssueItem({ issue }: { issue: CriticalIssue }) {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-gray-900 dark:text-white">{issue.title}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{issue.detail}</p>
-        {issue.daysOverdue && (
+        {issue.daysOverdue != null && (
           <p className={`text-xs font-semibold mt-0.5 ${isCrit ? "text-red-600" : "text-amber-600"}`}>
-            {issue.daysOverdue} days overdue
+            {issue.daysOverdue === 0 ? "Due today" : `${issue.daysOverdue} days overdue`}
           </p>
         )}
       </div>
@@ -808,9 +809,10 @@ export default function ComplianceDashboard() {
   const [showAllWarnings, setShowAllWarnings] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  const { data, isLoading, dataUpdatedAt, refetch, isFetching } = useQuery<DashboardData>({
+  const { data, isLoading, dataUpdatedAt, refetch, isFetching, error } = useQuery<DashboardData>({
     queryKey: ["/api/compliance-dashboard"],
     refetchInterval: 5 * 60 * 1000,
+    retry: (count, err: any) => err?.status !== 403 && count < 3,
   });
 
   async function handleDownloadPDF() {
@@ -818,6 +820,8 @@ export default function ComplianceDashboard() {
     setIsGeneratingPDF(true);
     try {
       await generateCompliancePDF(data);
+      // Fix 7 — server-side audit log on PDF export
+      fetch("/api/compliance-dashboard/pdf-export-audit", { method: "POST", credentials: "include" }).catch(() => {});
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -828,6 +832,19 @@ export default function ComplianceDashboard() {
       <div className="flex items-center justify-center h-64 text-gray-400">
         <RefreshCw className="h-6 w-6 animate-spin mr-2" />
         Calculating compliance score…
+      </div>
+    );
+  }
+
+  // Fix 1 — role-gate: show friendly message instead of blank page
+  if ((error as any)?.status === 403 || (error as any)?.response?.status === 403) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-center p-6">
+        <ShieldCheck className="h-12 w-12 text-gray-300" />
+        <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Access Restricted</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+          The Compliance Intelligence Dashboard is only available to administrators and managers. Contact your system administrator if you need access.
+        </p>
       </div>
     );
   }
@@ -854,6 +871,15 @@ export default function ComplianceDashboard() {
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
+      {/* Fix 2 — amber banner when one or more data sections failed to load */}
+      {data.loadErrors && data.loadErrors.length > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            <span className="font-semibold">Some data sections could not be loaded</span> — the score may be incomplete. Affected: {data.loadErrors.join(", ")}.
+          </p>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
