@@ -245,7 +245,8 @@ export function registerBugReportRoutes(app: Express) {
         customerName = customer?.companyName ?? '';
       } catch (_) { /* non-fatal */ }
 
-      const [{ seq }] = await db.execute(sql`SELECT nextval('bug_report_seq')::int AS seq`) as any;
+      const seqResult = await db.execute(sql`SELECT nextval('bug_report_seq')::int AS seq`);
+      const seq = (seqResult.rows[0] as any).seq;
       const reportNumber = `BR-${String(seq).padStart(3, '0')}`;
 
       const [inserted] = await db.insert(bugReports).values({
