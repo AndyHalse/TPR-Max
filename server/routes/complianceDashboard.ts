@@ -94,7 +94,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       }
 
       // ── 1. Contractor Insurance ───────────────────────────────────────────────
-      let insTotal = 0, insCompliant = 0, insExpiring = 0, insExpired = 0;
+      let insTotal = 0, insCompliant = 0, insExpiring = 0, insExpired = 0, insMissing = 0;
       let companies: any[] = [];
 
       try {
@@ -193,6 +193,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           // Missing-data blindness: companies with no PL and no EL expiry at all
           if (!c.public_liability_expiry_date && !c.employers_liability_expiry_date) {
             insTotal++;
+            insMissing++;
             // Fix 4 — use pre-fetched Set instead of per-company query
             const hasPendingInsurance = pendingInsuranceCompanyIds.has(c.id);
             warnings.push({
@@ -1174,7 +1175,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         siteTotal,
         loadErrors,
         categories: {
-          contractorInsurance: { total: insTotal, compliant: insCompliant, expiring: insExpiring, expired: insExpired, score: insScore },
+          contractorInsurance: { total: insTotal, compliant: insCompliant, expiring: insExpiring, expired: insExpired, missing: insMissing, score: insScore },
           rams: { total: ramsTotal, compliant: ramsValid, expiring: ramsExpiring, expired: ramsExpired, score: ramsScore },
           inductions: { total: indTotal, compliant: indCompliant, overdue: indOverdue, score: indScore },
           workerRightToWork: { total: workerRtwTotal, compliant: workerRtwCompliant, score: workerRtwScore },
