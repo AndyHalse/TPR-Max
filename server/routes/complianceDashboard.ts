@@ -578,7 +578,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       let equipTotal = 0, equipCompliant = 0;
       try {
         const equipResult = await pool.query(
-          `SELECT ce.id, ce.equipment_name, ce.company_id
+          `SELECT ce.id, ce.name AS equipment_name, ce.company_id
            FROM "${schemaName}".contractor_equipment ce
            WHERE ce.is_active = TRUE`
         );
@@ -741,7 +741,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       let staffTrainingTotal = 0, staffTrainingCompliant = 0;
       try {
         const staffTrainingResult = await pool.query(
-          `SELECT tr.id, tr.expiry_date, tr.training_name,
+          `SELECT tr.id, tr.expiry_date, tr.course_name AS training_name,
                   s.id AS staff_id, s.first_name, s.last_name
            FROM "${schemaName}".staff_training_records tr
            JOIN "${schemaName}".staff s ON s.id = tr.staff_id
