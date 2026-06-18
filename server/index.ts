@@ -192,9 +192,14 @@ function realClientIp(req: import('express').Request): string {
 // SECURITY: Rate limiting for authentication and sensitive routes.
 // max:100 over 15 min ≈ 1 attempt every 9 s — plenty for normal use yet
 // still blocks automated brute-force tools which need thousands of tries.
+// skipSuccessfulRequests: true ensures that only FAILED auth attempts count
+// against the limit. Successful /api/auth/me session-check calls (which React
+// Query fires on every page load and window-focus) must not deplete the budget
+// or users get locked out after clearing cache / returning to the tab.
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  skipSuccessfulRequests: true,
   keyGenerator: realClientIp,
   // We handle IPv6 safely via CF-Connecting-IP / X-Forwarded-For — suppress the
   // library's built-in IPv6-fallback warning which fires on any custom keyGenerator.
