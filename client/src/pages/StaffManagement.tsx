@@ -330,28 +330,48 @@ export default function StaffManagement() {
     },
   });
 
+  const compressImageToBase64 = (file: File, maxDim = 512, quality = 0.82): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            const scale = Math.min(maxDim / width, maxDim / height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('Canvas not supported')); return; }
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(dataUrl.split(',')[1]);
+        };
+        img.onerror = () => reject(new Error('Could not load image'));
+        img.src = reader.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+
   const handleStaffPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !viewingStaff) return;
-    let base64: string;
-    try {
-      base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve((ev.target?.result as string).split(',')[1]);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
-    } catch {
-      toast({ title: "Error", description: "Could not read the file. Please try again.", variant: "destructive" });
-      return;
-    }
     setIsUploadingStaffPhoto(true);
     try {
-      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+      const base64 = await compressImageToBase64(file);
+      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: "image/jpeg" });
       const { objectPath } = await uploadRes.json();
-      updateStaffPhotoMutation.mutate({ staffId: viewingStaff.id, photoUrl: objectPath });
-    } catch {
-      toast({ title: "Error", description: "Failed to upload photo.", variant: "destructive" });
+      await updateStaffPhotoMutation.mutateAsync({ staffId: viewingStaff.id, photoUrl: objectPath });
+    } catch (err: any) {
+      const msg = err?.status === 413
+        ? "That image is too large. Please try a smaller photo."
+        : "Failed to upload photo. Please try again.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setIsUploadingStaffPhoto(false);
       e.target.value = "";
@@ -486,9 +506,11 @@ export default function StaffManagement() {
     const QRCodeLib = await import('qrcode');
     const qrDataUrl = await QRCodeLib.toDataURL(qrCode, { width: 200, margin: 1 });
 
-    const resolveUrl = (path: string | null | undefined) => path
-      ? (path.startsWith('http') ? path : `${window.location.origin}/objects${path.startsWith('/') ? '' : '/'}${path}`)
-      : null;
+    const resolveUrl = (path: string | null | undefined) => {
+      if (!path) return null;
+      if (path.startsWith('http') || path.startsWith('/objects/')) return path;
+      return `${window.location.origin}/objects${path.startsWith('/') ? '' : '/'}${path}`;
+    };
 
     const qrImgEl = await new Promise<HTMLImageElement | null>(resolve => {
       const img = new Image(); img.onload = () => resolve(img); img.onerror = () => resolve(null); img.src = qrDataUrl;

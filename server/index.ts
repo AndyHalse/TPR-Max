@@ -243,8 +243,8 @@ app.use(cookieParser());
 //   POST /api/objects/upload              — data field (object-storage proxy)
 //   POST /api/ai/analyze-photo            — image field (AI visitor photo analysis)
 //   POST /api/ppm/work-orders/*/documents — data field (PPM document upload)
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: false, limit: '5mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: false, limit: '15mb' }));
 
 // SECURITY: Modern CSRF Protection using double-submit cookie pattern
 function generateCSRFToken(): string {
