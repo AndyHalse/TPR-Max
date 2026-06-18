@@ -839,7 +839,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   needsEvacuationAssistance: boolean("needs_evacuation_assistance").default(false).notNull(),
   // Right to work verification  
-  rightToWork: text("right_to_work_status").default("pending"), // pending, verified, expired, invalid
+  rightToWork: text("right_to_work_status").default("pending"), // pending, valid, expired, invalid
   rightToWorkDocumentType: text("right_to_work_document_type"), // passport, driving_licence, birth_certificate_ni, etc.
   rightToWorkDocumentNumber: text("right_to_work_document_number"),
   rightToWorkExpiryDate: timestamp("right_to_work_expiry_date"),

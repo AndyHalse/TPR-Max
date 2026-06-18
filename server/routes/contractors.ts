@@ -5406,10 +5406,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         if (workerDocType === 'right_to_work') {
           if (status === 'approved') {
             workerColUpdate = {
-              rightToWork: 'verified',
+              rightToWork: 'valid',
               rightToWorkExpiryDate: workerDocExpiry ? new Date(workerDocExpiry) : null,
             } as WorkerColUpdate;
-            syncDescription = `RTW status → verified${workerDocExpiry ? `, expiry ${new Date(workerDocExpiry).toLocaleDateString('en-GB')}` : ''}`;
+            syncDescription = `RTW status → valid${workerDocExpiry ? `, expiry ${new Date(workerDocExpiry).toLocaleDateString('en-GB')}` : ''}`;
           } else {
             workerColUpdate = { rightToWork: isExpiredDoc ? 'expired' : 'pending' } as WorkerColUpdate;
             syncDescription = `RTW status → ${isExpiredDoc ? 'expired' : 'pending'} (document rejected)`;

@@ -136,6 +136,33 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   } catch (e: any) {
     logger.info(`⚠️ [shared-migration] bug_report_audit: ${String(e?.message || e).substring(0, 120)}`);
   }
+  // Data-fix: normalise right_to_work_status = 'verified' → 'valid' across all customer schemas.
+  // Root cause: the document-approval flow wrote 'verified' but all UI checks use 'valid'.
+  // This is idempotent — safe to run on every startup until the stale value is gone.
+  try {
+    const allCustomers = await customerDbService.getAllCustomers();
+    let fixedTotal = 0;
+    for (const customer of allCustomers) {
+      const schemaName = customerDbService.generateSchemaName(customer.id);
+      try {
+        const result = await db.execute(
+          sql`UPDATE ${sql.raw(`"${schemaName}"`)}."contractor_workers"
+              SET right_to_work_status = 'valid'
+              WHERE right_to_work_status = 'verified'`
+        );
+        const count = (result as any).rowCount ?? 0;
+        if (count > 0) {
+          logger.info(`✅ [data-fix] RTW 'verified'→'valid': fixed ${count} worker(s) in schema ${schemaName}`);
+          fixedTotal += count;
+        }
+      } catch (_) { /* table may not exist on very old schemas — skip */ }
+    }
+    if (fixedTotal === 0) {
+      logger.info(`✅ [data-fix] RTW 'verified'→'valid': no stale records found across ${allCustomers.length} customer(s)`);
+    }
+  } catch (e: any) {
+    logger.info(`⚠️ [data-fix] RTW 'verified'→'valid': ${String(e?.message || e).substring(0, 120)}`);
+  }
 
   app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
