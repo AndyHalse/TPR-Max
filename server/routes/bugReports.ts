@@ -193,27 +193,8 @@ function buildFixedEmailText(opts: {
 }
 
 export function registerBugReportRoutes(app: Express) {
-  // Ensure the atomic sequence and audit table exist in the shared DB (idempotent).
-  // Using raw SQL so this is safe to run on every server start.
-  db.execute(sql`
-    CREATE SEQUENCE IF NOT EXISTS bug_report_seq;
-    SELECT setval(
-      'bug_report_seq',
-      GREATEST(
-        (SELECT COALESCE(MAX(NULLIF(regexp_replace(report_number, '\D', '', 'g'), '')::int), 0) FROM bug_reports),
-        1
-      ),
-      true
-    );
-    CREATE TABLE IF NOT EXISTS bug_report_audit (
-      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
-      bug_report_id varchar NOT NULL REFERENCES bug_reports(id),
-      changed_by text,
-      changes jsonb,
-      created_at timestamp DEFAULT now() NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS bug_report_audit_report_id_idx ON bug_report_audit(bug_report_id);
-  `).catch(err => logger.error('[bug-reports] Failed to ensure sequence/audit table:', err));
+  // Note: bug_report_seq sequence and bug_report_audit table are created at startup
+  // in server/routes.ts (shared-migration block) — not here.
 
   // POST /api/bug-reports — tenant-facing, rate-limited
   app.post('/api/bug-reports', requireAuth, bugReportLimiter, async (req, res) => {

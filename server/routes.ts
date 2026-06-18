@@ -105,6 +105,37 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   } catch (e: any) {
     logger.info(`⚠️ [shared-migration] page_views: ${String(e?.message || e).substring(0, 120)}`);
   }
+  try {
+    await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS bug_report_seq`);
+    await db.execute(sql`
+      SELECT setval(
+        'bug_report_seq',
+        GREATEST(
+          (SELECT COALESCE(MAX(NULLIF(regexp_replace(report_number, '[^0-9]', '', 'g'), '')::int), 0) FROM bug_reports),
+          1
+        ),
+        true
+      )
+    `);
+    logger.info(`✅ [shared-migration] bug_report_seq sequence ensured`);
+  } catch (e: any) {
+    logger.info(`⚠️ [shared-migration] bug_report_seq: ${String(e?.message || e).substring(0, 120)}`);
+  }
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS bug_report_audit (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        bug_report_id VARCHAR NOT NULL REFERENCES bug_reports(id),
+        changed_by TEXT,
+        changes JSONB,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS bug_report_audit_report_id_idx ON bug_report_audit (bug_report_id)`);
+    logger.info(`✅ [shared-migration] bug_report_audit table ensured`);
+  } catch (e: any) {
+    logger.info(`⚠️ [shared-migration] bug_report_audit: ${String(e?.message || e).substring(0, 120)}`);
+  }
 
   app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
