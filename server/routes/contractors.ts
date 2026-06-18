@@ -746,6 +746,82 @@ export function registerContractorRoutes(app: Express): void {
     }
   });
 
+  // ── Contractor Portal: Onboarding requirements (GET) ─────────────────────
+  // MUST be before /api/contractors/:id — otherwise Express matches "onboarding-requirements" as :id
+  app.get('/api/contractors/onboarding-requirements', requireAuth, requirePortalAdmin, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      // Seed-on-read: ensures table + UK defaults exist on older schemas (no manual migration needed)
+      await seedOnboardingRequirements(pool, schemaName);
+      const result = await pool.query(
+        `SELECT document_type, label, is_required, sort_order FROM "${schemaName}".contractor_onboarding_requirements ORDER BY sort_order`
+      );
+      return res.json(result.rows);
+    } catch (error: any) {
+      logger.error('Error loading onboarding requirements:', error);
+      return res.status(500).json({ error: 'Failed to load requirements.' });
+    }
+  });
+
+  // ── Contractor Portal: Onboarding requirements (PUT toggle) ──────────────
+  app.put('/api/contractors/onboarding-requirements/:docType', requireAuth, requirePortalAdmin, async (req, res) => {
+    try {
+      const { docType } = req.params;
+      const { isRequired } = req.body as { isRequired: boolean };
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      const knownDefault = UK_DEFAULT_REQUIREMENTS.find(r => r.document_type === docType);
+      const label = knownDefault?.label ?? docType;
+      const sortOrder = knownDefault?.sort_order ?? 99;
+      // Upsert: silently inserts if the row was never seeded, or updates if it was
+      await pool.query(
+        `INSERT INTO "${schemaName}".contractor_onboarding_requirements (document_type, label, is_required, sort_order)
+         VALUES ($2, $3, $1, $4)
+         ON CONFLICT (document_type) DO UPDATE SET is_required = $1, updated_at = NOW()`,
+        [!!isRequired, docType, label, sortOrder]
+      );
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Error updating onboarding requirement:', error);
+      return res.status(500).json({ error: 'Failed to update requirement.' });
+    }
+  });
+
+  // ── Onboarding audit trail (all companies, latest first) ─────────────────
+  // MUST be before /api/contractors/:id — otherwise Express matches "onboarding-audit" as :id
+  app.get('/api/contractors/onboarding-audit', requireAuth, requirePortalAdmin, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const companyId = req.query.companyId as string | undefined;
+
+      const result = await pool.query(
+        `SELECT a.id, a.company_id, a.worker_id, a.action, a.actor, a.reason, a.created_at,
+                cc.company_name,
+                cw.first_name AS worker_first_name, cw.last_name AS worker_last_name
+         FROM "${schemaName}".contractor_onboarding_audit a
+         LEFT JOIN "${schemaName}".contractor_companies cc ON cc.id = a.company_id
+         LEFT JOIN "${schemaName}".contractor_workers cw ON cw.id = a.worker_id
+         ${companyId ? 'WHERE a.company_id = $2' : ''}
+         ORDER BY a.created_at DESC
+         LIMIT $1`,
+        companyId ? [limit, companyId] : [limit]
+      );
+      return res.json(result.rows);
+    } catch (err: any) {
+      logger.error('Error loading onboarding audit:', err);
+      return res.status(500).json({ error: 'Failed to load audit trail.' });
+    }
+  });
+
   // Get contractor company by ID
   app.get("/api/contractors/:id", requireAuth, async (req, res) => {
     try {
@@ -5517,51 +5593,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     }
   });
 
-  // ── Contractor Portal: Onboarding requirements (GET) ─────────────────────
-  app.get('/api/contractors/onboarding-requirements', requireAuth, requirePortalAdmin, async (req, res) => {
-    try {
-      const customerId = req.customerId!;
-      const db = await customerDbService.getCustomerDatabase(customerId);
-      const pool = (db as any).$client ?? (db as any).session?.client;
-      const schemaName = customerDbService.generateSchemaName(customerId);
-      // Seed-on-read: ensures table + UK defaults exist on older schemas (no manual migration needed)
-      await seedOnboardingRequirements(pool, schemaName);
-      const result = await pool.query(
-        `SELECT document_type, label, is_required, sort_order FROM "${schemaName}".contractor_onboarding_requirements ORDER BY sort_order`
-      );
-      return res.json(result.rows);
-    } catch (error: any) {
-      logger.error('Error loading onboarding requirements:', error);
-      return res.status(500).json({ error: 'Failed to load requirements.' });
-    }
-  });
-
-  // ── Contractor Portal: Onboarding requirements (PUT toggle) ──────────────
-  app.put('/api/contractors/onboarding-requirements/:docType', requireAuth, requirePortalAdmin, async (req, res) => {
-    try {
-      const { docType } = req.params;
-      const { isRequired } = req.body as { isRequired: boolean };
-      const customerId = req.customerId!;
-      const db = await customerDbService.getCustomerDatabase(customerId);
-      const pool = (db as any).$client ?? (db as any).session?.client;
-      const schemaName = customerDbService.generateSchemaName(customerId);
-      const knownDefault = UK_DEFAULT_REQUIREMENTS.find(r => r.document_type === docType);
-      const label = knownDefault?.label ?? docType;
-      const sortOrder = knownDefault?.sort_order ?? 99;
-      // Upsert: silently inserts if the row was never seeded, or updates if it was
-      await pool.query(
-        `INSERT INTO "${schemaName}".contractor_onboarding_requirements (document_type, label, is_required, sort_order)
-         VALUES ($2, $3, $1, $4)
-         ON CONFLICT (document_type) DO UPDATE SET is_required = $1, updated_at = NOW()`,
-        [!!isRequired, docType, label, sortOrder]
-      );
-      return res.json({ success: true });
-    } catch (error: any) {
-      logger.error('Error updating onboarding requirement:', error);
-      return res.status(500).json({ error: 'Failed to update requirement.' });
-    }
-  });
-
   // ── Contractor Portal: Approve company for site ───────────────────────────
   app.post('/api/contractors/:id/approve-for-site', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
@@ -5714,35 +5745,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     } catch (err: any) {
       logger.error('Error getting worker readiness:', err);
       return res.status(500).json({ error: 'Failed to get worker readiness.' });
-    }
-  });
-
-  // ── Onboarding audit trail (all companies, latest first) ─────────────────
-  app.get('/api/contractors/onboarding-audit', requireAuth, requirePortalAdmin, async (req, res) => {
-    try {
-      const customerId = req.customerId!;
-      const db = await customerDbService.getCustomerDatabase(customerId);
-      const pool = (db as any).$client ?? (db as any).session?.client;
-      const schemaName = customerDbService.generateSchemaName(customerId);
-      const limit = Math.min(Number(req.query.limit) || 50, 200);
-      const companyId = req.query.companyId as string | undefined;
-
-      const result = await pool.query(
-        `SELECT a.id, a.company_id, a.worker_id, a.action, a.actor, a.reason, a.created_at,
-                cc.company_name,
-                cw.first_name AS worker_first_name, cw.last_name AS worker_last_name
-         FROM "${schemaName}".contractor_onboarding_audit a
-         LEFT JOIN "${schemaName}".contractor_companies cc ON cc.id = a.company_id
-         LEFT JOIN "${schemaName}".contractor_workers cw ON cw.id = a.worker_id
-         ${companyId ? 'WHERE a.company_id = $2' : ''}
-         ORDER BY a.created_at DESC
-         LIMIT $1`,
-        companyId ? [limit, companyId] : [limit]
-      );
-      return res.json(result.rows);
-    } catch (err: any) {
-      logger.error('Error loading onboarding audit:', err);
-      return res.status(500).json({ error: 'Failed to load audit trail.' });
     }
   });
 
