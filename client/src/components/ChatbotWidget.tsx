@@ -92,12 +92,13 @@ export default function ChatbotWidget() {
         content: data.answer || "Sorry, I couldn't generate a response — please try again.",
       };
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch {
+    } catch (err: any) {
+      const serverSaid = err?.status && typeof err?.message === "string" ? err.message : null;
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I couldn't reach the help assistant just now — please try again in a moment.",
+          content: serverSaid || "Sorry, I couldn't reach the help assistant just now — please try again in a moment.",
         },
       ]);
       setHasError(true);

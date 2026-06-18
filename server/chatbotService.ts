@@ -59,11 +59,21 @@ export async function askHelpAssistant(params: {
     return { answer: responseContent, success: true };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
+    const status = (error as any)?.status as number | undefined;
+    const lower = msg.toLowerCase();
+
     logger.error("❌ chatbotService.askHelpAssistant error:", msg);
-    return {
-      answer: "Sorry, I couldn't reach the help assistant just now — please try again in a moment.",
-      success: false,
-      error: msg,
-    };
+
+    let answer = "Sorry, I couldn't reach the help assistant just now — please try again in a moment.";
+
+    if (status === 401 || lower.includes("authentication") || lower.includes("invalid x-api-key") || lower.includes("invalid api key")) {
+      answer = "The Claude API key saved in Settings → AI looks invalid or expired. Please check or re-enter it, then try again.";
+    } else if (lower.includes("credit balance") || lower.includes("insufficient") || lower.includes("billing")) {
+      answer = "The Claude account has run out of credits. Please top up the Claude API key (Settings → AI), then try again.";
+    } else if (status === 429 || lower.includes("rate limit")) {
+      answer = "The help assistant is busy right now (rate limit reached). Please wait a moment and try again.";
+    }
+
+    return { answer, success: false, error: msg };
   }
 }
