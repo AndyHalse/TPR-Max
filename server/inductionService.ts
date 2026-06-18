@@ -407,7 +407,22 @@ TPR - Visitor Management System
 
   // Submit quiz answers and calculate score
   async submitQuizAnswers(tokenId: string, answers: { questionId: string; selectedAnswer: string }[]): Promise<{ score: number; passed: boolean; total: number; correct: number }> {
-    const allQuestions = await this.getInductionQuestions();
+    // Resolve the token first so we can scope questions to this customer only.
+    // This ensures scoring is consistent with what the contractor actually saw,
+    // and prevents any cross-tenant question bleed.
+    const [token] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+    if (!token) throw new Error('Induction link not found.');
+    const roleType = token.personType || 'contractor';
+    const customerVideoId = `${token.customerId}-${roleType}`;
+
+    // Load only this customer's active questions for the correct role type —
+    // mirrors the scoping used by the GET /questions route exactly.
+    const allQuestions = await db
+      .select()
+      .from(inductionQuestions)
+      .where(and(eq(inductionQuestions.isActive, true), eq(inductionQuestions.videoId, customerVideoId)))
+      .orderBy(inductionQuestions.orderIndex);
+
     // Build a lookup map for fast answer checking
     const questionMap = new Map(allQuestions.map(q => [q.id, q]));
     
@@ -440,11 +455,18 @@ TPR - Visitor Management System
       await db.insert(inductionAnswers).values(insertAnswer);
     }
 
+    // Guard: if answers were submitted but none matched this customer's questions,
+    // refuse to record a silent 0% — surface the mismatch clearly.
+    if (answers.length > 0 && validAnswerCount === 0) {
+      logger.error(`[InductionService] No matching questions for token ${tokenId} (videoId=${customerVideoId}); submitted ${answers.length} answers`);
+      throw new Error("We could not match your answers to this site's induction questions. Please contact the site operator.");
+    }
+
     // Score based on valid answers only
     const score = validAnswerCount > 0 ? Math.round((correctAnswers / validAnswerCount) * 100) : 0;
     
-    // Read pass threshold from the token (default 80% — UK H&S requirement)
-    const [tokenRecord] = await db.select({ passThreshold: inductionTokens.passThreshold }).from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+    // Use the threshold already loaded from the token above
+    const tokenRecord = token;
     const threshold = tokenRecord?.passThreshold ?? 80;
     const passed = score >= threshold;
 

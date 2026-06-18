@@ -1672,6 +1672,7 @@ export const inductionTokens = pgTable("induction_tokens", {
   passThreshold: integer("pass_threshold").default(80), // UK H&S requirement: 80% pass rate
   expiresAt: timestamp("expires_at").notNull(),
   completedAt: timestamp("completed_at"),
+  inductionTopicsCovered: jsonb("induction_topics_covered"), // CDM 2015 compliance record — array of {id, label, covered, coveredAt}
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

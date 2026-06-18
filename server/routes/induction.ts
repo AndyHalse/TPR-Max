@@ -1306,7 +1306,7 @@ export function registerInductionRoutes(app: Express): void {
       const topicsCovered = CDM_TOPICS.map(t => ({ ...t, covered: true, coveredAt: new Date().toISOString() }));
       // Persist to the token (best-effort — do not block the response)
       db.update(inductionTokens)
-        .set({ inductionTopicsCovered: topicsCovered } as any)
+        .set({ inductionTopicsCovered: topicsCovered })
         .where(eq(inductionTokens.id, tokenId))
         .catch(err => logger.error('⚠️ Failed to persist inductionTopicsCovered:', err));
 
@@ -1410,7 +1410,8 @@ export function registerInductionRoutes(app: Express): void {
       res.json({ results, topicsCovered, ...(workerUpdateWarning ? { warning: workerUpdateWarning } : {}) });
     } catch (error) {
       logger.error('Error submitting quiz:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      const message = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   });
 

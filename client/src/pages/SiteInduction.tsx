@@ -384,7 +384,7 @@ export default function SiteInduction() {
       console.error("Failed to submit quiz:", error);
       toast({
         title: "Submission Failed",
-        description: "Failed to submit quiz. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to submit quiz. Please try again.",
         variant: "destructive"
       });
     } finally {
