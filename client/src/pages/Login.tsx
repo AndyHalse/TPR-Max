@@ -253,10 +253,13 @@ export default function Login() {
         });
         await finishLogin(data);
       } else {
-        setError(data.error || 'Login failed');
+        const displayMsg = data.error === 'EMAIL_DELIVERY_FAILED'
+          ? (data.message || 'Verification email could not be delivered. Please contact your administrator.')
+          : (data.error || 'Login failed');
+        setError(displayMsg);
         toast({
-          title: 'Login Failed',
-          description: data.error || 'Invalid credentials',
+          title: data.error === 'EMAIL_DELIVERY_FAILED' ? 'Email Delivery Failed' : 'Login Failed',
+          description: displayMsg,
           variant: 'destructive',
         });
       }

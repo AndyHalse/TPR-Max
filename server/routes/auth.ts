@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import sgMail from '@sendgrid/mail';
 import {
   AuthService,
   requireAuth,
@@ -436,34 +437,70 @@ export function registerAuthRoutes(app: Express): void {
       });
       otpByUserId.set(userId, pendingToken);
 
-      try {
-        const { emailService } = await import('../emailService');
-        await emailService.sendEmail({
-          to: userEmail,
-          subject: 'Your TPR Max verification code',
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
-              <h2 style="color:#2460A9;">TPR Max — Verification Code</h2>
-              <p>Hello ${(user as any).username},</p>
-              <p>Your login verification code is:</p>
-              <div style="font-size:36px;font-weight:700;letter-spacing:10px;text-align:center;
-                          padding:20px;background:#f3f4f6;border-radius:10px;margin:20px 0;">
-                ${otp}
-              </div>
-              <p>This code expires in <strong>10 minutes</strong>.</p>
-              <p>If you did not attempt to log in to TPR Max, please contact your administrator immediately.</p>
-            </div>
-          `,
-          text: `Your TPR Max verification code is: ${otp}. It expires in 10 minutes. If you did not request this, contact your administrator.`,
-          companyName: customer.companyName,
-        });
-        logger.info(`2FA OTP sent to ${maskEmail(userEmail)} for user ${username}`);
-      } catch (emailErr) {
-        logger.error('Failed to send 2FA OTP email:', emailErr);
-        pendingCustomerOtps.delete(pendingToken);
-        otpByUserId.delete(userId);
-        return res.status(500).json({
-          error: 'Failed to send verification code. Please try again.',
+      const otpHtml = `
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
+          <h2 style="color:#2460A9;">TPR Max — Verification Code</h2>
+          <p>Hello ${(user as any).username},</p>
+          <p>Your login verification code is:</p>
+          <div style="font-size:36px;font-weight:700;letter-spacing:10px;text-align:center;
+                      padding:20px;background:#f3f4f6;border-radius:10px;margin:20px 0;">
+            ${otp}
+          </div>
+          <p>This code expires in <strong>10 minutes</strong>.</p>
+          <p>If you did not attempt to log in to TPR Max, please contact your administrator immediately.</p>
+        </div>
+      `;
+      const otpText = `Your TPR Max verification code is: ${otp}. It expires in 10 minutes.`;
+
+      let emailSent = false;
+
+      // ── Try SendGrid first (higher deliverability, no SMTP rate limits) ──
+      const sgKey = process.env.SENDGRID_API_KEY;
+      if (sgKey) {
+        try {
+          sgMail.setApiKey(sgKey);
+          await sgMail.send({
+            to: userEmail,
+            from: { email: process.env.SMTP_USER || 'noreply@visigate.pro', name: 'TPR Max' },
+            subject: 'Your TPR Max verification code',
+            html: otpHtml,
+            text: otpText,
+          });
+          logger.info(`2FA OTP sent via SendGrid to ${maskEmail(userEmail)} for user ${username}`);
+          emailSent = true;
+        } catch (sgErr: any) {
+          logger.warn(`SendGrid 2FA send failed, falling back to SMTP: ${sgErr?.message}`);
+        }
+      }
+
+      // ── SMTP fallback ────────────────────────────────────────────────────
+      if (!emailSent) {
+        try {
+          const { emailService } = await import('../emailService');
+          await emailService.sendEmail({
+            to: userEmail,
+            subject: 'Your TPR Max verification code',
+            html: otpHtml,
+            text: otpText,
+            companyName: customer.companyName,
+          });
+          logger.info(`2FA OTP sent via SMTP to ${maskEmail(userEmail)} for user ${username}`);
+          emailSent = true;
+        } catch (smtpErr: any) {
+          logger.warn(`SMTP 2FA send failed: ${smtpErr?.message}`);
+        }
+      }
+
+      if (!emailSent) {
+        // Keep OTP alive — admin can retrieve it from logs for manual relay.
+        // Never delete on delivery failure; the code is still valid for 10 min.
+        logger.error(
+          `2FA email delivery failed for ${username} (${maskEmail(userEmail)}). ` +
+          `OTP [ADMIN-RECOVERY]: ${otp} | pendingToken: ${pendingToken}`
+        );
+        return res.status(503).json({
+          error: 'EMAIL_DELIVERY_FAILED',
+          message: 'We could not deliver your verification code by email right now. Please contact your administrator — they can retrieve the code for you.',
         });
       }
 
