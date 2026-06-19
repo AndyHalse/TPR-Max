@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getSessionToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -646,9 +646,15 @@ export default function EmergencyMuster() {
     mutationFn: async (checkOutMode: 'keep_checked_in' | 'check_out_all') => {
       const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='));
       const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : '';
+      const sessionToken = getSessionToken();
+      const authHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-csrf-token": csrfToken,
+      };
+      if (sessionToken) authHeaders["Authorization"] = `Bearer ${sessionToken}`;
       const response = await fetch("/api/emergency/complete-evacuation", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+        headers: authHeaders,
         credentials: "include",
         body: JSON.stringify({ checkOutMode }),
       });

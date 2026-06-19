@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, getSessionToken } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -154,12 +154,15 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
     mutationFn: async ({ checkOutMode }: { checkOutMode: 'keep_checked_in' | 'check_out_all' }) => {
       const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='));
       const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : '';
+      const sessionToken = getSessionToken();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrfToken,
+      };
+      if (sessionToken) authHeaders['Authorization'] = `Bearer ${sessionToken}`;
       const response = await fetch('/api/emergency/complete-evacuation', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken
-        },
+        headers: authHeaders,
         credentials: 'include',
         body: JSON.stringify({
           evacuationId: activeEvacuationId,
