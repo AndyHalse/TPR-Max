@@ -2400,6 +2400,78 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       logger.warn(`Sample H&S Incidents data failed: ${e.message}`);
     }
 
+    // ── Meeting Rooms sample data ─────────────────────────────────────────────
+    let roomsAdded = 0;
+    let roomBookingsAdded = 0;
+    try {
+      const sampleRooms = [
+        { id: 'room-demo-001', name: 'Board Room', description: 'Main executive board room with video conferencing — [Sample]', capacity: 12, location: 'Ground Floor, Building A', equipment: ['projector','video_conference','whiteboard','conference_phone'], hourlyRate: 50 },
+        { id: 'room-demo-002', name: 'Training Suite', description: 'Large training room with projector and flip charts — [Sample]', capacity: 24, location: 'First Floor, Building A', equipment: ['projector','whiteboard','flip_chart','screen'], hourlyRate: 35 },
+        { id: 'room-demo-003', name: 'Meeting Room 1', description: 'Small meeting room ideal for 1-to-1s and team standups — [Sample]', capacity: 6, location: 'Ground Floor, Building B', equipment: ['whiteboard','tv_screen'], hourlyRate: 20 },
+        { id: 'room-demo-004', name: 'Meeting Room 2', description: 'Mid-size meeting room with TV screen and video link — [Sample]', capacity: 8, location: 'First Floor, Building B', equipment: ['tv_screen','video_conference'], hourlyRate: 25 },
+        { id: 'room-demo-005', name: 'Breakout Space', description: 'Informal collaboration area with writable walls — [Sample]', capacity: 4, location: 'Ground Floor, Building A', equipment: ['whiteboard'], hourlyRate: 0 },
+      ];
+      for (const room of sampleRooms) {
+        try {
+          await pool.query(
+            `INSERT INTO "${schemaName}".meeting_rooms (id, name, description, capacity, location, equipment, hourly_rate, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+             ON CONFLICT (id) DO NOTHING`,
+            [room.id, room.name, room.description, room.capacity, room.location, room.equipment, room.hourlyRate]
+          );
+          roomsAdded++;
+        } catch (e) { logger.warn('Sample room insert failed:', (e as any).message); }
+      }
+
+      // Add sample bookings — mix of past, today and upcoming
+      type BookingDef = { roomIdx: number; title: string; desc: string; startOffset: number; durationH: number; attendees: number; catering: boolean };
+      const bookingDefs: BookingDef[] = [
+        { roomIdx: 0, title: 'Q2 Board Review', desc: 'Quarterly performance and strategy review', startOffset: -14, durationH: 3, attendees: 10, catering: true },
+        { roomIdx: 1, title: 'Manual Handling Training', desc: 'Annual mandatory manual handling refresher session', startOffset: -7, durationH: 4, attendees: 18, catering: false },
+        { roomIdx: 2, title: 'HR 1-to-1 — Alice Thompson', desc: 'Monthly check-in and appraisal review', startOffset: -3, durationH: 1, attendees: 2, catering: false },
+        { roomIdx: 3, title: 'Project Kick-off: Site Expansion', desc: 'Initial planning meeting for the new wing project', startOffset: -1, durationH: 2, attendees: 7, catering: false },
+        { roomIdx: 0, title: 'Senior Leadership Team', desc: 'Weekly SLT operational update', startOffset: 1, durationH: 2, attendees: 8, catering: false },
+        { roomIdx: 2, title: 'New Starter Induction', desc: 'Onboarding session for new joiners', startOffset: 2, durationH: 2, attendees: 5, catering: false },
+        { roomIdx: 1, title: 'Fire Safety Awareness', desc: 'Annual fire safety awareness training session', startOffset: 3, durationH: 3, attendees: 20, catering: false },
+        { roomIdx: 3, title: 'Supplier Review — BuildRight Contractors', desc: 'Quarterly contractor performance review', startOffset: 5, durationH: 1, attendees: 4, catering: false },
+        { roomIdx: 4, title: 'Design Sprint', desc: 'Collaborative design workshop', startOffset: 7, durationH: 4, attendees: 3, catering: true },
+        { roomIdx: 0, title: 'Q3 Budget Planning', desc: 'Finance and ops budget review for Q3', startOffset: 10, durationH: 3, attendees: 9, catering: true },
+      ];
+      const firstStaffId = staffIds[0] ?? null;
+      for (let bi = 0; bi < bookingDefs.length; bi++) {
+        const b = bookingDefs[bi];
+        const roomId = sampleRooms[b.roomIdx].id;
+        const startHour = 9 + (bi % 4);
+        try {
+          await pool.query(
+            `INSERT INTO "${schemaName}".room_bookings
+              (id, meeting_room_id, booked_by_staff_id, title, description, start_time, end_time,
+               status, attendee_count, expected_attendees, requires_catering, is_private)
+             VALUES ($1, $2, $3, $4, $5,
+               (NOW() + INTERVAL '${b.startOffset} days')::date + TIME '${String(startHour).padStart(2,'0')}:00:00',
+               (NOW() + INTERVAL '${b.startOffset} days')::date + TIME '${String(startHour + b.durationH).padStart(2,'0')}:00:00',
+               $6, $7, $8, $9, FALSE)
+             ON CONFLICT (id) DO NOTHING`,
+            [
+              `booking-demo-${String(bi + 1).padStart(3, '0')}`,
+              roomId,
+              firstStaffId,
+              b.title,
+              b.desc,
+              b.startOffset < 0 ? 'completed' : 'confirmed',
+              b.attendees,
+              b.attendees,
+              b.catering,
+            ]
+          );
+          roomBookingsAdded++;
+        } catch (e) { logger.warn('Sample room booking insert failed:', (e as any).message); }
+      }
+      logger.info(`✅ Meeting Rooms sample data: ${roomsAdded} rooms, ${roomBookingsAdded} bookings`);
+    } catch (e: any) {
+      logger.warn(`Sample Meeting Rooms data failed: ${e.message}`);
+    }
+
     // ── Induction Site Details — populate company_settings with realistic sample data ──
     try {
       await pool.query(`
@@ -2455,8 +2527,8 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits, ${fraAdded} fire risk assessment (${fraActionsAdded} actions), ${hsIncidentsAdded} H&S incident records — plus HR, certifications, visits, pre-bookings and attendance records`,
-      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded, auditTemplatesAdded, auditRecordsAdded, auditActionsAdded, permitsAdded, fraAdded, fraActionsAdded, hsIncidentsAdded },
+      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits, ${fraAdded} fire risk assessment (${fraActionsAdded} actions), ${hsIncidentsAdded} H&S incident records, ${roomsAdded} meeting rooms (${roomBookingsAdded} bookings) — plus HR, certifications, visits, pre-bookings and attendance records`,
+      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded, auditTemplatesAdded, auditRecordsAdded, auditActionsAdded, permitsAdded, fraAdded, fraActionsAdded, hsIncidentsAdded, roomsAdded, roomBookingsAdded },
     });
   } catch (error) {
     logger.error('Error loading sample data:', error);
@@ -2793,6 +2865,23 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         }
         logger.info(`✅ H&S Incidents demo data cleared`);
       } catch (e) { logger.warn(`Clear sample: hs_incidents — ${(e as any).message}`); }
+
+      // ── Meeting Rooms sample data cleanup ───────────────────────────────────
+      try {
+        const demoRoomRes = await pool.query(`SELECT id FROM "${schemaName}".meeting_rooms WHERE id LIKE 'room-demo-%'`);
+        if (demoRoomRes.rows.length > 0) {
+          const roomIds: string[] = demoRoomRes.rows.map((r: any) => r.id);
+          const rP = inP(roomIds);
+          // Delete bookings first (FK → meeting_rooms), then attendees if any
+          await del('room_bookings', `WHERE meeting_room_id IN (${rP})`, roomIds);
+          await del('room_booking_attendees', `WHERE room_booking_id IN (SELECT id FROM "${schemaName}".room_bookings WHERE meeting_room_id IN (${rP}))`, roomIds);
+          await pool.query(`DELETE FROM "${schemaName}".meeting_rooms WHERE id IN (${rP})`, roomIds);
+          deleted['meeting_rooms'] = roomIds.length;
+        }
+        // Also clean up bookings with demo- prefix IDs
+        await del('room_bookings', `WHERE id LIKE 'booking-demo-%'`);
+        logger.info(`✅ Meeting Rooms demo data cleared`);
+      } catch (e) { logger.warn(`Clear sample: meeting_rooms — ${(e as any).message}`); }
 
       if (failures.length > 0) {
         return res.status(500).json({ error: 'Some records could not be cleared', failures, deleted });
