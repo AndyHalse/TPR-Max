@@ -78,7 +78,8 @@ export function WorkerCard({
     (!hasActiveDisciplinaryCard || worker.currentCardStatus === 'yellow');
 
   const isInducted = worker.inductionCompleted || (worker as any).siteInductionCompleted;
-  const canCheckIn = isClearForWork && isInducted;
+  const isRtwValid = worker.rightToWork === 'valid' || worker.rightToWork === 'verified';
+  const canCheckIn = isClearForWork && isInducted && isRtwValid;
 
   return (
     <Card 
@@ -148,11 +149,14 @@ export function WorkerCard({
                 disabled={!canCheckIn}
                 className={`w-full ${canCheckIn ? 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50' : 'text-gray-400 border-gray-200 cursor-not-allowed opacity-60'}`}
                 data-testid={`button-checkin-${worker.id}`}
-                title={!isInducted ? 'Site induction must be completed before check-in' : !isClearForWork ? 'Worker is not cleared for site' : undefined}
+                title={!isRtwValid ? 'Right to Work must be verified before check-in' : !isInducted ? 'Site induction must be completed before check-in' : !isClearForWork ? 'Worker is not cleared for site' : undefined}
               >
                 <LogIn className="mr-1.5 h-3.5 w-3.5" />
                 Check In
               </Button>
+              {!isRtwValid && (
+                <p className="text-xs text-red-600 text-center leading-tight">RTW not verified</p>
+              )}
               {!isInducted && (
                 <p className="text-xs text-amber-600 text-center leading-tight">No induction</p>
               )}
@@ -221,6 +225,7 @@ export function WorkerCard({
             if (!isInducted) chips.push({ label: 'Induction outstanding', variant: 'destructive' });
             if (rtw === 'expired' || rtw === 'missing') chips.push({ label: 'Right-to-Work expired', variant: 'destructive' });
             else if (rtw === 'expiring') chips.push({ label: 'Right-to-Work expiring', variant: 'outline' });
+            else if (!rtw || rtw === 'pending') chips.push({ label: 'Right-to-Work not verified', variant: 'destructive' });
             if (cscs === 'expired') chips.push({ label: 'CSCS expired', variant: 'destructive' });
             if (ipaf === 'expired') chips.push({ label: 'IPAF expired', variant: 'outline' });
 
