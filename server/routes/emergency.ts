@@ -2,7 +2,7 @@ import type { Express } from 'express';
 import type { Server as HttpServer } from 'http';
 import crypto from 'crypto';
 import { randomBytes } from 'crypto';
-import { requireAuth, requireAuthOrFireMarshal } from '../auth';
+import { requireAuth, requireAuthOrFireMarshal, verifySessionToken } from '../auth';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService } from '../customerDatabase';
@@ -1945,15 +1945,23 @@ export function registerEmergencyRoutes(app: Express): void {
         customerId = (req.session as any).customerId;
         validatedStaff = { firstName: 'Admin', lastName: '(session)', customerId };
         logger.info(`Session-authenticated admin ending evacuation for customer: ${customerId}`);
-      } else if ((req as any).user && (req as any).customerId) {
-        // Bearer-token auth — production apps that authenticate via JWT rather than cookie session
-        customerId = (req as any).customerId;
-        const u = (req as any).user;
-        const name = (u.firstName && u.lastName) ? `${u.firstName} ${u.lastName}` : (u.username || 'Admin');
-        validatedStaff = { firstName: name, lastName: '', customerId };
-        logger.info(`Bearer-token admin ending evacuation for customer: ${customerId}`);
       } else {
-        return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+        // Bearer-token auth — this route has no requireAuth middleware so we
+        // parse and verify the JWT directly from the Authorization header
+        const bearerHeader = req.headers['authorization'];
+        if (bearerHeader && bearerHeader.startsWith('Bearer ')) {
+          try {
+            const { userId, customerId: tokenCustomerId } = verifySessionToken(bearerHeader.slice(7));
+            customerId = tokenCustomerId;
+            validatedStaff = { firstName: 'Admin', lastName: '', customerId, userId };
+            logger.info(`Bearer-token admin ending evacuation for customer: ${customerId}`);
+          } catch (tokenErr) {
+            logger.warn('complete-evacuation: invalid Bearer token:', tokenErr);
+            return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+          }
+        } else {
+          return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+        }
       }
 
       const { evacuationId: requestedEvacuationId, checkOutMode } = req.body;
