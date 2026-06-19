@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getSessionToken } from "@/lib/queryClient";
 import { useState } from "react";
 import type { Staff, Visitor, TransformedRoomBooking, MeetingRoom } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
@@ -324,9 +324,13 @@ export default function Dashboard() {
     queryFn: async () => {
       const { dateParam, days } = getQueryDateAndDays(diaryViewMode, currentDate);
       
+      const token = getSessionToken();
       const response = await fetch(
         `/api/reception/diary?date=${dateParam}&days=${days}`,
-        { credentials: 'include' }
+        {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
       );
       
       if (!response.ok) {
