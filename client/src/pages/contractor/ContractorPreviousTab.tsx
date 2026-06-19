@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/GlassCard";
+import { useLocation } from "wouter";
 import {
   History,
   Search,
@@ -87,6 +88,7 @@ export default function ContractorPreviousTab({
   setShowPassPreview,
   toast,
 }: ContractorPreviousTabProps) {
+  const [, setLocation] = useLocation();
   return (
         <div className="space-y-4">
           <div className="space-y-4">
@@ -206,21 +208,21 @@ export default function ContractorPreviousTab({
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap mb-2">
                     {contractor.rightToWork === 'valid' ? (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
+                      <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title="Right to Work verified — click to view worker profile" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer transition-colors">
                         <CheckCircle className="h-3 w-3 mr-0.5" />
                         Work Auth
-                      </span>
+                      </button>
                     ) : (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">
+                      <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title="Right to Work not verified — click to review and approve" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer transition-colors">
                         <AlertTriangle className="h-3 w-3 mr-0.5" />
                         Work Auth
-                      </span>
+                      </button>
                     )}
                     {!contractor.inductionCompleted && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
+                      <button onClick={(e) => { e.stopPropagation(); sendInductionMutation.mutate(contractor.id); }} title="Site induction not completed — click to send induction email now" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-pointer transition-colors">
                         <AlertTriangle className="h-3 w-3 mr-0.5" />
                         No Induction
-                      </span>
+                      </button>
                     )}
                     {(contractor as any).hasRedCard && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">Red Card</span>
@@ -419,12 +421,12 @@ export default function ContractorPreviousTab({
                           {contractor.isCheckedIn ? 'Checked In' : 'Available'}
                         </span>
                         {contractor.rightToWork === 'valid' ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800"><CheckCircle className="h-2.5 w-2.5 mr-0.5" />Work Auth</span>
+                          <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title="Right to Work verified — click to view worker profile" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer transition-colors"><CheckCircle className="h-2.5 w-2.5 mr-0.5" />Work Auth</button>
                         ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Work Auth</span>
+                          <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title="Right to Work not verified — click to review and approve" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer transition-colors"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Work Auth</button>
                         )}
                         {!contractor.inductionCompleted && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No Induction</span>
+                          <button onClick={(e) => { e.stopPropagation(); sendInductionMutation.mutate(contractor.id); }} title="Site induction not completed — click to send induction email now" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-pointer transition-colors"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No Induction</button>
                         )}
                         {(contractor as any).hasRedCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">Red Card</span>}
                         {(contractor as any).hasYellowCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-200 text-yellow-900">Yellow Card</span>}
