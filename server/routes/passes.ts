@@ -309,18 +309,63 @@ export function registerPassRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
 
-      // 1. Try visitor pre-booking
+      logger.info(`QR scan received: customer=${context.customerId}, qrData="${qrData}", length=${qrData.length}`);
+
+      // 1. Try visitor pre-booking — multiple lookup strategies for resilience
       let preBooking: any = null;
+
+      // Build a list of candidate lookup values to try in order
+      const candidates: Array<{ mode: 'id' | 'qrCode'; value: string }> = [];
+
+      // Extract core token from URL if the QR encodes a full URL
+      let core = qrData;
+      try {
+        const url = new URL(qrData);
+        // e.g. /checkin/PRE-PB-xxx or ?token=PRE-PB-xxx
+        const pathPart = url.pathname.split('/').pop() || '';
+        const tokenParam = url.searchParams.get('token') || url.searchParams.get('qr') || url.searchParams.get('code') || '';
+        core = pathPart || tokenParam || qrData;
+      } catch { /* not a URL, core stays as qrData */ }
+
+      // Strategy A: explicit PBK-{uuid} → look up by pre-booking ID
       if (qrData.startsWith('PBK-')) {
-        const pbId = qrData.replace('PBK-', '');
-        const [found] = await customerDb.select().from(isolatedSchema.preBookings)
-          .where(eq(isolatedSchema.preBookings.id, pbId)).limit(1);
-        preBooking = found;
-      } else {
-        const lookupCode = qrData.startsWith('PRE-') ? qrData.replace('PRE-', '') : qrData;
-        const [found] = await customerDb.select().from(isolatedSchema.preBookings)
-          .where(eq(isolatedSchema.preBookings.qrCode, lookupCode)).limit(1);
-        preBooking = found;
+        candidates.push({ mode: 'id', value: qrData.replace('PBK-', '') });
+      }
+      // Strategy B: PRE-{code} → strip prefix, look up by qrCode
+      if (core.startsWith('PRE-')) {
+        candidates.push({ mode: 'qrCode', value: core.replace('PRE-', '') });
+        candidates.push({ mode: 'qrCode', value: core }); // also try with prefix in case stored that way
+      }
+      // Strategy C: raw code (PB-xxxxx or any other format) → look up by qrCode
+      candidates.push({ mode: 'qrCode', value: core });
+      // Strategy D: if core looks like a UUID, try as pre-booking ID
+      if (/^[0-9a-f-]{36}$/i.test(core)) {
+        candidates.push({ mode: 'id', value: core });
+      }
+      // Strategy E: try the original full qrData by qrCode (catches stored-with-prefix case)
+      if (core !== qrData) {
+        candidates.push({ mode: 'qrCode', value: qrData });
+      }
+
+      for (const candidate of candidates) {
+        if (!candidate.value) continue;
+        let found: any;
+        if (candidate.mode === 'id') {
+          [found] = await customerDb.select().from(isolatedSchema.preBookings)
+            .where(eq(isolatedSchema.preBookings.id, candidate.value)).limit(1);
+        } else {
+          [found] = await customerDb.select().from(isolatedSchema.preBookings)
+            .where(eq(isolatedSchema.preBookings.qrCode, candidate.value)).limit(1);
+        }
+        if (found) {
+          logger.info(`QR scan: pre-booking found via ${candidate.mode}="${candidate.value}"`);
+          preBooking = found;
+          break;
+        }
+      }
+
+      if (!preBooking) {
+        logger.info(`QR scan: no pre-booking found for any candidate from qrData="${qrData}"`);
       }
 
       if (preBooking) {

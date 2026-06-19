@@ -725,6 +725,28 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260619_062_pre_bookings_qr_code_column',
+      description: 'Ensure qr_code column exists on pre_bookings and backfill any NULL rows',
+      async up(db: any) {
+        try {
+          await db.execute(`ALTER TABLE pre_bookings ADD COLUMN IF NOT EXISTS qr_code TEXT`);
+          logger.info('✅ [062] pre_bookings.qr_code column ensured');
+        } catch (err: any) {
+          logger.info(`⚠️ [062] pre_bookings.qr_code add column: ${err.message?.substring(0, 80)}`);
+        }
+        try {
+          await db.execute(`
+            UPDATE pre_bookings
+            SET qr_code = 'PB-' || SUBSTR(REPLACE(GEN_RANDOM_UUID()::TEXT, '-', ''), 1, 12)
+            WHERE qr_code IS NULL OR qr_code = ''
+          `);
+          logger.info('✅ [062] pre_bookings.qr_code NULL rows backfilled');
+        } catch (err: any) {
+          logger.info(`⚠️ [062] pre_bookings.qr_code backfill: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {
