@@ -17,7 +17,7 @@ import {
   evacuationAccountability,
 } from '@shared/schema';
 import { z } from 'zod';
-import { eq, and, sql, desc, gte, lt, or, not } from 'drizzle-orm';
+import { eq, and, sql, desc, gte, lt, or, not, inArray, ne } from 'drizzle-orm';
 import { db, pool } from '../db';
 import { sendTeamsNotification } from '../utils/teamsNotifier';
 import { logger } from '../utils/logger';
@@ -2012,6 +2012,17 @@ export function registerEmergencyRoutes(app: Express): void {
         })
         .where(eq(evacuations.evacuationId, evacuationId));
 
+      // Cancel any OTHER stale active evacuations for this customer so they
+      // don't block future activations and so the back-fill can create reports for them
+      await db
+        .update(evacuations)
+        .set({ status: 'cancelled', completedAt: new Date(), updatedAt: new Date() })
+        .where(and(
+          eq(evacuations.customerId, customerId),
+          eq(evacuations.status, 'active'),
+          ne(evacuations.evacuationId, evacuationId)
+        ));
+
       let checkedOutCount = 0;
       let staffCheckedOut = 0;
       let visitorsCheckedOut = 0;
@@ -2827,13 +2838,13 @@ ${evacuationPhotosData.length > 0 ? `
       const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
-      // Fetch all completed evacuations from shared DB for this customer
+      // Fetch all completed/cancelled evacuations from shared DB for this customer
       const completedEvacs = await db
         .select()
         .from(evacuations)
         .where(and(
           eq(evacuations.customerId, customerId),
-          eq(evacuations.status, "completed")
+          inArray(evacuations.status, ["completed", "cancelled"])
         ))
         .orderBy(desc(evacuations.completedAt));
 
