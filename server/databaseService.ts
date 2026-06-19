@@ -1416,6 +1416,45 @@ export class DatabaseService {
     return newCompany;
   }
 
+  // Derive authoritative RTW/CSCS/IPAF statuses from approved contractor documents.
+  // Used by all worker-fetch functions to override the potentially-stale DB column.
+  private async resolveWorkerDocumentStatuses(
+    db: any,
+    workerIds: string[]
+  ): Promise<Map<string, { rightToWork?: string; cscsStatus?: string; ipafStatus?: string }>> {
+    if (workerIds.length === 0) return new Map();
+    const now = new Date();
+    const docs = await db
+      .select({
+        workerId: isolatedSchema.contractorDocuments.workerId,
+        documentType: isolatedSchema.contractorDocuments.documentType,
+        expiryDate: isolatedSchema.contractorDocuments.expiryDate,
+      })
+      .from(isolatedSchema.contractorDocuments)
+      .where(and(
+        inArray(isolatedSchema.contractorDocuments.workerId, workerIds),
+        eq(isolatedSchema.contractorDocuments.status, 'approved'),
+        eq(isolatedSchema.contractorDocuments.isActive, true)
+      ));
+
+    const result = new Map<string, { rightToWork?: string; cscsStatus?: string; ipafStatus?: string }>();
+    for (const doc of docs) {
+      if (!doc.workerId) continue;
+      const current = result.get(doc.workerId) || {};
+      const isExpired = doc.expiryDate && new Date(doc.expiryDate) < now;
+      const status = isExpired ? 'expired' : 'valid';
+      if (doc.documentType === 'right_to_work') {
+        if (!current.rightToWork || status === 'valid') current.rightToWork = status;
+      } else if (doc.documentType === 'cscs_card') {
+        if (!current.cscsStatus || status === 'valid') current.cscsStatus = status;
+      } else if (doc.documentType === 'ipaf_card') {
+        if (!current.ipafStatus || status === 'valid') current.ipafStatus = status;
+      }
+      result.set(doc.workerId, current);
+    }
+    return result;
+  }
+
   async getWorkersByCompanyId(context: CustomerContext, companyId: string): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
@@ -1448,6 +1487,9 @@ export class DatabaseService {
         .where(eq(isolatedSchema.cardIssues.status, 'active'));
       const activeCardWorkerIds1 = new Set(activeCardRows1.map((r: any) => r.workerId));
 
+      // Resolve authoritative compliance statuses from approved documents
+      const docStatuses1 = await this.resolveWorkerDocumentStatuses(db, workers.map(w => w.id));
+
       // Map each worker
       const mappedWorkers = workers.map(worker => {
         const mappedWorker = {
@@ -1477,7 +1519,7 @@ export class DatabaseService {
           lastVisitDate: worker.lastVisitDate,
           visitCount: worker.visitCount || 0,
           isAccountedFor: worker.isAccountedFor || false,
-          rightToWork: worker.rightToWork || 'pending',
+          rightToWork: docStatuses1.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending',
           rightToWorkDocumentType: worker.rightToWorkDocumentType,
           rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
           rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
@@ -1498,8 +1540,8 @@ export class DatabaseService {
           toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
           toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
           cscsCard: worker.cscsCard || '',
-          cscsStatus: worker.cscsStatus || 'pending',
-          ipafStatus: worker.ipafStatus || 'none',
+          cscsStatus: docStatuses1.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending',
+          ipafStatus: docStatuses1.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none',
           asbestosAwareness: worker.asbestosAwareness || false,
           manualHandling: worker.manualHandling || false,
           workingAtHeight: worker.workingAtHeight || false,
@@ -1782,6 +1824,8 @@ export class DatabaseService {
       .where(eq(isolatedSchema.cardIssues.status, 'active'));
     const activeCardWorkerIds2 = new Set(activeCardRows2.map((r: any) => r.workerId));
 
+    const docStatuses2 = await this.resolveWorkerDocumentStatuses(db, workers.map(w => w.id));
+
     return workers.map(worker => ({
       ...worker,
       currentCardStatus: worker.currentCardStatus ?? 'clear',
@@ -1789,10 +1833,10 @@ export class DatabaseService {
       hasActiveDisciplinaryCard: activeCardWorkerIds2.has(worker.id),
       inductionCompleted: worker.siteInductionCompleted || false,
       phone: worker.phoneNumber,
-      rightToWork: worker.rightToWork || 'pending',
+      rightToWork: docStatuses2.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending',
       cscsCard: worker.cscsCard || '',
-      cscsStatus: worker.cscsStatus || 'pending',
-      ipafStatus: worker.ipafStatus || 'none',
+      cscsStatus: docStatuses2.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending',
+      ipafStatus: docStatuses2.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none',
       asbestosAwareness: worker.asbestosAwareness || false,
       manualHandling: worker.manualHandling || false,
       transportMethod: worker.transportMethod || '',
@@ -1960,6 +2004,8 @@ export class DatabaseService {
         ))
         .limit(1);
       const hasActiveDisciplinaryCard = activeCardCheck.length > 0;
+
+      const workerDocStatuses = await this.resolveWorkerDocumentStatuses(db, [id]);
       
       const mappedWorker = {
         id: worker.id,
@@ -1988,7 +2034,7 @@ export class DatabaseService {
         lastVisitDate: worker.lastVisitDate,
         visitCount: worker.visitCount || 0,
         isAccountedFor: worker.isAccountedFor || false,
-        rightToWork: worker.rightToWork || 'pending', // FIXED: Correct field mapping
+        rightToWork: workerDocStatuses.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending',
         rightToWorkDocumentType: worker.rightToWorkDocumentType,
         rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
         rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
@@ -2009,8 +2055,8 @@ export class DatabaseService {
         toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
         toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
         cscsCard: worker.cscsCard || '', // FIXED: Correct field mapping
-        cscsStatus: worker.cscsStatus || 'pending', // FIXED: Correct field mapping - should be string not boolean
-        ipafStatus: worker.ipafStatus || 'none',
+        cscsStatus: workerDocStatuses.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending',
+        ipafStatus: workerDocStatuses.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none',
         asbestosAwareness: worker.asbestosAwareness || false,
         manualHandling: worker.manualHandling || false,
         workingAtHeight: worker.workingAtHeight || false,
@@ -2369,6 +2415,8 @@ export class DatabaseService {
         .where(eq(isolatedSchema.cardIssues.status, 'active'));
       const activeCardWorkerIds3 = new Set(activeCardRows3.map((r: any) => r.workerId));
 
+      const docStatuses3 = await this.resolveWorkerDocumentStatuses(db, workers.map(w => w.id));
+
       // Map each worker
       const mappedWorkers = workers.map(worker => {
         const mappedWorker = {
@@ -2398,7 +2446,7 @@ export class DatabaseService {
           lastVisitDate: worker.lastVisitDate,
           visitCount: worker.visitCount || 0,
           isAccountedFor: worker.isAccountedFor || false,
-          rightToWork: worker.rightToWork || 'pending',
+          rightToWork: docStatuses3.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending',
           rightToWorkDocumentType: worker.rightToWorkDocumentType,
           rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
           rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
@@ -2419,8 +2467,8 @@ export class DatabaseService {
           toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
           toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
           cscsCard: worker.cscsCard || '',
-          cscsStatus: worker.cscsStatus || 'pending',
-          ipafStatus: worker.ipafStatus || 'none',
+          cscsStatus: docStatuses3.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending',
+          ipafStatus: docStatuses3.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none',
           asbestosAwareness: worker.asbestosAwareness || false,
           manualHandling: worker.manualHandling || false,
           workingAtHeight: worker.workingAtHeight || false,
