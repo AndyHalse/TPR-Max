@@ -1122,6 +1122,38 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </h4>
                   
                   <div className="space-y-3">
+                    {/* Document Type — choose first so AI scan can pre-fill fields */}
+                    <div>
+                      <Label htmlFor="document-type" data-testid="label-document-type">Document Type</Label>
+                      <Select
+                        value={documentFormData.documentType}
+                        onValueChange={(value) => setDocumentFormData(prev => ({ ...prev, documentType: value }))}
+                        disabled={isUploading}
+                      >
+                        <SelectTrigger id="document-type" data-testid="select-document-type">
+                          <SelectValue placeholder="Select document type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="right_to_work">
+                            <span className="flex items-center gap-2">
+                              Right to Work
+                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">UK Legal Requirement</span>
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="cscs_card">CSCS Card</SelectItem>
+                          <SelectItem value="ipaf_card">IPAF Card</SelectItem>
+                          <SelectItem value="cpcs_card">CPCS Card</SelectItem>
+                          <SelectItem value="asbestos_awareness">Asbestos Awareness</SelectItem>
+                          <SelectItem value="manual_handling">Manual Handling</SelectItem>
+                          <SelectItem value="working_at_height">Working at Height</SelectItem>
+                          <SelectItem value="first_aid">First Aid Certificate</SelectItem>
+                          <SelectItem value="certification">Other Certification</SelectItem>
+                          <SelectItem value="training">Training Certificate</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     {/* File Input */}
                     <div>
                       <Label htmlFor="document-file" data-testid="label-document-file">Select Document</Label>
@@ -1162,33 +1194,6 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           </Button>
                         </div>
                       )}
-                    </div>
-
-                    {/* Document Type */}
-                    <div>
-                      <Label htmlFor="document-type" data-testid="label-document-type">Document Type</Label>
-                      <Select
-                        value={documentFormData.documentType}
-                        onValueChange={(value) => setDocumentFormData(prev => ({ ...prev, documentType: value }))}
-                        disabled={isUploading}
-                      >
-                        <SelectTrigger id="document-type" data-testid="select-document-type">
-                          <SelectValue placeholder="Select document type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="right_to_work">Right to Work</SelectItem>
-                          <SelectItem value="cscs_card">CSCS Card</SelectItem>
-                          <SelectItem value="ipaf_card">IPAF Card</SelectItem>
-                          <SelectItem value="cpcs_card">CPCS Card</SelectItem>
-                          <SelectItem value="asbestos_awareness">Asbestos Awareness</SelectItem>
-                          <SelectItem value="manual_handling">Manual Handling</SelectItem>
-                          <SelectItem value="working_at_height">Working at Height</SelectItem>
-                          <SelectItem value="first_aid">First Aid Certificate</SelectItem>
-                          <SelectItem value="certification">Other Certification</SelectItem>
-                          <SelectItem value="training">Training Certificate</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
 
                     {/* Expiry Date */}
