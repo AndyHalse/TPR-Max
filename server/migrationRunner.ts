@@ -747,6 +747,27 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260619_063_fix_nav_style_default',
+      description: 'Reset nav_style from classic back to sidebar — migration 056 wrongly used DEFAULT classic',
+      async up(db: any) {
+        try {
+          await db.execute(`
+            UPDATE users SET nav_style = 'sidebar'
+            WHERE nav_style = 'classic' OR nav_style IS NULL
+          `);
+          logger.info('✅ [063] Reset all users nav_style to sidebar');
+        } catch (err: any) {
+          logger.info(`⚠️ [063] nav_style reset: ${err.message?.substring(0, 80)}`);
+        }
+        try {
+          await db.execute(`ALTER TABLE users ALTER COLUMN nav_style SET DEFAULT 'sidebar'`);
+          logger.info('✅ [063] Fixed nav_style column default to sidebar');
+        } catch (err: any) {
+          logger.info(`⚠️ [063] nav_style default fix: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {
