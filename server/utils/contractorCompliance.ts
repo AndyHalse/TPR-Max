@@ -196,8 +196,13 @@ export async function getWorkerClearanceStatus(
       if (result.rows.length > 0) {
         const co = result.rows[0];
         if (co.status === "suspended") blocking.push("Contractor company is suspended");
-        if (co.onboarding_status && co.onboarding_status !== "approved") {
-          blocking.push("Contractor company has not been approved for site");
+        // Only hard-block if explicitly rejected — 'attention_needed'/'submitted'/'pending'
+        // are advisory states that should not prevent workers from checking in.
+        // Legacy companies (onboarding_status IS NULL) are also allowed through.
+        if (co.onboarding_status === "rejected") {
+          blocking.push("Contractor company has been rejected for site access");
+        } else if (co.onboarding_status === "attention_needed") {
+          warnings.push("Contractor company compliance needs attention — please review");
         }
       }
     }

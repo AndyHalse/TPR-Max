@@ -2279,16 +2279,68 @@ export function registerContractorRoutes(app: Express): void {
         return res.status(404).json({ error: 'Document not found' });
       }
 
+      // ── Sync worker profile columns for worker-level documents ────────────
+      // Mirrors the portal PUT /review route so both approval paths are consistent.
+      // If the document belongs to a specific worker, update the matching profile field.
+      const workerDocType = (updated as any).documentType as string | undefined;
+      const workerDocExpiry = (updated as any).expiryDate as Date | string | null | undefined;
+      const workerIdOnDoc = (updated as any).workerId as string | undefined;
+
+      if (workerIdOnDoc && workerDocType) {
+        type WorkerColUpdate = Partial<typeof isolatedSchema.contractorWorkers.$inferInsert>;
+        let workerColUpdate: WorkerColUpdate | null = null;
+
+        if (workerDocType === 'right_to_work') {
+          workerColUpdate = {
+            rightToWork: 'valid',
+            rightToWorkExpiryDate: workerDocExpiry ? new Date(workerDocExpiry) : null,
+          } as WorkerColUpdate;
+        } else if (workerDocType === 'cscs_card') {
+          workerColUpdate = { cscsStatus: 'valid' } as WorkerColUpdate;
+        } else if (workerDocType === 'ipaf_card') {
+          workerColUpdate = { ipafStatus: 'valid' } as WorkerColUpdate;
+        }
+
+        if (workerColUpdate) {
+          try {
+            await db
+              .update(isolatedSchema.contractorWorkers)
+              .set(workerColUpdate as any)
+              .where(eq(isolatedSchema.contractorWorkers.id, workerIdOnDoc));
+          } catch (syncErr: any) {
+            logger.warn('[doc-approve-patch] Failed to sync worker status column (non-fatal):', syncErr.message?.substring(0, 80));
+          }
+        }
+      }
+
+      // ── Sync company-level expiry columns for insurance/policy documents ──
+      const COMPANY_EXPIRY_COLUMN: Record<string, keyof typeof isolatedSchema.contractorCompanies.$inferInsert> = {
+        publicLiability:       'publicLiabilityExpiryDate',
+        employersLiability:    'employersLiabilityExpiryDate',
+        professionalIndemnity: 'professionalIndemnityExpiryDate',
+        healthSafety:          'healthSafetyPolicyExpiryDate',
+      };
+      const companyExpiryColumn = workerDocType ? COMPANY_EXPIRY_COLUMN[workerDocType] : undefined;
+      if (companyExpiryColumn && workerDocExpiry && !workerIdOnDoc) {
+        try {
+          await db
+            .update(isolatedSchema.contractorCompanies)
+            .set({ [companyExpiryColumn]: new Date(workerDocExpiry) } as any)
+            .where(eq(isolatedSchema.contractorCompanies.id, companyId));
+        } catch (syncErr: any) {
+          logger.warn('[doc-approve-patch] Failed to sync company expiry (non-fatal):', syncErr.message?.substring(0, 80));
+        }
+      }
+
       // Audit trail
       try {
         const auditTs = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/London' });
         const docLabel = (updated.documentType || updated.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-        await db.insert(isolatedSchema.companyNotes).values({
-          companyId,
-          changeType: 'document_approved',
-          notes: `Document "${docLabel}" approved by ${displayName} on ${auditTs}.`,
-          changedBy: username,
-        });
+        const noteTable = workerIdOnDoc ? isolatedSchema.workerNotes : isolatedSchema.companyNotes;
+        const noteValues = workerIdOnDoc
+          ? { workerId: workerIdOnDoc, changeType: 'document_approved', notes: `Document "${docLabel}" approved by ${displayName} on ${auditTs}.`, changedBy: username }
+          : { companyId, changeType: 'document_approved', notes: `Document "${docLabel}" approved by ${displayName} on ${auditTs}.`, changedBy: username };
+        await db.insert(noteTable as any).values(noteValues);
       } catch (auditErr) {
         logger.error('Failed to create document approval audit note (continuing):', auditErr);
       }
@@ -5581,8 +5633,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       }
 
       // ── Auto-revert approved company if this review broke compliance ──────
-      if ((updated as any).companyId) {
-        // fire-and-forget; non-fatal
+      // Only re-evaluate for company-level documents (no workerId).
+      // Worker cert approvals (RTW, CSCS, IPAF) must NOT trigger a company
+      // compliance re-check — they are irrelevant to company-level insurance/RAMS
+      // and previously caused the company to be auto-reverted to 'attention_needed'
+      // any time a worker document was reviewed.
+      if ((updated as any).companyId && !(updated as any).workerId) {
         reevaluateCompanyApproval(db, customerId, (updated as any).companyId).catch(() => {});
       }
 
