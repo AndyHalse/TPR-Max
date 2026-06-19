@@ -361,8 +361,9 @@ export function registerEmergencyRoutes(app: Express): void {
       const drillMode = isDrill === true;
       const zoneFilter = Array.isArray(selectedZones) && selectedZones.length > 0 ? new Set(selectedZones) : null;
       
-      // Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      // Get customer context — req.customerId is set by requireAuth for both
+      // session-cookie and Bearer-token auth paths.
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -5236,8 +5237,7 @@ ${evacuationPhotosData.length > 0 ? `
       const signature = req.headers["x-clue-signature"] as string;
       const payload = JSON.stringify(req.body);
       
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -5300,8 +5300,7 @@ ${evacuationPhotosData.length > 0 ? `
         return res.status(400).json({ error: "Visitor ID is required" });
       }
       
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -5363,8 +5362,7 @@ ${evacuationPhotosData.length > 0 ? `
   // Test CLUe connection
   app.post("/api/clue/test-connection", requireAuth, async (req, res) => {
     try {
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -5397,8 +5395,7 @@ ${evacuationPhotosData.length > 0 ? `
   // Sync with CLUe platform
   app.post("/api/clue/sync", requireAuth, async (req, res) => {
     try {
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -5443,8 +5440,7 @@ ${evacuationPhotosData.length > 0 ? `
   // Get CLUe devices
   app.get("/api/clue/devices", requireAuth, async (req, res) => {
     try {
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
