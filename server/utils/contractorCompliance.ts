@@ -154,8 +154,27 @@ export async function getWorkerClearanceStatus(
 
   if ((worker as any).currentCardStatus === "red") blocking.push("Worker has an active Red Card (site ban)");
 
-  // Right to Work — use canonical evaluator so the rule lives in one place
-  const rtw = (worker as any).rightToWork;
+  // Right to Work — derive from approved documents first (source of truth),
+  // fall back to the DB column only if no approved document exists.
+  // This handles historical workers whose column was never backfilled.
+  let rtw = (worker as any).rightToWork ?? 'pending';
+  try {
+    const schemaName = customerId ? customerDbService.generateSchemaName(customerId) : null;
+    const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+    if (pool && schemaName) {
+      const docResult = await pool.query(
+        `SELECT expiry_date FROM "${schemaName}".contractor_documents
+         WHERE worker_id = $1 AND document_type = 'right_to_work' AND status = 'approved' AND is_active = TRUE
+         ORDER BY approved_at DESC NULLS LAST LIMIT 1`,
+        [workerId]
+      );
+      if (docResult.rows.length > 0) {
+        const expiry = docResult.rows[0].expiry_date;
+        rtw = (!expiry || new Date(expiry) >= new Date()) ? 'valid' : 'expired';
+      }
+    }
+  } catch { /* Non-fatal — fall through to column value */ }
+
   const rtwResult = evaluateRightToWork(rtw);
   if (rtwResult.blocked) blocking.push(rtwResult.message);
   else if (rtwResult.warning) warnings.push(rtwResult.message);

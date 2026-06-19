@@ -1492,6 +1492,9 @@ export class DatabaseService {
 
       // Map each worker
       const mappedWorkers = workers.map(worker => {
+        const rtw1 = docStatuses1.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending';
+        const cscs1 = docStatuses1.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending';
+        const ipaf1 = docStatuses1.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none';
         const mappedWorker = {
           id: worker.id,
           companyId: worker.companyId,
@@ -1519,7 +1522,7 @@ export class DatabaseService {
           lastVisitDate: worker.lastVisitDate,
           visitCount: worker.visitCount || 0,
           isAccountedFor: worker.isAccountedFor || false,
-          rightToWork: docStatuses1.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending',
+          rightToWork: rtw1,
           rightToWorkDocumentType: worker.rightToWorkDocumentType,
           rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
           rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
@@ -1540,8 +1543,8 @@ export class DatabaseService {
           toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
           toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
           cscsCard: worker.cscsCard || '',
-          cscsStatus: docStatuses1.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending',
-          ipafStatus: docStatuses1.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none',
+          cscsStatus: cscs1,
+          ipafStatus: ipaf1,
           asbestosAwareness: worker.asbestosAwareness || false,
           manualHandling: worker.manualHandling || false,
           workingAtHeight: worker.workingAtHeight || false,
@@ -1561,7 +1564,7 @@ export class DatabaseService {
           createdAt: worker.createdAt || new Date(),
           updatedAt: worker.updatedAt || new Date(),
           currentCardStatus: worker.currentCardStatus ?? 'clear',
-          complianceStatus: this.calculateComplianceStatus(worker),
+          complianceStatus: this.calculateComplianceStatus({ ...worker, rightToWork: rtw1, cscsStatus: cscs1, ipafStatus: ipaf1 }),
           hasActiveDisciplinaryCard: activeCardWorkerIds1.has(worker.id),
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
@@ -1826,22 +1829,27 @@ export class DatabaseService {
 
     const docStatuses2 = await this.resolveWorkerDocumentStatuses(db, workers.map(w => w.id));
 
-    return workers.map(worker => ({
-      ...worker,
-      currentCardStatus: worker.currentCardStatus ?? 'clear',
-      complianceStatus: this.calculateComplianceStatus(worker),
-      hasActiveDisciplinaryCard: activeCardWorkerIds2.has(worker.id),
-      inductionCompleted: worker.siteInductionCompleted || false,
-      phone: worker.phoneNumber,
-      rightToWork: docStatuses2.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending',
-      cscsCard: worker.cscsCard || '',
-      cscsStatus: docStatuses2.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending',
-      ipafStatus: docStatuses2.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none',
-      asbestosAwareness: worker.asbestosAwareness || false,
-      manualHandling: worker.manualHandling || false,
-      transportMethod: worker.transportMethod || '',
-      isActive: worker.isActive ?? true,
-    } as ContractorWorker));
+    return workers.map(worker => {
+      const rtw2 = docStatuses2.get(worker.id)?.rightToWork ?? worker.rightToWork ?? 'pending';
+      const cscs2 = docStatuses2.get(worker.id)?.cscsStatus ?? worker.cscsStatus ?? 'pending';
+      const ipaf2 = docStatuses2.get(worker.id)?.ipafStatus ?? worker.ipafStatus ?? 'none';
+      return {
+        ...worker,
+        currentCardStatus: worker.currentCardStatus ?? 'clear',
+        complianceStatus: this.calculateComplianceStatus({ ...worker, rightToWork: rtw2, cscsStatus: cscs2, ipafStatus: ipaf2 }),
+        hasActiveDisciplinaryCard: activeCardWorkerIds2.has(worker.id),
+        inductionCompleted: worker.siteInductionCompleted || false,
+        phone: worker.phoneNumber,
+        rightToWork: rtw2,
+        cscsCard: worker.cscsCard || '',
+        cscsStatus: cscs2,
+        ipafStatus: ipaf2,
+        asbestosAwareness: worker.asbestosAwareness || false,
+        manualHandling: worker.manualHandling || false,
+        transportMethod: worker.transportMethod || '',
+        isActive: worker.isActive ?? true,
+      } as ContractorWorker;
+    });
   }
 
   // Card issues methods
@@ -2076,7 +2084,12 @@ export class DatabaseService {
         createdAt: worker.createdAt || new Date(),
         updatedAt: worker.updatedAt || new Date(),
         currentCardStatus: worker.currentCardStatus ?? 'clear',
-        complianceStatus: this.calculateComplianceStatus(worker),
+        complianceStatus: this.calculateComplianceStatus({
+          ...worker,
+          rightToWork: workerDocStatuses.get(worker.id)?.rightToWork ?? worker.rightToWork,
+          cscsStatus: workerDocStatuses.get(worker.id)?.cscsStatus ?? worker.cscsStatus,
+          ipafStatus: workerDocStatuses.get(worker.id)?.ipafStatus ?? worker.ipafStatus,
+        }),
         hasActiveDisciplinaryCard,
         inductionCompleted: worker.siteInductionCompleted || false,
         phone: worker.phoneNumber,
@@ -2341,8 +2354,12 @@ export class DatabaseService {
     }
 
     // action_needed: non-blocking compliance gaps
+    // 'pending' RTW means unverified — site access should be flagged until confirmed
+    const rtwPending = !workerData.rightToWork || workerData.rightToWork === 'pending';
+    const inducted = workerData.siteInductionCompleted ?? workerData.inductionCompleted;
     if (
-      !workerData.siteInductionCompleted ||
+      rtwPending ||
+      !inducted ||
       workerData.rightToWork === 'expiring' ||
       workerData.cscsStatus === 'expired' ||
       workerData.ipafStatus === 'expired'
@@ -2488,7 +2505,12 @@ export class DatabaseService {
           createdAt: worker.createdAt || new Date(),
           updatedAt: worker.updatedAt || new Date(),
           currentCardStatus: worker.currentCardStatus ?? 'clear',
-          complianceStatus: this.calculateComplianceStatus(worker),
+          complianceStatus: this.calculateComplianceStatus({
+            ...worker,
+            rightToWork: docStatuses3.get(worker.id)?.rightToWork ?? worker.rightToWork,
+            cscsStatus: docStatuses3.get(worker.id)?.cscsStatus ?? worker.cscsStatus,
+            ipafStatus: docStatuses3.get(worker.id)?.ipafStatus ?? worker.ipafStatus,
+          }),
           hasActiveDisciplinaryCard: activeCardWorkerIds3.has(worker.id),
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
