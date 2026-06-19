@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
 import GlassCard from "@/components/GlassCard";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -484,7 +484,7 @@ export default function BrandingSettings() {
             {currentSettings?.bannerUrl && !currentSettings.bannerUrl.includes('test') && (
               <div className="mb-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                 <img 
-                  src={`/objects${currentSettings.bannerUrl}`}
+                  src={objectUrl(`/objects${currentSettings.bannerUrl}`)}
                   alt="Kiosk Banner" 
                   className="w-full max-w-lg h-auto object-contain rounded-lg"
                   onError={(e) => {

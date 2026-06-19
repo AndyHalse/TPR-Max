@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import WalkInVisitorForm from "@/components/WalkInVisitorForm";
@@ -581,7 +580,7 @@ export default function KioskMode() {
         {settings?.bannerUrl && (
           <div className="w-full max-w-3xl mx-auto mb-2 sm:mb-3 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
             <img
-              src={`/objects${settings.bannerUrl}`}
+              src={objectUrl(`/objects${settings.bannerUrl}`)}
               alt={settings.companyName}
               className="w-full h-auto object-contain max-h-28 sm:max-h-36 lg:max-h-40"
               onError={(e) => {
@@ -762,7 +761,7 @@ export default function KioskMode() {
         {settings?.bannerUrl && (
           <div className="w-full max-w-3xl mx-auto mb-2 sm:mb-3 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
             <img 
-              src={`/objects${settings.bannerUrl}`} 
+              src={objectUrl(`/objects${settings.bannerUrl}`)}
               alt={settings.companyName}
               className="w-full h-auto object-contain max-h-28 sm:max-h-36 lg:max-h-40"
               onError={(e) => {
@@ -953,7 +952,7 @@ export default function KioskMode() {
       {settings?.bannerUrl && (
         <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0 mb-2 sm:mb-3" style={{ height: '18vh' }}>
           <img 
-            src={`/objects${settings.bannerUrl}`} 
+            src={objectUrl(`/objects${settings.bannerUrl}`)}
             alt={settings.companyName}
             className="w-full h-full object-contain"
             onError={(e) => {
@@ -1149,7 +1148,7 @@ export default function KioskMode() {
             {settings?.bannerUrl && (
               <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0 mb-2 sm:mb-3" style={{ height: '18vh' }}>
                 <img
-                  src={`/objects${settings.bannerUrl}`}
+                  src={objectUrl(`/objects${settings.bannerUrl}`)}
                   alt={settings.companyName}
                   className="w-full h-full object-contain"
                   onError={(e) => {
