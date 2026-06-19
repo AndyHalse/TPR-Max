@@ -846,8 +846,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         className="mt-0.5 h-4 w-4 accent-blue-600 flex-shrink-0"
                       />
                       <div className="flex-1">
-                        <div className={`text-sm font-medium ${formData.inductionCompleted ? 'text-blue-700' : 'text-fixed'}`}>
-                          Site Induction Completed
+                        <div className={`text-sm font-medium ${formData.inductionCompleted ? 'text-blue-700' : 'text-amber-700'}`}>
+                          {formData.inductionCompleted ? 'Site Induction Completed' : 'Site Induction Not Completed'}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">Site-specific H&S briefing completed</div>
                       </div>
