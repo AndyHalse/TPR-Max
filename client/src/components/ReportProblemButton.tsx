@@ -68,6 +68,12 @@ export default function ReportProblemButton() {
   const detectedEmail = me?.email || (me?.username?.includes("@") ? me.username : "");
 
   useEffect(() => {
+    if (open && detectedEmail && !emailOverride) {
+      setEmailOverride(detectedEmail);
+    }
+  }, [open, detectedEmail]);
+
+  useEffect(() => {
     if (!open) return;
     const onPaste = async (e: ClipboardEvent) => {
       const items = Array.from(e.clipboardData?.items ?? []);

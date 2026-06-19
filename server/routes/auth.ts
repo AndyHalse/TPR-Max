@@ -636,6 +636,7 @@ export function registerAuthRoutes(app: Express): void {
           navStyle: (user as any).navStyle ?? 'sidebar',
           firstName: user.firstName ?? null,
           lastName: user.lastName ?? null,
+          email: (user as any).email ?? null,
           sessionToken: signSessionToken(user.id, customerId),
         });
       } catch (err) {
