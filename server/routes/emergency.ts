@@ -1770,7 +1770,8 @@ export function registerEmergencyRoutes(app: Express): void {
       // Support both session auth (admin) and fire marshal token
       const { token } = req.body || {};
 
-      if (req.session?.customerId) {
+      if (req.customerId) {
+        // Session-cookie or Bearer-token admin auth
         customerId = req.customerId;
       } else if (token) {
         // Use development/cross-schema context to validate token, then derive customer from the marshal record
@@ -1940,10 +1941,17 @@ export function registerEmergencyRoutes(app: Express): void {
         validatedStaff.customerId = customerId;
         logger.info(`Fire Marshal URL authenticated: ID ${validatedStaff.id} (${customerId})`);
       } else if ((req.session as any)?.userId && (req.session as any)?.customerId) {
-        // Admin session auth — allows admins on the Muster page to end an evacuation
+        // Admin session-cookie auth — allows admins on the Muster page to end an evacuation
         customerId = (req.session as any).customerId;
         validatedStaff = { firstName: 'Admin', lastName: '(session)', customerId };
         logger.info(`Session-authenticated admin ending evacuation for customer: ${customerId}`);
+      } else if ((req as any).user && (req as any).customerId) {
+        // Bearer-token auth — production apps that authenticate via JWT rather than cookie session
+        customerId = (req as any).customerId;
+        const u = (req as any).user;
+        const name = (u.firstName && u.lastName) ? `${u.firstName} ${u.lastName}` : (u.username || 'Admin');
+        validatedStaff = { firstName: name, lastName: '', customerId };
+        logger.info(`Bearer-token admin ending evacuation for customer: ${customerId}`);
       } else {
         return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
@@ -3057,7 +3065,7 @@ ${evacuationPhotosData.length > 0 ? `
         customerId = marshalResult.customerId;
         addedBy = `${marshalResult.marshal.firstName} ${marshalResult.marshal.lastName}`;
         addedByType = "firemarshal";
-      } else if (req.session?.customerId) {
+      } else if (req.customerId) {
         customerId = req.customerId;
         addedBy = (req as any).user?.username || (req as any).user?.firstName ? `${(req as any).user.firstName} ${(req as any).user.lastName}` : "Admin";
         addedByType = "admin";
@@ -3150,7 +3158,7 @@ ${evacuationPhotosData.length > 0 ? `
         customerId = marshalResult.customerId;
         addedBy = `${marshalResult.marshal.firstName} ${marshalResult.marshal.lastName}`;
         addedByType = "firemarshal";
-      } else if (req.session?.customerId) {
+      } else if (req.customerId) {
         customerId = req.customerId;
         addedBy = (req as any).user?.username || (req as any).user?.firstName ? `${(req as any).user.firstName} ${(req as any).user.lastName}` : "Admin";
         addedByType = "admin";
@@ -3716,8 +3724,8 @@ ${evacuationPhotosData.length > 0 ? `
   // Admin: generate or regenerate the incident manager monitor URL for this customer
   app.post("/api/admin/incident-monitor/generate", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session?.customerId;
-      const userId = req.session?.userId;
+      const customerId = req.customerId || req.session?.customerId;
+      const userId = (req as any).user?.id || req.session?.userId;
       if (!customerId || !userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
