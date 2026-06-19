@@ -89,6 +89,7 @@ export function registerAuthRoutes(app: Express): void {
     username: string
   ): Promise<void> {
     return new Promise((resolve) => {
+      const savedPlatformAdminId = req.session.platformAdminId;
       req.session.regenerate((regenerateErr: any) => {
         if (regenerateErr) {
           logger.error('❌ Session regeneration error:', regenerateErr);
@@ -100,6 +101,7 @@ export function registerAuthRoutes(app: Express): void {
 
         req.session.userId = user.id;
         req.session.customerId = customer.id;
+        if (savedPlatformAdminId) req.session.platformAdminId = savedPlatformAdminId;
         req.session.companyName = customer.companyName;
 
         logger.info(`📝 Setting session context:`, {
@@ -278,6 +280,7 @@ export function registerAuthRoutes(app: Express): void {
           },
         };
 
+        const savedPlatformAdminIdDev = req.session.platformAdminId;
         req.session.regenerate((regenerateErr) => {
           if (regenerateErr) {
             logger.error('❌ Session regeneration error:', regenerateErr);
@@ -287,6 +290,7 @@ export function registerAuthRoutes(app: Express): void {
           req.session.userId = authResult.user.id;
           req.session.customerId = authResult.customer.id;
           req.session.companyName = authResult.customer.companyName;
+          if (savedPlatformAdminIdDev) req.session.platformAdminId = savedPlatformAdminIdDev;
 
           req.session.save(async (saveErr) => {
             if (saveErr) {

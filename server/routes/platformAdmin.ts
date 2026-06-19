@@ -3,6 +3,7 @@ import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import sgMail from '@sendgrid/mail';
 import { eq, sql, desc, and, gte } from 'drizzle-orm';
 import { z } from 'zod';
 import { requirePlatformAdmin } from '../auth';
@@ -130,28 +131,61 @@ export function registerPlatformAdminRoutes(app: Express): void {
         expiresAt: Date.now() + 10 * 60 * 1000,
       });
 
-      // Send OTP via email
-      try {
-        const { emailService } = await import('../emailService');
-        await emailService.sendEmail({
-          to: admin.email,
-          subject: 'TPR Max Admin — Verification Code',
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px;">
-              <h2 style="margin-bottom:4px;">Platform Admin — 2-Step Verification</h2>
-              <p>Hi ${admin.firstName},</p>
-              <p>Someone is signing in to the TPR Max Platform Admin portal. Your verification code is:</p>
-              <div style="font-size:36px;font-weight:700;letter-spacing:10px;text-align:center;padding:20px;background:#f3f4f6;border-radius:10px;margin:20px 0;">${otp}</div>
-              <p>This code expires in <strong>10 minutes</strong>.</p>
-              <p style="color:#6b7280;font-size:13px;">If you didn't attempt to sign in, change your password immediately.</p>
-            </div>`,
-          text: `Your TPR Max Platform Admin verification code is: ${otp}. It expires in 10 minutes.`,
-        });
-        logger.info(`Platform admin OTP sent to ${admin.email}`);
-      } catch (emailErr) {
-        logger.error('Failed to send platform admin OTP email:', emailErr);
-        pendingOtps.delete(pendingToken);
-        return res.status(500).json({ error: "Failed to send verification email. Please try again." });
+      // Send OTP via email — SendGrid first, SMTP fallback, keep OTP alive on failure
+      const otpHtml = `
+        <div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px;">
+          <h2 style="margin-bottom:4px;">Platform Admin — 2-Step Verification</h2>
+          <p>Hi ${admin.firstName},</p>
+          <p>Someone is signing in to the TPR Max Platform Admin portal. Your verification code is:</p>
+          <div style="font-size:36px;font-weight:700;letter-spacing:10px;text-align:center;padding:20px;background:#f3f4f6;border-radius:10px;margin:20px 0;">${otp}</div>
+          <p>This code expires in <strong>10 minutes</strong>.</p>
+          <p style="color:#6b7280;font-size:13px;">If you didn't attempt to sign in, change your password immediately.</p>
+        </div>`;
+      const otpText = `Your TPR Max Platform Admin verification code is: ${otp}. It expires in 10 minutes.`;
+
+      let emailSent = false;
+
+      const sgKey = process.env.SENDGRID_API_KEY;
+      if (sgKey) {
+        try {
+          sgMail.setApiKey(sgKey);
+          await sgMail.send({
+            to: admin.email,
+            from: { email: process.env.SMTP_USER || 'noreply@visigate.pro', name: 'TPR Max' },
+            subject: 'TPR Max Admin — Verification Code',
+            html: otpHtml,
+            text: otpText,
+          });
+          logger.info(`Platform admin OTP sent via SendGrid to ${admin.email}`);
+          emailSent = true;
+        } catch (sgErr: any) {
+          logger.warn(`SendGrid platform admin OTP failed, falling back to SMTP: ${sgErr?.message}`);
+        }
+      }
+
+      if (!emailSent) {
+        try {
+          const { emailService } = await import('../emailService');
+          await emailService.sendEmail({
+            to: admin.email,
+            subject: 'TPR Max Admin — Verification Code',
+            html: otpHtml,
+            text: otpText,
+          });
+          logger.info(`Platform admin OTP sent via SMTP to ${admin.email}`);
+          emailSent = true;
+        } catch (smtpErr: any) {
+          logger.warn(`SMTP platform admin OTP failed: ${smtpErr?.message}`);
+        }
+      }
+
+      if (!emailSent) {
+        // Keep OTP alive — log for admin recovery, do NOT delete
+        logger.error(
+          `Platform admin OTP email delivery failed for ${admin.username} (${admin.email}). ` +
+          `OTP [ADMIN-RECOVERY]: ${otp} | pendingToken: ${pendingToken}`
+        );
+        return res.status(503).json({ error: "EMAIL_DELIVERY_FAILED", message: "Verification email could not be delivered. Contact Replit support to retrieve your code from the server logs." });
       }
 
       return res.json({

@@ -191,6 +191,7 @@ export function registerSsoRoutes(app: Express): void {
         logger.warn('⚠️ SSO: Failed to update lastLoginAt:', e);
       }
 
+      const savedPlatformAdminIdSso = req.session.platformAdminId;
       req.session.regenerate((regenerateErr) => {
         if (regenerateErr) {
           logger.error('❌ SSO: Session regeneration error:', regenerateErr);
@@ -199,6 +200,7 @@ export function registerSsoRoutes(app: Express): void {
         req.session.userId = user.id;
         req.session.customerId = customerId;
         req.session.companyName = customer.companyName;
+        if (savedPlatformAdminIdSso) req.session.platformAdminId = savedPlatformAdminIdSso;
         req.session.ssoCsrfToken = undefined;
         req.session.ssoCodeVerifier = undefined;
         req.session.save((saveErr) => {

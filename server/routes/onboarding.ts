@@ -979,6 +979,7 @@ export function registerOnboardingRoutes(app: Express): void {
       logger.info(`✅ Admin user authenticated successfully: ${adminUsername}`);
 
       // Create secure session (same pattern as /api/auth/login)
+      const savedPlatformAdminIdOnboarding = req.session.platformAdminId;
       req.session.regenerate((regenerateErr) => {
         if (regenerateErr) {
           logger.error("❌ Session regeneration error during onboarding:", regenerateErr);
@@ -990,6 +991,7 @@ export function registerOnboardingRoutes(app: Express): void {
         // Set complete session context for SaaS isolation
         req.session.userId = user.id;
         req.session.customerId = customer.id;
+        if (savedPlatformAdminIdOnboarding) req.session.platformAdminId = savedPlatformAdminIdOnboarding;
         req.session.companyName = customer.companyName;
         
         logger.info(`📝 Setting onboarding session context:`, {
