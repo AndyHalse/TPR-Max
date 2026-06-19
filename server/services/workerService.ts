@@ -259,6 +259,7 @@ export async function updateWorker(
     'inductionCompleted', 'ipafStatus', 'asbestosAwareness', 'manualHandling',
     'transportMethod', 'needsEvacuationAssistance', 'phoneNumber', 'photoUrl',
     'rightToWorkVerifiedBy', 'rightToWorkVerifiedAt',
+    'siteInductionExpiryDate', 'siteInductionCompletedAt',
   ];
   for (const f of preserveFields) {
     if (mappedData[f] !== undefined) (validatedData as any)[f] = mappedData[f];
@@ -276,6 +277,31 @@ export async function updateWorker(
     (validatedData as any).rightToWorkVerifiedBy = ctx.actor;
     (validatedData as any).rightToWorkVerifiedAt = new Date();
     logger.info(`[workerService] RTW verification stamped for worker ${workerId} by ${ctx.actor}`);
+  }
+
+  // Auto-stamp siteInductionExpiryDate when induction is newly completed
+  const inductionNowComplete =
+    (validatedData as any).inductionCompleted === true && !currentWorker.siteInductionCompleted;
+  if (inductionNowComplete) {
+    try {
+      const [settings] = await ctx.db
+        .select({ inductionValidityPeriod: isolatedSchema.companySettings.inductionValidityPeriod })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      const period = settings?.inductionValidityPeriod ?? 'none';
+      if (period !== 'none') {
+        const completedAt = new Date();
+        const expiryDate = new Date(completedAt);
+        if (period === '6_months') expiryDate.setMonth(expiryDate.getMonth() + 6);
+        else if (period === '1_year') expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        else if (period === '2_years') expiryDate.setFullYear(expiryDate.getFullYear() + 2);
+        (validatedData as any).siteInductionExpiryDate = expiryDate;
+        (validatedData as any).siteInductionCompletedAt = completedAt;
+        logger.info(`[workerService] Induction expiry set to ${expiryDate.toISOString()} for worker ${workerId} (period: ${period})`);
+      }
+    } catch (expiryErr) {
+      logger.warn('[workerService] Could not compute induction expiry (non-fatal):', expiryErr);
+    }
   }
 
   const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);

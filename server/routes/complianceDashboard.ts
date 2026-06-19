@@ -286,6 +286,17 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       // ── 3. Contractor Inductions ──────────────────────────────────────────────
       let indTotal = 0, indCompliant = 0, indOverdue = 0;
+
+      // Load induction reminder threshold from settings (falls back to 30)
+      let inductionReminderDays = 30;
+      try {
+        const [indSettings] = await custDb
+          .select({ inductionExpiryReminderDays: schema.companySettings.inductionExpiryReminderDays })
+          .from(schema.companySettings)
+          .limit(1);
+        inductionReminderDays = parseInt(indSettings?.inductionExpiryReminderDays ?? '30', 10) || 30;
+      } catch (_) { /* non-fatal, keep default */ }
+
       try {
         const workersResult = await pool.query(
           `SELECT id, first_name, last_name, company_id,
@@ -314,7 +325,6 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               contractorRiskMap[w.company_id].issueCount++;
             }
           } else if (!w.site_induction_completed && w.site_induction_required !== false) {
-            // Only flag as incomplete when induction is actually required
             indOverdue++;
             warnings.push({
               id: `ind-incomplete-${w.id}`, category: 'Contractor Inductions', severity: 'warning',
@@ -323,7 +333,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             });
           } else {
             indCompliant++;
-            if (expiryDays !== null && expiryDays <= 30) {
+            if (expiryDays !== null && expiryDays <= inductionReminderDays) {
               warnings.push({
                 id: `ind-expiring-${w.id}`, category: 'Contractor Inductions', severity: 'warning',
                 title: 'Site induction expiring soon',

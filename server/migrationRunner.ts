@@ -768,6 +768,24 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260619_064_induction_validity_period',
+      description: 'Add induction_validity_period and induction_expiry_reminder_days to company_settings',
+      async up(db: any) {
+        try {
+          await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS induction_validity_period TEXT DEFAULT 'none'`);
+          logger.info('✅ [064] Added induction_validity_period to company_settings');
+        } catch (err: any) {
+          logger.info(`⚠️ [064] induction_validity_period: ${err.message?.substring(0, 80)}`);
+        }
+        try {
+          await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS induction_expiry_reminder_days TEXT DEFAULT '30'`);
+          logger.info('✅ [064] Added induction_expiry_reminder_days to company_settings');
+        } catch (err: any) {
+          logger.info(`⚠️ [064] induction_expiry_reminder_days: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

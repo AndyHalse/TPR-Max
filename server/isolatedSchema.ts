@@ -486,6 +486,10 @@ export const companySettings = pgTable("company_settings", {
   hsRulesUrl: text("hs_rules_url").default(""), // External URL for H&S rules if not using internal content
   hsRulesRequireAcceptance: boolean("hs_rules_require_acceptance").default(false),
 
+  // Induction Validity — how long a contractor site induction remains valid
+  inductionValidityPeriod: text("induction_validity_period").default("none"), // none, 6_months, 1_year, 2_years
+  inductionExpiryReminderDays: text("induction_expiry_reminder_days").default("30"), // days before expiry to send alert
+
   // NDA (Non-Disclosure Agreement)
   ndaEnabled: boolean("nda_enabled").default(false),
   ndaContent: text("nda_content").default(""),

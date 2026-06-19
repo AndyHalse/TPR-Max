@@ -5827,4 +5827,201 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       return res.status(500).json({ error: 'Failed to load portal documents.' });
     }
   });
+
+  // ── Induction Validity — list workers with expiring/expired inductions ────
+  app.get('/api/contractors/workers/expiring-inductions', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+      const [settingsRow] = await custDb
+        .select({
+          inductionValidityPeriod: isolatedSchema.companySettings.inductionValidityPeriod,
+          inductionExpiryReminderDays: isolatedSchema.companySettings.inductionExpiryReminderDays,
+        })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+
+      const period = settingsRow?.inductionValidityPeriod ?? 'none';
+      if (period === 'none') return res.json({ workers: [], validityPeriod: 'none' });
+
+      const reminderDays = parseInt(settingsRow?.inductionExpiryReminderDays ?? '30', 10) || 30;
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + reminderDays * 86400000);
+
+      const { rows } = await pool.query(`
+        SELECT cw.id, cw.first_name, cw.last_name, cw.email,
+               cw.site_induction_completed, cw.site_induction_completed_at,
+               cw.site_induction_expiry_date, cw.is_active,
+               cc.company_name
+        FROM "${schemaName}".contractor_workers cw
+        LEFT JOIN "${schemaName}".contractor_companies cc ON cc.id = cw.company_id
+        WHERE cw.is_active = TRUE
+          AND cw.site_induction_completed = TRUE
+          AND cw.site_induction_expiry_date IS NOT NULL
+          AND cw.site_induction_expiry_date <= $1
+        ORDER BY cw.site_induction_expiry_date ASC
+      `, [windowEnd]);
+
+      const workers = rows.map((w: any) => {
+        const expiryDate = w.site_induction_expiry_date ? new Date(w.site_induction_expiry_date) : null;
+        const daysUntilExpiry = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / 86400000) : null;
+        return {
+          id: w.id,
+          firstName: w.first_name,
+          lastName: w.last_name,
+          email: w.email,
+          companyName: w.company_name,
+          inductionCompletedAt: w.site_induction_completed_at,
+          inductionExpiryDate: expiryDate,
+          daysUntilExpiry,
+          isExpired: daysUntilExpiry !== null && daysUntilExpiry < 0,
+          isExpiringSoon: daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry <= reminderDays,
+        };
+      });
+
+      return res.json({ workers, validityPeriod: period, reminderDays });
+    } catch (error: any) {
+      logger.error('Error fetching expiring inductions:', error);
+      return res.status(500).json({ error: 'Failed to fetch expiring inductions.' });
+    }
+  });
+
+  // ── Induction Validity — recalculate expiry dates for all inducted workers ──
+  app.post('/api/contractors/settings/recalculate-induction-expiry', requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
+
+      const customerId = req.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+      const [settingsRow] = await custDb
+        .select({ inductionValidityPeriod: isolatedSchema.companySettings.inductionValidityPeriod })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+
+      const period = settingsRow?.inductionValidityPeriod ?? 'none';
+      if (period === 'none') {
+        await pool.query(`UPDATE "${schemaName}".contractor_workers SET site_induction_expiry_date = NULL WHERE site_induction_completed = TRUE`);
+        return res.json({ updated: 0, message: 'Expiry cleared (validity set to none)' });
+      }
+
+      const monthsMap: Record<string, number> = { '6_months': 6, '1_year': 12, '2_years': 24 };
+      const months = monthsMap[period] ?? 12;
+
+      const { rowCount } = await pool.query(`
+        UPDATE "${schemaName}".contractor_workers
+        SET site_induction_expiry_date = site_induction_completed_at + INTERVAL '${months} months'
+        WHERE site_induction_completed = TRUE
+          AND site_induction_completed_at IS NOT NULL
+      `);
+
+      logger.info(`[induction-expiry] Recalculated expiry for ${rowCount} workers in schema ${schemaName} (period: ${period})`);
+      return res.json({ updated: rowCount ?? 0, period, message: `Updated ${rowCount ?? 0} workers` });
+    } catch (error: any) {
+      logger.error('Error recalculating induction expiry:', error);
+      return res.status(500).json({ error: 'Failed to recalculate induction expiry.' });
+    }
+  });
+
+  // ── Nightly induction expiry email check (runs at startup then every 24 h) ──
+  (async function scheduleInductionExpiryEmails() {
+    async function runCheck() {
+      try {
+        const customersResult = await db.execute(sql`SELECT id, schema_name FROM customers WHERE is_active = TRUE`);
+        const customers = (customersResult.rows ?? (customersResult as any)) as Array<{ id: string; schema_name: string }>;
+        for (const customer of customers) {
+          try {
+            const schemaName = customer.schema_name || customerDbService.generateSchemaName(customer.id);
+            const custDb = await customerDbService.getCustomerDatabase(customer.id);
+            const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+            const { rows: sRows } = await pool.query(
+              `SELECT email, company_name, induction_validity_period, induction_expiry_reminder_days
+               FROM "${schemaName}".company_settings LIMIT 1`
+            );
+            const s = sRows[0];
+            if (!s || !s.email || !s.induction_validity_period || s.induction_validity_period === 'none') continue;
+
+            const reminderDays = parseInt(s.induction_expiry_reminder_days ?? '30', 10) || 30;
+            const windowEnd = new Date(Date.now() + reminderDays * 86400000);
+
+            const { rows: workers } = await pool.query(`
+              SELECT cw.first_name, cw.last_name, cw.site_induction_expiry_date,
+                     cc.company_name AS contractor_company,
+                     cw.induction_expiry_alerted_at
+              FROM "${schemaName}".contractor_workers cw
+              LEFT JOIN "${schemaName}".contractor_companies cc ON cc.id = cw.company_id
+              WHERE cw.is_active = TRUE
+                AND cw.site_induction_completed = TRUE
+                AND cw.site_induction_expiry_date IS NOT NULL
+                AND cw.site_induction_expiry_date <= $1
+                AND (cw.induction_expiry_alerted_at IS NULL
+                     OR cw.induction_expiry_alerted_at < NOW() - INTERVAL '25 days')
+            `, [windowEnd]);
+
+            if (!workers.length) continue;
+
+            const emailSvc = new EmailService(customer.id);
+            const companyName = s.company_name || 'TPR Max';
+            const now = new Date();
+            const rows = workers.map((w: any) => {
+              const expiry = new Date(w.site_induction_expiry_date);
+              const days = Math.ceil((expiry.getTime() - now.getTime()) / 86400000);
+              const status = days < 0 ? `<strong style="color:#dc2626">EXPIRED ${Math.abs(days)} days ago</strong>` : `Expires in ${days} days`;
+              return `<tr><td style="padding:8px;border:1px solid #e5e7eb">${w.first_name} ${w.last_name}</td><td style="padding:8px;border:1px solid #e5e7eb">${w.contractor_company || '—'}</td><td style="padding:8px;border:1px solid #e5e7eb">${expiry.toLocaleDateString('en-GB')}</td><td style="padding:8px;border:1px solid #e5e7eb">${status}</td></tr>`;
+            }).join('');
+
+            await emailSvc.sendEmail({
+              to: s.email,
+              subject: `Site Induction Expiry Alert — ${workers.length} worker${workers.length > 1 ? 's' : ''} need re-induction`,
+              companyName,
+              html: `<div style="font-family:Arial,sans-serif;max-width:660px;margin:0 auto">
+                <div style="background:#2563eb;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                  <h2 style="margin:0">Site Induction Expiry Alert — ${companyName}</h2>
+                </div>
+                <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                  <p style="margin-top:0">The following contractor workers have inductions that are expiring or have already expired. Please arrange re-induction before they return to site.</p>
+                  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+                    <thead><tr style="background:#f9fafb">
+                      <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Worker</th>
+                      <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Company</th>
+                      <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Expiry Date</th>
+                      <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Status</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                  </table>
+                  <p style="color:#6b7280;font-size:13px">Visit the Compliance Dashboard in TPR Max to see all active compliance gaps. Workers cannot be re-inducted until they complete the site induction process again.</p>
+                </div>
+              </div>`,
+            });
+
+            // Stamp alerted_at to prevent duplicate emails (add column if not there)
+            try {
+              await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS induction_expiry_alerted_at TIMESTAMPTZ`);
+              const ids = workers.map((_: any, i: number) => `$${i + 1}`).join(',');
+              const workerNames = workers.map((w: any) => `${w.first_name} ${w.last_name}`);
+              await pool.query(`UPDATE "${schemaName}".contractor_workers SET induction_expiry_alerted_at = NOW() WHERE CONCAT(first_name, ' ', last_name) = ANY(ARRAY[${ids}])`, workerNames);
+            } catch (_) { /* non-fatal */ }
+
+            logger.info(`[induction-expiry] Sent expiry alert to ${s.email} for ${workers.length} workers (customer: ${customer.id})`);
+          } catch (custErr: any) {
+            logger.warn(`[induction-expiry] Customer ${customer.id} check failed (non-fatal):`, custErr.message);
+          }
+        }
+      } catch (err: any) {
+        logger.warn('[induction-expiry] Nightly check error (non-fatal):', err.message);
+      }
+    }
+
+    // Run once after 2 minutes (server startup grace), then every 24 hours
+    setTimeout(() => {
+      runCheck();
+      setInterval(runCheck, 24 * 60 * 60 * 1000);
+    }, 2 * 60 * 1000);
+  })();
 }

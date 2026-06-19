@@ -18,7 +18,7 @@ import {
   HardHat, Shield, MapPin, AlertTriangle, Layers, QrCode,
   Plus, Trash2, Edit2, Check, X, Upload, ImageIcon, Info,
   GripVertical, Download, Eye, ChevronDown, ChevronUp,
-  Film, Sparkles, Loader2,
+  Film, Sparkles, Loader2, CalendarClock, Bell,
 } from "lucide-react";
 
 interface InductionScene {
@@ -871,6 +871,84 @@ export default function InductionSettings() {
                 Print each checkpoint's QR code and affix it at the corresponding location on site. Contractors scan each one during their walk-around, and their progress is recorded against their induction token.
               </p>
             </div>
+          </GlassCard>
+
+          {/* ── Induction Validity & Reminders ── */}
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <CalendarClock className="w-5 h-5 text-blue-500" />
+              <h3 className="text-base font-semibold text-fixed">Induction Validity Period</h3>
+            </div>
+            <p className="text-sm text-variable mb-5">
+              Set how long a completed contractor site induction remains valid. Workers whose induction is approaching expiry will appear in Compliance Gaps and receive an automated email reminder.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Validity period selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-fixed flex items-center gap-1.5">
+                  <CalendarClock size={14} />
+                  Valid For
+                </Label>
+                <Select
+                  value={(currentSettings as any)?.inductionValidityPeriod ?? "none"}
+                  onValueChange={(val) => handleInputChange("inductionValidityPeriod", val)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select validity period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No expiry (induction never expires)</SelectItem>
+                    <SelectItem value="6_months">6 months</SelectItem>
+                    <SelectItem value="1_year">1 year</SelectItem>
+                    <SelectItem value="2_years">2 years</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-variable">
+                  Applies to new inductions going forward. Existing workers will have their expiry date set when they complete the induction.
+                </p>
+              </div>
+
+              {/* Reminder days selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-fixed flex items-center gap-1.5">
+                  <Bell size={14} />
+                  Send Reminder
+                </Label>
+                <Select
+                  value={(currentSettings as any)?.inductionExpiryReminderDays ?? "30"}
+                  onValueChange={(val) => handleInputChange("inductionExpiryReminderDays", val)}
+                  disabled={(currentSettings as any)?.inductionValidityPeriod === "none"}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Reminder days before expiry" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">7 days before expiry</SelectItem>
+                    <SelectItem value="14">14 days before expiry</SelectItem>
+                    <SelectItem value="30">30 days before expiry</SelectItem>
+                    <SelectItem value="60">60 days before expiry</SelectItem>
+                    <SelectItem value="90">90 days before expiry</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-variable">
+                  A compliance alert email is sent to the site admin this many days before each worker's induction expires.
+                </p>
+              </div>
+            </div>
+
+            {(currentSettings as any)?.inductionValidityPeriod && (currentSettings as any)?.inductionValidityPeriod !== "none" && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-blue-700 dark:text-blue-400 flex items-start gap-1.5">
+                  <Info size={13} className="mt-0.5 shrink-0" />
+                  Inductions will expire{" "}
+                  {(currentSettings as any)?.inductionValidityPeriod === "6_months" ? "6 months" :
+                   (currentSettings as any)?.inductionValidityPeriod === "1_year" ? "1 year" : "2 years"}{" "}
+                  after completion. Workers with expired inductions appear as critical issues in the Compliance Dashboard.
+                  Reminders are sent {(currentSettings as any)?.inductionExpiryReminderDays ?? "30"} days before expiry.
+                </p>
+              </div>
+            )}
           </GlassCard>
 
         </div>
