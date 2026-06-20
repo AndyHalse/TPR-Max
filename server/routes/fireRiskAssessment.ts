@@ -74,6 +74,7 @@ async function ensureFraTables(custDb: any, schemaName: string) {
   `));
   // Idempotent column add for existing action tables
   await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fra_action_items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`));
+  await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fra_action_items ADD COLUMN IF NOT EXISTS photo_url TEXT DEFAULT NULL`));
 
   // Fix 3: audit table
   await custDb.execute(sql.raw(`
@@ -527,8 +528,8 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
       const rows = await pool.query(`
         INSERT INTO "${schemaName}".fra_action_items
-          (fra_id, description, priority, location, assigned_to, due_date)
-        VALUES ($1, $2, $3, $4, $5, $6)
+          (fra_id, description, priority, location, assigned_to, due_date, photo_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `, [
         req.params.fraId,
@@ -537,6 +538,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         body.location || null,
         body.assignedTo || null,
         body.dueDate || null,
+        body.photoUrl || null,
       ]);
 
       const created = rows.rows[0];
@@ -591,6 +593,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       if (body.location !== undefined) { params.push(body.location || null); setParts.push(`location = $${params.length}`); }
       if (body.assignedTo !== undefined) { params.push(body.assignedTo || null); setParts.push(`assigned_to = $${params.length}`); }
       if (body.dueDate !== undefined) { params.push(body.dueDate || null); setParts.push(`due_date = $${params.length}`); }
+      if (body.photoUrl !== undefined) { params.push(body.photoUrl || null); setParts.push(`photo_url = $${params.length}`); }
       params.push(actionId);
       const actionIdParam = `$${params.length}`;
       params.push(req.params.fraId);

@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Flame, Plus, CheckCircle, AlertTriangle, AlertCircle, Download, FileText, ExternalLink, Trash2, Edit, Clock, ChevronDown, ChevronUp, MapPin, User, CalendarDays, Info, Upload, X } from "lucide-react";
+import { Flame, Plus, CheckCircle, AlertTriangle, AlertCircle, Download, FileText, ExternalLink, Trash2, Edit, Clock, ChevronDown, ChevronUp, MapPin, User, CalendarDays, Info, Upload, X, ChevronsUpDown, Check, Camera, ImageIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
@@ -40,6 +42,7 @@ interface FraActionItem {
   completed_at: string | null;
   completed_by: string | null;
   completion_notes: string | null;
+  photo_url: string | null;
   created_at: string;
 }
 
@@ -106,6 +109,7 @@ const emptyActionForm = {
   assignedTo: "",
   assignedToOther: "",
   dueDate: "",
+  photoUrl: "",
 };
 
 const emptyCompleteForm = {
@@ -145,6 +149,10 @@ export default function FireRiskAssessmentPage() {
   const [showCompletedActions, setShowCompletedActions] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const didHighlight = useRef(false);
+  // Combobox + photo state
+  const [assignedToOpen, setAssignedToOpen] = useState(false);
+  const [actionPhotoUploading, setActionPhotoUploading] = useState(false);
+  const actionPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: fras = [], isLoading } = useQuery<FireRiskAssessment[]>({
     queryKey: ["/api/fire-risk-assessments"],
@@ -352,9 +360,34 @@ export default function FireRiskAssessmentPage() {
       assignedTo: isStaffMember ? existingAssigned : (existingAssigned ? "__other__" : ""),
       assignedToOther: isStaffMember ? "" : existingAssigned,
       dueDate: action.due_date || "",
+      photoUrl: action.photo_url || "",
     });
     setEditingActionId(action.id);
     setShowActionForm(true);
+  }
+
+  async function handleActionPhotoUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Images only", description: "Please upload a JPG, PNG or WebP image.", variant: "destructive" });
+      return;
+    }
+    setActionPhotoUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+      const { objectPath } = await res.json();
+      setActionForm(f => ({ ...f, photoUrl: objectPath }));
+      toast({ title: "Photo uploaded" });
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } finally {
+      setActionPhotoUploading(false);
+    }
   }
 
   function handleActionSubmit(e: React.FormEvent) {
@@ -369,6 +402,7 @@ export default function FireRiskAssessmentPage() {
       location: actionForm.location || null,
       assignedTo: resolvedAssignedTo,
       dueDate: actionForm.dueDate || null,
+      photoUrl: actionForm.photoUrl || null,
     };
     if (editingActionId) {
       updateActionMutation.mutate({ id: editingActionId, data: payload });
@@ -470,6 +504,7 @@ export default function FireRiskAssessmentPage() {
     const cfg = PRIORITY_CONFIG[action.priority] || PRIORITY_CONFIG.medium;
     const days = action.due_date ? getDaysUntil(action.due_date) : null;
     const isOverdue = days !== null && days < 0;
+    const [photoExpanded, setPhotoExpanded] = useState(false);
     return (
       <div className={`rounded-lg border p-4 ${cfg.ring} ${cfg.bg}`}>
         <div className="flex items-start gap-3">
@@ -494,7 +529,27 @@ export default function FireRiskAssessmentPage() {
                   {!isOverdue && days !== null && days <= 7 && <span className="text-amber-600"> — {days} day{days !== 1 ? "s" : ""} left</span>}
                 </span>
               )}
+              {action.photo_url && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
+                  onClick={() => setPhotoExpanded(v => !v)}
+                >
+                  <Camera size={11} /> {photoExpanded ? "Hide photo" : "View photo"}
+                </button>
+              )}
             </div>
+            {action.photo_url && photoExpanded && (
+              <div className="mt-3">
+                <img
+                  src={objectUrl(action.photo_url)}
+                  alt="Action evidence"
+                  className="rounded-lg border max-h-48 w-auto object-contain cursor-pointer"
+                  onClick={() => window.open(objectUrl(action.photo_url!), "_blank")}
+                  title="Click to open full size"
+                />
+              </div>
+            )}
           </div>
           {isManager && (
             <div className="flex gap-1 shrink-0">
@@ -975,29 +1030,126 @@ export default function FireRiskAssessmentPage() {
                 </div>
                 <div>
                   <Label>Assigned to</Label>
-                  <Select
-                    value={actionForm.assignedTo}
-                    onValueChange={v => setActionForm(f => ({ ...f, assignedTo: v, assignedToOther: v !== "__other__" ? "" : f.assignedToOther }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a staff member…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staffList.map(s => (
-                        <SelectItem key={s.id} value={`${s.firstName} ${s.lastName}`}>
-                          {s.firstName} {s.lastName}{s.jobTitle ? ` — ${s.jobTitle}` : ""}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="__other__">Other / enter role manually…</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {actionForm.assignedTo === "__other__" && (
-                    <Input
-                      className="mt-2"
-                      value={actionForm.assignedToOther}
-                      onChange={e => setActionForm(f => ({ ...f, assignedToOther: e.target.value }))}
-                      placeholder="e.g. Facilities Manager, Head of H&S"
-                    />
+                  {/* Searchable combobox — deduped staff list */}
+                  {(() => {
+                    const uniqueStaff = staffList.filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
+                    const displayValue = actionForm.assignedTo && actionForm.assignedTo !== "__other__"
+                      ? actionForm.assignedTo
+                      : actionForm.assignedTo === "__other__" ? "Other / manual entry…" : "";
+                    return (
+                      <>
+                        <Popover open={assignedToOpen} onOpenChange={setAssignedToOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal h-10 px-3"
+                            >
+                              <span className="truncate text-left flex-1">
+                                {displayValue || <span className="text-muted-foreground">Select a staff member…</span>}
+                              </span>
+                              <ChevronsUpDown size={14} className="ml-2 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search by name or role…" />
+                              <CommandList>
+                                <CommandEmpty>No staff found.</CommandEmpty>
+                                <CommandGroup>
+                                  {uniqueStaff.map(s => {
+                                    const fullName = `${s.firstName} ${s.lastName}`;
+                                    return (
+                                      <CommandItem
+                                        key={s.id}
+                                        value={`${s.firstName} ${s.lastName} ${s.jobTitle ?? ""}`}
+                                        onSelect={() => {
+                                          setActionForm(f => ({ ...f, assignedTo: fullName, assignedToOther: "" }));
+                                          setAssignedToOpen(false);
+                                        }}
+                                      >
+                                        <Check size={13} className={`mr-2 shrink-0 ${actionForm.assignedTo === fullName ? "opacity-100" : "opacity-0"}`} />
+                                        {fullName}{s.jobTitle ? ` — ${s.jobTitle}` : ""}
+                                      </CommandItem>
+                                    );
+                                  })}
+                                  <CommandItem
+                                    value="__other__ other manual"
+                                    onSelect={() => {
+                                      setActionForm(f => ({ ...f, assignedTo: "__other__", assignedToOther: "" }));
+                                      setAssignedToOpen(false);
+                                    }}
+                                  >
+                                    <Check size={13} className={`mr-2 shrink-0 ${actionForm.assignedTo === "__other__" ? "opacity-100" : "opacity-0"}`} />
+                                    Other / enter role manually…
+                                  </CommandItem>
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        {actionForm.assignedTo === "__other__" && (
+                          <Input
+                            className="mt-2"
+                            value={actionForm.assignedToOther}
+                            onChange={e => setActionForm(f => ({ ...f, assignedToOther: e.target.value }))}
+                            placeholder="e.g. Facilities Manager, Head of H&S"
+                          />
+                        )}
+                        {actionForm.assignedTo && actionForm.assignedTo !== "__other__" && (
+                          <button
+                            type="button"
+                            className="mt-1 text-xs text-muted-foreground hover:text-red-500 flex items-center gap-1"
+                            onClick={() => setActionForm(f => ({ ...f, assignedTo: "", assignedToOther: "" }))}
+                          >
+                            <X size={11} /> Clear selection
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Photo evidence upload */}
+                <div>
+                  <Label>Photo evidence</Label>
+                  <input
+                    ref={actionPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleActionPhotoUpload(f); e.target.value = ""; }}
+                  />
+                  {actionForm.photoUrl ? (
+                    <div className="mt-1.5 relative w-full">
+                      <img
+                        src={objectUrl(actionForm.photoUrl)}
+                        alt="Action photo"
+                        className="rounded-lg border w-full max-h-48 object-cover"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-1.5 right-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                        onClick={() => setActionForm(f => ({ ...f, photoUrl: "" }))}
+                        title="Remove photo"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => actionPhotoInputRef.current?.click()}
+                      disabled={actionPhotoUploading}
+                      className="mt-1.5 w-full border border-dashed border-slate-300 dark:border-slate-600 rounded-lg py-4 flex flex-col items-center gap-1.5 text-sm text-muted-foreground hover:border-blue-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+                    >
+                      {actionPhotoUploading ? (
+                        <><Camera size={18} className="animate-pulse" /><span>Uploading…</span></>
+                      ) : (
+                        <><ImageIcon size={18} /><span>Click to upload a photo</span><span className="text-xs opacity-60">JPG, PNG or WebP</span></>
+                      )}
+                    </button>
                   )}
                 </div>
               </>
