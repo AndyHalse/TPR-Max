@@ -184,3 +184,67 @@ Return format (JSON only, no markdown, no explanation):
     return { fields: { expiryDate: null, issuedBy: null, policyNumber: null }, success: false, error: errResult.userMessage };
   }
 }
+
+/**
+ * Scan a contractor document using the platform Gemini integration.
+ * Uses AI_INTEGRATIONS_GEMINI_API_KEY — always available, no customer key required.
+ * Supports PDFs (via pre-extracted text) and images (via inline base64).
+ */
+export async function scanDocumentWithGeminiPlatform(params: {
+  mimeType: string;
+  base64Data?: string;
+  pdfText?: string;
+  documentType: string;
+}): Promise<{ fields: ScannedDocumentFields; success: boolean; error?: string }> {
+  const { mimeType, base64Data, pdfText, documentType } = params;
+  const empty: ScannedDocumentFields = { expiryDate: null, issuedBy: null, policyNumber: null };
+
+  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  if (!apiKey) {
+    return { fields: empty, success: false, error: 'Gemini platform key not configured' };
+  }
+
+  const prompt = `You are a document data-extraction assistant. Extract the following fields from the provided contractor compliance document and return ONLY valid JSON. If a field is not present, return null for that field.
+
+Fields to extract:
+- expiryDate: The document expiry/valid-to date in ISO format YYYY-MM-DD (e.g. "2027-03-31"). Look for words like "expiry", "valid to", "expires", "valid until", "renewal date".
+- issuedBy: The name of the insurer, issuing authority, or certificate body (e.g. "Zurich Insurance", "CSCS", "CITB").
+- policyNumber: The policy number, certificate number, or reference number (e.g. "PL-2024-001234").
+
+Return format (JSON only, no markdown, no explanation):
+{"expiryDate": "YYYY-MM-DD or null", "issuedBy": "string or null", "policyNumber": "string or null"}
+
+Document type: ${documentType}`;
+
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey });
+
+    let contents: any[];
+    if (pdfText) {
+      contents = [{ role: 'user', parts: [{ text: `${prompt}\n\nExtracted document text:\n${pdfText.slice(0, 8000)}` }] }];
+    } else if (base64Data) {
+      contents = [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: base64Data } }] }];
+    } else {
+      return { fields: empty, success: false, error: 'No document content provided' };
+    }
+
+    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents });
+    const text = response.text?.trim() ?? '';
+    if (!text) return { fields: empty, success: false, error: 'Empty response from Gemini' };
+
+    const cleaned = text.replace(/```json?\s*/gi, '').replace(/```\s*/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      fields: {
+        expiryDate: parsed.expiryDate || null,
+        issuedBy: parsed.issuedBy || null,
+        policyNumber: parsed.policyNumber || null,
+      },
+      success: true,
+    };
+  } catch (error: any) {
+    logger.error('❌ Gemini platform document scan error:', error?.message || error);
+    return { fields: empty, success: false, error: `Gemini scan failed: ${error?.message || 'Unknown error'}` };
+  }
+}

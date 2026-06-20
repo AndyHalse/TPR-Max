@@ -2039,10 +2039,10 @@ export function registerInductionRoutes(app: Express): void {
         return res.status(400).json({ error: 'File too large. Maximum supported size is 10 MB.' });
       }
 
-      const { scanDocumentWithAI } = await import('../openaiService');
+      const { scanDocumentWithGeminiPlatform, scanDocumentWithAI } = await import('../openaiService');
       const buffer = Buffer.from(fileData, 'base64');
 
-      // Extract text from PDF once (used by both providers)
+      // Extract text from PDF once (used by all providers)
       let pdfText: string | undefined;
       if (mimeType === 'application/pdf') {
         // Import the internal lib directly to avoid pdf-parse's self-test (index.js reads a test
@@ -2052,15 +2052,24 @@ export function registerInductionRoutes(app: Express): void {
         pdfText = text;
       }
 
-      // Try OpenAI first
-      let result;
-      if (pdfText !== undefined) {
-        result = await scanDocumentWithAI({ mimeType, pdfText, documentType });
-      } else {
-        result = await scanDocumentWithAI({ mimeType, base64Data: fileData, documentType });
+      // Try platform Gemini first (always available via Replit AI integration)
+      let result = await scanDocumentWithGeminiPlatform({
+        mimeType,
+        ...(pdfText !== undefined ? { pdfText } : { base64Data: fileData }),
+        documentType,
+      });
+
+      // Fall back to OpenAI if Gemini fails
+      if (!result.success) {
+        logger.info('⚠️ Gemini scan failed — falling back to OpenAI:', result.error);
+        if (pdfText !== undefined) {
+          result = await scanDocumentWithAI({ mimeType, pdfText, documentType });
+        } else {
+          result = await scanDocumentWithAI({ mimeType, base64Data: fileData, documentType });
+        }
       }
 
-      // If OpenAI fails, attempt Claude as fallback (if the customer has a Claude key configured)
+      // If both platform providers fail, attempt customer Claude key as last resort
       if (!result.success && req.customerId) {
         try {
           const { decryptData } = await import('../utils/encryption');
@@ -2075,7 +2084,7 @@ export function registerInductionRoutes(app: Express): void {
               claudeKeyRow.authTag || ''
             );
             const { scanDocumentWithClaude } = await import('../claudeService');
-            logger.info('⚠️ OpenAI scan failed — falling back to Claude:', result.error);
+            logger.info('⚠️ OpenAI scan failed — falling back to customer Claude key:', result.error);
             if (pdfText !== undefined) {
               result = await scanDocumentWithClaude({ mimeType, pdfText, documentType, apiKey: claudeApiKey });
             } else {
@@ -2084,7 +2093,7 @@ export function registerInductionRoutes(app: Express): void {
           }
         } catch (fallbackErr) {
           logger.error('❌ Claude fallback error:', fallbackErr);
-          // Keep the original OpenAI failure result
+          // Keep the last failure result
         }
       }
 

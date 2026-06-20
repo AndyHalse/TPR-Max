@@ -778,12 +778,13 @@ export default function ContractorDetails() {
         reader.readAsDataURL(uploadFile);
       });
 
-      const data = await apiRequest("POST", "/api/contractors/documents/scan", {
+      const resp = await apiRequest("POST", "/api/contractors/documents/scan", {
         fileData: base64,
         mimeType: uploadFile.type,
         documentType: uploadDialog.docKey,
       });
 
+      const data = await resp.json();
       const { fields } = data as { fields: { expiryDate: string | null; issuedBy: string | null; policyNumber: string | null } };
       if (fields.expiryDate && !uploadExpiry) setUploadExpiry(fields.expiryDate);
       if (fields.issuedBy && !uploadIssuer) setUploadIssuer(fields.issuedBy);
