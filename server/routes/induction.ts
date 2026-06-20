@@ -3624,10 +3624,19 @@ export function registerInductionRoutes(app: Express): void {
       }
     }
     
-    // Check out all contractors (use proper checkout to close contractor visits)
+    // Check out all contractors — update worker record AND close the open visit record
     for (const contractor of checkedInContractors) {
       try {
         await databaseService.checkOutContractorWorker(resetContext, contractor.id);
+        // Also close the open contractor_visits record (checkedOutAt stays NULL otherwise,
+        // leaving the on-site tracker showing the worker as still present)
+        const openVisit = await databaseService.getCurrentContractorVisit(resetContext, contractor.id);
+        if (openVisit) {
+          await databaseService.updateContractorVisit(resetContext, openVisit.id, {
+            checkedOutAt: resetTime,
+            checkoutType: 'overnight',
+          });
+        }
         resetCounts.contractorsCheckedOut++;
       } catch (error) {
         logger.error(`Failed to check out contractor ${contractor.id}:`, error);
