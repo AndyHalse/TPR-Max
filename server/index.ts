@@ -335,6 +335,17 @@ function createCSRFMiddleware() {
         req.originalUrl.endsWith('/submit-quiz')) {
       return next();
     }
+
+    // Skip CSRF for public H&S acceptance POST endpoints — these are submitted from an
+    // HTML confirmation page served via an emailed link; the user has no admin-app
+    // session and therefore no CSRF cookie. Both endpoints are protected by a
+    // per-user secret acceptance token embedded in the form body instead.
+    if (req.originalUrl.startsWith('/api/visitors/') && req.originalUrl.endsWith('/accept-hs-rules')) {
+      return next();
+    }
+    if (req.originalUrl.startsWith('/hs-contractor/') && req.originalUrl.endsWith('/accept-rules')) {
+      return next();
+    }
     
     // Skip CSRF for login/logout/2fa-verify and ALL platform-admin routes.
     // Platform-admin routes authenticate via their own requirePlatformAdmin

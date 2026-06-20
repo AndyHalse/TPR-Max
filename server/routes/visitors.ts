@@ -682,12 +682,13 @@ export function registerVisitorRoutes(app: Express): void {
 
 
   // Contractor H&S Rules acceptance endpoint (NO AUTH - uses hs-contractor path to avoid Vite middleware)
+  // GET: show a confirmation page — never mutate state on a GET request
   app.get("/hs-contractor/:workerId/accept-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
       const token = req.query.token as string | undefined;
-
       const customerIdParam = req.query.customerId as string;
+
       if (!customerIdParam) {
         return res.status(400).send(`
           <html>
@@ -737,36 +738,22 @@ export function registerVisitorRoutes(app: Express): void {
         `);
       }
 
-      const now = new Date();
-      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
-        hsRulesAccepted: true,
-        hsRulesAcceptedAt: now,
-        isCheckedIn: true,
-        checkedInAt: now
-        // Note: token is intentionally NOT cleared — link must remain idempotent
-      });
-
-      if (!updatedWorker) {
-        return res.status(500).send(`
-          <html>
-            <body style="font-family: Arial; text-align: center; padding: 50px;">
-              <h1 style="color: #ef4444;">❌ Update Failed</h1>
-              <p>Failed to update H&amp;S acceptance. Please contact reception for assistance.</p>
-            </body>
-          </html>
-        `);
-      }
-
-      logger.info(`H&S Rules accepted by contractor: ID ${worker.id} - Now fully checked in`);
+      // Show a confirmation page — the POST handler performs the actual state change
       res.send(`
         <html>
-          <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1 style="color: #10b981;">✅ Thank You!</h1>
-            <h2>Health &amp; Safety Rules Accepted</h2>
-            <p>Thank you ${worker.firstName} ${worker.lastName} for accepting our Health &amp; Safety Rules.</p>
-            <p>Your acceptance has been recorded at ${updatedWorker.hsRulesAcceptedAt ? new Date(updatedWorker.hsRulesAcceptedAt).toLocaleString('en-GB') : new Date().toLocaleString('en-GB')}.</p>
-            <p><strong>You are now fully checked in and may proceed with your work.</strong></p>
-            <p style="margin-top: 20px;">You may now close this window.</p>
+          <head><meta charset="utf-8"><title>Accept Health &amp; Safety Rules</title></head>
+          <body style="font-family: Arial; text-align: center; padding: 50px; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #1d4ed8;">Health &amp; Safety Rules</h1>
+            <p>Hello <strong>${worker.firstName} ${worker.lastName}</strong>,</p>
+            <p>Please review and confirm your acceptance of the site Health &amp; Safety Rules before proceeding.</p>
+            <p style="color: #6b7280; font-size: 0.9em;">By clicking the button below you confirm that you have read, understood, and agree to comply with the Health &amp; Safety Rules for this site.</p>
+            <form method="POST" action="/hs-contractor/${workerId}/accept-rules">
+              <input type="hidden" name="token" value="${token}" />
+              <input type="hidden" name="customerId" value="${customerIdParam}" />
+              <button type="submit" style="background:#10b981;color:white;border:none;padding:14px 32px;font-size:1.1em;border-radius:6px;cursor:pointer;margin-top:20px;">
+                ✅ I Accept the Health &amp; Safety Rules
+              </button>
+            </form>
           </body>
         </html>
       `);
@@ -840,7 +827,7 @@ export function registerVisitorRoutes(app: Express): void {
     }
   });
 
-  // H&S Rules acceptance endpoint (supports both GET for email links and POST for API)
+  // H&S Rules acceptance endpoint — GET shows confirmation page, never mutates state
   app.get("/api/visitors/:id/accept-hs-rules", async (req, res) => {
     try {
       const { id } = req.params;
@@ -872,10 +859,10 @@ export function registerVisitorRoutes(app: Express): void {
           </html>
         `);
       }
-      
-      // Verify token if provided (for email link validation)
-      // Skip token validation if visitor has no token (existing visitors before H&S was added)
-      if (token && visitor.hsRulesAcceptanceToken && visitor.hsRulesAcceptanceToken !== token) {
+
+      // FAIL-CLOSED token validation — token is always required; skip-on-absent behaviour is unsafe
+      if (!token || !visitor.hsRulesAcceptanceToken || visitor.hsRulesAcceptanceToken !== (token as string)) {
+        logger.warn(`Visitor H&S link rejected — invalid or missing token for visitor ${id}`);
         return res.status(401).send(`
           <html>
             <body style="font-family: Arial; text-align: center; padding: 50px;">
@@ -892,40 +879,29 @@ export function registerVisitorRoutes(app: Express): void {
           <html>
             <body style="font-family: Arial; text-align: center; padding: 50px;">
               <h1 style="color: #10b981;">✅ Already Accepted</h1>
-              <p>You have already accepted the Health & Safety Rules on ${visitor.hsRulesAcceptedAt ? new Date(visitor.hsRulesAcceptedAt).toLocaleString('en-GB') : 'a previous visit'}.</p>
+              <p>You have already accepted the Health &amp; Safety Rules on ${visitor.hsRulesAcceptedAt ? new Date(visitor.hsRulesAcceptedAt).toLocaleString('en-GB') : 'a previous visit'}.</p>
               <p style="margin-top: 20px;">You may close this window.</p>
             </body>
           </html>
         `);
       }
-      
-      // Update visitor with H&S acceptance and timestamp
-      const now = new Date();
-      const updatedVisitor = await databaseService.updateVisitor(context, id, {
-        hsRulesAccepted: true,
-        hsRulesAcceptedAt: now
-      });
-      
-      if (!updatedVisitor) {
-        return res.status(500).send(`
-          <html>
-            <body style="font-family: Arial; text-align: center; padding: 50px;">
-              <h1 style="color: #ef4444;">❌ Error</h1>
-              <p>Failed to record your acceptance. Please try again or contact reception.</p>
-            </body>
-          </html>
-        `);
-      }
-      
-      logger.info(`H&S Rules accepted by visitor: ID ${visitor.id}`);
+
+      // Show a confirmation page — the POST handler performs the actual state change
       res.send(`
         <html>
-          <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1 style="color: #10b981;">✅ Thank You!</h1>
-            <h2>Health & Safety Rules Accepted</h2>
-            <p>Thank you ${visitor.firstName} ${visitor.lastName} for accepting our Health & Safety Rules.</p>
-            <p>Your acceptance has been recorded at ${updatedVisitor.hsRulesAcceptedAt ? new Date(updatedVisitor.hsRulesAcceptedAt).toLocaleString('en-GB') : new Date().toLocaleString('en-GB')}.</p>
-            <p style="margin-top: 20px;">You may now close this window and proceed with your visit.</p>
+          <head><meta charset="utf-8"><title>Accept Health &amp; Safety Rules</title></head>
+          <body style="font-family: Arial; text-align: center; padding: 50px; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #1d4ed8;">Health &amp; Safety Rules</h1>
+            <p>Hello <strong>${visitor.firstName} ${visitor.lastName}</strong>,</p>
+            <p>Please confirm your acceptance of the site Health &amp; Safety Rules before proceeding with your visit.</p>
+            <p style="color: #6b7280; font-size: 0.9em;">By clicking the button below you confirm that you have read, understood, and agree to comply with the Health &amp; Safety Rules for this site.</p>
+            <form method="POST" action="/api/visitors/${id}/accept-hs-rules">
+              <input type="hidden" name="token" value="${token}" />
+              <input type="hidden" name="customerId" value="${resolvedCustomerId}" />
+              <button type="submit" style="background:#10b981;color:white;border:none;padding:14px 32px;font-size:1.1em;border-radius:6px;cursor:pointer;margin-top:20px;">
+                ✅ I Accept the Health &amp; Safety Rules
+              </button>
+            </form>
           </body>
         </html>
       `);
@@ -963,9 +939,11 @@ export function registerVisitorRoutes(app: Express): void {
         return res.status(404).json({ error: "Visitor not found" });
       }
       
-      // Verify token if provided (for email link validation)
-      if (token && visitor.hsRulesAcceptanceToken !== token) {
-        return res.status(401).json({ error: "Invalid acceptance token" });
+      // FAIL-CLOSED token validation — token is always required; the old skip-on-absent
+      // behaviour allowed anyone with a visitor ID and customerId to forge H&S acceptance.
+      if (!token || !visitor.hsRulesAcceptanceToken || visitor.hsRulesAcceptanceToken !== token) {
+        logger.warn(`Visitor H&S POST rejected — invalid or missing token for visitor ${id}`);
+        return res.status(401).json({ error: "Invalid or missing acceptance token" });
       }
       
       // Update visitor with H&S acceptance and timestamp
@@ -1786,9 +1764,10 @@ This is an automated notification from your visitor management system.`;
           return res.status(401).json({ error: 'Invalid or missing device key' });
         }
       } else {
-        // Key not yet configured — log a prominent warning but allow through so
-        // existing deployments are not hard-broken before operators set the var.
-        logger.warn('⚠️  XSTATION_DEVICE_KEY is not set. The /api/xstation/qr-scan endpoint is unauthenticated. Set this env var to enable device trust.');
+        // Key not configured — reject all requests rather than allowing unauthenticated access.
+        // Operators must set XSTATION_DEVICE_KEY before the scanner endpoint is usable.
+        logger.error('XSTATION_DEVICE_KEY is not set. Rejecting /api/xstation/qr-scan request. Set this environment variable to enable scanner access.');
+        return res.status(503).json({ error: 'Scanner endpoint is not configured. Contact the system administrator.' });
       }
       // ── End device authentication ───────────────────────────────────────────
 

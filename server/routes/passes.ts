@@ -272,7 +272,24 @@ export function registerPassRoutes(app: Express): void {
     }
   });
 
-  app.post('/api/qr-scan/staff', async (req, res) => {
+  // Shared-secret middleware for kiosk QR scan endpoints.
+  // Callers must send the value of KIOSK_SECRET in the x-kiosk-secret header.
+  // If the environment variable is not set the endpoint is disabled entirely (fail-closed).
+  function requireKioskSecret(req: any, res: any, next: any) {
+    const configuredSecret = process.env.KIOSK_SECRET;
+    if (!configuredSecret) {
+      logger.error('KIOSK_SECRET is not set. Rejecting kiosk QR scan request. Set this environment variable to enable kiosk scanner access.');
+      return res.status(503).json({ success: false, message: 'Kiosk scanner endpoint is not configured. Contact the system administrator.' });
+    }
+    const providedSecret = req.headers['x-kiosk-secret'] as string | undefined;
+    if (!providedSecret || providedSecret !== configuredSecret) {
+      logger.warn('Kiosk QR scan rejected — missing or invalid x-kiosk-secret header', { ip: req.ip });
+      return res.status(401).json({ success: false, message: 'Unauthorized: invalid or missing kiosk secret' });
+    }
+    next();
+  }
+
+  app.post('/api/qr-scan/staff', requireKioskSecret, async (req, res) => {
     try {
       const { qrReaderService } = await import('../qrReaderService');
       const { qrData } = req.body;
@@ -286,7 +303,7 @@ export function registerPassRoutes(app: Express): void {
     }
   });
 
-  app.post('/api/qr-scan/contractor', async (req, res) => {
+  app.post('/api/qr-scan/contractor', requireKioskSecret, async (req, res) => {
     try {
       const { qrReaderService } = await import('../qrReaderService');
       const { qrData } = req.body;
