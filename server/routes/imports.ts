@@ -2652,12 +2652,25 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       if (visitorIds.length > 0) {
         const vP = inP(visitorIds);
         await del('visitor_history', `WHERE visitor_id IN (${vP})`, visitorIds);
+        // Also delete pre_bookings by visitor_id FK (not just by email) so the
+        // pre_bookings.visitor_id → visitors.id FK doesn't block visitor deletion.
+        await del('pre_bookings', `WHERE visitor_id IN (${vP})`, visitorIds);
       }
       await del('pre_bookings', `WHERE visitor_email LIKE '%@example.com'`);
+      await del('pre_bookings', `WHERE visitor_email LIKE '%@acsltd.eu'`);
 
       // ── Step 5: Staff HR records + sessions + room bookings referencing sample staff ──
       if (staffIds.length > 0) {
         const sP = inP(staffIds);
+
+        // NULL out line_manager_id first — the sample staff org chart is a self-referential
+        // FK (staff.line_manager_id → staff.id ON DELETE SET NULL). A batch DELETE of all
+        // sample staff at once can fail when the FK trigger fires mid-delete. Clearing the
+        // column first removes any risk of the constraint being violated during the batch.
+        try {
+          await pool.query(`UPDATE "${schemaName}".staff SET line_manager_id = NULL WHERE id IN (${sP})`, staffIds);
+        } catch (e) { logger.warn(`Clear sample: staff.line_manager_id clear — ${(e as any).message}`); }
+
         for (const t of ['right_to_work','staff_dbs','leave_requests','absence_records','staff_training_records','staff_documents','appraisals','onboarding_checklists','leaver_checklists','staff_sessions']) {
           await del(t, `WHERE staff_id IN (${sP})`, staffIds);
         }
@@ -2666,15 +2679,29 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         // Sample bookings use id LIKE 'booking-demo-%' but we also match by staff FK to be safe.
         await del('room_bookings', `WHERE booked_by_staff_id IN (${sP}) OR id LIKE 'booking-demo-%'`, staffIds);
         await del('room_booking_attendees', `WHERE staff_id IN (${sP})`, staffIds);
+
+        // visitor_history.host_staff_id → staff.id — delete any visitor_history records
+        // where the host is a sample staff member (covers non-sample visitors hosted by sample staff).
+        await del('visitor_history', `WHERE host_staff_id IN (${sP})`, staffIds);
+
+        // pre_bookings.host_staff_id → staff.id — delete pre_bookings where host is sample staff.
+        await del('pre_bookings', `WHERE host_staff_id IN (${sP})`, staffIds);
+
+        // NULL out host_staff_id on any remaining (real) visitors whose host was a sample staff
+        // member — visitors.host_staff_id → staff.id (NO ACTION) blocks staff deletion otherwise.
         try {
-          await pool.query(`UPDATE "${schemaName}".staff SET employment_status='active', is_active=TRUE, contract_end_date=NULL WHERE id IN (${sP})`, staffIds);
-        } catch (e) { logger.warn(`Clear sample: staff reset — ${(e as any).message}`); }
+          await pool.query(`UPDATE "${schemaName}".visitors SET host_staff_id = NULL WHERE host_staff_id IN (${sP})`, staffIds);
+        } catch (e) { logger.warn(`Clear sample: visitors.host_staff_id null — ${(e as any).message}`); }
       }
 
       // ── Step 6: Main records (dependency order: workers → companies → visitors → members → staff) ──
       await del('contractor_workers',   `WHERE email LIKE '%@acsltd.eu'`);
       if (companyIds.length > 0) {
         await del('contractor_companies', `WHERE id IN (${inP(companyIds)})`, companyIds);
+      }
+      // Delete visitors by BOTH ID (FK-safe) and email pattern as a belt-and-braces approach.
+      if (visitorIds.length > 0) {
+        await del('visitors', `WHERE id IN (${inP(visitorIds)})`, visitorIds);
       }
       await del('visitors', `WHERE email LIKE '%@acsltd.eu'`);
       await del('members',  `WHERE email LIKE '%@acsltd.eu'`);
