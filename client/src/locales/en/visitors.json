@@ -1,0 +1,50 @@
+{
+  "title": "Visitors",
+  "tabs": {
+    "existing": "Existing Visitors",
+    "walkin": "Walk-in Registration",
+    "prebooking": "Pre-booking"
+  },
+  "qrScanner": "QR Scanner",
+  "checkIn": "Check In",
+  "checkOut": "Check Out",
+  "printPass": "Print Pass",
+  "viewProfile": "View Profile",
+  "editProfile": "Edit Profile",
+  "showAllPrevious": "Show All Previous Visitors",
+  "showLess": "Show Less",
+  "confirmPrebooking": "Confirm Pre-booking",
+  "completeCheckIn": "Complete Check-in",
+  "selectHost": "Select Host",
+  "tableHeaders": {
+    "visitor": "Visitor",
+    "company": "Company",
+    "host": "Host",
+    "status": "Status",
+    "lastVisit": "Last Visit",
+    "actions": "Actions"
+  },
+  "placeholders": {
+    "search": "Search by visitor name or company...",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email Address",
+    "company": "Company Name",
+    "jobTitle": "Job Title",
+    "carReg": "Car Registration"
+  },
+  "toasts": {
+    "checkOutSuccess": "Visitor checked out successfully",
+    "checkOutError": "Failed to check out visitor",
+    "prebookingSuccess": "Pre-booking created and confirmation emails sent!",
+    "passSentTitle": "✅ Digital Pass Sent",
+    "passSentDesc": "E-Pass has been sent to {{email}}."
+  },
+  "dialogs": {
+    "selectHost": "Select Host for {{name}}",
+    "duplicateCheckIn": "Duplicate Check-in",
+    "passPreview": "Visitor Pass Preview"
+  },
+  "confirmCancelPrebooking": "Are you sure you want to cancel this pre-booking?",
+  "alreadyCheckedIn": "This visitor is already checked in and on-site."
+}

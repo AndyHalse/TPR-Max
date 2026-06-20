@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
@@ -189,6 +190,7 @@ export default function StaffManagement() {
   const [isDownloadingWalletPass, setIsDownloadingWalletPass] = useState(false);
   const staffPhotoInputId = "staff-photo-upload-input";
   const { toast } = useToast();
+  const { t } = useTranslation('staff');
 
   // Auto-show QR code when dialog opens if the staff member already has one
   useEffect(() => {
@@ -857,7 +859,7 @@ export default function StaffManagement() {
     <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-xl sm:text-2xl font-bold text-fixed">Staff Management</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-fixed">{t('title')}</h2>
           <div className="flex items-center gap-2">
             <Button
               onClick={() => setShowQRScanner(true)}
@@ -873,7 +875,7 @@ export default function StaffManagement() {
             </Button>
             <Button onClick={() => setIsAddModalOpen(true)} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 whitespace-nowrap" data-testid="button-add-staff">
               <Plus className="mr-1.5 sm:mr-2" size={16} />
-              <span className="hidden sm:inline text-sm sm:text-base">Add Staff Member</span>
+              <span className="hidden sm:inline text-sm sm:text-base">{t('addStaffMember')}</span>
               <span className="sm:hidden text-sm">Add</span>
             </Button>
           </div>

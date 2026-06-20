@@ -1,0 +1,44 @@
+{
+  "title": "Gestión de personal",
+  "addStaffMember": "Añadir miembro del personal",
+  "qrScanner": "Escáner QR",
+  "editProfile": "Editar perfil",
+  "qrPass": "Pase QR",
+  "checkIn": "Registrar entrada",
+  "checkOut": "Registrar salida",
+  "downloadWalletPass": "Descargar pase de cartera",
+  "sendViaEmail": "Enviar por correo electrónico",
+  "delete": "Eliminar",
+  "placeholders": {
+    "search": "Buscar por nombre, departamento o ID..."
+  },
+  "tabs": {
+    "profile": "Perfil",
+    "documents": "Documentos",
+    "dbs": "DBS"
+  },
+  "badges": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "onSite": "En el sitio",
+    "fireMarshal": "Jefe de emergencias",
+    "staff": "Personal",
+    "admin": "Administrador",
+    "superAdmin": "Super administrador"
+  },
+  "dialogs": {
+    "profile": "Perfil del personal · {{id}}",
+    "qrPass": "Pase QR del personal",
+    "addStaff": "Añadir miembro del personal"
+  },
+  "toasts": {
+    "deletedTitle": "Éxito",
+    "deletedDesc": "Miembro del personal eliminado correctamente",
+    "qrSentTitle": "Pase QR enviado",
+    "qrSentDesc": "El pase QR de entrada ha sido enviado por correo al miembro del personal"
+  },
+  "upgrade": {
+    "title": "TPR Max requerido",
+    "desc": "Actualice a TPR Max para gestionar documentos del personal, verificación del derecho al trabajo y seguimiento de DBS."
+  }
+}

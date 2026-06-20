@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getSessionToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -117,6 +118,7 @@ export default function EmergencyMuster() {
   const [localOptions, setLocalOptions] = useState<string[] | null>(null);
   const [newOption, setNewOption] = useState("");
   const { toast } = useToast();
+  const { t } = useTranslation('muster');
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -730,7 +732,7 @@ export default function EmergencyMuster() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium">Loading emergency muster list...</p>
+          <p className="text-sm font-medium">{t('musterList.loading')}</p>
         </div>
       </div>
     );
@@ -740,7 +742,7 @@ export default function EmergencyMuster() {
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen pb-24 sm:pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-fixed">Emergency Muster</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-fixed">{t('title')}</h2>
           <p className="text-variable mt-1 flex flex-wrap items-center gap-2 text-sm sm:text-base">
             <span className="hidden sm:inline">Real-time emergency evacuation management and accountability</span>
             <span className="sm:hidden">Real-time emergency evacuation</span>
@@ -801,7 +803,7 @@ export default function EmergencyMuster() {
                 title="Send reminder email to all unaccounted personnel with a self-confirm safety link"
               >
                 <BellRing size={14} className="mr-1" />
-                {nudgeUnaccountedMutation.isPending ? "Sending..." : "Nudge Unaccounted"}
+                {nudgeUnaccountedMutation.isPending ? t('checklist.sending') : t('nudgeUnaccounted')}
               </Button>
               <Button
                 variant="outline"
@@ -811,7 +813,7 @@ export default function EmergencyMuster() {
                 title="Copy a read-only monitor link to share with management"
               >
                 <Copy size={14} className="mr-1" />
-                Monitor Link
+                {t('monitorLink')}
               </Button>
             </>
           )}
@@ -824,7 +826,7 @@ export default function EmergencyMuster() {
               className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300"
             >
               <Download size={14} className="mr-1" />
-              Incident Report
+              {t('incidentReport')}
             </Button>
           )}
           {/* Always-visible link to the full incident reports archive */}
@@ -879,8 +881,8 @@ export default function EmergencyMuster() {
               data-testid="button-emergency-toggle"
             >
               <Siren className="mr-1.5 sm:mr-2" size={16} />
-              <span className="hidden sm:inline">{isDrillMode ? 'Start Drill' : 'Activate Emergency'}</span>
-              <span className="sm:hidden">{isDrillMode ? 'Start Drill' : 'Activate'}</span>
+              <span className="hidden sm:inline">{isDrillMode ? t('startFireDrill') : t('activateEmergency')}</span>
+              <span className="sm:hidden">{isDrillMode ? t('startFireDrill') : t('activateEmergency')}</span>
             </Button>
           )}
         </div>
@@ -1090,8 +1092,8 @@ export default function EmergencyMuster() {
                 <Siren size={16} className="text-white" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-fixed">{isDrillMode ? 'Activate Fire Drill' : 'Activate Emergency'}</h3>
-                <p className="text-xs text-muted-foreground">Work through each step, then send the alert</p>
+                <h3 className="text-base font-bold text-fixed">{isDrillMode ? t('wizard.activateFireDrill') : t('activateEmergency')}</h3>
+                <p className="text-xs text-muted-foreground">{t('wizard.workThrough')}</p>
               </div>
             </div>
             <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" onClick={() => { setEmergencyActive(false); setEmergencyPhase('idle'); setSelectedZones(new Set()); setShowZoneSelector(false); }} title="Cancel">
@@ -1261,11 +1263,11 @@ export default function EmergencyMuster() {
                       <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2">
                         <p className="text-xs text-orange-700 dark:text-orange-300 flex-1">{totalPeople - accountedFor} person{totalPeople - accountedFor !== 1 ? 's' : ''} unaccounted for</p>
                         <Button size="sm" variant="outline" onClick={() => nudgeUnaccountedMutation.mutate()} disabled={nudgeUnaccountedMutation.isPending} className="w-full xs:w-auto text-xs h-8 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 justify-center">
-                          <BellRing size={12} className="mr-1" />{nudgeUnaccountedMutation.isPending ? 'Sending...' : 'Nudge Unaccounted'}
+                          <BellRing size={12} className="mr-1" />{nudgeUnaccountedMutation.isPending ? t('checklist.sending') : t('nudgeUnaccounted')}
                         </Button>
                       </div>
                     )}
-                    {allSafe && <p className="text-xs text-green-700 dark:text-green-300 font-semibold">✓ All personnel accounted for</p>}
+                    {allSafe && <p className="text-xs text-green-700 dark:text-green-300 font-semibold">{t('checklist.allAccountedFor')}</p>}
                   </div>
                 </div>
               );
@@ -1538,9 +1540,9 @@ export default function EmergencyMuster() {
         <GlassCard solid className="dark:glass-dark">
           <div className="flex items-center gap-2 mb-1">
             <Footprints className="text-green-600 dark:text-green-400" size={18} />
-            <h3 className="text-sm font-semibold text-fixed">Zone Sweep Status</h3>
+            <h3 className="text-sm font-semibold text-fixed">{t('zoneSweep.title')}</h3>
             <span className="text-xs text-muted-foreground ml-auto">
-              {zoneSweeps.length}/{activeZones.length} zones swept
+              {t('zoneSweep.zonesSwepta', { swept: zoneSweeps.length, total: activeZones.length })}
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground mb-3">
@@ -1607,10 +1609,10 @@ export default function EmergencyMuster() {
           <GlassCard solid className="dark:glass-dark">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h3 className="text-sm sm:text-base font-semibold text-fixed flex items-center gap-1.5 flex-wrap">
-                Personnel Accountability
+                {t('accountability.title')}
                 {selectedZones.size > 0 && (
                   <span className="text-xs font-normal bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                    {selectedZones.size === 1 ? '1 zone' : `${selectedZones.size} zones`}
+                    {selectedZones.size === 1 ? t('accountability.zoneFilter') : t('accountability.zoneFilter_plural', { count: selectedZones.size })}
                     <button onClick={() => setSelectedZones(new Set())} className="ml-1 hover:text-amber-900 dark:hover:text-amber-100" title="Clear zone filter">&times;</button>
                   </span>
                 )}
@@ -1815,10 +1817,10 @@ export default function EmergencyMuster() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <ShieldAlert className="w-7 h-7 text-red-600 shrink-0" />
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">End Evacuation?</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('endEvacDialog.title')}</h2>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-              Ending the evacuation will mark it as complete and automatically save an incident report. Choose what to do with on-site personnel:
+              {t('endEvacDialog.message')}
             </p>
             <div className="flex flex-col gap-3">
               <Button
@@ -1826,7 +1828,7 @@ export default function EmergencyMuster() {
                 disabled={completeEvacuationMutation.isPending}
                 onClick={() => completeEvacuationMutation.mutate('check_out_all')}
               >
-                {completeEvacuationMutation.isPending ? "Ending…" : "End & Check Out All Personnel"}
+                {completeEvacuationMutation.isPending ? t('endEvacDialog.ending') : t('endEvacDialog.endAndCheckOut')}
               </Button>
               <Button
                 variant="outline"
@@ -1834,7 +1836,7 @@ export default function EmergencyMuster() {
                 disabled={completeEvacuationMutation.isPending}
                 onClick={() => completeEvacuationMutation.mutate('keep_checked_in')}
               >
-                {completeEvacuationMutation.isPending ? "Ending…" : "End & Keep Personnel Checked In"}
+                {completeEvacuationMutation.isPending ? t('endEvacDialog.ending') : t('endEvacDialog.endAndKeep')}
               </Button>
               <Button variant="ghost" className="w-full text-gray-600" onClick={() => setShowEndEvacDialog(false)}>
                 Cancel

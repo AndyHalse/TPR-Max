@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import { apiRequest } from "@/lib/queryClient";
@@ -50,6 +51,7 @@ export default function MusterList() {
   const [newOption, setNewOption] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation('muster');
 
   const { data: musterList, isLoading } = useQuery<MusterEntry[]>({
     queryKey: ["/api/muster"],
@@ -185,14 +187,14 @@ export default function MusterList() {
   };
 
   if (isLoading) {
-    return <div>Loading muster list...</div>;
+    return <div>{t('musterList.loading')}</div>;
   }
 
   return (
     <div className="space-y-6 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-fixed">Muster List</h2>
+          <h2 className="text-2xl font-bold text-fixed">{t('musterList.title')}</h2>
           {settings?.biostarEnabled && (
             <div className="flex items-center gap-4 mt-2">
               <div className="flex items-center gap-2">
@@ -231,7 +233,7 @@ export default function MusterList() {
             data-testid="button-muster-settings"
           >
             <Settings className="mr-2" size={16} />
-            Muster Settings
+            {t('musterSettings')}
             {showSettings ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />}
           </Button>
           <Button
@@ -240,14 +242,14 @@ export default function MusterList() {
             data-testid="button-export-pdf"
           >
             <Download className="mr-2" size={16} />
-            Export PDF
+            {t('musterList.export')} PDF
           </Button>
           <Button
             className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
             data-testid="button-print-list"
           >
             <Printer className="mr-2" size={16} />
-            Print List
+            {t('musterList.report')}
           </Button>
         </div>
       </div>
@@ -375,7 +377,7 @@ export default function MusterList() {
           }`}
           data-testid="filter-all"
         >
-          All ({counts.all})
+          {t('musterList.allZones')} ({counts.all})
         </Button>
         <Button
           variant="ghost"
@@ -387,7 +389,7 @@ export default function MusterList() {
           }`}
           data-testid="filter-staff"
         >
-          Staff ({counts.staff})
+          {t('stats.staff')} ({counts.staff})
         </Button>
         <Button
           variant="ghost"
@@ -399,7 +401,7 @@ export default function MusterList() {
           }`}
           data-testid="filter-visitors"
         >
-          Visitors ({counts.visitors})
+          {t('stats.visitors')} ({counts.visitors})
         </Button>
         {counts.contractors > 0 && (
           <Button
@@ -412,7 +414,7 @@ export default function MusterList() {
             }`}
             data-testid="filter-contractors"
           >
-            Contractors ({counts.contractors})
+            {t('stats.contractors')} ({counts.contractors})
           </Button>
         )}
         {counts.members > 0 && (
@@ -426,7 +428,7 @@ export default function MusterList() {
             }`}
             data-testid="filter-members"
           >
-            Members ({counts.members})
+            {t('stats.members')} ({counts.members})
           </Button>
         )}
       </GlassCard>
@@ -436,11 +438,11 @@ export default function MusterList() {
         {filteredList.length === 0 ? (
           <div className="text-center py-12">
             <Users className="mx-auto h-12 w-12 text-variable mb-4" />
-            <p className="text-variable text-lg">No entries found</p>
+            <p className="text-variable text-lg">{t('musterList.noPersonnel')}</p>
             <p className="text-variable text-sm mt-2">
-              {activeFilter === "all" 
-                ? "No staff or visitors are currently on-site"
-                : `No ${activeFilter} are currently on-site`
+              {activeFilter === "all"
+                ? t('accountability.emptyDesc')
+                : `${t('musterList.noPersonnel')} (${activeFilter})`
               }
             </p>
           </div>
@@ -449,12 +451,12 @@ export default function MusterList() {
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-slate-800/60">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.name')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.type')}</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Company/Department</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Check-in Time</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Host/ID</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.zone')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/20">
@@ -482,7 +484,7 @@ export default function MusterList() {
                           }
                         >
                           <UserCheck className="mr-1" size={12} />
-                          {entry.type === "staff" ? "Staff" : entry.type === "visitor" ? "Visitor" : entry.type === "contractor" ? "Contractor" : "Member"}
+                          {entry.type === "staff" ? t('stats.staff') : entry.type === "visitor" ? t('stats.visitors').replace(/s$/, '') : entry.type === "contractor" ? t('stats.contractors').replace(/s$/, '') : t('stats.members').replace(/s$/, '')}
                         </Badge>
                         {entry.isBiostarOnly && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">

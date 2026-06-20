@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X, ChartLine, Activity, User, HardHat, Calen
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, clearSessionToken } from "@/lib/queryClient";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export const SIDEBAR_COLLAPSED_KEY = "tprmax-sidebar-collapsed";
 export const SIDEBAR_EXPANDED_WIDTH = 220;
@@ -210,6 +211,7 @@ export default function Sidebar({
                 onNavigate={isMobile ? onMobileClose : undefined}
               />
             )}
+            <SidebarLanguageSwitcher collapsed={effectiveCollapsed} textStyle={textStyle} />
             <SidebarLogoutButton collapsed={effectiveCollapsed} textStyle={textStyle} />
           </div>
         </TooltipProvider>
@@ -285,6 +287,64 @@ function SidebarItem({ item, isActive, collapsed, textStyle, activeStyle, onNavi
             {item.tooltip || item.label}
             {n > 0 ? ` (${n} ${gapWord})` : ""}
           </p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return inner;
+}
+
+function SidebarLanguageSwitcher({ collapsed, textStyle }: { collapsed: boolean; textStyle: CSSProperties }) {
+  const { language, setLanguage } = useLanguage();
+
+  const inner = (
+    <div
+      className={`flex items-center gap-1 px-3 py-2 mx-1 ${collapsed ? "justify-center" : ""}`}
+    >
+      <span className="flex-shrink-0 opacity-60"><Globe size={18} /></span>
+      {!collapsed && (
+        <div className="flex items-center gap-1 ml-1">
+          <button
+            onClick={() => setLanguage("en")}
+            className={`text-xs font-semibold px-1.5 py-0.5 rounded transition-colors focus-visible:outline-none ${
+              language === "en"
+                ? "bg-white/20 text-white"
+                : "opacity-50 hover:opacity-80"
+            }`}
+            style={textStyle}
+            aria-label="Switch to English"
+          >
+            EN
+          </button>
+          <span className="opacity-30 text-xs" style={textStyle}>|</span>
+          <button
+            onClick={() => setLanguage("es")}
+            className={`text-xs font-semibold px-1.5 py-0.5 rounded transition-colors focus-visible:outline-none ${
+              language === "es"
+                ? "bg-white/20 text-white"
+                : "opacity-50 hover:opacity-80"
+            }`}
+            style={textStyle}
+            aria-label="Switch to Spanish"
+          >
+            ES
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex justify-center px-3 py-2 mx-1 cursor-pointer" onClick={() => setLanguage(language === "en" ? "es" : "en")}>
+            <Globe size={18} className="opacity-60" style={textStyle} />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <p>{language === "en" ? "Switch to Spanish (ES)" : "Cambiar a inglés (EN)"}</p>
         </TooltipContent>
       </Tooltip>
     );

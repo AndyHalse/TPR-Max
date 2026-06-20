@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame, Siren, Circle, X, Rocket } from "lucide-react";
@@ -34,6 +35,7 @@ interface Activity {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation('dashboard');
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -876,7 +878,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
             <Users className="text-blue-600" size={20} />
-            People On-Site
+            {t('peopleOnSite.title')}
           </h2>
           <Button
             onClick={handleEmergencyMuster}
@@ -885,14 +887,14 @@ export default function Dashboard() {
             data-testid="button-activate-emergency-dashboard"
           >
             <Siren size={15} />
-            <span className="hidden sm:inline">Activate Emergency</span>
-            <span className="sm:hidden">Emergency</span>
+            <span className="hidden sm:inline">{t('peopleOnSite.activateEmergency')}</span>
+            <span className="sm:hidden">{t('peopleOnSite.activateEmergency')}</span>
           </Button>
         </div>
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 flex-1">
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
-              <p className="text-variable text-sm font-medium">Visitors</p>
+              <p className="text-variable text-sm font-medium">{t('peopleOnSite.visitors')}</p>
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400" data-testid="stat-current-visitors">
                   {stats?.currentVisitors || 0}
@@ -904,7 +906,7 @@ export default function Dashboard() {
             </GlassCard>
             
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('staff')}>
-              <p className="text-variable text-sm font-medium">Staff</p>
+              <p className="text-variable text-sm font-medium">{t('peopleOnSite.staff')}</p>
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400" data-testid="stat-staff-onsite">
                   {stats?.staffOnSite || 0}
@@ -916,7 +918,7 @@ export default function Dashboard() {
             </GlassCard>
             
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('contractors')}>
-              <p className="text-variable text-sm font-medium">Contractors</p>
+              <p className="text-variable text-sm font-medium">{t('peopleOnSite.contractors')}</p>
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400" data-testid="stat-contractors-onsite">
                   {stats?.contractorsOnSite || 0}
@@ -929,7 +931,7 @@ export default function Dashboard() {
 
             {stats?.featureMembers && (
               <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('members')}>
-                <p className="text-variable text-sm font-medium">Members</p>
+                <p className="text-variable text-sm font-medium">{t('peopleOnSite.members')}</p>
                 <div className="flex items-center gap-3 mt-1">
                   <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400" data-testid="stat-members-onsite">
                     {stats?.membersOnSite || 0}
@@ -943,7 +945,7 @@ export default function Dashboard() {
           </div>
 
           <GlassCard hover className="cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-slate-200 dark:border-slate-800 lg:w-56 shrink-0" onClick={() => setOpenModal('total-people')}>
-            <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Total People</p>
+            <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">{t('peopleOnSite.totalPeople')}</p>
             <div className="flex items-center gap-3 mt-1">
               <p className="text-4xl font-bold text-emerald-700 dark:text-emerald-300" data-testid="stat-total-people-onsite">
                 {stats?.totalPeopleOnSite || 0}
@@ -952,7 +954,7 @@ export default function Dashboard() {
                 <Users className="text-emerald-700 dark:text-emerald-300" size={20} />
               </div>
             </div>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">On-Site Now</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">{t('peopleOnSite.onSiteNow')}</p>
           </GlassCard>
         </div>
       </div>
@@ -1859,10 +1861,10 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-fixed">
               <UsersRound className="text-blue-600" size={24} />
-              Current Visitors ({currentVisitors?.length || 0})
+              {t('modals.currentVisitors.title', { count: currentVisitors?.length || 0 })}
             </DialogTitle>
             <DialogDescription>
-              View and manage all visitors currently on-site. Check out visitors when they leave.
+              {t('modals.currentVisitors.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
@@ -1877,14 +1879,14 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <p className="font-medium text-fixed">{visitor.firstName} {visitor.lastName}</p>
-                      <p className="text-sm text-variable">{visitor.company || "No company"}</p>
+                      <p className="text-sm text-variable">{visitor.company || t('modals.currentVisitors.noCompany')}</p>
                       <div className="flex items-center gap-4 mt-1">
-                        <p className="text-xs text-variable">👤 Host: {getStaffName(visitor.hostStaffId || undefined)}</p>
-                        <p className="text-xs text-variable">🕐 Arrived: {formatTime(visitor.checkedInAt)}</p>
+                        <p className="text-xs text-variable">👤 {t('modals.currentVisitors.hostLabel', { name: getStaffName(visitor.hostStaffId || undefined) })}</p>
+                        <p className="text-xs text-variable">🕐 {t('modals.currentVisitors.arrivedLabel', { time: formatTime(visitor.checkedInAt) })}</p>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="default" className="text-xs">
-                          On-site
+                          {t('modals.currentVisitors.onSite')}
                         </Badge>
                         {visitor.phoneNumber && (
                           <span className="text-xs text-variable">📞 {visitor.phoneNumber}</span>
@@ -1923,10 +1925,10 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-fixed">
               <BadgeInfo className="text-purple-600" size={24} />
-              Staff On-Site ({checkedInStaff?.length || 0})
+              {t('modals.staffOnSite.title', { count: checkedInStaff?.length || 0 })}
             </DialogTitle>
             <DialogDescription>
-              View all staff members currently checked in and on-site.
+              {t('modals.staffOnSite.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1964,7 +1966,7 @@ export default function Dashboard() {
               ))
             ) : (
               <div className="text-center py-8 text-variable">
-                No staff members currently on-site
+                {t('modals.staffOnSite.empty')}
               </div>
             )}
           </div>
@@ -1977,21 +1979,21 @@ export default function Dashboard() {
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center space-x-2">
-                <span className="text-xl">Department Details: {selectedDepartment}</span>
+                <span className="text-xl">{t('modals.departmentDetails.title', { dept: selectedDepartment })}</span>
                 {departmentDetails && (
                   <Badge variant="secondary" className="ml-2">
-                    {departmentDetails.statistics.checkedInStaff + departmentDetails.statistics.visitors} people on-site
+                    {t('modals.departmentDetails.peopleOnSite', { count: departmentDetails.statistics.checkedInStaff + departmentDetails.statistics.visitors })}
                   </Badge>
                 )}
               </DialogTitle>
               <DialogDescription>
-                View detailed information about staff members and visitors in this department.
+                {t('modals.departmentDetails.desc')}
               </DialogDescription>
             </DialogHeader>
             
             {departmentDetailsLoading || !departmentDetails ? (
               <div className="text-center py-8">
-                <div className="text-lg font-medium text-variable">Loading department details...</div>
+                <div className="text-lg font-medium text-variable">{t('modals.departmentDetails.loading')}</div>
               </div>
             ) : (
               <div className="space-y-6">
@@ -2001,19 +2003,19 @@ export default function Dashboard() {
                     <div className="text-2xl font-bold text-blue-600">
                       {departmentDetails.statistics.checkedInStaff}
                     </div>
-                    <div className="text-sm text-blue-800">Staff On-Site</div>
+                    <div className="text-sm text-blue-800">{t('modals.departmentDetails.staffOnSite')}</div>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">
                       {departmentDetails.visitors.length}
                     </div>
-                    <div className="text-sm text-green-800">Current Visitors</div>
+                    <div className="text-sm text-green-800">{t('modals.departmentDetails.currentVisitors')}</div>
                   </div>
                   <div className="text-center p-4 bg-purple-50 rounded-lg">
                     <div className="text-2xl font-bold text-purple-600">
                       {departmentDetails.statistics.checkedInStaff + departmentDetails.statistics.visitors}
                     </div>
-                    <div className="text-sm text-purple-800">Total People</div>
+                    <div className="text-sm text-purple-800">{t('modals.departmentDetails.totalPeople')}</div>
                   </div>
                 </div>
 

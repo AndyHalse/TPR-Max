@@ -1,0 +1,44 @@
+{
+  "title": "Staff Management",
+  "addStaffMember": "Add Staff Member",
+  "qrScanner": "QR Scanner",
+  "editProfile": "Edit Profile",
+  "qrPass": "QR Pass",
+  "checkIn": "Check In",
+  "checkOut": "Check Out",
+  "downloadWalletPass": "Download Wallet Pass",
+  "sendViaEmail": "Send via Email",
+  "delete": "Delete",
+  "placeholders": {
+    "search": "Search by name, department or ID..."
+  },
+  "tabs": {
+    "profile": "Profile",
+    "documents": "Documents",
+    "dbs": "DBS"
+  },
+  "badges": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "onSite": "On Site",
+    "fireMarshal": "Fire Marshal",
+    "staff": "Staff",
+    "admin": "Admin",
+    "superAdmin": "Super Admin"
+  },
+  "dialogs": {
+    "profile": "Staff Profile · {{id}}",
+    "qrPass": "Staff QR Pass",
+    "addStaff": "Add Staff Member"
+  },
+  "toasts": {
+    "deletedTitle": "Success",
+    "deletedDesc": "Staff member deleted successfully",
+    "qrSentTitle": "QR Pass Sent",
+    "qrSentDesc": "QR check-in pass has been emailed to the staff member"
+  },
+  "upgrade": {
+    "title": "TPR Max required",
+    "desc": "Upgrade to TPR Max for staff documents, Right to Work and DBS tracking."
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "title": "Visitantes",
+  "tabs": {
+    "existing": "Visitantes existentes",
+    "walkin": "Registro en recepción",
+    "prebooking": "Prebook"
+  },
+  "qrScanner": "Escáner QR",
+  "checkIn": "Registrar entrada",
+  "checkOut": "Registrar salida",
+  "printPass": "Imprimir pase",
+  "viewProfile": "Ver perfil",
+  "editProfile": "Editar perfil",
+  "showAllPrevious": "Mostrar todos los visitantes anteriores",
+  "showLess": "Mostrar menos",
+  "confirmPrebooking": "Confirmar prebook",
+  "completeCheckIn": "Completar entrada",
+  "selectHost": "Seleccionar anfitrión",
+  "tableHeaders": {
+    "visitor": "Visitante",
+    "company": "Empresa",
+    "host": "Anfitrión",
+    "status": "Estado",
+    "lastVisit": "Última visita",
+    "actions": "Acciones"
+  },
+  "placeholders": {
+    "search": "Buscar por nombre de visitante o empresa...",
+    "firstName": "Nombre",
+    "lastName": "Apellidos",
+    "email": "Dirección de correo electrónico",
+    "company": "Nombre de la empresa",
+    "jobTitle": "Cargo",
+    "carReg": "Matrícula del vehículo"
+  },
+  "toasts": {
+    "checkOutSuccess": "Salida del visitante registrada correctamente",
+    "checkOutError": "Error al registrar la salida del visitante",
+    "prebookingSuccess": "¡Prebook creado y correos de confirmación enviados!",
+    "passSentTitle": "✅ Pase digital enviado",
+    "passSentDesc": "El pase electrónico ha sido enviado a {{email}}."
+  },
+  "dialogs": {
+    "selectHost": "Seleccionar anfitrión para {{name}}",
+    "duplicateCheckIn": "Entrada duplicada",
+    "passPreview": "Vista previa del pase de visitante"
+  },
+  "confirmCancelPrebooking": "¿Seguro que desea cancelar este prebook?",
+  "alreadyCheckedIn": "Este visitante ya tiene la entrada registrada y se encuentra en el sitio."
+}

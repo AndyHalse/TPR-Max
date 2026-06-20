@@ -1,0 +1,114 @@
+{
+  "title": "Contractor Management",
+  "tabs": {
+    "workers": "Contractor Workers",
+    "companies": "Contractor Companies",
+    "cdm": "CDM",
+    "co2": "CO2",
+    "ppm": "PPM"
+  },
+  "companies": {
+    "title": "Contractor Companies",
+    "addContractor": "Add Contractor",
+    "searchPlaceholder": "Search by company name, industry, phone, or email...",
+    "workers": "Workers",
+    "documents": "Documents",
+    "addWorker": "Add Worker",
+    "edit": "Edit",
+    "delete": "Delete",
+    "showAll": "Show All {{count}} Companies"
+  },
+  "addCompanyDialog": {
+    "title": "Add New Contractor Company",
+    "next": "Next →",
+    "back": "← Back",
+    "cancel": "Cancel",
+    "create": "Create Contractor",
+    "autoFill": "🤖 Auto-fill with AI",
+    "addFirstWorker": "Add First Worker →"
+  },
+  "addWorkerDialog": {
+    "title": "Add Worker — {{company}}",
+    "saveWorker": "Save Worker",
+    "addAnother": "Add Another Worker →",
+    "done": "Done"
+  },
+  "editCompanyDialog": {
+    "title": "Edit Contractor Company",
+    "update": "Update Contractor",
+    "autoFill": "🤖 Auto-fill with AI"
+  },
+  "checkInDialog": {
+    "title": "Select Host for {{name}}",
+    "confirm": "Check In & Print Pass"
+  },
+  "preBookDialog": {
+    "title": "Pre-Book Worker",
+    "confirm": "Confirm Pre-Booking"
+  },
+  "qrPassDialog": {
+    "title": "Contractor QR Check-In Pass",
+    "emailPass": "Email QR Pass",
+    "printPass": "Print QR Pass",
+    "downloadImage": "Download QR Image"
+  },
+  "workerProfile": {
+    "title": "Worker Profile",
+    "editProfile": "Edit Profile",
+    "requestDocs": "Request Docs",
+    "qrPass": "QR Pass",
+    "preBook": "Pre-Book",
+    "checkIn": "Check In",
+    "checkOut": "Check Out"
+  },
+  "previousWorkers": {
+    "title": "Existing Contractor Workers",
+    "checkIn": "Check In",
+    "checkOut": "Check Out",
+    "preBook": "Pre-Book",
+    "qrPass": "QR Pass",
+    "editProfile": "Edit Profile"
+  },
+  "badges": {
+    "checkedIn": "Checked In",
+    "available": "Available",
+    "workAuth": "Work Auth",
+    "noInduction": "No Induction",
+    "redCard": "Red Card",
+    "yellowCard": "Yellow Card",
+    "clear": "Clear",
+    "valid": "Valid",
+    "expired": "Expired",
+    "pending": "Pending",
+    "notHeld": "Not held",
+    "planning": "Planning",
+    "active": "Active",
+    "complete": "Complete",
+    "cancelled": "Cancelled",
+    "highCompliance": "High Compliance",
+    "partialCompliance": "Partial Compliance",
+    "ukLaw": "UK Law",
+    "mostSites": "Most sites",
+    "recommended": "Recommended",
+    "required": "Required"
+  },
+  "cdm": {
+    "title": "CDM Project List",
+    "summary": "Compliance Summary",
+    "addProject": "Add CDM Project",
+    "exportPdf": "Export PDF",
+    "clearFilters": "Clear filters",
+    "editSection": "Edit Section",
+    "saveEdits": "Save Edits"
+  },
+  "co2": {
+    "title": "CO2 Sustainability Reports",
+    "choosePlaceholder": "Choose contractor company"
+  },
+  "ppm": {
+    "title": "PPM Work Orders by Contractor",
+    "empty": "No PPM work orders are currently assigned to contractors.",
+    "view": "View",
+    "open": "Open PPM"
+  }
+}

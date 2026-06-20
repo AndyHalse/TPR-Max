@@ -1,0 +1,114 @@
+{
+  "title": "Gestión de contratistas",
+  "tabs": {
+    "workers": "Trabajadores contratistas",
+    "companies": "Empresas contratistas",
+    "cdm": "CDM",
+    "co2": "CO2",
+    "ppm": "PPM"
+  },
+  "companies": {
+    "title": "Empresas contratistas",
+    "addContractor": "Añadir contratista",
+    "searchPlaceholder": "Buscar por nombre de empresa, sector, teléfono o correo electrónico...",
+    "workers": "Trabajadores",
+    "documents": "Documentos",
+    "addWorker": "Añadir trabajador",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "showAll": "Mostrar todas las {{count}} empresas"
+  },
+  "addCompanyDialog": {
+    "title": "Añadir nueva empresa contratista",
+    "next": "Siguiente →",
+    "back": "← Volver",
+    "cancel": "Cancelar",
+    "create": "Crear contratista",
+    "autoFill": "🤖 Autocompletar con IA",
+    "addFirstWorker": "Añadir primer trabajador →"
+  },
+  "addWorkerDialog": {
+    "title": "Añadir trabajador — {{company}}",
+    "saveWorker": "Guardar trabajador",
+    "addAnother": "Añadir otro trabajador →",
+    "done": "Listo"
+  },
+  "editCompanyDialog": {
+    "title": "Editar empresa contratista",
+    "update": "Actualizar contratista",
+    "autoFill": "🤖 Autocompletar con IA"
+  },
+  "checkInDialog": {
+    "title": "Seleccionar anfitrión para {{name}}",
+    "confirm": "Registrar entrada e imprimir pase"
+  },
+  "preBookDialog": {
+    "title": "Prebook de trabajador",
+    "confirm": "Confirmar prebook"
+  },
+  "qrPassDialog": {
+    "title": "Pase QR de entrada de contratista",
+    "emailPass": "Enviar pase QR por correo",
+    "printPass": "Imprimir pase QR",
+    "downloadImage": "Descargar imagen QR"
+  },
+  "workerProfile": {
+    "title": "Perfil del trabajador",
+    "editProfile": "Editar perfil",
+    "requestDocs": "Solicitar documentos",
+    "qrPass": "Pase QR",
+    "preBook": "Prebook",
+    "checkIn": "Registrar entrada",
+    "checkOut": "Registrar salida"
+  },
+  "previousWorkers": {
+    "title": "Trabajadores contratistas existentes",
+    "checkIn": "Registrar entrada",
+    "checkOut": "Registrar salida",
+    "preBook": "Prebook",
+    "qrPass": "Pase QR",
+    "editProfile": "Editar perfil"
+  },
+  "badges": {
+    "checkedIn": "Entrada registrada",
+    "available": "Disponible",
+    "workAuth": "Autorización de trabajo",
+    "noInduction": "Sin inducción",
+    "redCard": "Tarjeta roja",
+    "yellowCard": "Tarjeta amarilla",
+    "clear": "Sin incidencias",
+    "valid": "Válido",
+    "expired": "Caducado",
+    "pending": "Pendiente",
+    "notHeld": "No disponible",
+    "planning": "Planificación",
+    "active": "Activo",
+    "complete": "Completado",
+    "cancelled": "Cancelado",
+    "highCompliance": "Alto cumplimiento",
+    "partialCompliance": "Cumplimiento parcial",
+    "ukLaw": "Ley del RU",
+    "mostSites": "La mayoría de obras",
+    "recommended": "Recomendado",
+    "required": "Obligatorio"
+  },
+  "cdm": {
+    "title": "Lista de proyectos CDM",
+    "summary": "Resumen de cumplimiento",
+    "addProject": "Añadir proyecto CDM",
+    "exportPdf": "Exportar PDF",
+    "clearFilters": "Borrar filtros",
+    "editSection": "Editar sección",
+    "saveEdits": "Guardar ediciones"
+  },
+  "co2": {
+    "title": "Informes de sostenibilidad CO2",
+    "choosePlaceholder": "Seleccionar empresa contratista"
+  },
+  "ppm": {
+    "title": "Órdenes de trabajo PPM por contratista",
+    "empty": "No hay órdenes de trabajo PPM asignadas actualmente a contratistas.",
+    "view": "Ver",
+    "open": "Abrir PPM"
+  }
+}

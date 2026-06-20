@@ -1271,7 +1271,7 @@ export function registerSettingsRoutes(
       const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
       const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
       const musterResult = await pool.query(
-        `SELECT COUNT(*) as count FROM "${schemaName}".muster_points WHERE name NOT IN ('Main Car Park', 'Rear Assembly Area', 'Side Entrance')`
+        `SELECT COUNT(*) as count FROM "${schemaName}".muster_points`
       );
       const mustersPointNamed = Number(musterResult.rows[0]?.count || 0) > 0;
 

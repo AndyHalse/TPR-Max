@@ -1,0 +1,193 @@
+{
+  "gettingStarted": {
+    "title": "Getting Started — {{completed}} of {{total}} done",
+    "subtitle": "Finish these steps to set up your site",
+    "steps": {
+      "logo": "Upload your company logo",
+      "alertEmail": "Set emergency / CDM alerts email",
+      "smtp": "Configure email delivery (SMTP)",
+      "musterPoints": "Name your muster points",
+      "staff": "Add your first staff member",
+      "register": "Register a visitor or contractor"
+    }
+  },
+  "peopleOnSite": {
+    "title": "People On-Site",
+    "activateEmergency": "Activate Emergency",
+    "fireDrill": "Fire Drill",
+    "visitors": "Visitors",
+    "staff": "Staff",
+    "contractors": "Contractors",
+    "members": "Members",
+    "totalPeople": "Total People",
+    "onSiteNow": "On-Site Now"
+  },
+  "loneWorker": {
+    "title": "Lone Worker Sessions",
+    "active": "{{count}} active — welfare checks in progress",
+    "overdue": "overdue",
+    "nextIn": "next in {{n}}m",
+    "checking": "checking…"
+  },
+  "fireRisk": {
+    "title": "Fire Risk Assessment"
+  },
+  "receptionDiary": {
+    "title": "Reception Diary",
+    "subtitle": "Complete operational overview - visitors, contractors & meetings",
+    "viewCard": "Card view",
+    "viewCompact": "Compact list view",
+    "showHistory": "Show History",
+    "hideHistory": "Hide History",
+    "showArrived": "Show {{count}} arrived",
+    "loading": "Loading reception diary...",
+    "noActivities": "No activities scheduled for {{period}}",
+    "noActivitiesDesc": "Visitor pre-bookings, contractor bookings, and meetings will appear here",
+    "autoRefresh": "Auto-refreshes every 30s",
+    "allArrived": "All pre-booked visitors and contractors have arrived",
+    "tabs": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "weekly": "Weekly"
+    },
+    "filters": {
+      "all": "All",
+      "visitors": "Visitors",
+      "contractors": "Contractors",
+      "meetings": "Meetings"
+    },
+    "headers": {
+      "time": "Time",
+      "name": "Name",
+      "company": "Company",
+      "host": "Host",
+      "type": "Type",
+      "status": "Status",
+      "action": "Action"
+    },
+    "types": {
+      "visitor": "Visitor",
+      "contractor": "Contractor",
+      "meeting": "Meeting"
+    },
+    "status": {
+      "arrived": "Arrived",
+      "confirmed": "Confirmed",
+      "pending": "Pending",
+      "past": "Past",
+      "checkedIn": "Checked In",
+      "urgent": "Urgent"
+    },
+    "meetingsLabel": "Today's Meetings",
+    "meetingsTomorrowLabel": "Tomorrow's Meetings",
+    "meetingsScheduledLabel": "Scheduled Meetings",
+    "meetingsCount": "{{count}} meeting",
+    "meetingsCount_plural": "{{count}} meetings",
+    "contractorsCount": "{{count}} contractor",
+    "contractorsCount_plural": "{{count}} contractors",
+    "visitsCount": "{{count}} visit",
+    "visitsCount_plural": "{{count}} visits",
+    "legend": {
+      "urgent": "Urgent",
+      "contractor": "Contractor",
+      "checkedIn": "Checked In",
+      "meeting": "Meeting",
+      "past": "Past"
+    }
+  },
+  "modals": {
+    "currentVisitors": {
+      "title": "Current Visitors ({{count}})",
+      "desc": "View and manage all visitors currently on-site. Check out visitors when they leave.",
+      "noCompany": "No company",
+      "onSite": "On-site",
+      "empty": "No visitors currently on-site",
+      "hostLabel": "👤 Host: {{name}}",
+      "arrivedLabel": "🕐 Arrived: {{time}}"
+    },
+    "staffOnSite": {
+      "title": "Staff On-Site ({{count}})",
+      "desc": "View all staff members currently checked in and on-site.",
+      "empty": "No staff members currently on-site"
+    },
+    "contractorsOnSite": {
+      "title": "Contractors On-Site ({{count}})",
+      "noCompany": "Company not specified",
+      "empty": "No contractors currently on-site"
+    },
+    "membersOnSite": {
+      "title": "Members On-Site ({{count}})",
+      "desc": "View and manage all members currently checked in on-site.",
+      "standardMember": "Standard Member",
+      "empty": "No members currently on-site"
+    },
+    "totalPeople": {
+      "title": "All People On-Site ({{count}})",
+      "empty": "No people currently on-site"
+    },
+    "departmentDetails": {
+      "title": "Department Details: {{dept}}",
+      "peopleOnSite": "{{count}} people on-site",
+      "desc": "View detailed information about staff members and visitors in this department.",
+      "loading": "Loading department details...",
+      "staffOnSite": "Staff On-Site",
+      "currentVisitors": "Current Visitors",
+      "totalPeople": "Total People",
+      "staffSection": "Staff Members ({{count}})",
+      "visitorsSection": "Current Visitors ({{count}})",
+      "noStaff": "No staff assigned to this department",
+      "noVisitors": "No visitors currently hosted by this department",
+      "since": "Since: {{time}}",
+      "offSite": "Off-Site",
+      "onSite": "On-Site"
+    },
+    "visitorDetails": {
+      "currentlyOnSite": "✓ Currently On-Site",
+      "minutesOnPremises": "{{minutes}} minutes on premises",
+      "emergency": {
+        "title": "🚨 Emergency Contact Information",
+        "mobile": "Mobile Number",
+        "phone": "Phone Number",
+        "alternativePhone": "Alternative Phone",
+        "email": "Email Address",
+        "notProvided": "Not provided"
+      },
+      "hostLocation": {
+        "title": "📍 Host & Location Details",
+        "visiting": "Visiting",
+        "department": "Department"
+      },
+      "timeline": {
+        "title": "⏰ Visit Timeline",
+        "checkInTime": "Check-in Time",
+        "duration": "Duration on Site",
+        "expectedDuration": "Expected Duration",
+        "notSpecified": "Not specified",
+        "minutes": "{{count}} minutes"
+      },
+      "details": {
+        "title": "📋 Visit Details",
+        "purpose": "Purpose of Visit",
+        "notes": "Additional Notes"
+      },
+      "actions": {
+        "callVisitor": "📞 Call Visitor",
+        "alertReception": "📧 Alert Reception",
+        "callHost": "📞 Call Host (N/A)"
+      }
+    },
+    "visitorPrebooking": {
+      "title": "Visitor Pre-Booking Details",
+      "arrived": "✓ Visitor Has Arrived",
+      "expected": "⏰ Expected Arrival"
+    },
+    "meetingBooking": {
+      "title": "Meeting Booking Details"
+    },
+    "cancelBooking": {
+      "title": "Cancel Booking?",
+      "message": "Are you sure you want to cancel this booking? This cannot be undone.",
+      "confirm": "Yes, Cancel Booking"
+    }
+  }
+}

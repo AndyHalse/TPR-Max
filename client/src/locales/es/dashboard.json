@@ -1,0 +1,193 @@
+{
+  "gettingStarted": {
+    "title": "Primeros pasos — {{completed}} de {{total}} completados",
+    "subtitle": "Complete estos pasos para configurar su sitio",
+    "steps": {
+      "logo": "Subir el logotipo de la empresa",
+      "alertEmail": "Configurar correo de alertas de emergencia / CDM",
+      "smtp": "Configurar entrega de correo electrónico (SMTP)",
+      "musterPoints": "Nombrar los puntos de encuentro",
+      "staff": "Añadir el primer miembro del personal",
+      "register": "Registrar un visitante o contratista"
+    }
+  },
+  "peopleOnSite": {
+    "title": "Personal en el sitio",
+    "activateEmergency": "Activar emergencia",
+    "fireDrill": "Simulacro de incendio",
+    "visitors": "Visitantes",
+    "staff": "Personal",
+    "contractors": "Contratistas",
+    "members": "Miembros",
+    "totalPeople": "Total de personas",
+    "onSiteNow": "En el sitio ahora"
+  },
+  "loneWorker": {
+    "title": "Sesiones de trabajador solitario",
+    "active": "{{count}} activa/s — verificaciones de bienestar en curso",
+    "overdue": "vencida",
+    "nextIn": "próxima en {{n}}m",
+    "checking": "verificando…"
+  },
+  "fireRisk": {
+    "title": "Evaluación de riesgos de incendio"
+  },
+  "receptionDiary": {
+    "title": "Agenda de recepción",
+    "subtitle": "Visión operativa completa - visitantes, contratistas y reuniones",
+    "viewCard": "Vista de tarjetas",
+    "viewCompact": "Vista de lista compacta",
+    "showHistory": "Mostrar historial",
+    "hideHistory": "Ocultar historial",
+    "showArrived": "Mostrar {{count}} llegados",
+    "loading": "Cargando agenda de recepción...",
+    "noActivities": "No hay actividades programadas para {{period}}",
+    "noActivitiesDesc": "Aquí aparecerán los prebooking de visitantes, reservas de contratistas y reuniones",
+    "autoRefresh": "Se actualiza automáticamente cada 30 segundos",
+    "allArrived": "Todos los visitantes y contratistas con prebook han llegado",
+    "tabs": {
+      "today": "Hoy",
+      "tomorrow": "Mañana",
+      "weekly": "Esta semana"
+    },
+    "filters": {
+      "all": "Todos",
+      "visitors": "Visitantes",
+      "contractors": "Contratistas",
+      "meetings": "Reuniones"
+    },
+    "headers": {
+      "time": "Hora",
+      "name": "Nombre",
+      "company": "Empresa",
+      "host": "Anfitrión",
+      "type": "Tipo",
+      "status": "Estado",
+      "action": "Acción"
+    },
+    "types": {
+      "visitor": "Visitante",
+      "contractor": "Contratista",
+      "meeting": "Reunión"
+    },
+    "status": {
+      "arrived": "Ha llegado",
+      "confirmed": "Confirmado",
+      "pending": "Pendiente",
+      "past": "Pasado",
+      "checkedIn": "Entrada registrada",
+      "urgent": "Urgente"
+    },
+    "meetingsLabel": "Reuniones de hoy",
+    "meetingsTomorrowLabel": "Reuniones de mañana",
+    "meetingsScheduledLabel": "Reuniones programadas",
+    "meetingsCount": "{{count}} reunión",
+    "meetingsCount_plural": "{{count}} reuniones",
+    "contractorsCount": "{{count}} contratista",
+    "contractorsCount_plural": "{{count}} contratistas",
+    "visitsCount": "{{count}} visita",
+    "visitsCount_plural": "{{count}} visitas",
+    "legend": {
+      "urgent": "Urgente",
+      "contractor": "Contratista",
+      "checkedIn": "Entrada registrada",
+      "meeting": "Reunión",
+      "past": "Pasado"
+    }
+  },
+  "modals": {
+    "currentVisitors": {
+      "title": "Visitantes actuales ({{count}})",
+      "desc": "Ver y gestionar todos los visitantes actualmente en el sitio. Registre la salida cuando se vayan.",
+      "noCompany": "Sin empresa",
+      "onSite": "En el sitio",
+      "empty": "No hay visitantes en el sitio actualmente",
+      "hostLabel": "👤 Anfitrión: {{name}}",
+      "arrivedLabel": "🕐 Llegó: {{time}}"
+    },
+    "staffOnSite": {
+      "title": "Personal en el sitio ({{count}})",
+      "desc": "Ver todos los miembros del personal actualmente con entrada registrada y en el sitio.",
+      "empty": "No hay miembros del personal en el sitio actualmente"
+    },
+    "contractorsOnSite": {
+      "title": "Contratistas en el sitio ({{count}})",
+      "noCompany": "Empresa no especificada",
+      "empty": "No hay contratistas en el sitio actualmente"
+    },
+    "membersOnSite": {
+      "title": "Miembros en el sitio ({{count}})",
+      "desc": "Ver y gestionar todos los miembros actualmente con entrada registrada en el sitio.",
+      "standardMember": "Miembro estándar",
+      "empty": "No hay miembros en el sitio actualmente"
+    },
+    "totalPeople": {
+      "title": "Todas las personas en el sitio ({{count}})",
+      "empty": "No hay personas en el sitio actualmente"
+    },
+    "departmentDetails": {
+      "title": "Detalles del departamento: {{dept}}",
+      "peopleOnSite": "{{count}} personas en el sitio",
+      "desc": "Ver información detallada sobre los miembros del personal y visitantes en este departamento.",
+      "loading": "Cargando detalles del departamento...",
+      "staffOnSite": "Personal en el sitio",
+      "currentVisitors": "Visitantes actuales",
+      "totalPeople": "Total de personas",
+      "staffSection": "Miembros del personal ({{count}})",
+      "visitorsSection": "Visitantes actuales ({{count}})",
+      "noStaff": "No hay personal asignado a este departamento",
+      "noVisitors": "No hay visitantes recibidos por este departamento actualmente",
+      "since": "Desde: {{time}}",
+      "offSite": "Fuera del sitio",
+      "onSite": "En el sitio"
+    },
+    "visitorDetails": {
+      "currentlyOnSite": "✓ Actualmente en el sitio",
+      "minutesOnPremises": "{{minutes}} minutos en las instalaciones",
+      "emergency": {
+        "title": "🚨 Información de contacto de emergencia",
+        "mobile": "Número de móvil",
+        "phone": "Número de teléfono",
+        "alternativePhone": "Teléfono alternativo",
+        "email": "Dirección de correo electrónico",
+        "notProvided": "No proporcionado"
+      },
+      "hostLocation": {
+        "title": "📍 Detalles del anfitrión y ubicación",
+        "visiting": "Visita a",
+        "department": "Departamento"
+      },
+      "timeline": {
+        "title": "⏰ Cronología de la visita",
+        "checkInTime": "Hora de entrada",
+        "duration": "Duración en el sitio",
+        "expectedDuration": "Duración prevista",
+        "notSpecified": "No especificado",
+        "minutes": "{{count}} minutos"
+      },
+      "details": {
+        "title": "📋 Detalles de la visita",
+        "purpose": "Motivo de la visita",
+        "notes": "Notas adicionales"
+      },
+      "actions": {
+        "callVisitor": "📞 Llamar al visitante",
+        "alertReception": "📧 Alertar a recepción",
+        "callHost": "📞 Llamar al anfitrión (N/D)"
+      }
+    },
+    "visitorPrebooking": {
+      "title": "Detalles del prebook del visitante",
+      "arrived": "✓ El visitante ha llegado",
+      "expected": "⏰ Llegada prevista"
+    },
+    "meetingBooking": {
+      "title": "Detalles de la reserva de reunión"
+    },
+    "cancelBooking": {
+      "title": "¿Cancelar reserva?",
+      "message": "¿Está seguro de que desea cancelar esta reserva? Esta acción no se puede deshacer.",
+      "confirm": "Sí, cancelar reserva"
+    }
+  }
+}

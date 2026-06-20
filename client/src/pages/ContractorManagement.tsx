@@ -1,4 +1,5 @@
 import { HardHat, AlertTriangle, UserPlus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import GlassCard from "@/components/GlassCard";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
@@ -25,6 +26,7 @@ import ContractorCheckInDialog from "./contractor/ContractorCheckInDialog";
 import { useContractorManagement } from "./contractor/useContractorManagement";
 
 export default function ContractorManagement() {
+  const { t } = useTranslation('contractors');
   const st = useContractorManagement();
 
   if (st.showWalkInForm) {
@@ -37,7 +39,7 @@ export default function ContractorManagement() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <HardHat className="h-8 w-8 text-orange-600" />
-          <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">Contractor Management</h1>
+          <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">{t('title')}</h1>
           {st.headerF10OverdueCount > 0 && (
             <span
               className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold cursor-pointer hover:bg-red-200 transition-colors"

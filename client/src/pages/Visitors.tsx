@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useId } from "react";
+import { useTranslation } from "react-i18next";
 import { printPassViaIframe } from "@/lib/printUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
@@ -51,6 +52,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import AddVisitorModal from "@/components/AddVisitorModal";
 
 export default function Visitors() {
+  const { t } = useTranslation('visitors');
   const { toast } = useToast();
   
   // Detect if we're in tenant context
@@ -867,7 +869,7 @@ export default function Visitors() {
             className="flex-1 flex items-center justify-center gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm text-xs sm:text-sm py-2 sm:py-2.5 min-w-0 px-1"
           >
             <History size={14} className="flex-shrink-0" />
-            <span className="hidden sm:inline">Previous Visitors</span>
+            <span className="hidden sm:inline">{t('tabs.existing')}</span>
             <span className="sm:hidden">Previous...</span>
           </TabsTrigger>
           <TabsTrigger 
@@ -875,7 +877,7 @@ export default function Visitors() {
             className="flex-1 flex items-center justify-center gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm text-xs sm:text-sm py-2 sm:py-2.5 min-w-0 px-1"
           >
             <UserPlus size={14} className="flex-shrink-0" />
-            <span className="hidden sm:inline">Walk-in Registration</span>
+            <span className="hidden sm:inline">{t('tabs.walkin')}</span>
             <span className="sm:hidden">Walk-in ...</span>
           </TabsTrigger>
           <TabsTrigger 
@@ -883,7 +885,7 @@ export default function Visitors() {
             className="flex-1 flex items-center justify-center gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm text-xs sm:text-sm py-2 sm:py-2.5 min-w-0 px-1"
           >
             <CalendarPlus size={14} className="flex-shrink-0" />
-            <span className="hidden sm:inline">Pre-booking</span>
+            <span className="hidden sm:inline">{t('tabs.prebooking')}</span>
             <span className="sm:hidden">Pre-boo...</span>
           </TabsTrigger>
         </TabsList>
@@ -897,7 +899,7 @@ export default function Visitors() {
                   <History className="text-blue-600" size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-fixed">Previous Visitors</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-fixed">{t('tabs.existing')}</h2>
                   <p className="text-variable text-xs sm:text-sm">Select a visitor who has been onsite before</p>
                 </div>
               </div>
@@ -907,7 +909,7 @@ export default function Visitors() {
             <div className="relative mb-4 sm:mb-6">
               <Search className="absolute left-3 top-3 text-variable" size={18} />
               <Input
-                placeholder="Search by visitor name or company..."
+                placeholder={t('placeholders.search')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 py-2.5 sm:py-3 text-sm sm:text-lg"
@@ -946,7 +948,7 @@ export default function Visitors() {
                   className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
                   data-testid="button-show-all-visitors"
                 >
-                  Show All {filteredVisitors.length} Previous Visitors
+                  {t('showAllPrevious')}
                 </Button>
               </div>
             )}
