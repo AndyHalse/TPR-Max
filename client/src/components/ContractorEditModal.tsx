@@ -517,6 +517,12 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       refetchDocuments();
       refetchNotes();
       queryClient.invalidateQueries({ queryKey: ['/api/compliance-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}`] });
+      if (worker?.companyId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}/workers`] });
+      }
     },
     onError: (error: any) => {
       setUploadProgress(0);
@@ -538,6 +544,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/documents`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}`] });
+      if (worker?.companyId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}/workers`] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/compliance-dashboard'] });
       toast({ title: 'Approved', description: 'Document approved successfully.' });
       refetchDocuments();
     },
@@ -555,6 +568,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/documents`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}`] });
+      if (worker?.companyId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}/workers`] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/compliance-dashboard'] });
       toast({
         title: 'Success',
         description: 'Document deleted successfully!',
