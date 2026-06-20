@@ -5072,7 +5072,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   // ── Portal-admin middleware ───────────────────────────────────────────────
   function requirePortalAdmin(req: any, res: any, next: any) {
-    if (!['admin', 'tenant_admin'].includes(req.user?.role || '')) {
+    if (!['admin'].includes(req.user?.role || '')) {
       return res.status(403).json({ error: 'Admin role required' });
     }
     next();

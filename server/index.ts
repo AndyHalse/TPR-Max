@@ -573,6 +573,47 @@ app.use((req, res, next) => {
       logger.info(`⚠️ Management DB bug_reports column check: ${e.message?.substring(0, 80)}`);
     }
 
+    // Ensure platform_admin_audit table exists
+    try {
+      const { db: mgmtDb3 } = await import('./db');
+      const { sql: sqlTag3 } = await import('drizzle-orm');
+      await mgmtDb3.execute(sqlTag3`
+        CREATE TABLE IF NOT EXISTS platform_admin_audit (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          admin_id TEXT NOT NULL,
+          admin_username TEXT NOT NULL,
+          action TEXT NOT NULL,
+          target_type TEXT NOT NULL,
+          target_id TEXT,
+          target_label TEXT,
+          details JSONB,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      // Ensure customers soft-delete columns exist
+      await mgmtDb3.execute(sqlTag3`
+        ALTER TABLE customers
+          ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS deleted_by TEXT
+      `);
+      // Promote oldest platform admin to super_admin if no super_admin exists
+      await mgmtDb3.execute(sqlTag3`
+        UPDATE platform_admins
+        SET role = 'super_admin'
+        WHERE id = (
+          SELECT id FROM platform_admins ORDER BY created_at ASC LIMIT 1
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM platform_admins WHERE role = 'super_admin'
+        )
+      `);
+      // Migrate any legacy tenant_admin/tenant_staff roles in the users table
+      // (isolated schema — handled per-tenant; shared schema platformAdmins only uses admin|super_admin|support)
+      logger.info('✅ Management DB: audit, soft-delete columns, and super_admin migration ensured');
+    } catch (e: any) {
+      logger.info(`⚠️ Management DB audit/role migration: ${e.message?.substring(0, 120)}`);
+    }
+
     // Register all routes AFTER server is already listening
     logger.info('Registering routes');
     await registerRoutes(app, server);

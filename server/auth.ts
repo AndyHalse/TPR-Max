@@ -1093,3 +1093,28 @@ export function requirePlatformAdmin(req: Request, res: Response, next: NextFunc
   
   next();
 }
+
+export async function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session || !req.session.platformAdminId) {
+    return res.status(401).json({ error: 'Platform admin authentication required' });
+  }
+  try {
+    const { db } = await import('./db');
+    const [admin] = await db
+      .select({ role: schema.platformAdmins.role })
+      .from(schema.platformAdmins)
+      .where(eq(schema.platformAdmins.id, req.session.platformAdminId))
+      .limit(1);
+    if (!admin || admin.role !== 'super_admin') {
+      logger.info('🚨 SECURITY: requireSuperAdmin blocked — role is not super_admin', {
+        platformAdminId: req.session.platformAdminId,
+        role: admin?.role,
+      });
+      return res.status(403).json({ error: 'Super admin access required for this action' });
+    }
+    next();
+  } catch (err) {
+    logger.error('requireSuperAdmin DB lookup failed:', err);
+    return res.status(500).json({ error: 'Failed to verify admin role' });
+  }
+}

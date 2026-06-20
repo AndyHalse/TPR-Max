@@ -26,6 +26,9 @@ export const customers = pgTable("customers", {
   stripeCustomerId: text("stripe_customer_id").unique(), // Stripe customer ID for billing
   // Platform admin feature locks — platform admin sets these; customer cannot override them
   platformDisabledFeatures: text("platform_disabled_features").array().notNull().default([]),
+  // Soft-delete support — set by platform admin; customer record remains recoverable until purged
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -2494,6 +2497,19 @@ export const platformAdmins = pgTable("platform_admins", {
   emailIdx: index("platform_admins_email_idx").on(table.email),
   isActiveIdx: index("platform_admins_is_active_idx").on(table.isActive),
 }));
+
+// Platform Admin Audit Trail - tamper-evident log of all sensitive platform-admin actions
+export const platformAdminAudit = pgTable("platform_admin_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").notNull(),
+  adminUsername: text("admin_username").notNull(),
+  action: text("action").notNull(), // e.g. customer.soft_delete, customer.purge, customer.restore, admin.create
+  targetType: text("target_type").notNull(), // customer | admin | branding
+  targetId: text("target_id"),
+  targetLabel: text("target_label"), // company name, username etc.
+  details: jsonb("details"), // before/after snapshot where sensible
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 // Platform Branding Settings - White-label configuration
 // Single row configuration for platform branding (colors, logo, etc.)

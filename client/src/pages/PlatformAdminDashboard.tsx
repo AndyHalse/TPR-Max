@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug, TrendingUp } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug, TrendingUp, RotateCcw, FlameKindling, ClipboardList } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,20 @@ interface Customer {
   stripeCustomerId: string | null;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+}
+
+interface AuditRow {
+  id: string;
+  adminId: string;
+  adminUsername: string;
+  action: string;
+  targetType: string;
+  targetId: string | null;
+  targetLabel: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 interface BlogPost {
@@ -77,6 +91,76 @@ interface BrandingSettings {
   updatedAt: string;
 }
 
+function AuditLogTab() {
+  const [offset, setOffset] = useState(0);
+  const limit = 50;
+
+  const { data, isLoading, error } = useQuery<{ success: boolean; audit: AuditRow[]; pagination: { limit: number; offset: number } }>({
+    queryKey: ["/platform-admin/audit", offset],
+    queryFn: async () => {
+      const res = await fetch(`/platform-admin/audit?limit=${limit}&offset=${offset}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch audit log");
+      return res.json();
+    },
+  });
+
+  const rows = data?.audit ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><ClipboardList className="w-5 h-5" />Platform Admin Audit Log</CardTitle>
+        <CardDescription>All sensitive platform admin actions are recorded here. Visible to super admins only.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" /><p className="text-sm text-gray-600">Loading audit log…</p></div>
+        ) : error ? (
+          <div className="text-center py-8 text-red-600"><AlertTriangle className="w-6 h-6 mx-auto mb-2" /><p className="text-sm">Failed to load audit log</p></div>
+        ) : rows.length === 0 ? (
+          <div className="text-center py-12 text-gray-400"><ClipboardList className="w-12 h-12 mx-auto mb-2 opacity-30" /><p>No audit entries yet</p></div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs text-gray-500 uppercase">
+                    <th className="pb-2 pr-4">When</th>
+                    <th className="pb-2 pr-4">Admin</th>
+                    <th className="pb-2 pr-4">Action</th>
+                    <th className="pb-2 pr-4">Target</th>
+                    <th className="pb-2">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {rows.map(row => (
+                    <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="py-2 pr-4 whitespace-nowrap text-gray-500 text-xs">{new Date(row.createdAt).toLocaleString('en-GB')}</td>
+                      <td className="py-2 pr-4 font-mono text-xs">{row.adminUsername}</td>
+                      <td className="py-2 pr-4">
+                        <Badge variant={row.action.includes('purge') || row.action.includes('delete') ? 'destructive' : row.action.includes('restore') ? 'default' : 'secondary'} className="text-xs font-mono">
+                          {row.action}
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-xs">{row.targetLabel ?? row.targetId ?? '—'}</td>
+                      <td className="py-2 text-xs text-gray-400 truncate max-w-xs">{row.details ? JSON.stringify(row.details) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between mt-4">
+              <Button variant="outline" size="sm" disabled={offset === 0} onClick={() => setOffset(o => Math.max(0, o - limit))}>Previous</Button>
+              <span className="text-xs text-gray-500">Showing {offset + 1}–{offset + rows.length}</span>
+              <Button variant="outline" size="sm" disabled={rows.length < limit} onClick={() => setOffset(o => o + limit)}>Next</Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function PlatformAdminDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -86,6 +170,9 @@ export default function PlatformAdminDashboard() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [purgingCustomer, setPurgingCustomer] = useState<Customer | null>(null);
+  const [purgeConfirmText, setPurgeConfirmText] = useState('');
+  const [showDeletedCustomers, setShowDeletedCustomers] = useState(false);
 
   // Blog state
   const [showBlogForm, setShowBlogForm] = useState(false);
@@ -139,16 +226,17 @@ export default function PlatformAdminDashboard() {
     }
   }, [adminLoading, error]);
 
+  const isSuperAdmin = admin?.role === 'super_admin';
+
   // Fetch customers
   const { data: customersData, isLoading: customersLoading } = useQuery<{ success: boolean; customers: Customer[] }>({
-    queryKey: ["/platform-admin/customers"],
+    queryKey: ["/platform-admin/customers", showDeletedCustomers],
     queryFn: async () => {
-      const response = await fetch("/platform-admin/customers", {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch customers");
-      }
+      const url = showDeletedCustomers
+        ? "/platform-admin/customers?includeDeleted=true"
+        : "/platform-admin/customers";
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch customers");
       return response.json();
     },
     enabled: !!admin,
@@ -506,8 +594,8 @@ export default function PlatformAdminDashboard() {
       setDeletingCustomer(null);
       setDeleteConfirmText('');
       toast({
-        title: "Customer Deleted",
-        description: data.message || "Customer account has been permanently deleted",
+        title: "Customer Deactivated",
+        description: data.message || "Customer account has been soft-deleted",
       });
     },
     onError: (error: any) => {
@@ -516,6 +604,36 @@ export default function PlatformAdminDashboard() {
         description: error.message || "Failed to delete customer account",
         variant: "destructive",
       });
+    },
+  });
+
+  const restoreCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("POST", `/platform-admin/customers/${customerId}/restore`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
+      toast({ title: "Customer Restored", description: data.message });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to restore customer", variant: "destructive" });
+    },
+  });
+
+  const purgeCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("DELETE", `/platform-admin/customers/${customerId}/purge`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
+      setPurgingCustomer(null);
+      setPurgeConfirmText('');
+      toast({ title: "Customer Purged", description: data.message });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to purge customer", variant: "destructive" });
     },
   });
 
@@ -821,6 +939,11 @@ export default function PlatformAdminDashboard() {
             <TabsTrigger value="traffic">
               <TrendingUp className="w-4 h-4 mr-2" />Traffic
             </TabsTrigger>
+            {isSuperAdmin && (
+              <TabsTrigger value="audit">
+                <ClipboardList className="w-4 h-4 mr-2" />Audit Log
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="customers">
@@ -878,10 +1001,21 @@ export default function PlatformAdminDashboard() {
                 <CardTitle>Customer Accounts</CardTitle>
                 <CardDescription>Manage all customer accounts from here</CardDescription>
               </div>
-              <Button onClick={() => setShowCustomerForm(true)} data-testid="button-add-customer">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Customer
-              </Button>
+              <div className="flex items-center gap-2">
+                {isSuperAdmin && (
+                  <Button
+                    variant={showDeletedCustomers ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setShowDeletedCustomers(v => !v)}
+                  >
+                    {showDeletedCustomers ? "Hide Deleted" : "Show Deleted"}
+                  </Button>
+                )}
+                <Button onClick={() => setShowCustomerForm(true)} data-testid="button-add-customer">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Customer
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -918,6 +1052,9 @@ export default function PlatformAdminDashboard() {
                         )}
                         {customer.onboardingCompleted && (
                           <Badge variant="outline" className="text-blue-700 border-blue-300">Onboarded</Badge>
+                        )}
+                        {customer.deletedAt && (
+                          <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Deleted</Badge>
                         )}
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -959,18 +1096,40 @@ export default function PlatformAdminDashboard() {
                       >
                         {customer.isActive ? "Deactivate" : "Activate"}
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          setDeletingCustomer(customer);
-                          setDeleteConfirmText('');
-                        }}
-                        data-testid={`button-delete-${customer.id}`}
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Delete
-                      </Button>
+                      {customer.deletedAt ? (
+                        <>
+                          {isSuperAdmin && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => restoreCustomerMutation.mutate(customer.id)}
+                              disabled={restoreCustomerMutation.isPending}
+                            >
+                              <RotateCcw className="w-3 h-3 mr-1" />Restore
+                            </Button>
+                          )}
+                          {isSuperAdmin && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => { setPurgingCustomer(customer); setPurgeConfirmText(''); }}
+                            >
+                              <FlameKindling className="w-3 h-3 mr-1" />Purge
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        isSuperAdmin && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => { setDeletingCustomer(customer); setDeleteConfirmText(''); }}
+                            data-testid={`button-delete-${customer.id}`}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />Delete
+                          </Button>
+                        )
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1211,6 +1370,13 @@ export default function PlatformAdminDashboard() {
               )}
             </div>
           </TabsContent>
+
+          {/* ── Audit Log Tab (super admin only) ─────────────────── */}
+          {isSuperAdmin && (
+            <TabsContent value="audit">
+              <AuditLogTab />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
 
@@ -1232,33 +1398,33 @@ export default function PlatformAdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Soft-Delete Confirmation Dialog */}
       <Dialog open={!!deletingCustomer} onOpenChange={(open) => { if (!open) { setDeletingCustomer(null); setDeleteConfirmText(''); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2 text-red-600">
+            <DialogTitle className="flex items-center space-x-2 text-amber-600">
               <AlertTriangle className="w-5 h-5" />
-              <span>Delete Customer Account</span>
+              <span>Deactivate Customer Account</span>
             </DialogTitle>
             <DialogDescription>
-              This action is permanent and cannot be undone. All data for this customer will be removed.
+              This hides the customer from normal views. A super admin can restore it later, or purge it to permanently erase all data.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                You are about to permanently delete:
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                You are about to deactivate:
               </p>
-              <p className="text-lg font-bold text-red-900 dark:text-red-100 mt-1">
+              <p className="text-lg font-bold text-amber-900 dark:text-amber-100 mt-1">
                 {deletingCustomer?.companyName}
               </p>
-              <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+              <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">
                 {deletingCustomer?.contactEmail}
               </p>
             </div>
             <div>
               <Label htmlFor="delete-confirm" className="text-sm font-medium">
-                Type <span className="font-bold text-red-600">DELETE</span> to confirm
+                Type <span className="font-bold text-amber-600">DELETE</span> to confirm
               </Label>
               <Input
                 id="delete-confirm"
@@ -1270,23 +1436,57 @@ export default function PlatformAdminDashboard() {
               />
             </div>
             <div className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => { setDeletingCustomer(null); setDeleteConfirmText(''); }}
-              >
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => { setDeletingCustomer(null); setDeleteConfirmText(''); }}>Cancel</Button>
               <Button
                 variant="destructive"
                 disabled={deleteConfirmText !== 'DELETE' || deleteCustomerMutation.isPending}
-                onClick={() => {
-                  if (deletingCustomer) {
-                    deleteCustomerMutation.mutate(deletingCustomer.id);
-                  }
-                }}
+                onClick={() => { if (deletingCustomer) deleteCustomerMutation.mutate(deletingCustomer.id); }}
                 data-testid="button-confirm-delete"
               >
-                {deleteCustomerMutation.isPending ? 'Deleting...' : 'Permanently Delete'}
+                {deleteCustomerMutation.isPending ? 'Deactivating...' : 'Deactivate Customer'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Purge Confirmation Dialog (super admin only) */}
+      <Dialog open={!!purgingCustomer} onOpenChange={(open) => { if (!open) { setPurgingCustomer(null); setPurgeConfirmText(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-red-700">
+              <FlameKindling className="w-5 h-5" />
+              <span>Permanently Purge Customer</span>
+            </DialogTitle>
+            <DialogDescription>
+              This drops the tenant database schema and removes all records. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm font-medium text-red-800 dark:text-red-200">PERMANENT ERASURE — cannot be recovered:</p>
+              <p className="text-lg font-bold text-red-900 dark:text-red-100 mt-1">{purgingCustomer?.companyName}</p>
+            </div>
+            <div>
+              <Label htmlFor="purge-confirm" className="text-sm font-medium">
+                Type <span className="font-bold text-red-700">PURGE</span> to confirm
+              </Label>
+              <Input
+                id="purge-confirm"
+                value={purgeConfirmText}
+                onChange={(e) => setPurgeConfirmText(e.target.value)}
+                placeholder="Type PURGE to confirm"
+                className="mt-1 border-red-300"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => { setPurgingCustomer(null); setPurgeConfirmText(''); }}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={purgeConfirmText !== 'PURGE' || purgeCustomerMutation.isPending}
+                onClick={() => { if (purgingCustomer) purgeCustomerMutation.mutate(purgingCustomer.id); }}
+              >
+                {purgeCustomerMutation.isPending ? 'Purging...' : 'Purge Forever'}
               </Button>
             </div>
           </div>
@@ -1868,8 +2068,6 @@ export default function PlatformAdminDashboard() {
                     <select value={userForm.role} onChange={e => setUserForm(f => ({ ...f, role: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <option value="admin">admin</option>
                       <option value="user">user</option>
-                      <option value="tenant_admin">tenant_admin</option>
-                      <option value="tenant_staff">tenant_staff</option>
                     </select>
                   </div>
                 </div>
@@ -1912,8 +2110,6 @@ export default function PlatformAdminDashboard() {
                     <select value={userForm.role} onChange={e => setUserForm(f => ({ ...f, role: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <option value="admin">admin</option>
                       <option value="user">user</option>
-                      <option value="tenant_admin">tenant_admin</option>
-                      <option value="tenant_staff">tenant_staff</option>
                     </select>
                   </div>
                 </div>

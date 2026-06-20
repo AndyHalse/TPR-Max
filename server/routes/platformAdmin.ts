@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 import sgMail from '@sendgrid/mail';
 import { eq, sql, desc, and, gte } from 'drizzle-orm';
 import { z } from 'zod';
-import { requirePlatformAdmin } from '../auth';
+import { requirePlatformAdmin, requireSuperAdmin } from '../auth';
 import { CustomerDatabaseService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { db } from '../db';
@@ -73,6 +73,7 @@ interface PendingOtp {
   expiresAt: number;
   failureCount: number; // per-token brute-force counter
 }
+// TODO: move to shared store (Redis/DB) if running multiple instances
 const pendingOtps = new Map<string, PendingOtp>();
 
 function generateOtp(): string {
@@ -86,6 +87,31 @@ setInterval(() => {
     if (now > entry.expiresAt) pendingOtps.delete(token);
   }
 }, 5 * 60 * 1000);
+
+/** Write a platform_admin_audit row. Never throws — failures are logged but never block the action. */
+async function writeAudit(params: {
+  adminId: string;
+  adminUsername: string;
+  action: string;
+  targetType: string;
+  targetId?: string;
+  targetLabel?: string;
+  details?: Record<string, unknown>;
+}) {
+  try {
+    await db.insert(sharedSchema.platformAdminAudit).values({
+      adminId: params.adminId,
+      adminUsername: params.adminUsername,
+      action: params.action,
+      targetType: params.targetType,
+      targetId: params.targetId ?? null,
+      targetLabel: params.targetLabel ?? null,
+      details: params.details ?? null,
+    });
+  } catch (err) {
+    logger.error('⚠️ AUDIT WRITE FAILED — action was NOT blocked but audit record is missing:', { params, err });
+  }
+}
 
 export function registerPlatformAdminRoutes(app: Express): void {
   
@@ -449,16 +475,31 @@ export function registerPlatformAdminRoutes(app: Express): void {
    */
   app.get("/platform-admin/customers", requirePlatformAdmin, async (req, res) => {
     try {
-      logger.info(`Platform admin requesting customer list`);
-      
-      // Get all customers from management database
-      const customers = await db
+      const includeDeleted = req.query.includeDeleted === 'true';
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const offset = Number(req.query.offset) || 0;
+
+      logger.info(`Platform admin requesting customer list`, { includeDeleted, limit, offset });
+
+      const baseQuery = db
         .select()
         .from(sharedSchema.customers)
-        .orderBy(desc(sharedSchema.customers.createdAt));
-      
+        .orderBy(desc(sharedSchema.customers.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const customers = includeDeleted
+        ? await baseQuery
+        : await db
+            .select()
+            .from(sharedSchema.customers)
+            .where(sql`${sharedSchema.customers.deletedAt} IS NULL`)
+            .orderBy(desc(sharedSchema.customers.createdAt))
+            .limit(limit)
+            .offset(offset);
+
       logger.info(`Retrieved ${customers.length} customers`);
-      
+
       res.json({
         success: true,
         customers: customers.map(customer => ({
@@ -472,14 +513,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
           stripeCustomerId: customer.stripeCustomerId,
           createdAt: customer.createdAt,
           updatedAt: customer.updatedAt,
-        }))
+          deletedAt: customer.deletedAt,
+          deletedBy: customer.deletedBy,
+        })),
+        pagination: { limit, offset },
       });
     } catch (error) {
       logger.error('Error fetching customers:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch customers'
-      });
+      res.status(500).json({ success: false, error: 'Failed to fetch customers' });
     }
   });
 
@@ -552,7 +593,11 @@ export function registerPlatformAdminRoutes(app: Express): void {
       }
       
       logger.info(`Customer ${customerId} status updated: ${isActive ? 'active' : 'inactive'}`);
-      
+
+      const adminId = req.session.platformAdminId!;
+      const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+      await writeAudit({ adminId, adminUsername: adminRow?.username ?? 'unknown', action: 'customer.status_change', targetType: 'customer', targetId: customerId, targetLabel: updatedCustomer.companyName, details: { isActive } });
+
       res.json({
         success: true,
         customer: updatedCustomer
@@ -567,27 +612,116 @@ export function registerPlatformAdminRoutes(app: Express): void {
   });
 
   /**
-   * Delete customer account permanently
+   * Soft-delete customer account (recoverable). Super admin only.
    */
-  app.delete("/platform-admin/customers/:customerId", requirePlatformAdmin, async (req, res) => {
+  app.delete("/platform-admin/customers/:customerId", requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
     try {
       const { customerId } = req.params;
+      const adminId = req.session.platformAdminId!;
 
-      const existing = await db.select().from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId));
-      if (!existing.length) {
-        return res.status(404).json({ success: false, error: 'Customer not found' });
-      }
+      const existing = await db.select().from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId)).limit(1);
+      if (!existing.length) return res.status(404).json({ success: false, error: 'Customer not found' });
+      if (existing[0].deletedAt) return res.status(400).json({ success: false, error: 'Customer is already deleted' });
 
       const customerName = existing[0].companyName;
 
+      const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+      const adminUsername = adminRow?.username ?? 'unknown';
+
+      await db.update(sharedSchema.customers)
+        .set({ deletedAt: sql`NOW()`, deletedBy: adminId, updatedAt: sql`NOW()` })
+        .where(eq(sharedSchema.customers.id, customerId));
+
+      logger.info(`Customer soft-deleted: ${customerName} (${customerId}) by ${adminUsername}`);
+
+      await writeAudit({ adminId, adminUsername, action: 'customer.soft_delete', targetType: 'customer', targetId: customerId, targetLabel: customerName });
+
+      res.json({ success: true, message: `Customer "${customerName}" has been deactivated and hidden. Use Restore to recover or Purge to permanently erase.` });
+    } catch (error) {
+      logger.error('Error soft-deleting customer:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete customer' });
+    }
+  });
+
+  /**
+   * Restore a soft-deleted customer. Super admin only.
+   */
+  app.post("/platform-admin/customers/:customerId/restore", requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const adminId = req.session.platformAdminId!;
+
+      const existing = await db.select().from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId)).limit(1);
+      if (!existing.length) return res.status(404).json({ success: false, error: 'Customer not found' });
+      if (!existing[0].deletedAt) return res.status(400).json({ success: false, error: 'Customer is not deleted' });
+
+      const customerName = existing[0].companyName;
+      const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+      const adminUsername = adminRow?.username ?? 'unknown';
+
+      await db.update(sharedSchema.customers)
+        .set({ deletedAt: null, deletedBy: null, updatedAt: sql`NOW()` })
+        .where(eq(sharedSchema.customers.id, customerId));
+
+      logger.info(`Customer restored: ${customerName} (${customerId}) by ${adminUsername}`);
+      await writeAudit({ adminId, adminUsername, action: 'customer.restore', targetType: 'customer', targetId: customerId, targetLabel: customerName });
+
+      res.json({ success: true, message: `Customer "${customerName}" has been restored.` });
+    } catch (error) {
+      logger.error('Error restoring customer:', error);
+      res.status(500).json({ success: false, error: 'Failed to restore customer' });
+    }
+  });
+
+  /**
+   * Permanently purge a soft-deleted customer — drops tenant schema + removes row. Super admin only.
+   */
+  app.delete("/platform-admin/customers/:customerId/purge", requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const adminId = req.session.platformAdminId!;
+
+      const existing = await db.select().from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId)).limit(1);
+      if (!existing.length) return res.status(404).json({ success: false, error: 'Customer not found' });
+
+      const customer = existing[0];
+      const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+      const adminUsername = adminRow?.username ?? 'unknown';
+
+      // Step 1: drop tenant schema (GDPR erasure)
+      let schemaDropped = false;
+      try {
+        const { databaseProvisioningService } = await import('../databaseProvisioningService');
+        await databaseProvisioningService.deleteCustomerDatabase(customerId);
+        schemaDropped = true;
+        logger.info(`✅ Tenant schema dropped for customer ${customerId}`);
+      } catch (schemaErr: any) {
+        logger.error(`❌ Failed to drop tenant schema for customer ${customerId}:`, schemaErr);
+        // Report the failure but still remove the management row to avoid a half-deleted state
+        // (the orphaned schema is the lesser risk vs an invisible ghost customer)
+      }
+
+      // Step 2: remove management row
       await db.delete(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId));
 
-      logger.info(`Customer account deleted: ${customerName} (${customerId})`);
+      logger.warn(`Customer PURGED: ${customer.companyName} (${customerId}) by ${adminUsername}, schemaDropped=${schemaDropped}`);
+      await writeAudit({
+        adminId, adminUsername,
+        action: 'customer.purge',
+        targetType: 'customer',
+        targetId: customerId,
+        targetLabel: customer.companyName,
+        details: { schemaDropped },
+      });
 
-      res.json({ success: true, message: `Customer "${customerName}" has been permanently deleted` });
+      res.json({
+        success: true,
+        message: `Customer "${customer.companyName}" has been permanently erased.`,
+        schemaDropped,
+      });
     } catch (error) {
-      logger.error('Error deleting customer:', error);
-      res.status(500).json({ success: false, error: 'Failed to delete customer' });
+      logger.error('Error purging customer:', error);
+      res.status(500).json({ success: false, error: 'Failed to purge customer' });
     }
   });
 
@@ -635,7 +769,11 @@ export function registerPlatformAdminRoutes(app: Express): void {
       }
       
       logger.info(`Customer ${customerId} details updated`);
-      
+
+      const adminId3 = req.session.platformAdminId!;
+      const [adminRow3] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId3)).limit(1);
+      await writeAudit({ adminId: adminId3, adminUsername: adminRow3?.username ?? 'unknown', action: 'customer.update', targetType: 'customer', targetId: customerId, targetLabel: updatedCustomer.companyName, details: { fields: Object.keys(validatedData) } });
+
       res.json({
         success: true,
         customer: updatedCustomer
@@ -950,6 +1088,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       logger.info(`Customer admin credentials updated for ${customer.companyName}`);
 
+      const adminId2 = req.session.platformAdminId!;
+      const [adminRow2] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId2)).limit(1);
+      await writeAudit({ adminId: adminId2, adminUsername: adminRow2?.username ?? 'unknown', action: 'customer.credentials_reset', targetType: 'customer', targetId: customerId, targetLabel: customer.companyName, details: { fieldsChanged: Object.keys(updateData) } });
+
       res.json({
         success: true,
         message: 'Credentials updated successfully'
@@ -978,12 +1120,12 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
   // ── User Management per customer ─────────────────────────────────────────
 
-  const VALID_ROLES = new Set(['admin', 'user', 'tenant_admin', 'tenant_staff']);
+  const VALID_ROLES = new Set(['admin', 'user']);
 
   function validateUserFields(body: any): string | null {
     const { email, role } = body;
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Please enter a valid email address.';
-    if (role && !VALID_ROLES.has(role)) return 'Role must be admin, user, tenant_admin or tenant_staff.';
+    if (role && !VALID_ROLES.has(role)) return 'Role must be admin or user.';
     return null;
   }
 
@@ -1184,6 +1326,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
         .set({ platformDisabledFeatures })
         .where(eq(sharedSchema.customers.id, customerId));
 
+      const featureAdminId = req.session.platformAdminId!;
+      const [featureAdminRow] = await db.select({ username: sharedSchema.platformAdmins.username, companyName: sharedSchema.customers.companyName })
+        .from(sharedSchema.platformAdmins)
+        .where(eq(sharedSchema.platformAdmins.id, featureAdminId))
+        .limit(1);
+      const [customerForFeature] = await db.select({ companyName: sharedSchema.customers.companyName }).from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId)).limit(1);
+      await writeAudit({ adminId: featureAdminId, adminUsername: featureAdminRow?.username ?? 'unknown', action: 'customer.features_change', targetType: 'customer', targetId: customerId, targetLabel: customerForFeature?.companyName, details: { platformDisabledFeatures } });
+
       res.json({ success: true, platformDisabledFeatures });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -1217,7 +1367,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  app.post("/platform-admin/admins", requirePlatformAdmin, async (req, res) => {
+  app.post("/platform-admin/admins", requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
     try {
       const { username, email, password, firstName, lastName, role } = req.body;
 
@@ -1263,6 +1413,9 @@ export function registerPlatformAdminRoutes(app: Express): void {
         });
 
       logger.info(`Platform admin created: ${username}`);
+      const creatorId = req.session.platformAdminId!;
+      const [creatorRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, creatorId)).limit(1);
+      await writeAudit({ adminId: creatorId, adminUsername: creatorRow?.username ?? 'unknown', action: 'admin.create', targetType: 'admin', targetId: newAdmin.id, targetLabel: username, details: { role: role || 'admin' } });
       res.json({ success: true, admin: newAdmin });
     } catch (error) {
       logger.error('Error creating platform admin:', error);
@@ -1270,7 +1423,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  app.patch("/platform-admin/admins/:adminId", requirePlatformAdmin, async (req, res) => {
+  app.patch("/platform-admin/admins/:adminId", requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
     try {
       const { adminId } = req.params;
       const { password, firstName, lastName, email, role } = req.body;
@@ -1301,6 +1454,9 @@ export function registerPlatformAdminRoutes(app: Express): void {
       }
 
       logger.info(`Platform admin updated: ${updated.username}`);
+      const updaterId = req.session.platformAdminId!;
+      const [updaterRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, updaterId)).limit(1);
+      await writeAudit({ adminId: updaterId, adminUsername: updaterRow?.username ?? 'unknown', action: 'admin.update', targetType: 'admin', targetId: adminId, targetLabel: updated.username, details: { fieldsChanged: Object.keys(updateData).filter(k => k !== 'updatedAt') } });
       res.json({ success: true, admin: updated });
     } catch (error) {
       logger.error('Error updating platform admin:', error);
@@ -1308,10 +1464,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  app.delete("/platform-admin/admins/:adminId", requirePlatformAdmin, async (req, res) => {
+  app.delete("/platform-admin/admins/:adminId", requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
     try {
       const { adminId } = req.params;
-      const currentAdminId = req.session.platformAdminId;
+      const currentAdminId = req.session.platformAdminId!;
 
       if (adminId === currentAdminId) {
         return res.status(400).json({ error: 'Cannot delete your own account' });
@@ -1327,10 +1483,47 @@ export function registerPlatformAdminRoutes(app: Express): void {
       }
 
       logger.info(`Platform admin deleted: ${deleted.username}`);
+      const [deleterRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, currentAdminId)).limit(1);
+      await writeAudit({ adminId: currentAdminId, adminUsername: deleterRow?.username ?? 'unknown', action: 'admin.delete', targetType: 'admin', targetId: adminId, targetLabel: deleted.username });
       res.json({ success: true, message: `Admin ${deleted.username} deleted` });
     } catch (error) {
       logger.error('Error deleting platform admin:', error);
       res.status(500).json({ error: 'Failed to delete admin' });
+    }
+  });
+
+  // ── Platform Admin Audit Log ─────────────────────────────────────────────
+
+  /**
+   * GET /platform-admin/audit — paginated audit log, newest first. Super admin only.
+   */
+  app.get("/platform-admin/audit", requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const offset = Number(req.query.offset) || 0;
+      const targetType = req.query.targetType as string | undefined;
+      const adminIdFilter = req.query.adminId as string | undefined;
+
+      let query = db
+        .select()
+        .from(sharedSchema.platformAdminAudit)
+        .orderBy(desc(sharedSchema.platformAdminAudit.createdAt))
+        .limit(limit)
+        .offset(offset)
+        .$dynamic();
+
+      if (targetType) {
+        query = query.where(eq(sharedSchema.platformAdminAudit.targetType, targetType));
+      }
+      if (adminIdFilter) {
+        query = query.where(eq(sharedSchema.platformAdminAudit.adminId, adminIdFilter));
+      }
+
+      const rows = await query;
+      res.json({ success: true, audit: rows, pagination: { limit, offset } });
+    } catch (error) {
+      logger.error('Error fetching audit log:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch audit log' });
     }
   });
 
