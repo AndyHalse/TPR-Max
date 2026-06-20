@@ -71,6 +71,7 @@ interface PendingOtp {
   adminFirstName: string;
   otp: string;
   expiresAt: number;
+  failureCount: number; // per-token brute-force counter
 }
 const pendingOtps = new Map<string, PendingOtp>();
 
@@ -129,6 +130,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         adminFirstName: admin.firstName,
         otp,
         expiresAt: Date.now() + 10 * 60 * 1000,
+        failureCount: 0,
       });
 
       // Send OTP via email — SendGrid first, SMTP fallback, keep OTP alive on failure
@@ -224,6 +226,12 @@ export function registerPlatformAdminRoutes(app: Express): void {
       const submittedOtp = Buffer.from(otp.trim().padEnd(6, ' '));
       const expectedOtp  = Buffer.from(pending.otp.padEnd(6, ' '));
       if (submittedOtp.length !== expectedOtp.length || !crypto.timingSafeEqual(submittedOtp, expectedOtp)) {
+        pending.failureCount += 1;
+        if (pending.failureCount >= 5) {
+          pendingOtps.delete(pendingToken);
+          logger.warn(`Platform admin 2FA token invalidated after ${pending.failureCount} failed attempts for admin ${pending.adminEmail}`);
+          return res.status(400).json({ error: "Too many incorrect attempts. Please log in again to receive a new verification code.", requiresRelogin: true });
+        }
         return res.status(400).json({ error: "Invalid verification code. Please try again." });
       }
 

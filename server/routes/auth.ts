@@ -54,6 +54,7 @@ export function registerAuthRoutes(app: Express): void {
     otp: string;
     expiresAt: Date;
     lastSentAt: Date; // for resend cooldown
+    failureCount: number; // per-token brute-force counter
   }
   const pendingCustomerOtps = new Map<string, PendingCustomerOtp>();
   // Reverse-lookup: userId → active pendingToken (for resend cooldown)
@@ -438,6 +439,7 @@ export function registerAuthRoutes(app: Express): void {
         otp,
         expiresAt,
         lastSentAt,
+        failureCount: 0,
       });
       otpByUserId.set(userId, pendingToken);
 
@@ -554,6 +556,16 @@ export function registerAuthRoutes(app: Express): void {
       const submittedOtp = Buffer.from(otp.trim().padEnd(6, ' '));
       const expectedOtp  = Buffer.from(pending.otp.padEnd(6, ' '));
       if (submittedOtp.length !== expectedOtp.length || !crypto.timingSafeEqual(submittedOtp, expectedOtp)) {
+        pending.failureCount += 1;
+        if (pending.failureCount >= 5) {
+          pendingCustomerOtps.delete(pendingToken);
+          otpByUserId.delete(pending.userId);
+          logger.warn(`2FA token invalidated after ${pending.failureCount} failed attempts for user ${pending.username}`);
+          return res.status(401).json({
+            error: 'Too many incorrect attempts. Please log in again to receive a new verification code.',
+            requiresRelogin: true,
+          });
+        }
         return res.status(401).json({
           error: 'Incorrect verification code. Please check your email and try again.',
         });

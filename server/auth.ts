@@ -611,6 +611,11 @@ export class AuthService {
         return null;
       }
 
+      if (user.isActive === false) {
+        logger.info(`❌ Login rejected — account is inactive: "${username}"`);
+        return null;
+      }
+
       logger.info(`🔍 Verifying password for user: ${user.username}, hash starts with: ${user.password?.substring(0, 10)}`);
       const isValid = await this.verifyPassword(password, user.password);
       if (!isValid) {
@@ -824,6 +829,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       // req.session mutation here so the shared session cookie is never dirtied.
       req.customerId = customerId;
       (req as any).userId = userId;
+      if ((req as any).userIsInactive) {
+        logger.info('🚨 SECURITY: requireAuth rejected inactive user (Bearer):', { userId, customerId });
+        return res.status(401).json({ error: 'Your account has been deactivated. Please contact your administrator.' });
+      }
       logger.info('✅ SECURITY: requireAuth passed via Bearer token:', { userId, customerId });
       return next();
     } catch (err) {
@@ -841,6 +850,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       sessionId: req.session ? req.sessionID : 'none'
     });
     return res.status(401).json({ error: 'Authentication required - proper tenant context missing' });
+  }
+
+  if ((req as any).userIsInactive) {
+    logger.info('🚨 SECURITY: requireAuth rejected inactive user (session):', {
+      userId: req.session.userId,
+      customerId: req.session.customerId,
+    });
+    return res.status(401).json({ error: 'Your account has been deactivated. Please contact your administrator.' });
   }
   
   // Set customerId on request for route handlers to access
@@ -941,7 +958,12 @@ export async function loadUser(req: Request, res: Response, next: NextFunction) 
           .where(eq(isolatedSchema.users.id, userId))
           .limit(1);
         if (users[0]) {
-          req.user = users[0] as any;
+          if (users[0].isActive === false) {
+            (req as any).userIsInactive = true;
+            logger.info(`🚨 LOADUSER: Bearer token user is inactive — blocking: ${userId}`);
+          } else {
+            req.user = users[0] as any;
+          }
         }
       } catch (error) {
         logger.error('Failed to load user from Bearer token context:', error);
@@ -981,9 +1003,14 @@ export async function loadUser(req: Request, res: Response, next: NextFunction) 
         .limit(1);
       
       if (users[0]) {
-        req.user = users[0] as any;
-        req.customerId = req.session.customerId;
-        (req as any).userId = req.session.userId;
+        if (users[0].isActive === false) {
+          (req as any).userIsInactive = true;
+          logger.info(`🚨 LOADUSER: Session user is inactive — blocking: ${req.session.userId}`);
+        } else {
+          req.user = users[0] as any;
+          req.customerId = req.session.customerId;
+          (req as any).userId = req.session.userId;
+        }
       }
     } catch (error) {
       logger.error('Failed to load user from customer-specific session:', error);
