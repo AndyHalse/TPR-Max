@@ -321,6 +321,33 @@ export function registerPermitToWorkRoutes(app: Express): void {
     }
   });
 
+  app.patch('/api/ptw/company-documents/:docId/approve', requireAuth, requirePermitToWorkFeature, async (req, res) => {
+    try {
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') {
+        return res.status(403).json({ error: 'Only managers or admins can approve documents.' });
+      }
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      const { docId } = req.params;
+      // Ensure approved_by / approved_at columns exist (idempotent)
+      await custDb.execute(sql`ALTER TABLE ${sql.raw(schemaName)}.ptw_company_documents ADD COLUMN IF NOT EXISTS approved_by TEXT`);
+      await custDb.execute(sql`ALTER TABLE ${sql.raw(schemaName)}.ptw_company_documents ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`);
+      const approverName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
+      const result = await custDb.execute(
+        sql`UPDATE ${sql.raw(schemaName)}.ptw_company_documents
+            SET approved_by = ${approverName}, approved_at = NOW()
+            WHERE id = ${docId}
+            RETURNING *`
+      );
+      const doc = (result.rows || result)[0];
+      if (!doc) return res.status(404).json({ error: 'Document not found.' });
+      res.json({ ...doc, status: calcDocStatus(doc.expiry_date) });
+    } catch (err) {
+      logger.error('PATCH /api/ptw/company-documents/:docId/approve', err);
+      res.status(500).json({ error: 'Failed to approve document' });
+    }
+  });
+
   // ─── GET single permit ───────────────────────────────────────────────────────
   app.get('/api/ptw/:id', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, getCsrfToken } from "@/lib/queryClient";
+import { apiRequest, getCsrfToken, objectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import {
   ClipboardList, Plus, Eye, CheckCircle2, XCircle, Clock, AlertTriangle,
   Flame, Zap, HardHat, Wind, Shovel, TriangleAlert, FileWarning,
   ChevronRight, ChevronDown, User, Calendar, MapPin, MoreVertical, RefreshCw, Pause, Play, Lock, Info,
-  Shield, Upload, Trash2, RotateCcw, FileText, ExternalLink, Paperclip
+  Shield, Upload, Trash2, RotateCcw, FileText, ExternalLink, Paperclip, BadgeCheck
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -74,6 +74,8 @@ interface CompanyDoc {
   uploaded_by_name: string | null;
   uploaded_at: string;
   replaced_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
 }
 
 interface Permit {
@@ -646,6 +648,19 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
     onError: (e: any) => toast({ title: e.message || 'Delete failed', variant: 'destructive' }),
   });
 
+  const approveMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      const res = await apiRequest('PATCH', `/api/ptw/company-documents/${docId}/approve`);
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Approval failed'); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Document approved', description: 'Approval recorded with your name and timestamp.' });
+      qc.invalidateQueries({ queryKey: ['/api/ptw/company-documents'] });
+    },
+    onError: (e: any) => toast({ title: e.message || 'Approval failed', variant: 'destructive' }),
+  });
+
   const handleSubmit = () => {
     const isReplace = !!uploadDialog?.replaceDoc;
     if (!isReplace && !form.documentType) { toast({ title: 'Please select a document type.', variant: 'destructive' }); return; }
@@ -738,7 +753,7 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
               );
             }
             return (
-              <ComplianceDocCard key={type} doc={uploaded} isManager={isManager} onReplace={() => openUpload(uploaded)} onDelete={() => setDeleteConfirm(uploaded)} />
+              <ComplianceDocCard key={type} doc={uploaded} isManager={isManager} onReplace={() => openUpload(uploaded)} onDelete={() => setDeleteConfirm(uploaded)} onApprove={() => approveMutation.mutate(uploaded.id)} approving={approveMutation.isPending} />
             );
           })}
         </div>
@@ -755,7 +770,7 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
           ) : (
             <div className="space-y-3">
               {otherDocs.map(doc => (
-                <ComplianceDocCard key={doc.id} doc={doc} isManager={isManager} onReplace={() => openUpload(doc)} onDelete={() => setDeleteConfirm(doc)} />
+                <ComplianceDocCard key={doc.id} doc={doc} isManager={isManager} onReplace={() => openUpload(doc)} onDelete={() => setDeleteConfirm(doc)} onApprove={() => approveMutation.mutate(doc.id)} approving={approveMutation.isPending} />
               ))}
             </div>
           )}
@@ -852,22 +867,29 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
   );
 }
 
-function ComplianceDocCard({ doc, isManager, onReplace, onDelete }: {
+function ComplianceDocCard({ doc, isManager, onReplace, onDelete, onApprove, approving }: {
   doc: CompanyDoc; isManager: boolean; onReplace: () => void; onDelete: () => void;
+  onApprove: () => void; approving: boolean;
 }) {
   const typeInfo = COMP_DOC_TYPES[doc.document_type];
+  const isApproved = !!doc.approved_by && !!doc.approved_at;
   return (
     <Card variant="glass" className={doc.status === 'expired' ? 'border-red-200 dark:border-red-800/40' : doc.status === 'expiring_soon' ? 'border-amber-200 dark:border-amber-800/40' : ''}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
             <div className={`p-2 rounded-lg shrink-0 ${doc.status === 'expired' ? 'bg-red-100 dark:bg-red-900/30' : doc.status === 'expiring_soon' ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
               <FileText className={`h-4 w-4 ${doc.status === 'expired' ? 'text-red-600 dark:text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium text-sm text-gray-900 dark:text-white">{doc.title}</p>
                 {docStatusBadge(doc.status)}
+                {isApproved && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 rounded-full px-2 py-0.5">
+                    <BadgeCheck className="h-3 w-3" /> Approved
+                  </span>
+                )}
               </div>
               {typeInfo && typeInfo.label !== doc.title && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{typeInfo.label}</p>
@@ -875,9 +897,13 @@ function ComplianceDocCard({ doc, isManager, onReplace, onDelete }: {
               <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
                 <span className="flex items-center gap-1">
                   <FileText className="h-3 w-3" />
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="hover:underline text-blue-500 truncate max-w-[160px]" onClick={e => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="hover:underline text-blue-500 truncate max-w-[160px]"
+                    onClick={() => window.open(objectUrl(doc.file_url), '_blank')}
+                  >
                     {doc.file_name}
-                  </a>
+                  </button>
                 </span>
                 {doc.expiry_date && (
                   <span className={`flex items-center gap-1 ${doc.status === 'expired' ? 'text-red-500 dark:text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-600 dark:text-amber-400' : ''}`}>
@@ -887,19 +913,47 @@ function ComplianceDocCard({ doc, isManager, onReplace, onDelete }: {
                 {doc.uploaded_by_name && <span>Uploaded by {doc.uploaded_by_name}</span>}
                 {doc.replaced_at && <span>Last replaced {new Date(doc.replaced_at).toLocaleDateString('en-GB')}</span>}
               </div>
+              {isApproved && doc.approved_by && doc.approved_at && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+                  <BadgeCheck className="h-3 w-3 shrink-0" />
+                  Approved by <strong className="ml-0.5">{doc.approved_by}</strong>
+                  <span className="opacity-70">· {new Date(doc.approved_at).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                </p>
+              )}
               {doc.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{doc.notes}</p>}
             </div>
           </div>
-          {isManager && (
-            <div className="flex items-center gap-1 shrink-0">
-              <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={onReplace}>
-                <RotateCcw className="h-3.5 w-3.5 mr-1" /> Replace
+          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+            {/* View Document */}
+            <Button
+              size="sm" variant="outline"
+              className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:hover:bg-blue-900/20"
+              onClick={() => window.open(objectUrl(doc.file_url), '_blank')}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1" /> View
+            </Button>
+            {/* Approve — managers only, not yet approved */}
+            {isManager && !isApproved && (
+              <Button
+                size="sm" variant="outline"
+                className="h-7 px-2 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-900/20"
+                onClick={onApprove}
+                disabled={approving}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={onDelete}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+            )}
+            {isManager && (
+              <>
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={onReplace}>
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" /> Replace
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={onDelete}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
