@@ -738,8 +738,12 @@ export function registerSettingsRoutes(
       const isLegacyPath = firstSegment === 'uploads' || firstSegment === 'contractor-portal';
       const pathCustomerId = isLegacyPath ? null : firstSegment;
 
+      // Track the authenticated customer so we can enforce tenant isolation on legacy paths.
+      let effectiveCustomerId: string | null = null;
+
       const hasStaffSession = !!((req as any).userId && req.customerId);
       if (hasStaffSession) {
+        effectiveCustomerId = req.customerId;
         // For new namespaced paths, the path's customerId must match the session's customer.
         if (pathCustomerId && pathCustomerId !== req.customerId) {
           return res.status(403).json({ error: 'Not permitted.' });
@@ -756,6 +760,7 @@ export function registerSettingsRoutes(
         if (rawToken) {
           try {
             const { customerId: tokenCustomerId } = verifySessionToken(rawToken);
+            effectiveCustomerId = tokenCustomerId;
             // Staff tokens may read any path (including contractor-portal documents)
             // belonging to their own customer — the customer-ID check below enforces that.
             if (pathCustomerId && pathCustomerId !== tokenCustomerId) {
@@ -768,6 +773,7 @@ export function registerSettingsRoutes(
             if (!payload) {
               return res.status(401).json({ error: 'Authentication required to access this file.' });
             }
+            effectiveCustomerId = payload.customerId;
             // Portal tokens may only read contractor-portal documents.
             if (!req.path.includes('/contractor-portal/')) {
               return res.status(403).json({ error: 'Not permitted.' });
@@ -778,6 +784,26 @@ export function registerSettingsRoutes(
           }
         } else {
           return res.status(401).json({ error: 'Authentication required to access this file.' });
+        }
+      }
+
+      // For legacy (un-namespaced) paths the URL contains no customer identifier, so
+      // cross-tenant access cannot be blocked by path inspection alone. Verify ownership
+      // by confirming the exact URL exists in the requesting customer's data. This
+      // prevents a user from one tenant reading another tenant's files via a leaked URL.
+      if (isLegacyPath && effectiveCustomerId) {
+        try {
+          const db = await customerDbService.getCustomerDatabase(effectiveCustomerId);
+          const result = await db.execute(
+            sql`SELECT 1 FROM contractor_documents WHERE document_url = ${req.path} LIMIT 1`
+          );
+          if (!result.rows.length) {
+            logger.warn(`[OBJECTS] Legacy path tenant isolation blocked: ${req.path} not owned by customer ${effectiveCustomerId}`);
+            return res.status(403).json({ error: 'Not permitted.' });
+          }
+        } catch (dbErr) {
+          logger.error('[OBJECTS] Failed to verify legacy path tenant ownership:', dbErr);
+          return res.status(403).json({ error: 'Not permitted.' });
         }
       }
 

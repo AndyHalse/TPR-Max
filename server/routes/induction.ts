@@ -1756,7 +1756,7 @@ export function registerInductionRoutes(app: Express): void {
       const { randomUUID } = await import('crypto');
       const ext = (req.file.originalname.split('.').pop() || 'bin').toLowerCase();
       const objectId = randomUUID();
-      const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+      const fullPath = `${privateObjectDir}/${req.customerId}/uploads/${objectId}.${ext}`;
       const { bucketName, objectName } = parseObjectStoragePath(fullPath);
       const bucket = objectStorageClient.bucket(bucketName);
       const gcsFile = bucket.file(objectName);
@@ -1764,7 +1764,7 @@ export function registerInductionRoutes(app: Express): void {
         contentType: req.file.mimetype || 'application/octet-stream',
         resumable: false,
       });
-      const fileUrl = `/objects/uploads/${objectId}.${ext}`;
+      const fileUrl = `/objects/${req.customerId}/uploads/${objectId}.${ext}`;
       res.json({ fileUrl });
     } catch (error) {
       logger.error('❌ Error uploading worker document to object storage:', error);

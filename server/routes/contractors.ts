@@ -1937,6 +1937,9 @@ export function registerContractorRoutes(app: Express): void {
   const contractorDocUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
   app.post("/api/contractors/:companyId/documents/upload", requireAuth, contractorDocUpload.single('file'), async (req, res) => {
     try {
+      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
+        return res.status(403).json({ error: 'Manager or administrator access required' });
+      }
       if (!req.file) return res.status(400).json({ error: 'No file provided' });
       const { companyId } = req.params;
       const username = req.user!.username;
@@ -1951,7 +1954,7 @@ export function registerContractorRoutes(app: Express): void {
       const { randomUUID } = await import('crypto');
       const ext = (req.file.originalname.split('.').pop() || 'bin').toLowerCase();
       const objectId = randomUUID();
-      const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+      const fullPath = `${privateObjectDir}/${req.customerId}/uploads/${objectId}.${ext}`;
       const { bucketName, objectName } = parseObjectPath(fullPath);
       const bucket = objectStorageClient.bucket(bucketName);
       const gcsFile = bucket.file(objectName);
@@ -1959,8 +1962,8 @@ export function registerContractorRoutes(app: Express): void {
         contentType: req.file.mimetype || 'application/octet-stream',
         resumable: false,
       });
-      // Return internal object path — consumed by POST /api/contractors/:id/documents
-      const fileUrl = `/objects/uploads/${objectId}.${ext}`;
+      // Return namespaced internal object path — consumed by POST /api/contractors/:id/documents
+      const fileUrl = `/objects/${req.customerId}/uploads/${objectId}.${ext}`;
       res.json({ fileUrl });
     } catch (error) {
       logger.error('Error uploading company document to object storage:', error);
@@ -1989,6 +1992,9 @@ export function registerContractorRoutes(app: Express): void {
 
   app.post("/api/contractors/:companyId/documents", requireAuth, async (req, res) => {
     try {
+      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
+        return res.status(403).json({ error: 'Manager or administrator access required' });
+      }
       const { companyId } = req.params;
       const { documentName, documentType, documentUrl, expiryDate, issuedBy, policyNumber } = req.body;
       const username = req.user!.username;
@@ -2000,6 +2006,18 @@ export function registerContractorRoutes(app: Express): void {
 
       const objectStorageService = new ObjectStorageService();
       const normalizedUrl = documentUrl ? objectStorageService.normalizeObjectEntityPath(documentUrl) : documentUrl;
+
+      // Reject any /objects/ URL that is not namespaced to this customer.
+      // Legacy paths (/objects/uploads/... or /objects/contractor-portal/...) do not carry
+      // a tenant identifier and can be forged by an authorized user from another tenant to
+      // gain access to that tenant's private files. Only namespaced paths belonging to the
+      // current customer are permitted.
+      if (normalizedUrl && normalizedUrl.startsWith('/objects/')) {
+        const isNamespaced = normalizedUrl.startsWith(`/objects/${req.customerId}/`);
+        if (!isNamespaced) {
+          return res.status(400).json({ error: 'Invalid document URL: please use a freshly uploaded file' });
+        }
+      }
 
       const [document] = await db.insert(isolatedSchema.contractorDocuments).values({
         companyId,
@@ -2055,6 +2073,9 @@ export function registerContractorRoutes(app: Express): void {
 
   app.patch("/api/contractors/:companyId/documents/:documentId", requireAuth, async (req, res) => {
     try {
+      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
+        return res.status(403).json({ error: 'Manager or administrator access required' });
+      }
       const { companyId, documentId } = req.params;
       const { documentUrl, expiryDate, issuedBy, policyNumber, status } = req.body;
       const username = req.user!.username;
@@ -2063,6 +2084,14 @@ export function registerContractorRoutes(app: Express): void {
 
       const objectStorageService = new ObjectStorageService();
       const normalizedUrl = documentUrl ? objectStorageService.normalizeObjectEntityPath(documentUrl) : undefined;
+
+      // Reject any /objects/ URL that is not namespaced to this customer (same rule as create).
+      if (normalizedUrl && normalizedUrl.startsWith('/objects/')) {
+        const isNamespaced = normalizedUrl.startsWith(`/objects/${req.customerId}/`);
+        if (!isNamespaced) {
+          return res.status(400).json({ error: 'Invalid document URL: please use a freshly uploaded file' });
+        }
+      }
 
       // Read current state before updating so we can detect genuine expiry transitions
       const [prevDoc] = await db.select({
@@ -2168,6 +2197,9 @@ export function registerContractorRoutes(app: Express): void {
   // Delete (soft-delete) a company document — preserves the row for audit/GDPR history
   app.delete("/api/contractors/:companyId/documents/:documentId", requireAuth, async (req, res) => {
     try {
+      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
+        return res.status(403).json({ error: 'Manager or administrator access required' });
+      }
       const { companyId, documentId } = req.params;
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
@@ -2253,6 +2285,9 @@ export function registerContractorRoutes(app: Express): void {
   // Approve a company document
   app.patch("/api/contractors/:companyId/documents/:documentId/approve", requireAuth, async (req, res) => {
     try {
+      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
+        return res.status(403).json({ error: 'Manager or administrator access required' });
+      }
       const { companyId, documentId } = req.params;
       const username = req.user!.username;
       const displayName = req.user!.firstName && req.user!.lastName
