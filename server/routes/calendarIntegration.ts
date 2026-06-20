@@ -182,6 +182,12 @@ export function registerCalendarIntegrationRoutes(app: Express): void {
       if (oauthError) return res.redirect('/settings/calendar-integration?error=oauth_denied');
       if (!code || !state) return res.redirect('/settings/calendar-integration?error=oauth_failed');
 
+      const sessionState = (req.session as any).calendarOauthState;
+      if (!sessionState || sessionState !== state) {
+        return res.redirect('/settings/calendar-integration?error=oauth_failed');
+      }
+      delete (req.session as any).calendarOauthState;
+
       let stateData: any;
       try { stateData = JSON.parse(Buffer.from(state, 'base64url').toString()); } catch {
         return res.redirect('/settings/calendar-integration?error=oauth_failed');
@@ -247,6 +253,12 @@ export function registerCalendarIntegrationRoutes(app: Express): void {
       const { code, state, error: oauthError } = req.query as Record<string, string>;
       if (oauthError) return res.redirect('/settings/calendar-integration?error=oauth_denied');
       if (!code || !state) return res.redirect('/settings/calendar-integration?error=oauth_failed');
+
+      const sessionState = (req.session as any).calendarOauthState;
+      if (!sessionState || sessionState !== state) {
+        return res.redirect('/settings/calendar-integration?error=oauth_failed');
+      }
+      delete (req.session as any).calendarOauthState;
 
       let stateData: any;
       try { stateData = JSON.parse(Buffer.from(state, 'base64url').toString()); } catch {
