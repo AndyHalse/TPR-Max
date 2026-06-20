@@ -2589,10 +2589,13 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           );
           deleted['worker_document_acceptances'] = r.rowCount ?? 0;
         } catch (e) { logger.warn(`Clear sample: worker_document_acceptances — ${(e as any).message}`); }
-        await del('co2_records',          `WHERE worker_id IN (${wP})`, workerIds);
-        await del('local_labour_records', `WHERE worker_id IN (${wP})`, workerIds);
-        // Lone worker sessions for sample workers
-        await del('lone_worker_sessions', `WHERE person_email LIKE '%@example.com'`);
+        await del('co2_records',           `WHERE worker_id IN (${wP})`, workerIds);
+        await del('local_labour_records',  `WHERE worker_id IN (${wP})`, workerIds);
+        await del('contractor_documents',  `WHERE worker_id IN (${wP})`, workerIds);
+        await del('nvq_qualifications',    `WHERE worker_id IN (${wP})`, workerIds);
+        await del('card_issues',           `WHERE worker_id IN (${wP})`, workerIds);
+        // Lone worker sessions for sample workers (sample data uses @acsltd.eu)
+        await del('lone_worker_sessions', `WHERE person_email LIKE '%@acsltd.eu'`);
       }
 
       // ── Step 3: Delete company-dependent rows (NO ACTION FKs) ─────────────
@@ -2652,12 +2655,17 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       }
       await del('pre_bookings', `WHERE visitor_email LIKE '%@example.com'`);
 
-      // ── Step 5: Staff HR records + sessions ──────────────────────────────
+      // ── Step 5: Staff HR records + sessions + room bookings referencing sample staff ──
       if (staffIds.length > 0) {
         const sP = inP(staffIds);
         for (const t of ['right_to_work','staff_dbs','leave_requests','absence_records','staff_training_records','staff_documents','appraisals','onboarding_checklists','leaver_checklists','staff_sessions']) {
           await del(t, `WHERE staff_id IN (${sP})`, staffIds);
         }
+        // room_bookings.booked_by_staff_id → staff.id (NO ACTION FK) — must be deleted
+        // BEFORE the staff row itself or the deletion of staff will be blocked.
+        // Sample bookings use id LIKE 'booking-demo-%' but we also match by staff FK to be safe.
+        await del('room_bookings', `WHERE booked_by_staff_id IN (${sP}) OR id LIKE 'booking-demo-%'`, staffIds);
+        await del('room_booking_attendees', `WHERE staff_id IN (${sP})`, staffIds);
         try {
           await pool.query(`UPDATE "${schemaName}".staff SET employment_status='active', is_active=TRUE, contract_end_date=NULL WHERE id IN (${sP})`, staffIds);
         } catch (e) { logger.warn(`Clear sample: staff reset — ${(e as any).message}`); }
