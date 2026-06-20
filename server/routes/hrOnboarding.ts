@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -9,13 +9,6 @@ async function getPool(customerId: string) {
   const schemaName = customerDbService.generateSchemaName(customerId);
   const pool = (custDb as any).$client ?? (custDb as any).session?.client;
   return { pool, schemaName };
-}
-
-function requireAdmin(req: any, res: any, next: any) {
-  if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
-    return res.status(403).json({ error: 'Admin role required' });
-  }
-  next();
 }
 
 // Default template — 12 core items + UK-statutory items
@@ -360,7 +353,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // GET /api/onboarding/templates/:id — get one template (items)
-  app.get('/api/onboarding/templates/:id', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/api/onboarding/templates/:id', requireAuth, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const id = req.params.id;
@@ -385,7 +378,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // POST /api/onboarding/templates — create new template set
-  app.post('/api/onboarding/templates', requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/onboarding/templates', requireAuth, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { name, items, is_default, copyFromId } = req.body;
@@ -425,7 +418,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
 
   // PUT /api/onboarding/templates/:id — replace items / rename / set default.
   // Editing the built-in transparently materialises a tenant-owned default set.
-  app.put('/api/onboarding/templates/:id', requireAuth, requireAdmin, async (req, res) => {
+  app.put('/api/onboarding/templates/:id', requireAuth, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       let id = req.params.id;
@@ -482,7 +475,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // DELETE /api/onboarding/templates/:id
-  app.delete('/api/onboarding/templates/:id', requireAuth, requireAdmin, async (req, res) => {
+  app.delete('/api/onboarding/templates/:id', requireAuth, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const id = req.params.id;

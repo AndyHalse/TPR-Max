@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin, recordHrAudit } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -41,8 +41,8 @@ export function registerHrAppraisalRoutes(app: Express): void {
     }
   });
 
-  // POST /api/staff/:staffId/appraisals
-  app.post('/api/staff/:staffId/appraisals', requireAuth, requireHrFeature, async (req, res) => {
+  // POST /api/staff/:staffId/appraisals — HR admin only
+  app.post('/api/staff/:staffId/appraisals', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -50,6 +50,12 @@ export function registerHrAppraisalRoutes(app: Express): void {
 
       if (!reviewDate || !conductedBy) {
         return res.status(400).json({ error: 'reviewDate and conductedBy are required' });
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(reviewDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'reviewDate must be YYYY-MM-DD' });
+      }
+      if (nextReviewDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(nextReviewDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'nextReviewDate must be YYYY-MM-DD' });
       }
 
       const appraisal = await pool.query(
@@ -71,6 +77,12 @@ export function registerHrAppraisalRoutes(app: Express): void {
         savedObjectives.push(o.rows[0]);
       }
 
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'appraisal', entityId: appraisalId, staffId,
+        action: 'create', actor: req.user?.username || 'unknown',
+        details: { reviewDate, reviewType, conductedBy, overallRating },
+      });
+
       res.status(201).json({ ...appraisal.rows[0], objectives: savedObjectives });
     } catch (err: any) {
       logger.error('Appraisal create error:', err);
@@ -78,11 +90,15 @@ export function registerHrAppraisalRoutes(app: Express): void {
     }
   });
 
-  // PUT /api/appraisals/:id
-  app.put('/api/appraisals/:id', requireAuth, requireHrFeature, async (req, res) => {
+  // PUT /api/appraisals/:id — HR admin only
+  app.put('/api/appraisals/:id', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { overallRating, summaryNotes, nextReviewDate, objectives } = req.body;
+
+      if (nextReviewDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(nextReviewDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'nextReviewDate must be YYYY-MM-DD' });
+      }
 
       const result = await pool.query(
         `UPDATE "${schemaName}".appraisals
@@ -101,6 +117,12 @@ export function registerHrAppraisalRoutes(app: Express): void {
           );
         }
       }
+
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'appraisal', entityId: req.params.id,
+        action: 'update', actor: req.user?.username || 'unknown',
+        details: { overallRating, nextReviewDate },
+      });
 
       res.json(result.rows[0]);
     } catch (err: any) {

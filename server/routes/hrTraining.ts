@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin, recordHrAudit } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -42,8 +42,8 @@ export function registerHrTrainingRoutes(app: Express): void {
     }
   });
 
-  // POST /api/staff/:staffId/training
-  app.post('/api/staff/:staffId/training', requireAuth, requireHrFeature, async (req, res) => {
+  // POST /api/staff/:staffId/training — HR admin only
+  app.post('/api/staff/:staffId/training', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -51,6 +51,12 @@ export function registerHrTrainingRoutes(app: Express): void {
 
       if (!courseName || !completedDate) {
         return res.status(400).json({ error: 'courseName and completedDate are required' });
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(completedDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'completedDate must be YYYY-MM-DD' });
+      }
+      if (expiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(expiryDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'expiryDate must be YYYY-MM-DD' });
       }
 
       const result = await pool.query(
@@ -63,6 +69,12 @@ export function registerHrTrainingRoutes(app: Express): void {
       );
 
       const row = result.rows[0];
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'training', entityId: row.id, staffId,
+        action: 'create', actor: req.user?.username || 'unknown',
+        details: { courseName, completedDate, expiryDate, isMandatory },
+      });
+
       res.status(201).json({ ...row, status: trainingStatus(row.expiry_date) });
     } catch (err: any) {
       logger.error('Training create error:', err);
@@ -70,14 +82,21 @@ export function registerHrTrainingRoutes(app: Express): void {
     }
   });
 
-  // DELETE /api/staff/:staffId/training/:id — soft delete
-  app.delete('/api/staff/:staffId/training/:id', requireAuth, requireHrFeature, async (req, res) => {
+  // DELETE /api/staff/:staffId/training/:id — soft delete (HR admin only)
+  app.delete('/api/staff/:staffId/training/:id', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
+      const actor = req.user?.username || 'unknown';
       await pool.query(
-        `UPDATE "${schemaName}".staff_training_records SET deleted_at = NOW() WHERE id = $1 AND staff_id = $2`,
-        [req.params.id, req.params.staffId]
+        `UPDATE "${schemaName}".staff_training_records
+         SET deleted_at = NOW(), deleted_by = $3
+         WHERE id = $1 AND staff_id = $2`,
+        [req.params.id, req.params.staffId, actor]
       );
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'training', entityId: req.params.id, staffId: req.params.staffId,
+        action: 'delete', actor,
+      });
       res.json({ success: true });
     } catch (err: any) {
       logger.error('Training delete error:', err);
@@ -152,8 +171,8 @@ export function registerHrTrainingRoutes(app: Express): void {
     }
   });
 
-  // POST /api/training/requirements
-  app.post('/api/training/requirements', requireAuth, requireHrFeature, async (req, res) => {
+  // POST /api/training/requirements — HR admin only
+  app.post('/api/training/requirements', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { courseName, appliesTo = 'all', appliesValue, renewalPeriodMonths } = req.body;
@@ -171,8 +190,8 @@ export function registerHrTrainingRoutes(app: Express): void {
     }
   });
 
-  // DELETE /api/training/requirements/:id
-  app.delete('/api/training/requirements/:id', requireAuth, requireHrFeature, async (req, res) => {
+  // DELETE /api/training/requirements/:id — HR admin only
+  app.delete('/api/training/requirements/:id', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       await pool.query(`DELETE FROM "${schemaName}".training_requirements WHERE id = $1`, [req.params.id]);

@@ -1141,6 +1141,31 @@ export class CustomerDatabaseService {
     }
     // ─── END AUDIT ENGINE TABLES ──────────────────────────────────────────────
 
+    // ─── HR HARDENING: deleted_by + audit log ─────────────────────────────────
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".staff_dbs ADD COLUMN IF NOT EXISTS deleted_by TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff_training_records ADD COLUMN IF NOT EXISTS deleted_by TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff_documents ADD COLUMN IF NOT EXISTS deleted_by TEXT`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".hr_audit_log (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT,
+          staff_id TEXT,
+          action TEXT NOT NULL,
+          actor TEXT NOT NULL,
+          details JSONB,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_hr_audit_staff ON "${schemaName}".hr_audit_log(staff_id) WHERE staff_id IS NOT NULL`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_hr_audit_entity ON "${schemaName}".hr_audit_log(entity_type, entity_id)`);
+      logger.info(`✅ HR audit log + deleted_by columns ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ HR audit log migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    // ─── END HR HARDENING ─────────────────────────────────────────────────────
+
     // ─── RA BUILDER TABLES ────────────────────────────────────────────────────
     try {
       await pool.query(`

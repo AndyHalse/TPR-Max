@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin, recordHrAudit } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -29,8 +29,8 @@ export function registerHrRightToWorkRoutes(app: Express): void {
     }
   });
 
-  // POST /api/staff/:staffId/right-to-work
-  app.post('/api/staff/:staffId/right-to-work', requireAuth, requireHrFeature, async (req, res) => {
+  // POST /api/staff/:staffId/right-to-work — HR admin only
+  app.post('/api/staff/:staffId/right-to-work', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const { staffId } = req.params;
@@ -41,6 +41,12 @@ export function registerHrRightToWorkRoutes(app: Express): void {
 
       if (!documentType || !verifiedDate || !verifiedBy) {
         return res.status(400).json({ error: 'documentType, verifiedDate and verifiedBy are required' });
+      }
+      if (issueDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(issueDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'issueDate must be YYYY-MM-DD' });
+      }
+      if (expiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(expiryDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'expiryDate must be YYYY-MM-DD' });
       }
 
       await pool.query(
@@ -57,7 +63,14 @@ export function registerHrRightToWorkRoutes(app: Express): void {
          expiryDate || null, verifiedDate, verifiedBy, verificationMethod, notes || null]
       );
 
-      res.status(201).json(result.rows[0]);
+      const row = result.rows[0];
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'right_to_work', entityId: row.id, staffId,
+        action: 'create', actor: req.user?.username || 'unknown',
+        details: { documentType, verifiedBy, expiryDate },
+      });
+
+      res.status(201).json(row);
     } catch (err: any) {
       logger.error('RTW create error:', err);
       res.status(500).json({ error: 'Failed to create right to work record' });

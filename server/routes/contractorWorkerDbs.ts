@@ -5,6 +5,8 @@ import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
 import { sendDbsExpiryReminders } from './hrDbs';
+import { sendRtwExpiryReminders } from './hrRightToWork';
+import { sendTrainingExpiryReminders } from './hrTraining';
 
 async function getDbsPool(customerId: string) {
   const custDb = await customerDbService.getCustomerDatabase(customerId);
@@ -259,6 +261,8 @@ cron.schedule('0 1 * * *', async () => {
         await Promise.all([
           sendDbsExpiryReminders(customer.id, companyName),
           sendContractorDbsExpiryReminders(customer.id, companyName),
+          sendRtwExpiryReminders(customer.id, companyName),
+          sendTrainingExpiryReminders(customer.id),
         ]);
       } catch (err: any) {
         logger.error(`[DBS Reminder Cron] Failed for customer ${customer.id}:`, err);

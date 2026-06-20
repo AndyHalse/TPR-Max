@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin, recordHrAudit } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -38,8 +38,8 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // POST /api/staff/:staffId/dbs
-  app.post('/api/staff/:staffId/dbs', requireAuth, requireHrFeature, async (req, res) => {
+  // POST /api/staff/:staffId/dbs — HR admin only
+  app.post('/api/staff/:staffId/dbs', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const { staffId } = req.params;
@@ -51,6 +51,12 @@ export function registerHrDbsRoutes(app: Express): void {
 
       if (!dbsLevel || !verifiedBy || !verifiedDate) {
         return res.status(400).json({ error: 'dbsLevel, verifiedBy and verifiedDate are required' });
+      }
+      if (issueDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(issueDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'issueDate must be YYYY-MM-DD' });
+      }
+      if (policyExpiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(policyExpiryDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'policyExpiryDate must be YYYY-MM-DD' });
       }
 
       await pool.query(
@@ -77,21 +83,35 @@ export function registerHrDbsRoutes(app: Express): void {
          documentUrl || null, documentName || null]
       );
 
-      res.status(201).json(result.rows[0]);
+      const row = result.rows[0];
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'dbs', entityId: row.id, staffId,
+        action: 'create', actor: req.user?.username || 'unknown',
+        details: { dbsLevel, verifiedBy, verifiedDate, policyExpiryDate },
+      });
+
+      res.status(201).json(row);
     } catch (err: any) {
       logger.error('DBS create error:', err);
       res.status(500).json({ error: 'Failed to create DBS record' });
     }
   });
 
-  // PUT /api/dbs/:id
-  app.put('/api/dbs/:id', requireAuth, requireHrFeature, async (req, res) => {
+  // PUT /api/dbs/:id — HR admin only
+  app.put('/api/dbs/:id', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const {
         dbsLevel, certificateNumber, applicationReference,
         issueDate, policyExpiryDate, requestedBy, verifiedBy, verifiedDate, notes,
       } = req.body;
+
+      if (issueDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(issueDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'issueDate must be YYYY-MM-DD' });
+      }
+      if (policyExpiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(policyExpiryDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'policyExpiryDate must be YYYY-MM-DD' });
+      }
 
       const result = await pool.query(
         `UPDATE "${schemaName}".staff_dbs SET
@@ -113,6 +133,13 @@ export function registerHrDbsRoutes(app: Express): void {
       );
 
       if (result.rows.length === 0) return res.status(404).json({ error: 'Record not found' });
+
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'dbs', entityId: req.params.id,
+        action: 'update', actor: req.user?.username || 'unknown',
+        details: { dbsLevel, policyExpiryDate },
+      });
+
       res.json(result.rows[0]);
     } catch (err: any) {
       logger.error('DBS update error:', err);
@@ -120,14 +147,19 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // DELETE /api/dbs/:id — soft delete (audit trail preserved)
-  app.delete('/api/dbs/:id', requireAuth, requireHrFeature, async (req, res) => {
+  // DELETE /api/dbs/:id — soft delete (HR admin only)
+  app.delete('/api/dbs/:id', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
+      const actor = req.user?.username || 'unknown';
       await pool.query(
-        `UPDATE "${schemaName}".staff_dbs SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
-        [req.params.id]
+        `UPDATE "${schemaName}".staff_dbs SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2 WHERE id = $1`,
+        [req.params.id, actor]
       );
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'dbs', entityId: req.params.id,
+        action: 'delete', actor,
+      });
       res.json({ success: true });
     } catch (err: any) {
       logger.error('DBS delete error:', err);

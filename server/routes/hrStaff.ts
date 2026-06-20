@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
@@ -130,8 +130,8 @@ export function registerHrStaffRoutes(app: Express): void {
     }
   });
 
-  // PATCH /api/staff/:id/hr — update HR-specific fields only
-  app.patch('/api/staff/:id/hr', requireAuth, requireHrFeature, async (req, res) => {
+  // PATCH /api/staff/:id/hr — update HR-specific fields only (HR admin only)
+  app.patch('/api/staff/:id/hr', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);

@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin, recordHrAudit } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { calculateBradfordFactor } from '../utils/bradfordFactor';
 import { logger } from '../utils/logger';
@@ -30,14 +30,17 @@ export function registerHrAbsenceRoutes(app: Express): void {
     }
   });
 
-  // POST /api/staff/:staffId/absences — record start of absence
-  app.post('/api/staff/:staffId/absences', requireAuth, requireHrFeature, async (req, res) => {
+  // POST /api/staff/:staffId/absences — record start of absence (HR admin only)
+  app.post('/api/staff/:staffId/absences', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
       const { absenceType = 'sickness', startDate, reason, documentUrl, documentName } = req.body;
 
       if (!startDate) return res.status(400).json({ error: 'startDate is required' });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(startDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'startDate must be YYYY-MM-DD' });
+      }
 
       const result = await pool.query(
         `INSERT INTO "${schemaName}".absence_records (staff_id, absence_type, start_date, reason, document_url, document_name)
@@ -51,6 +54,12 @@ export function registerHrAbsenceRoutes(app: Express): void {
         [staffId]
       );
 
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'absence', entityId: result.rows[0].id, staffId,
+        action: 'create', actor: req.user?.username || 'unknown',
+        details: { absenceType, startDate },
+      });
+
       res.status(201).json(result.rows[0]);
     } catch (err: any) {
       logger.error('Absence create error:', err);
@@ -58,14 +67,17 @@ export function registerHrAbsenceRoutes(app: Express): void {
     }
   });
 
-  // PUT /api/staff/:staffId/absences/:id/return — record return
-  app.put('/api/staff/:staffId/absences/:id/return', requireAuth, requireHrFeature, async (req, res) => {
+  // PUT /api/staff/:staffId/absences/:id/return — record return (HR admin only)
+  app.put('/api/staff/:staffId/absences/:id/return', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId, id } = req.params;
       const { returnDate, daysLost, returnToWorkNotes, returnToWorkBy } = req.body;
 
       if (!returnDate) return res.status(400).json({ error: 'returnDate is required' });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(returnDate).slice(0, 10))) {
+        return res.status(400).json({ error: 'returnDate must be YYYY-MM-DD' });
+      }
 
       const absResult = await pool.query(
         `SELECT * FROM "${schemaName}".absence_records WHERE id = $1 AND staff_id = $2`,
@@ -109,6 +121,12 @@ export function registerHrAbsenceRoutes(app: Express): void {
            )`,
         [staffId, id]
       );
+
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'absence', entityId: id, staffId,
+        action: 'return', actor: req.user?.username || 'unknown',
+        details: { returnDate, daysLost: daysLost || daysBetween, fitNoteRequired },
+      });
 
       res.json({ absence: result.rows[0], bradfordFactor: bf, fitNoteRequired });
     } catch (err: any) {

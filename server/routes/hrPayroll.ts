@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -30,7 +30,7 @@ function toCsv(rows: any[]): string {
 export function registerHrPayrollRoutes(app: Express): void {
 
   // GET /api/hr/payroll-export
-  app.get('/api/hr/payroll-export', requireAuth, requireHrFeature, async (req, res) => {
+  app.get('/api/hr/payroll-export', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { period_start, period_end = new Date().toISOString().slice(0, 10) } = req.query as any;

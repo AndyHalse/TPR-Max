@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin, recordHrAudit } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { calculateWorkingDays, calculateLeaveBalance, getLeaveYear, UK_BANK_HOLIDAYS, bankHolidaysInRange } from '../utils/leaveUtils';
@@ -126,20 +126,34 @@ export function registerHrLeaveRoutes(app: Express): void {
     }
   });
 
-  // PUT /api/leave/:id/approve
-  app.put('/api/leave/:id/approve', requireAuth, requireHrFeature, async (req, res) => {
+  // PUT /api/leave/:id/approve — HR admin only; actor derived from logged-in user
+  app.put('/api/leave/:id/approve', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
+
+      // Look up the staff row for the logged-in user so we can store their staff id
+      const actorUsername = req.user?.username || '';
+      const actorStaffResult = await pool.query(
+        `SELECT id FROM "${schemaName}".staff WHERE email = $1 OR employee_id = $1 LIMIT 1`,
+        [actorUsername]
+      );
+      const approvedById = actorStaffResult.rows[0]?.id ?? null;
 
       const leaveResult = await pool.query(
         `UPDATE "${schemaName}".leave_requests
          SET status = 'approved', approved_by_id = $1, approved_at = NOW(), updated_at = NOW()
          WHERE id = $2 RETURNING *`,
-        [req.body.approvedById || null, req.params.id]
+        [approvedById, req.params.id]
       );
 
       const leave = leaveResult.rows[0];
       if (!leave) return res.status(404).json({ error: 'Leave request not found' });
+
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'leave', entityId: req.params.id, staffId: leave.staff_id,
+        action: 'approve', actor: actorUsername,
+        details: { approvedById, startDate: leave.start_date, endDate: leave.end_date },
+      });
 
       const staff = await pool.query(
         `SELECT email, first_name, last_name FROM "${schemaName}".staff WHERE id = $1`,
@@ -160,8 +174,8 @@ export function registerHrLeaveRoutes(app: Express): void {
     }
   });
 
-  // PUT /api/leave/:id/decline
-  app.put('/api/leave/:id/decline', requireAuth, requireHrFeature, async (req, res) => {
+  // PUT /api/leave/:id/decline — HR admin only
+  app.put('/api/leave/:id/decline', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { declineReason } = req.body;
@@ -175,6 +189,12 @@ export function registerHrLeaveRoutes(app: Express): void {
 
       const leave = leaveResult.rows[0];
       if (!leave) return res.status(404).json({ error: 'Leave request not found' });
+
+      await recordHrAudit(pool, schemaName, {
+        entityType: 'leave', entityId: req.params.id, staffId: leave.staff_id,
+        action: 'decline', actor: req.user?.username || 'unknown',
+        details: { declineReason },
+      });
 
       const staff = await pool.query(
         `SELECT email FROM "${schemaName}".staff WHERE id = $1`,
@@ -221,8 +241,8 @@ export function registerHrLeaveRoutes(app: Express): void {
     }
   });
 
-  // GET /api/leave/calendar
-  app.get('/api/leave/calendar', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/leave/calendar — HR admin only (shows all staff leave)
+  app.get('/api/leave/calendar', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { start, end } = req.query;
@@ -244,7 +264,7 @@ export function registerHrLeaveRoutes(app: Express): void {
     }
   });
 
-  // GET /api/leave/overlap-check?start=YYYY-MM-DD&end=YYYY-MM-DD&excludeStaffId=...
+  // GET /api/leave/overlap-check
   app.get('/api/leave/overlap-check', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
@@ -269,12 +289,12 @@ export function registerHrLeaveRoutes(app: Express): void {
     }
   });
 
-  // GET /api/leave/bank-holidays
+  // GET /api/leave/bank-holidays — public, no HR admin gate needed
   app.get('/api/leave/bank-holidays', requireAuth, async (_req, res) => {
     res.json({ holidays: UK_BANK_HOLIDAYS });
   });
 
-  // GET /api/leave/working-days?start=...&end=...&halfDay=...&workingDaysPerWeek=...
+  // GET /api/leave/working-days
   app.get('/api/leave/working-days', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { start, end, halfDay, workingDaysPerWeek } = req.query as Record<string, string>;
@@ -294,8 +314,8 @@ export function registerHrLeaveRoutes(app: Express): void {
     }
   });
 
-  // GET /api/leave/pending-approval
-  app.get('/api/leave/pending-approval', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/leave/pending-approval — HR admin only
+  app.get('/api/leave/pending-approval', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
