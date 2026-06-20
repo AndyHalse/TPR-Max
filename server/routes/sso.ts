@@ -255,8 +255,11 @@ export function registerSsoRoutes(app: Express): void {
   app.put('/api/settings/sso-credentials', requireAuth, async (req: Request, res: Response) => {
     try {
       const customerId = req.customerId;
-      const userRole = (req as any).user?.role;
       if (!customerId) return res.status(401).json({ error: 'Not authenticated' });
+
+      if ((req as any).user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Administrator access required' });
+      }
 
       const { ssoTenantId, ssoClientId, ssoClientSecret, ssoRedirectUri } = req.body;
 

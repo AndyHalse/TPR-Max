@@ -153,6 +153,13 @@ export function registerBillingRoutes(app: Express) {
         });
       }
 
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Administrator access required to manage billing'
+        });
+      }
+
       // Validate request body
       const validatedData = createCheckoutSessionSchema.parse(req.body);
 
@@ -194,6 +201,13 @@ export function registerBillingRoutes(app: Express) {
         return res.status(403).json({
           success: false,
           error: 'Access denied - customer context required'
+        });
+      }
+
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Administrator access required to manage billing'
         });
       }
 
@@ -241,6 +255,13 @@ export function registerBillingRoutes(app: Express) {
         });
       }
 
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Administrator access required to manage billing'
+        });
+      }
+
       const { cancelImmediately = false } = req.body;
 
       const result = await stripeService.cancelSubscription(customerId, cancelImmediately);
@@ -269,6 +290,13 @@ export function registerBillingRoutes(app: Express) {
         return res.status(403).json({
           success: false,
           error: 'Access denied - customer context required'
+        });
+      }
+
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Administrator access required to view billing information'
         });
       }
 
@@ -319,6 +347,13 @@ export function registerBillingRoutes(app: Express) {
         return res.status(403).json({
           success: false,
           error: 'Access denied - customer context required'
+        });
+      }
+
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Administrator access required to view billing information'
         });
       }
 

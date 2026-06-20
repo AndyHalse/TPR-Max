@@ -295,6 +295,9 @@ export function registerSettingsRoutes(
       if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
+      }
       const context = { customerId: req.customerId };
       
       const { decryptData } = await import("../utils/encryption");
@@ -344,6 +347,9 @@ export function registerSettingsRoutes(
       
       if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
       
@@ -484,6 +490,9 @@ export function registerSettingsRoutes(
       if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
+      }
       const context = { customerId: req.customerId };
       
       let testKey = tempKey;
@@ -618,6 +627,9 @@ export function registerSettingsRoutes(
       
       if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
       
@@ -801,6 +813,9 @@ export function registerSettingsRoutes(
 
   app.post("/api/invitations", requireAuth, async (req, res) => {
     try {
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
+      }
       const validatedData = insertUserInvitationSchema.omit({ token: true, expires: true, createdAt: true, used: true }).parse(req.body);
       
       const invContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
@@ -869,6 +884,9 @@ export function registerSettingsRoutes(
 
   app.get("/api/invitations", requireAuth, async (req, res) => {
     try {
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
+      }
       const invListContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const invListDb = await customerDbService.getCustomerDatabase(invListContext.customerId);
       const invitations = await invListDb.select().from(isolatedSchema.userInvitations);
@@ -951,6 +969,9 @@ export function registerSettingsRoutes(
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
+      }
       const context = { customerId: req.customerId };
       const { id } = req.params;
       const success = await databaseService.deleteInvitation(context, id);
@@ -970,6 +991,9 @@ export function registerSettingsRoutes(
     try {
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
+      }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
 
@@ -1020,6 +1044,9 @@ export function registerSettingsRoutes(
 
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
+      }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
 
@@ -1094,6 +1121,12 @@ export function registerSettingsRoutes(
       const { id } = req.params;
       const { username, email, firstName, lastName, role, password, allowedMenuItems, defaultLandingPage } = req.body;
       
+      const isEditingSelf = id === String((req as any).userId);
+
+      if (!isEditingSelf && req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required to edit other users" });
+      }
+
       const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
       const currentUsers = await customerDb
         .select()
@@ -1155,6 +1188,9 @@ export function registerSettingsRoutes(
     try {
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
+      }
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
       const { id } = req.params;
