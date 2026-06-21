@@ -1327,7 +1327,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         .where(eq(sharedSchema.customers.id, customerId));
 
       const featureAdminId = req.session.platformAdminId!;
-      const [featureAdminRow] = await db.select({ username: sharedSchema.platformAdmins.username, companyName: sharedSchema.customers.companyName })
+      const [featureAdminRow] = await db.select({ username: sharedSchema.platformAdmins.username })
         .from(sharedSchema.platformAdmins)
         .where(eq(sharedSchema.platformAdmins.id, featureAdminId))
         .limit(1);
