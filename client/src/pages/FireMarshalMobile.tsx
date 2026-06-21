@@ -943,7 +943,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
       {/* ── Stale data banner (online but polls failing >15s) ───────── */}
       {isOnline && isDataStale && pendingSyncCount === 0 && (
-        <div className="sticky top-0 z-40 flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-amber-400 text-amber-900 shadow-sm">
+        <div className="sticky top-0 z-40 w-full overflow-x-hidden flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-amber-400 text-amber-900 shadow-sm">
           <AlertTriangle className="flex-shrink-0 w-4 h-4" />
           <span>
             Data may be out of date
@@ -957,7 +957,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       {/* ── Offline / Sync-pending banner ──────────────────────────────── */}
       {(!isOnline || pendingSyncCount > 0) && (
         <div
-          className={`sticky top-0 z-40 flex items-center justify-between gap-2 px-4 py-2 text-sm font-semibold shadow-sm ${
+          className={`sticky top-0 z-40 w-full overflow-x-hidden flex items-center justify-between gap-2 px-4 py-2 text-sm font-semibold shadow-sm ${
             !isOnline
               ? 'bg-amber-500 text-white'
               : 'bg-blue-600 text-white'
@@ -996,8 +996,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
       {/* Sweep confirmation dialog */}
       {sweepConfirmZone && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-hidden">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full overflow-x-hidden shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="text-amber-500 flex-shrink-0" size={28} />
               <h2 className="text-lg font-bold text-gray-900">Unaccounted People in Zone</h2>
@@ -1039,9 +1039,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
       {/* Note dialog overlay */}
       {showNoteDialog && (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-black/80" onClick={() => { setShowNoteDialog(false); setNoteText(""); }}>
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black/80 overflow-hidden" onClick={() => { setShowNoteDialog(false); setNoteText(""); }}>
           <div
-            className="mt-auto bg-white rounded-t-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl w-full"
+            className="mt-auto bg-white rounded-t-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl w-full max-w-full overflow-x-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -1088,9 +1088,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
       {/* Photo preview + caption dialog */}
       {showPhotoPreview && pendingPhotoData && (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-black/90" onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }}>
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black/90 overflow-hidden" onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }}>
           <div
-            className="mt-auto bg-white rounded-t-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl w-full"
+            className="mt-auto bg-white rounded-t-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl w-full max-w-full overflow-x-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -1132,7 +1132,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       )}
 
       {/* Header */}
-      <div className={`sticky top-0 z-50 text-white shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
+      <div className={`sticky top-0 z-50 w-full overflow-x-hidden text-white shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
         <div className={`p-3 ${isEmergencyActive ? 'animate-pulse' : ''}`}>
           <div className="flex items-center gap-2">
             {isEmergencyActive ? <Siren className="h-6 w-6 flex-shrink-0" /> : <Shield className="h-6 w-6 flex-shrink-0" />}

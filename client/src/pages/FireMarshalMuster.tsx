@@ -457,14 +457,14 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   const sweptCount = zoneStats.filter(z => z.swept).length;
 
   return (
-    <div className="min-h-screen bg-red-600 text-white" onClick={() => openDropdownId && setOpenDropdownId(null)}>
+    <div className="min-h-screen bg-red-600 text-white w-full max-w-full overflow-x-hidden" onClick={() => openDropdownId && setOpenDropdownId(null)}>
       {/* Sweep confirmation dialog */}
       {sweepConfirmZone && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-hidden">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full overflow-x-hidden shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="text-amber-500 flex-shrink-0" size={28} />
-              <h2 className="text-lg font-bold text-gray-900">Unaccounted People in Zone</h2>
+              <h2 className="text-lg font-bold text-gray-900 break-words">Unaccounted People in Zone</h2>
             </div>
             <p className="text-gray-700 mb-2">
               <strong>{sweepConfirmZone.unaccountedCount} person{sweepConfirmZone.unaccountedCount !== 1 ? 's' : ''}</strong> in <strong>{sweepConfirmZone.name}</strong> {sweepConfirmZone.unaccountedCount === 1 ? 'is' : 'are'} still unaccounted.
@@ -500,25 +500,25 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       )}
 
       {/* Mobile-optimized header */}
-      <div className="bg-red-700 p-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Shield className="text-white" size={32} />
-            <div>
-              <h1 className="text-xl font-bold">FIRE MARSHAL</h1>
-              <p className="text-red-200 text-sm">Emergency Muster Control</p>
+      <div className="bg-red-700 p-4 shadow-lg w-full overflow-x-hidden">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <Shield className="text-white flex-shrink-0" size={28} />
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold truncate">FIRE MARSHAL</h1>
+              <p className="text-red-200 text-sm truncate">Emergency Muster Control</p>
             </div>
           </div>
-          <div className="text-right text-sm">
-            <p className="font-medium">{marshalInfo?.name}</p>
-            <p className="text-red-200">{marshalInfo?.department}</p>
+          <div className="text-right text-sm flex-shrink-0 max-w-[40%]">
+            <p className="font-medium truncate">{marshalInfo?.name}</p>
+            <p className="text-red-200 truncate">{marshalInfo?.department}</p>
           </div>
         </div>
       </div>
 
       {/* Emergency status banner */}
-      <div className="bg-red-800 p-4 border-b-4 border-yellow-400">
-        <div className="flex items-center justify-center space-x-3">
+      <div className="bg-red-800 p-4 border-b-4 border-yellow-400 w-full overflow-x-hidden">
+        <div className="flex items-center justify-center gap-2 min-w-0 flex-wrap">
           <AlertTriangle className="text-yellow-400 animate-pulse" size={24} />
           <div className="text-center">
             <h2 className="text-lg font-bold">EMERGENCY ACTIVE</h2>
