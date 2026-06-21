@@ -1200,11 +1200,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       <div className="px-4 pt-4 pb-2 space-y-2">
 
         {/* Step 1 — Emergency Active (always green tick) */}
-        <div className={`flex items-center gap-3 p-3 rounded-xl border ${isEmergencyActive ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+        <div className={`flex items-center gap-3 p-3 rounded-xl border overflow-hidden ${isEmergencyActive ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isEmergencyActive ? 'bg-green-500' : 'bg-orange-400'}`}>
             {isEmergencyActive ? <CheckCircle2 size={18} className="text-white" /> : <Shield size={18} className="text-white" />}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
             {isEmergencyActive ? (
               <>
                 <p className="font-bold text-sm text-green-800">Emergency Alert Active</p>
@@ -1438,7 +1438,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
           </div>
 
           {/* People List */}
-          <div className="px-4 space-y-3">
+          <div className="px-4 space-y-3 overflow-x-hidden">
             {isLoadingPersonnel && filteredPeople.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
@@ -1467,7 +1467,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                   </div>
                 )}
                 <div className="p-3">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2 min-w-0 w-full">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <span className="font-bold text-base">{person.name}</span>

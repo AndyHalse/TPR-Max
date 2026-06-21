@@ -250,7 +250,13 @@
   * {
     @apply border-border;
   }
+  html {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
   body {
+    overflow-x: hidden;
+    max-width: 100%;
     background: var(--background);
     font-family: var(--font-sans);
     font-feature-settings: 'cv11', 'ss01';
