@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { QrCode, Mail, Printer, Download } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   worker: any | null;
@@ -21,7 +22,7 @@ function getWorkerPassBranding(companySettings: any) {
   };
 }
 
-async function getBrandedWorkerPassHtml(qrCode: string, workerName: string, companyName: string, branding: ReturnType<typeof getWorkerPassBranding>) {
+async function getBrandedWorkerPassHtml(qrCode: string, workerName: string, companyName: string, branding: ReturnType<typeof getWorkerPassBranding>, translations: { checkInPass: string; scanInfo: string; accessPass: string }) {
   const QRCode = await import('qrcode');
   const qrDataUrl = await QRCode.toDataURL(qrCode, { width: 180, margin: 1 });
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
@@ -42,7 +43,7 @@ async function getBrandedWorkerPassHtml(qrCode: string, workerName: string, comp
       <div class="header">
         ${branding.logoUrl ? `<img src="${branding.logoUrl}" height="32" style="margin-bottom:8px;border-radius:4px;" onerror="this.style.display='none'">` : ''}
         <h1>${branding.siteName}</h1>
-        <p>Contractor Check-In Pass</p>
+        <p>${translations.checkInPass}</p>
       </div>
       <div class="body">
         <div class="worker-name">${workerName}</div>
@@ -51,38 +52,44 @@ async function getBrandedWorkerPassHtml(qrCode: string, workerName: string, comp
           <img src="${qrDataUrl}" width="180" height="180" alt="QR Code">
           <div class="qr-code">${qrCode}</div>
         </div>
-        <p style="font-size:12px;color:#64748b;margin:0">Scan at kiosk to sign in/out</p>
+        <p style="font-size:12px;color:#64748b;margin:0">${translations.scanInfo}</p>
       </div>
-      <div class="footer">${branding.companyName} · Contractor Access Pass</div>
+      <div class="footer">${branding.companyName} · ${translations.accessPass}</div>
     </div>
   </body></html>`;
 }
 
 export default function ContractorQrPassDialog({ worker, onClose }: Props) {
+  const { t } = useTranslation(["contractors", "common"]);
   const { toast } = useToast();
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; workerName: string; companyName: string } | null>(null);
 
   const { data: companySettings } = useQuery<any>({ queryKey: ['/api/company-settings'] });
 
   const sendWorkerQrPassMutation = useMutation({
-    mutationFn: async ({ id, method }: { id: string; method: 'email' | 'download' }) => {
+    mutationFn: async ({ id, method }: { id: string; method: string }) => {
       const response = await apiRequest('POST', `/api/contractors/workers/${id}/qr-pass`, { method });
       return response.json();
     },
     onSuccess: (data: any, variables: { id: string; method: string }) => {
       setQrPassData({ qrCode: data.qrCode, workerName: data.workerName, companyName: data.companyName });
       if (variables.method === 'email') {
-        toast({ title: "QR Pass Sent", description: `QR pass emailed to ${worker?.email || worker?.firstName}`, duration: 5000 });
+        toast({ title: t("qrPassDialog.emailSuccess"), description: t("qrPassDialog.emailDescription", { email: worker?.email || worker?.firstName }), duration: 5000 });
       }
     },
-    onError: (error: any) => toast({ title: "Failed to send QR pass", description: error.message, variant: "destructive" }),
+    onError: (error: any) => toast({ title: t("common:error"), description: error.message, variant: "destructive" }),
   });
 
   const handlePrint = (workerId: string) => {
     sendWorkerQrPassMutation.mutate({ id: workerId, method: 'download' }, {
       onSuccess: async (data: any) => {
         const branding = getWorkerPassBranding(companySettings);
-        const html = await getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName, branding);
+        const translations = {
+          checkInPass: t("qrPassDialog.branding.checkInPass"),
+          scanInfo: t("qrPassDialog.branding.scanInfo"),
+          accessPass: t("qrPassDialog.branding.accessPass")
+        };
+        const html = await getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName, branding, translations);
         const win = window.open('', '_blank');
         if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
       }
@@ -93,7 +100,12 @@ export default function ContractorQrPassDialog({ worker, onClose }: Props) {
     sendWorkerQrPassMutation.mutate({ id: workerId, method: 'download' }, {
       onSuccess: async (data: any) => {
         const branding = getWorkerPassBranding(companySettings);
-        const html = await getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName || worker?.companyName, branding);
+        const translations = {
+          checkInPass: t("qrPassDialog.branding.checkInPass"),
+          scanInfo: t("qrPassDialog.branding.scanInfo"),
+          accessPass: t("qrPassDialog.branding.accessPass")
+        };
+        const html = await getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName || worker?.companyName, branding, translations);
         const blob = new Blob([html], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -113,10 +125,10 @@ export default function ContractorQrPassDialog({ worker, onClose }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="w-5 h-5 text-indigo-600" />
-            Contractor QR Check-In Pass
+            {t("qrPassDialog.title")}
           </DialogTitle>
           <DialogDescription>
-            Send a QR code pass to {worker?.firstName} {worker?.lastName} for quick kiosk check-in and check-out.
+            {t("qrPassDialog.passSubtitle", { name: `${worker?.firstName} ${worker?.lastName}` })}
           </DialogDescription>
         </DialogHeader>
 
@@ -144,31 +156,31 @@ export default function ContractorQrPassDialog({ worker, onClose }: Props) {
             <Button onClick={() => worker && sendWorkerQrPassMutation.mutate({ id: worker.id, method: 'email' })} disabled={sendWorkerQrPassMutation.isPending} className="w-full justify-start gap-3 h-14 bg-blue-600 hover:bg-blue-700 text-white">
               <Mail size={20} />
               <div className="text-left">
-                <div className="font-medium">Email QR Pass</div>
-                <div className="text-xs opacity-80">Send branded pass with QR code to {worker?.email}</div>
+                <div className="font-medium">{t("qrPassDialog.emailPass")}</div>
+                <div className="text-xs opacity-80">{t("qrPassDialog.emailPassSub", { email: worker?.email })}</div>
               </div>
             </Button>
 
             <Button variant="outline" onClick={() => worker && handlePrint(worker.id)} disabled={sendWorkerQrPassMutation.isPending} className="w-full justify-start gap-3 h-14">
               <Printer size={20} className="text-green-600" />
               <div className="text-left">
-                <div className="font-medium">Print QR Pass</div>
-                <div className="text-xs text-gray-500">Print a card-sized pass with QR code</div>
+                <div className="font-medium">{t("qrPassDialog.printPass")}</div>
+                <div className="text-xs text-gray-500">{t("qrPassDialog.printPassSub")}</div>
               </div>
             </Button>
 
             <Button variant="outline" onClick={() => worker && handleDownload(worker.id)} disabled={sendWorkerQrPassMutation.isPending} className="w-full justify-start gap-3 h-14">
               <Download size={20} className="text-purple-600" />
               <div className="text-left">
-                <div className="font-medium">Download QR Image</div>
-                <div className="text-xs text-gray-500">Download branded pass as image</div>
+                <div className="font-medium">{t("qrPassDialog.downloadImage")}</div>
+                <div className="text-xs text-gray-500">{t("qrPassDialog.downloadPassSub")}</div>
               </div>
             </Button>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => { setQrPassData(null); onClose(); }}>Close</Button>
+          <Button variant="outline" onClick={() => { setQrPassData(null); onClose(); }}>{t("common:close")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

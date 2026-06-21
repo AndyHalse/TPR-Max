@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { StaffSearchSelect } from "@/components/StaffSearchSelect";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   open: boolean;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function ContractorCheckInDialog({ open, onOpenChange, checkInWorkerId, checkInWorkerName, checkInMutation }: Props) {
+  const { t } = useTranslation(["contractors", "common"]);
   const [selectedHost, setSelectedHost] = useState('');
   const { data: staffList = [] } = useQuery<any[]>({ queryKey: ['/api/staff'] });
 
@@ -33,22 +35,22 @@ export default function ContractorCheckInDialog({ open, onOpenChange, checkInWor
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Select Host for {checkInWorkerName}</DialogTitle>
-          <DialogDescription>Who is {checkInWorkerName} visiting today?</DialogDescription>
+          <DialogTitle>{t("checkInDialog.title", { name: checkInWorkerName })}</DialogTitle>
+          <DialogDescription>{t("checkInDialog.description", { name: checkInWorkerName }) || t("checkInDialog.defaultDescription", { name: checkInWorkerName })}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Host Staff Member *</Label>
+            <Label>{t("checkInDialog.hostStaffMember")}</Label>
             <StaffSearchSelect
               staff={staffList.filter((s: any) => s.isActive !== false)}
               value={selectedHost}
               onChange={setSelectedHost}
-              placeholder="Search by name or department…"
+              placeholder={t("checkInDialog.searchHostPlaceholder")}
             />
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleClose}>Cancel</Button>
+          <Button variant="outline" onClick={handleClose}>{t("common:cancel")}</Button>
           <Button
             disabled={!selectedHost || checkInMutation.isPending}
             onClick={() => {
@@ -63,7 +65,7 @@ export default function ContractorCheckInDialog({ open, onOpenChange, checkInWor
             }}
             className="bg-green-600 hover:bg-green-700 text-white"
           >
-            {checkInMutation.isPending ? "Checking In..." : "Check In & Print Pass"}
+            {checkInMutation.isPending ? t("checkInDialog.checkingIn") : t("checkInDialog.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

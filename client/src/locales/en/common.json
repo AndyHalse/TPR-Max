@@ -36,6 +36,13 @@
     "contractor": "Contractor",
     "member": "Member"
   },
+  "clear": "Clear",
+  "matching": "matching",
+  "gridView": "Grid view",
+  "listView": "List view",
+  "showLess": "Show Less",
+  "noPhoneProvided": "No phone provided",
+  "noPhone": "No phone",
   "noResults": "No results found",
   "saveChanges": "Save Changes",
   "sending": "Sending...",
@@ -79,5 +86,7 @@
   "arrived": "Arrived",
   "meeting": "Meeting",
   "visitor": "Visitor",
-  "contractor": "Contractor"
+  "contractor": "Contractor",
+  "signedInAt": "Signed in at {{time}}",
+  "searchPlaceholder": "Search..."
 }

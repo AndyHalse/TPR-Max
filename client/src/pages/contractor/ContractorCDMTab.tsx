@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -40,6 +41,7 @@ import {
 } from "./types";
 
 export default function ContractorCDMTab({ companies }: { companies: any[] }) {
+  const { t } = useTranslation(["contractors", "common"]);
   const { toast } = useToast();
 
   const { data: currentUser } = useQuery<{ customerId: string }>({
@@ -178,9 +180,9 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
       setShowAddDialog(false);
       setAddStep(1);
       setForm(emptyForm);
-      toast({ title: "CDM Project created" });
+      toast({ title: t("cdm.projectCreated") });
     },
-    onError: () => toast({ title: "Error", description: "Failed to create CDM project", variant: "destructive" }),
+    onError: () => toast({ title: t("common:error"), description: t("cdm.failedCreateProject"), variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -192,9 +194,9 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
       queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects", customerId] });
       setSelectedProject(updated);
       setEditingProject(null);
-      toast({ title: "CDM Project updated" });
+      toast({ title: t("cdm.projectUpdated") });
     },
-    onError: () => toast({ title: "Error", description: "Failed to update CDM project", variant: "destructive" }),
+    onError: () => toast({ title: t("common:error"), description: t("cdm.failedUpdateProject"), variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -202,9 +204,9 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects", customerId] });
       setSelectedProject(null);
-      toast({ title: "CDM Project deleted" });
+      toast({ title: t("cdm.projectDeleted") });
     },
-    onError: () => toast({ title: "Error", description: "Failed to delete CDM project", variant: "destructive" }),
+    onError: () => toast({ title: t("common:error"), description: t("cdm.failedDeleteProject"), variant: "destructive" }),
   });
 
   const filtered = allProjects.filter(p => {
@@ -272,7 +274,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
     const avgScore = orphanProjects.reduce((sum, p) => sum + complianceScore(p), 0) / orphanProjects.length;
     const avgPct = Math.round((avgScore / 5) * 100);
     const overdueCount = orphanProjects.filter(isF10Overdue).length;
-    contractorCompliance.push({ id: "__unknown__", name: "Unknown Contractor", projectCount: orphanProjects.length, avgPct, overdueCount });
+    contractorCompliance.push({ id: "__unknown__", name: t("common:unknown"), projectCount: orphanProjects.length, avgPct, overdueCount });
   }
 
   // Compliance trend: fixed 12-month window ending at the current month (excludes cancelled)
@@ -342,17 +344,17 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
     setEditingProject(p);
   };
 
-  if (isLoading) return <GlassCard className="p-8 text-center text-muted-foreground">Loading CDM projects…</GlassCard>;
+  if (isLoading) return <GlassCard className="p-8 text-center text-muted-foreground">{t("cdm.loadingCdm")}</GlassCard>;
 
   return (
     <div className="space-y-4">
       {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Total Projects", value: allProjects.length, color: "text-slate-700 dark:text-slate-200" },
-          { label: "Active", value: totalActive, color: "text-green-700 dark:text-green-400" },
-          { label: "F10 Required", value: totalF10, color: "text-amber-700 dark:text-amber-400" },
-          { label: "Overdue", value: totalOverdue, color: "text-red-700 dark:text-red-400" },
+          { label: t("cdm.totalProjects"), value: allProjects.length, color: "text-slate-700 dark:text-slate-200" },
+          { label: t("cdm.active"), value: totalActive, color: "text-green-700 dark:text-green-400" },
+          { label: t("cdm.f10Required"), value: totalF10, color: "text-amber-700 dark:text-amber-400" },
+          { label: t("cdm.overdue"), value: totalOverdue, color: "text-red-700 dark:text-red-400" },
         ].map(s => (
           <GlassCard key={s.label} className="p-4 text-center">
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -370,10 +372,10 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
           >
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-primary" />
-              <span className="font-semibold text-sm text-fixed">Compliance Summary</span>
-              <span className="text-xs text-muted-foreground">Portfolio health overview</span>
+              <span className="font-semibold text-sm text-fixed">{t("cdm.summary")}</span>
+              <span className="text-xs text-muted-foreground">{t("cdm.portfolioHealth")}</span>
               {summaryFiltersActive && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Filtered</Badge>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{t("cdm.filtered")}</Badge>
               )}
             </div>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showComplianceSummary ? "rotate-180" : ""}`} />
@@ -383,13 +385,13 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
               {/* Filter controls */}
               <div className="flex flex-wrap items-end gap-2 pt-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Contractor</label>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("cdm.contractor")}</label>
                   <Select value={summaryContractorFilter} onValueChange={setSummaryContractorFilter}>
                     <SelectTrigger className="h-7 text-xs w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All contractors</SelectItem>
+                      <SelectItem value="all">{t("cdm.allContractors")}</SelectItem>
                       {companies.map(c => (
                         <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                       ))}
@@ -397,22 +399,22 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Status</label>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("common:status")}</label>
                   <Select value={summaryStatusFilter} onValueChange={setSummaryStatusFilter}>
                     <SelectTrigger className="h-7 text-xs w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      <SelectItem value="planning">Planning</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="complete">Complete</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="all">{t("cdm.allStatuses")}</SelectItem>
+                      <SelectItem value="planning">{t("cdm.planning")}</SelectItem>
+                      <SelectItem value="active">{t("cdm.active")}</SelectItem>
+                      <SelectItem value="complete">{t("cdm.complete")}</SelectItem>
+                      <SelectItem value="cancelled">{t("cdm.cancelled")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Start date from</label>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("cdm.startDateFrom")}</label>
                   <input
                     type="date"
                     className="h-7 px-2 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
@@ -421,7 +423,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Start date to</label>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("cdm.startDateTo")}</label>
                   <input
                     type="date"
                     className="h-7 px-2 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
@@ -436,21 +438,21 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                     className="h-7 text-xs px-2 text-muted-foreground"
                     onClick={() => { setSummaryStatusFilter("all"); setSummaryFromDate(""); setSummaryToDate(""); setSummaryContractorFilter("all"); }}
                   >
-                    Clear filters
+                    {t("cdm.clearFilters")}
                   </Button>
                 )}
                 <span className="text-xs text-muted-foreground ml-auto self-end pb-0.5">
-                  {summaryProjects.length} of {allProjects.length} project{allProjects.length !== 1 ? "s" : ""}
+                  {t("common:matching", { count: summaryProjects.length, total: allProjects.length })} {t(`cdm.project`, { count: allProjects.length })}
                 </span>
               </div>
               {summaryProjects.length === 0 && summaryFiltersActive ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No projects match the selected filters.</p>
+                <p className="text-xs text-muted-foreground text-center py-4">{t("cdm.noMatchFilters")}</p>
               ) : (
               <>
               {/* Overall Compliance Score — matches PDF formula exactly:
                   CPP/PCI/HSF document completion; 3 docs per project */}
               {nonCancelledSummary.length === 0 && summaryProjects.length > 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2">All selected projects are cancelled — no compliance score to display.</p>
+                <p className="text-xs text-muted-foreground text-center py-2">{t("cdm.allCancelledNoScore")}</p>
               )}
               {nonCancelledSummary.length > 0 && (() => {
                 const compliantDocs = nonCancelledSummary.reduce((sum, p) => {
@@ -472,16 +474,15 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                   : overallPct >= 50
                   ? "text-amber-700 dark:text-amber-400"
                   : "text-red-700 dark:text-red-400";
-                const label = overallPct >= 80 ? "High Compliance" : overallPct >= 50 ? "Partial Compliance" : "Low Compliance";
+                const label = overallPct >= 80 ? t("cdm.highCompliance") : overallPct >= 50 ? t("cdm.partialCompliance") : t("cdm.lowCompliance");
                 return (
                   <div className={`flex items-center justify-between rounded-lg border px-4 py-3 ${colorClass}`}>
                     <div className="flex items-center gap-2">
                       <Shield className={`h-5 w-5 ${textClass}`} />
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Overall Compliance Score</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t("cdm.overallComplianceScore")}</p>
                         <p className="text-xs text-muted-foreground">
-                          CPP · PCI · HSF across {nonCancelledSummary.length} project{nonCancelledSummary.length !== 1 ? "s" : ""}
-                          {summaryFiltersActive ? " (filtered)" : ""} · excl. cancelled
+                          {t("cdm.complianceExclCancelled", { count: nonCancelledSummary.length })}
                         </p>
                       </div>
                     </div>
@@ -497,23 +498,25 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Project status breakdown */}
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Projects by Status</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("cdm.projectsByStatus")}</p>
                   <div className="space-y-1.5">
-                    {([ 
-                      { key: "planning", label: "Planning", color: "bg-blue-500", textColor: "text-blue-700 dark:text-blue-400" },
-                      { key: "active", label: "Active", color: "bg-green-500", textColor: "text-green-700 dark:text-green-400" },
-                      { key: "complete", label: "Complete", color: "bg-slate-500", textColor: "text-slate-700 dark:text-slate-300" },
-                      { key: "cancelled", label: "Cancelled", color: "bg-red-400", textColor: "text-red-700 dark:text-red-400" },
-                    ] as const).map(({ key, label, color, textColor }) => {
-                      const count = statusCounts[key];
-                      const pct = summaryProjects.length > 0 ? Math.round((count / summaryProjects.length) * 100) : 0;
+                    {[
+                      { key: "planning", label: t("cdm.planning"), color: "bg-blue-500", textColor: "text-blue-700 dark:text-blue-400" },
+                      { key: "active", label: t("cdm.active"), color: "bg-green-500", textColor: "text-green-700 dark:text-green-400" },
+                      { key: "complete", label: t("cdm.complete"), color: "bg-slate-500", textColor: "text-slate-700 dark:text-slate-400" },
+                      { key: "cancelled", label: t("cdm.cancelled"), color: "bg-red-500", textColor: "text-red-700 dark:text-red-400" },
+                    ].map(s => {
+                      const count = statusCounts[s.key as keyof typeof statusCounts];
+                      const pct = summaryProjects.length > 0 ? (count / summaryProjects.length) * 100 : 0;
                       return (
-                        <div key={key} className="flex items-center gap-2">
-                          <span className="text-xs w-16 text-muted-foreground">{label}</span>
-                          <div className="flex-1 h-2 rounded-full bg-muted/40 overflow-hidden">
-                            <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                        <div key={s.key} className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className={`font-medium ${s.textColor}`}>{s.label} ({count})</span>
+                            <span className="text-muted-foreground tabular-nums">{Math.round(pct)}%</span>
                           </div>
-                          <span className={`text-xs font-semibold w-6 text-right ${textColor}`}>{count}</span>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full ${s.color}`} style={{ width: `${pct}%` }} />
+                          </div>
                         </div>
                       );
                     })}
@@ -521,70 +524,63 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                 </div>
                 {/* F10 notification breakdown */}
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">F10 Notifications</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2 text-center">
-                      <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{f10Counts.required}</p>
-                      <p className="text-[10px] text-amber-600 dark:text-amber-500 leading-tight">Required / Not Submitted</p>
-                    </div>
-                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-2 text-center">
-                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{f10Counts.pending}</p>
-                      <p className="text-[10px] text-blue-600 dark:text-blue-500 leading-tight">Pending</p>
-                    </div>
-                    <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-2 text-center">
-                      <p className="text-lg font-bold text-green-700 dark:text-green-400">{f10Counts.submitted}</p>
-                      <p className="text-[10px] text-green-600 dark:text-green-500 leading-tight">Submitted</p>
-                    </div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("cdm.f10NotificationStatus")}</p>
+                  <div className="space-y-1.5">
+                    {[
+                      { label: t("cdm.notifiable"), value: notifiableProjects.length, total: summaryProjects.length, color: "bg-amber-500", textColor: "text-amber-700 dark:text-amber-400" },
+                      { label: t("cdm.submitted"), value: f10Counts.submitted, total: notifiableProjects.length, color: "bg-green-600", textColor: "text-green-700 dark:text-green-400" },
+                      { label: t("cdm.overdue"), value: summaryOverdue, total: notifiableProjects.length, color: "bg-red-500", textColor: "text-red-700 dark:text-red-400" },
+                    ].map(s => {
+                      const pct = s.total > 0 ? (s.value / s.total) * 100 : 0;
+                      return (
+                        <div key={s.label} className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className={`font-medium ${s.textColor}`}>{s.label} ({s.value})</span>
+                            <span className="text-muted-foreground tabular-nums">{Math.round(pct)}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full ${s.color}`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   {summaryOverdue > 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 font-medium">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      {summaryOverdue} project{summaryOverdue !== 1 ? "s" : ""} with overdue F10
+                    <div className="mt-2 flex items-center gap-1.5 text-[10px] text-red-600 font-medium">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>{t("contractors:f10OverdueTooltip", { count: summaryOverdue })}</span>
                     </div>
                   )}
                 </div>
               </div>
-              {/* Per-contractor compliance table */}
-              {contractorCompliance.length > 0 && (
+
+              {/* Contractor & Trend Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Compliance by contractor */}
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Compliance by Contractor</p>
-                  <p className="text-[10px] text-muted-foreground mb-2">Cancelled projects excluded</p>
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <table className="w-full text-xs">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("cdm.complianceByContractor")}</p>
+                  <div className="rounded-md border border-border overflow-hidden">
+                    <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-muted/30 text-muted-foreground">
-                          <th className="text-left px-3 py-2 font-medium">Contractor</th>
-                          <th className="text-center px-3 py-2 font-medium">Projects</th>
-                          <th className="text-left px-3 py-2 font-medium">Avg Compliance</th>
-                          <th className="text-center px-3 py-2 font-medium">F10 Overdue</th>
+                        <tr className="bg-muted/50 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                          <th className="px-3 py-1.5 font-semibold">{t("cdm.contractor")}</th>
+                          <th className="px-3 py-1.5 font-semibold text-center">{t("common:count")}</th>
+                          <th className="px-3 py-1.5 font-semibold text-center">{t("cdm.avgCompliance")}</th>
+                          <th className="px-3 py-1.5 font-semibold text-center">{t("cdm.overdueF10")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {contractorCompliance.map(row => (
-                          <tr key={row.id} className="hover:bg-muted/20 transition-colors">
-                            <td className="px-3 py-2 font-medium text-fixed truncate max-w-[160px]">{row.name}</td>
-                            <td className="px-3 py-2 text-center text-muted-foreground">{row.projectCount}</td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${row.avgPct >= 80 ? "bg-green-500" : row.avgPct >= 50 ? "bg-amber-500" : "bg-red-500"}`}
-                                    style={{ width: `${row.avgPct}%` }}
-                                  />
-                                </div>
-                                <span className={`font-semibold w-8 text-right ${row.avgPct >= 80 ? "text-green-700 dark:text-green-400" : row.avgPct >= 50 ? "text-amber-700 dark:text-amber-400" : "text-red-700 dark:text-red-400"}`}>
-                                  {row.avgPct}%
-                                </span>
-                              </div>
+                        {contractorCompliance.sort((a,b) => a.avgPct - b.avgPct).map(c => (
+                          <tr key={c.id} className="text-[11px] hover:bg-muted/20 transition-colors">
+                            <td className="px-3 py-1.5 font-medium">{c.name}</td>
+                            <td className="px-3 py-1.5 text-center tabular-nums text-muted-foreground">{c.projectCount}</td>
+                            <td className="px-3 py-1.5 text-center font-bold tabular-nums">
+                              <span className={c.avgPct >= 80 ? "text-green-600" : c.avgPct >= 50 ? "text-amber-600" : "text-red-600"}>
+                                {c.avgPct}%
+                              </span>
                             </td>
-                            <td className="px-3 py-2 text-center">
-                              {row.overdueCount > 0 ? (
-                                <span className="inline-flex items-center gap-0.5 text-red-600 dark:text-red-400 font-semibold">
-                                  <AlertTriangle className="h-3 w-3" />{row.overdueCount}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                            <td className="px-3 py-1.5 text-center tabular-nums">
+                              {c.overdueCount > 0 ? <span className="text-red-600 font-bold">{c.overdueCount}</span> : "—"}
                             </td>
                           </tr>
                         ))}
@@ -592,37 +588,42 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                     </table>
                   </div>
                 </div>
-              )}
-              {/* Compliance trend chart — only shown when at least one month has data */}
-              {complianceTrend.some(m => m.score !== null) && (
+
+                {/* Compliance trend chart */}
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Compliance Trend</p>
-                  <div className="h-32">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("cdm.complianceTrend")}</p>
+                  <div className="h-[140px] w-full mt-2">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={complianceTrend} margin={{ top: 4, right: 4, left: -28, bottom: 0 }} barCategoryGap="30%">
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted/40" />
-                        <XAxis dataKey="month" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                        <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
+                      <BarChart data={complianceTrend} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="month"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                        />
+                        <YAxis
+                          domain={[0, 100]}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                          tickFormatter={(v) => `${v}%`}
+                        />
                         <Tooltip
-                          formatter={(value: number | null, _name: string, item: { payload?: { count?: number } }) => {
-                            if (value === null) return ["No projects", "Avg Compliance"];
-                            const n = item.payload?.count ?? 0;
-                            return [`${value}% (${n} project${n !== 1 ? "s" : ""})`, "Avg Compliance"];
-                          }}
-                          contentStyle={{ fontSize: 12, borderRadius: 6 }}
-                          cursor={{ fill: "hsl(var(--muted)/0.3)" }}
+                          contentStyle={{ fontSize: '10px', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
+                          formatter={(v: any) => [`${v}%`, t("cdm.avgCompliance")]}
                         />
                         <Bar
                           dataKey="score"
-                          radius={[3, 3, 0, 0]}
+                          radius={[2, 2, 0, 0]}
                           fill="hsl(var(--primary))"
+                          barSize={20}
                         />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1 text-center">Average compliance % by project start month (last 12 months) · excl. cancelled</p>
                 </div>
-              )}
+              </div>
               </>
               )}
             </div>
@@ -630,372 +631,435 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
         </GlassCard>
       )}
 
-      {/* Header row */}
-      <GlassCard className="p-4">
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <HardHatIcon className="h-5 w-5 text-amber-600" />
-              <h3 className="font-semibold text-fixed">CDM 2015 Project Register</h3>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Construction Design & Management Regulations 2015</p>
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="Search projects…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="relative inline-flex">
-              <Button
-                size="sm"
-                variant="outline"
-                className="whitespace-nowrap"
-                onClick={() => setShowPdfFilterDialog(true)}
-              >
-                <Download className="h-3.5 w-3.5 mr-1" />Export PDF
-              </Button>
-              {((pdfStatusFilter && pdfStatusFilter !== "all") || pdfFromDate || pdfToDate) && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 border border-white dark:border-gray-900" />
-              )}
-            </div>
-            <Button size="sm" onClick={() => { setForm(emptyForm); setAddStep(1); setShowAddDialog(true); }} className="bg-amber-600 hover:bg-amber-700 text-white whitespace-nowrap">
-              <Plus className="h-3.5 w-3.5 mr-1" />Add Project
-            </Button>
-          </div>
+      {/* Main search and action bar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9 h-10"
+            placeholder={t("common:searchPlaceholder")}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-      </GlassCard>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" className="flex-1 sm:flex-none h-10" onClick={() => setShowPdfFilterDialog(true)}>
+            <Download className="h-4 w-4 mr-2" />{t("cdm.exportPdf")}
+          </Button>
+          <Button className="flex-1 sm:flex-none h-10 bg-amber-600 hover:bg-amber-700 text-white" onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />{t("cdm.addProject")}
+          </Button>
+        </div>
+      </div>
 
-      {/* Project list */}
       {filtered.length === 0 ? (
         <GlassCard className="p-12 text-center">
-          <HardHatIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">
-            {search ? "No projects match your search." : "No CDM projects recorded yet."}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">Add a project to start tracking CDM 2015 compliance.</p>
+          <HardHatIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+          <p className="text-sm font-medium text-muted-foreground">{t("cdm.noCdmProjects")}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t("cdm.startProject")}</p>
         </GlassCard>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filtered.map(p => {
-            const badge = CDM_STATUS_BADGE[p.status] ?? { label: p.status, className: "bg-gray-100 text-gray-700" };
+            const badge = CDM_STATUS_BADGE[p.status] ?? { label: p.status, className: "" };
+            const isSel = selectedProject?.id === p.id;
             const overdue = isF10Overdue(p);
-            const notifiable = isNotifiable(p);
-            const score = complianceScore(p);
-            const scorePct = Math.round((score / 5) * 100);
-            const companyName = companies.find(c => c.id === p.companyId)?.name ?? "Unknown Company";
+            const scorePct = Math.round((complianceScore(p) / 5) * 100);
+
             return (
               <GlassCard
                 key={p.id}
-                className={`p-4 cursor-pointer hover:shadow-md transition-shadow ${overdue ? "border-red-300 dark:border-red-700" : ""}`}
-                onClick={() => setSelectedProject(selectedProject?.id === p.id ? null : p)}
+                className={`overflow-hidden transition-all border ${isSel ? 'ring-2 ring-primary' : overdue ? 'border-red-200 dark:border-red-900/50' : ''}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm text-fixed">{p.title}</span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>{badge.label}</span>
-                      {notifiable && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                          <AlertCircle className="h-3 w-3" />F10
+                <div
+                  className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setSelectedProject(isSel ? null : p)}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h4 className="font-bold text-sm text-fixed truncate">{p.title}</h4>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${badge.className}`}>
+                          {badge.label}
                         </span>
-                      )}
-                      {overdue && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                          <AlertTriangle className="h-3 w-3" />F10 Overdue
-                        </span>
-                      )}
-                      {p.f10AlertSentAt && overdue && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                          <AlertCircle className="h-3 w-3" />Alert Sent
-                        </span>
-                      )}
+                        {overdue && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                            <AlertTriangle className="h-2.5 w-2.5" />{t("cdm.overdue")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                          <Building2 className="h-3 w-3" />{p.clientName || t("cdm.client")}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3" />{p.location || t("cdm.location")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{companyName}</span>
-                      {p.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{p.location}</span>}
-                      {p.clientName && <span className="flex items-center gap-1"><User className="h-3 w-3" />Client: {p.clientName}</span>}
-                      <span className="flex items-center gap-1"><HardHatIcon className="h-3 w-3" />{CDM_ROLE_LABELS[p.contractorRole] ?? p.contractorRole}</span>
-                      {p.startDate && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />Start: {p.startDate}</span>}
-                      {p.endDate && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />End: {p.endDate}</span>}
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Compliance</div>
+                      <div className={`text-xl font-black tabular-nums ${scorePct >= 80 ? 'text-green-600' : scorePct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {scorePct}%
+                      </div>
                     </div>
                   </div>
-                  {/* Compliance ring */}
-                  <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
-                    <div className="relative h-10 w-10">
-                      <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
-                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/20" />
-                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${scorePct} ${100 - scorePct}`} strokeDashoffset="0" className={score === 5 ? "text-green-500" : score >= 3 ? "text-amber-500" : "text-red-500"} />
-                      </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold">{score}/5</span>
+
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{t("cdm.projectDates")}</p>
+                      <p className="text-[10px] font-medium flex items-center gap-1">
+                        <CalendarDays className="h-2.5 w-2.5 text-muted-foreground" />
+                        {p.startDate ? new Date(p.startDate).toLocaleDateString("en-GB", { day: '2-digit', month: 'short' }) : '—'}
+                        <span className="text-muted-foreground mx-1">→</span>
+                        {p.endDate ? new Date(p.endDate).toLocaleDateString("en-GB", { day: '2-digit', month: 'short' }) : '—'}
+                      </p>
                     </div>
-                    <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${selectedProject?.id === p.id ? "rotate-180" : ""}`} />
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{t("cdm.cdmRole")}</p>
+                      <p className="text-[10px] font-medium flex items-center gap-1">
+                        <Shield className="h-2.5 w-2.5 text-muted-foreground" />
+                        {CDM_ROLE_LABELS[p.contractorRole] || p.contractorRole}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
+                    <span>{t("common:viewDetails")}</span>
+                    <ChevronDown className={`h-3 w-3 transition-transform ${isSel ? 'rotate-180' : ''}`} />
                   </div>
                 </div>
 
-                {/* Expanded detail panel */}
-                {selectedProject?.id === p.id && (
-                  <div className="mt-4 pt-4 border-t border-border space-y-4" onClick={e => e.stopPropagation()}>
-                    {/* Compliance summary */}
-                    <div className={`rounded-lg p-3 text-xs font-semibold flex items-center gap-2 ${score === 5 ? "bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-300 border border-green-200 dark:border-green-800" : "bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800"}`}>
-                      {score === 5 ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                      Compliance score: {score} / 5 sections complete — {scorePct}%
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                      {p.estimatedDays && <div><span className="text-muted-foreground text-xs">Duration:</span><p className="font-medium">{p.estimatedDays} days</p></div>}
-                      {p.peakWorkers && <div><span className="text-muted-foreground text-xs">Peak Workers:</span><p className="font-medium">{p.peakWorkers}</p></div>}
-                      {p.personDays && <div><span className="text-muted-foreground text-xs">Person-Days:</span><p className="font-medium">{p.personDays}</p></div>}
-                    </div>
-
-                    {/* Five compliance sections — inline editable */}
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Compliance Sections</p>
-
-                      {/* S1 — F10 */}
+                {isSel && (
+                  <div className="px-4 pb-4 pt-2 border-t bg-muted/20 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {/* Section 1: F10 Notification */}
                       {(() => {
-                        const sec = "f10";
-                        const isEditing = editingSection === `${p.id}-${sec}`;
-                        const draft = sectionDraft;
-                        return (
-                          <div className="rounded-md border border-border p-3 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. F10 HSE Notification</span>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.f10Status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.f10Status === "pending" ? "bg-amber-100 text-amber-700" : notifiable ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
-                                  {p.f10Status === "submitted" ? "Submitted" : p.f10Status === "pending" ? "Pending" : notifiable ? "Required — Not Submitted" : "Not Required"}
-                                </span>
-                                {p.f10AlertSentAt && overdue && (
-                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                                    <AlertCircle className="h-3 w-3" />Alert Sent
-                                  </span>
-                                )}
-                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ f10Status: p.f10Status ?? "not_required", f10Date: p.f10Date ?? "", f10Reference: p.f10Reference ?? "", f10Notes: p.f10Notes ?? "" }); }}>
-                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
-                                </Button>
-                              </div>
-                            </div>
-                            {!isEditing && (
-                              <>
-                                {p.f10Status === "submitted" && <p className="text-xs text-muted-foreground">Submitted: {p.f10Date ?? "—"}{p.f10Reference ? ` · Ref: ${p.f10Reference}` : ""}</p>}
-                                {overdue && <p className="text-xs text-red-600 font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" />F10 overdue — project has started</p>}
-                                {p.f10AlertSentAt && (
-                                  <p className="text-xs text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
-                                    <AlertCircle className="h-3 w-3" />Last F10 alert sent: {new Date(p.f10AlertSentAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-                                  </p>
-                                )}
-                                {p.f10Notes && <p className="text-xs text-muted-foreground italic">"{p.f10Notes}"</p>}
-                              </>
-                            )}
-                            {isEditing && (
-                              <div className="space-y-2 pt-1">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div><label className="text-xs text-muted-foreground">Status</label>
-                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.f10Status} onChange={e => setSectionDraft({...draft, f10Status: e.target.value})}>
-                                      <option value="not_required">Not Required</option>
-                                      <option value="pending">Pending</option>
-                                      <option value="submitted">Submitted</option>
-                                    </select>
-                                  </div>
-                                  <div><label className="text-xs text-muted-foreground">Date Submitted</label>
-                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.f10Date} onChange={e => setSectionDraft({...draft, f10Date: e.target.value})} />
-                                  </div>
-                                </div>
-                                <div><label className="text-xs text-muted-foreground">HSE Reference</label>
-                                  <input className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.f10Reference} onChange={e => setSectionDraft({...draft, f10Reference: e.target.value})} placeholder="F10 reference number" />
-                                </div>
-                                <div><label className="text-xs text-muted-foreground">Notes</label>
-                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.f10Notes} onChange={e => setSectionDraft({...draft, f10Notes: e.target.value})} />
-                                </div>
-                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { f10Status: draft.f10Status, f10Date: draft.f10Date || null, f10Reference: draft.f10Reference || null, f10Notes: draft.f10Notes || null } }); setEditingSection(null); }}>
-                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                        const isEditing = editingSection === 'f10';
+                        const draft = isEditing ? sectionDraft : {};
+                        const val = (k: string) => isEditing ? draft[k] : p[k as keyof CdmProject];
+                        const notifiable = isNotifiable(p);
 
-                      {/* S2 — CPP */}
-                      {(() => {
-                        const sec = "cpp";
-                        const isEditing = editingSection === `${p.id}-${sec}`;
-                        const draft = sectionDraft;
                         return (
-                          <div className="rounded-md border border-border p-3 space-y-1">
+                          <div className={`space-y-2 rounded-md border p-2.5 ${overdue ? 'bg-red-50/50 border-red-100 dark:bg-red-950/10 dark:border-red-900/50' : 'bg-background'}`}>
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-blue-600" />2. Construction Phase Plan</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.cppStatus === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.cppStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                                  {p.cppStatus === "approved" ? "Approved" : p.cppStatus === "in_progress" ? "In Progress" : "Not Prepared"}
-                                </span>
-                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ cppStatus: p.cppStatus ?? "not_prepared", cppDate: p.cppDate ?? "", cppNotes: p.cppNotes ?? "" }); }}>
-                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
-                                </Button>
-                              </div>
-                            </div>
-                            {!isEditing && (
-                              <>
-                                {p.cppDate && <p className="text-xs text-muted-foreground">Date: {p.cppDate}</p>}
-                                {p.cppNotes && <p className="text-xs text-muted-foreground italic">"{p.cppNotes}"</p>}
-                              </>
-                            )}
-                            {isEditing && (
-                              <div className="space-y-2 pt-1">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div><label className="text-xs text-muted-foreground">Status</label>
-                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.cppStatus} onChange={e => setSectionDraft({...draft, cppStatus: e.target.value})}>
-                                      <option value="not_prepared">Not Prepared</option>
-                                      <option value="in_progress">In Progress</option>
-                                      <option value="approved">Approved</option>
-                                    </select>
-                                  </div>
-                                  <div><label className="text-xs text-muted-foreground">Date Approved</label>
-                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.cppDate} onChange={e => setSectionDraft({...draft, cppDate: e.target.value})} />
-                                  </div>
-                                </div>
-                                <div><label className="text-xs text-muted-foreground">Notes</label>
-                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.cppNotes} onChange={e => setSectionDraft({...draft, cppNotes: e.target.value})} />
-                                </div>
-                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { cppStatus: draft.cppStatus, cppDate: draft.cppDate || null, cppNotes: draft.cppNotes || null } }); setEditingSection(null); }}>
-                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {/* S3 — PCI */}
-                      {(() => {
-                        const sec = "pci";
-                        const isEditing = editingSection === `${p.id}-${sec}`;
-                        const draft = sectionDraft;
-                        return (
-                          <div className="rounded-md border border-border p-3 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-purple-600" />3. Pre-Construction Information</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.pciStatus === "distributed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.pciStatus === "prepared" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                                  {p.pciStatus === "distributed" ? "Distributed" : p.pciStatus === "prepared" ? "Prepared" : "Not Prepared"}
-                                </span>
-                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ pciStatus: p.pciStatus ?? "not_prepared", pciDate: p.pciDate ?? "", pciNotes: p.pciNotes ?? "" }); }}>
-                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
-                                </Button>
-                              </div>
-                            </div>
-                            {!isEditing && (
-                              <>
-                                {p.pciDate && <p className="text-xs text-muted-foreground">Date: {p.pciDate}</p>}
-                                {p.pciNotes && <p className="text-xs text-muted-foreground italic">"{p.pciNotes}"</p>}
-                              </>
-                            )}
-                            {isEditing && (
-                              <div className="space-y-2 pt-1">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div><label className="text-xs text-muted-foreground">Status</label>
-                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.pciStatus} onChange={e => setSectionDraft({...draft, pciStatus: e.target.value})}>
-                                      <option value="not_prepared">Not Prepared</option>
-                                      <option value="prepared">Prepared</option>
-                                      <option value="distributed">Distributed</option>
-                                    </select>
-                                  </div>
-                                  <div><label className="text-xs text-muted-foreground">Date Distributed</label>
-                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.pciDate} onChange={e => setSectionDraft({...draft, pciDate: e.target.value})} />
-                                  </div>
-                                </div>
-                                <div><label className="text-xs text-muted-foreground">Notes</label>
-                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.pciNotes} onChange={e => setSectionDraft({...draft, pciNotes: e.target.value})} />
-                                </div>
-                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { pciStatus: draft.pciStatus, pciDate: draft.pciDate || null, pciNotes: draft.pciNotes || null } }); setEditingSection(null); }}>
-                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {/* S4 — HSF */}
-                      {(() => {
-                        const sec = "hsf";
-                        const isEditing = editingSection === `${p.id}-${sec}`;
-                        const draft = sectionDraft;
-                        return (
-                          <div className="rounded-md border border-border p-3 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-indigo-600" />4. Health & Safety File</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(p.hsfStatus === "complete" || p.hsfStatus === "handed_over") ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.hsfStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                                  {p.hsfStatus === "handed_over" ? "Handed Over" : p.hsfStatus === "complete" ? "Complete" : p.hsfStatus === "in_progress" ? "In Progress" : "Not Started"}
-                                </span>
-                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ hsfStatus: p.hsfStatus ?? "not_started", hsfDate: p.hsfDate ?? "", hsfNotes: p.hsfNotes ?? "" }); }}>
-                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
-                                </Button>
-                              </div>
-                            </div>
-                            {!isEditing && (
-                              <>
-                                {p.hsfDate && <p className="text-xs text-muted-foreground">Date: {p.hsfDate}</p>}
-                                {p.hsfNotes && <p className="text-xs text-muted-foreground italic">"{p.hsfNotes}"</p>}
-                              </>
-                            )}
-                            {isEditing && (
-                              <div className="space-y-2 pt-1">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div><label className="text-xs text-muted-foreground">Status</label>
-                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.hsfStatus} onChange={e => setSectionDraft({...draft, hsfStatus: e.target.value})}>
-                                      <option value="not_started">Not Started</option>
-                                      <option value="in_progress">In Progress</option>
-                                      <option value="complete">Complete</option>
-                                      <option value="handed_over">Handed Over</option>
-                                    </select>
-                                  </div>
-                                  <div><label className="text-xs text-muted-foreground">Date Completed</label>
-                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.hsfDate} onChange={e => setSectionDraft({...draft, hsfDate: e.target.value})} />
-                                  </div>
-                                </div>
-                                <div><label className="text-xs text-muted-foreground">Notes</label>
-                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.hsfNotes} onChange={e => setSectionDraft({...draft, hsfNotes: e.target.value})} />
-                                </div>
-                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { hsfStatus: draft.hsfStatus, hsfDate: draft.hsfDate || null, hsfNotes: draft.hsfNotes || null } }); setEditingSection(null); }}>
-                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {/* S5 — Welfare */}
-                      {(() => {
-                        const sec = "welfare";
-                        const isEditing = editingSection === `${p.id}-${sec}`;
-                        const draft = sectionDraft;
-                        const welfareItems = [
-                          { key: "welfareToilets", label: "Toilets", val: p.welfareToilets },
-                          { key: "welfareWashing", label: "Washing", val: p.welfareWashing },
-                          { key: "welfareRestArea", label: "Rest Area", val: p.welfareRestArea },
-                          { key: "welfareDrinkingWater", label: "Drinking Water", val: p.welfareDrinkingWater },
-                          { key: "welfareChanging", label: "Changing Facilities", val: p.welfareChanging },
-                        ];
-                        return (
-                          <div className="rounded-md border border-border p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold flex items-center gap-1.5"><CheckSquareIcon className="h-3.5 w-3.5 text-green-600" />5. Welfare Provisions (CDM Reg 25)</span>
-                              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ welfareToilets: p.welfareToilets ?? false, welfareWashing: p.welfareWashing ?? false, welfareRestArea: p.welfareRestArea ?? false, welfareDrinkingWater: p.welfareDrinkingWater ?? false, welfareChanging: p.welfareChanging ?? false }); }}>
-                                {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
+                              <h5 className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                <AlertCircle className={`h-3 w-3 ${overdue ? 'text-red-600' : 'text-amber-600'}`} />
+                                1. F10 HSE Notification
+                              </h5>
+                              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                if (isEditing) setEditingSection(null);
+                                else {
+                                  setEditingSection('f10');
+                                  setSectionDraft({ f10Status: p.f10Status, f10Date: p.f10Date, f10Reference: p.f10Reference, f10Notes: p.f10Notes });
+                                }
+                              }}>
+                                <Edit className="h-2.5 w-2.5" />
                               </Button>
                             </div>
+
                             {!isEditing && (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                                {welfareItems.map(w => (
-                                  <span key={w.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${w.val ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-muted text-muted-foreground"}`}>
-                                    {w.val ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{w.label}
-                                  </span>
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-muted-foreground">Status</span>
+                                  <Badge variant="outline" className={`text-[9px] px-1 py-0 h-4${p.f10Status === 'submitted' ? ' text-green-600 border-green-600' : ''}`}>
+                                    {p.f10Status?.replace('_', ' ') || t("cdm.notSet")}
+                                  </Badge>
+                                </div>
+                                {p.f10Date && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground">Date</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.f10Date).toLocaleDateString("en-GB")}</span>
+                                  </div>
+                                )}
+                                {p.f10Reference && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground">Reference</span>
+                                    <span className="text-[10px] font-medium">{p.f10Reference}</span>
+                                  </div>
+                                )}
+                                {overdue && notifiable && (
+                                  <p className="text-[9px] text-red-600 font-bold mt-1.5 animate-pulse">
+                                    {t("contractors:f10Overdue").toUpperCase()}
+                                  </p>
+                                )}
+                                {!notifiable && (
+                                  <p className="text-[9px] text-muted-foreground italic">{t("cdm.notNotifiable")}</p>
+                                )}
+                              </div>
+                            )}
+
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-muted-foreground">Status</label>
+                                  <select className="w-full h-7 px-2 rounded-md border border-input bg-background text-[10px] focus:outline-none" value={draft.f10Status} onChange={e => setSectionDraft({...draft, f10Status: e.target.value})}>
+                                    <option value="not_required">{t("cdm.notRequired")}</option>
+                                    <option value="pending">{t("common:pending")}</option>
+                                    <option value="submitted">{t("cdm.submitted")}</option>
+                                  </select>
+                                </div>
+                                {(draft.f10Status === 'submitted' || draft.f10Status === 'pending') && (
+                                  <>
+                                    <div className="space-y-1">
+                                      <label className="text-[9px] font-semibold text-muted-foreground">{t("cdm.dateSubmitted")}</label>
+                                      <Input type="date" className="h-7 text-[10px] px-2" value={draft.f10Date || ''} onChange={e => setSectionDraft({...draft, f10Date: e.target.value})} />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[9px] font-semibold text-muted-foreground">{t("cdm.hseReference")}</label>
+                                      <Input className="h-7 text-[10px] px-2" value={draft.f10Reference || ''} onChange={e => setSectionDraft({...draft, f10Reference: e.target.value})} />
+                                    </div>
+                                  </>
+                                )}
+                                <Button size="sm" className="h-7 text-xs w-full" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: draft }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? t("cdm.saving") : t("cdm.saveSection")}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section 2: CPP */}
+                      {(() => {
+                        const isEditing = editingSection === 'cpp';
+                        const draft = isEditing ? sectionDraft : {};
+                        const isCompliant = ["approved", "prepared", "distributed"].includes(p.cppStatus ?? "");
+
+                        return (
+                          <div className={`space-y-2 rounded-md border p-2.5 bg-background ${!isCompliant && p.status === 'active' ? 'border-amber-200 dark:border-amber-900/50' : ''}`}>
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                <ClipboardList className="h-3 w-3 text-blue-600" />
+                                2. Construction Phase Plan
+                              </h5>
+                              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                if (isEditing) setEditingSection(null);
+                                else {
+                                  setEditingSection('cpp');
+                                  setSectionDraft({ cppStatus: p.cppStatus, cppDate: p.cppDate, cppNotes: p.cppNotes });
+                                }
+                              }}>
+                                <Edit className="h-2.5 w-2.5" />
+                              </Button>
+                            </div>
+
+                            {!isEditing && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-muted-foreground">Status</span>
+                                  <Badge variant="outline" className={`text-[9px] px-1 py-0 h-4${isCompliant ? ' text-green-600 border-green-600' : ''}`}>
+                                    {p.cppStatus?.replace('_', ' ') || t("cdm.notSet")}
+                                  </Badge>
+                                </div>
+                                {p.cppDate && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground">Date</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.cppDate).toLocaleDateString("en-GB")}</span>
+                                  </div>
+                                )}
+                                {!isCompliant && p.status === 'active' && (
+                                  <p className="text-[9px] text-amber-600 font-bold mt-1.5 uppercase">{t("cdm.notCompliant")}</p>
+                                )}
+                              </div>
+                            )}
+
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-muted-foreground">Status</label>
+                                  <select className="w-full h-7 px-2 rounded-md border border-input bg-background text-[10px] focus:outline-none" value={draft.cppStatus} onChange={e => setSectionDraft({...draft, cppStatus: e.target.value})}>
+                                    <option value="not_prepared">{t("cdm.notRequired")}</option>
+                                    <option value="in_progress">{t("cdm.inProgress")}</option>
+                                    <option value="approved">{t("cdm.approved")}</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-muted-foreground">{t("common:date")}</label>
+                                  <Input type="date" className="h-7 text-[10px] px-2" value={draft.cppDate || ''} onChange={e => setSectionDraft({...draft, cppDate: e.target.value})} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs w-full" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: draft }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? t("cdm.saving") : t("cdm.saveSection")}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section 3: PCI */}
+                      {(() => {
+                        const isEditing = editingSection === 'pci';
+                        const draft = isEditing ? sectionDraft : {};
+                        const isCompliant = ["approved", "prepared", "distributed"].includes(p.pciStatus ?? "");
+
+                        return (
+                          <div className={`space-y-2 rounded-md border p-2.5 bg-background ${!isCompliant && p.status === 'active' ? 'border-amber-200 dark:border-amber-900/50' : ''}`}>
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                <ClipboardList className="h-3 w-3 text-purple-600" />
+                                3. Pre-Construction Info
+                              </h5>
+                              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                if (isEditing) setEditingSection(null);
+                                else {
+                                  setEditingSection('pci');
+                                  setSectionDraft({ pciStatus: p.pciStatus, pciDate: p.pciDate, pciNotes: p.pciNotes });
+                                }
+                              }}>
+                                <Edit className="h-2.5 w-2.5" />
+                              </Button>
+                            </div>
+
+                            {!isEditing && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-muted-foreground">Status</span>
+                                  <Badge variant="outline" className={`text-[9px] px-1 py-0 h-4${isCompliant ? ' text-green-600 border-green-600' : ''}`}>
+                                    {p.pciStatus?.replace('_', ' ') || t("cdm.notSet")}
+                                  </Badge>
+                                </div>
+                                {p.pciDate && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground">Date</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.pciDate).toLocaleDateString("en-GB")}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-muted-foreground">Status</label>
+                                  <select className="w-full h-7 px-2 rounded-md border border-input bg-background text-[10px] focus:outline-none" value={draft.pciStatus} onChange={e => setSectionDraft({...draft, pciStatus: e.target.value})}>
+                                    <option value="not_prepared">{t("cdm.notRequired")}</option>
+                                    <option value="prepared">{t("cdm.prepared")}</option>
+                                    <option value="distributed">{t("cdm.distributed")}</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-muted-foreground">{t("common:date")}</label>
+                                  <Input type="date" className="h-7 text-[10px] px-2" value={draft.pciDate || ''} onChange={e => setSectionDraft({...draft, pciDate: e.target.value})} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs w-full" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: draft }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? t("cdm.saving") : t("cdm.saveSection")}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section 4: HSF */}
+                      {(() => {
+                        const isEditing = editingSection === 'hsf';
+                        const draft = isEditing ? sectionDraft : {};
+                        const isCompliant = ["complete", "handed_over"].includes(p.hsfStatus ?? "");
+
+                        return (
+                          <div className={`space-y-2 rounded-md border p-2.5 bg-background ${!isCompliant && p.status === 'complete' ? 'border-amber-200 dark:border-amber-900/50' : ''}`}>
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                <ClipboardList className="h-3 w-3 text-indigo-600" />
+                                4. Health & Safety File
+                              </h5>
+                              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                if (isEditing) setEditingSection(null);
+                                else {
+                                  setEditingSection('hsf');
+                                  setSectionDraft({ hsfStatus: p.hsfStatus, hsfDate: p.hsfDate, hsfNotes: p.hsfNotes });
+                                }
+                              }}>
+                                <Edit className="h-2.5 w-2.5" />
+                              </Button>
+                            </div>
+
+                            {!isEditing && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-muted-foreground">Status</span>
+                                  <Badge variant="outline" className={`text-[9px] px-1 py-0 h-4${isCompliant ? ' text-green-600 border-green-600' : ''}`}>
+                                    {p.hsfStatus?.replace('_', ' ') || t("cdm.notSet")}
+                                  </Badge>
+                                </div>
+                                {p.hsfDate && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground">Date</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.hsfDate).toLocaleDateString("en-GB")}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-muted-foreground">Status</label>
+                                  <select className="w-full h-7 px-2 rounded-md border border-input bg-background text-[10px] focus:outline-none" value={draft.hsfStatus} onChange={e => setSectionDraft({...draft, hsfStatus: e.target.value})}>
+                                    <option value="not_started">{t("cdm.notStarted")}</option>
+                                    <option value="in_progress">{t("cdm.inProgress")}</option>
+                                    <option value="complete">{t("cdm.complete")}</option>
+                                    <option value="handed_over">{t("cdm.handedOver")}</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-semibold text-muted-foreground">{t("common:date")}</label>
+                                  <Input type="date" className="h-7 text-[10px] px-2" value={draft.hsfDate || ''} onChange={e => setSectionDraft({...draft, hsfDate: e.target.value})} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs w-full" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: draft }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? t("cdm.saving") : t("cdm.saveSection")}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section 5: Welfare */}
+                      {(() => {
+                        const isEditing = editingSection === 'welfare';
+                        const draft = isEditing ? sectionDraft : {};
+                        const welfareItems = [
+                          { key: 'welfareToilets', label: t("cdm.toilets") },
+                          { key: 'welfareWashing', label: t("cdm.washingFacilities") },
+                          { key: 'welfareRestArea', label: t("cdm.restArea") },
+                          { key: 'welfareDrinkingWater', label: t("cdm.drinkingWater") },
+                          { key: 'welfareChanging', label: t("cdm.changingFacilities") },
+                        ];
+                        const activeItems = welfareItems.filter(w => !!p[w.key as keyof CdmProject]);
+
+                        return (
+                          <div className="space-y-2 rounded-md border p-2.5 bg-background">
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                <CheckSquareIcon className="h-3 w-3 text-green-600" />
+                                5. Welfare Provisions
+                              </h5>
+                              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                if (isEditing) setEditingSection(null);
+                                else {
+                                  setEditingSection('welfare');
+                                  setSectionDraft({
+                                    welfareToilets: p.welfareToilets,
+                                    welfareWashing: p.welfareWashing,
+                                    welfareRestArea: p.welfareRestArea,
+                                    welfareDrinkingWater: p.welfareDrinkingWater,
+                                    welfareChanging: p.welfareChanging,
+                                  });
+                                }
+                              }}>
+                                <Edit className="h-2.5 w-2.5" />
+                              </Button>
+                            </div>
+
+                            {!isEditing && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {activeItems.length === 0 && <span className="text-[10px] text-muted-foreground italic">{t("common:none")}</span>}
+                                {activeItems.map(w => (
+                                  <Badge key={w.key} variant="secondary" className="text-[9px] px-1 py-0 h-4 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400 border-green-100 dark:border-green-900">
+                                    {w.label}
+                                  </Badge>
                                 ))}
                               </div>
                             )}
@@ -1010,7 +1074,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                                   ))}
                                 </div>
                                 <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { welfareToilets: draft.welfareToilets, welfareWashing: draft.welfareWashing, welfareRestArea: draft.welfareRestArea, welfareDrinkingWater: draft.welfareDrinkingWater, welfareChanging: draft.welfareChanging } }); setEditingSection(null); }}>
-                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
+                                  {updateMutation.isPending ? t("cdm.saving") : t("cdm.saveSection")}
                                 </Button>
                               </div>
                             )}
@@ -1022,18 +1086,18 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                     {/* Notes */}
                     {p.notes && (
                       <div className="text-xs text-muted-foreground bg-muted/40 rounded p-2">
-                        <span className="font-semibold">Notes: </span>{p.notes}
+                        <span className="font-semibold">{t("common:notes")}: </span>{p.notes}
                       </div>
                     )}
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 pt-1">
                       <Button size="sm" variant="outline" onClick={() => openEdit(p)} className="text-xs">
-                        <Edit className="h-3.5 w-3.5 mr-1" />Edit Project
+                        <Edit className="h-3.5 w-3.5 mr-1" />{t("cdm.editProject")}
                       </Button>
                       <Button size="sm" variant="outline" className="text-xs text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-950"
-                        onClick={() => { if (window.confirm(`Delete project "${p.title}"?`)) deleteMutation.mutate(p.id); }}>
-                        <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                        onClick={() => { if (window.confirm(t("cdm.deleteProject", { title: p.title }))) deleteMutation.mutate(p.id); }}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />{t("common:delete")}
                       </Button>
                     </div>
                   </div>
@@ -1049,10 +1113,10 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
         <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
           <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold mb-3">
-              <HardHatIcon className="h-5 w-5 text-amber-600" />Add CDM Project
+              <HardHatIcon className="h-5 w-5 text-amber-600" />{t("cdm.addCdmProject")}
             </DialogTitle>
             <div className="flex items-center gap-0">
-              {[{ n: 1, label: "Project Details" }, { n: 2, label: "F10 & Documents" }].map((s, i) => (
+              {[{ n: 1, label: t("cdm.projectDetails") }, { n: 2, label: t("cdm.f10AndDocuments") }].map((s, i) => (
                 <div key={s.n} className={`flex items-center ${i === 0 ? 'flex-1' : ''}`}>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${addStep >= s.n ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>{addStep > s.n ? '✓' : s.n}</div>
@@ -1068,75 +1132,75 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
             {addStep === 1 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium">Project Title *</label>
-                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Office Block Extension" />
+                  <label className="text-sm font-medium">{t("cdm.projectTitle")}</label>
+                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder={t("cdm.officeBlockExtensionPlaceholder")} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Contractor Company *</label>
+                  <label className="text-sm font-medium">{t("cdm.contractorCompany")}</label>
                   <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })}>
-                    <option value="">Select company…</option>
+                    <option value="">{t("cdm.selectCompanyPlaceholder")}</option>
                     {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">CDM Role</label>
+                  <label className="text-sm font-medium">{t("cdm.cdmRole")}</label>
                   <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.contractorRole} onChange={e => setForm({ ...form, contractorRole: e.target.value })}>
-                    <option value="contractor">Contractor</option>
-                    <option value="principal_contractor">Principal Contractor</option>
-                    <option value="principal_designer">Principal Designer</option>
-                    <option value="designer">Designer</option>
+                    <option value="contractor">{t("contractors:editCompanyDialog.contractor")}</option>
+                    <option value="principal_contractor">{t("cdm.principalContractor")}</option>
+                    <option value="principal_designer">{t("cdm.principalDesigner")}</option>
+                    <option value="designer">{t("cdm.designer")}</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Client Name</label>
-                  <Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} placeholder="e.g. ABC Holdings Ltd" />
+                  <label className="text-sm font-medium">{t("cdm.clientName")}</label>
+                  <Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} placeholder={t("cdm.abcHoldingsPlaceholder")} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Principal Designer Name</label>
-                  <Input value={form.principalDesignerName} onChange={e => setForm({ ...form, principalDesignerName: e.target.value })} placeholder="Name of the appointed Principal Designer" />
+                  <label className="text-sm font-medium">{t("cdm.principalDesignerName")}</label>
+                  <Input value={form.principalDesignerName} onChange={e => setForm({ ...form, principalDesignerName: e.target.value })} placeholder={t("cdm.pdNamePlaceholder")} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Location</label>
-                  <Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. London, EC1A 1BB" />
+                  <label className="text-sm font-medium">{t("common:location")}</label>
+                  <Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder={t("cdm.londonPlaceholder")} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Status</label>
+                  <label className="text-sm font-medium">{t("common:status")}</label>
                   <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                    <option value="planning">Planning</option>
-                    <option value="active">Active</option>
-                    <option value="complete">Complete</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="planning">{t("cdm.planning")}</option>
+                    <option value="active">{t("cdm.active")}</option>
+                    <option value="complete">{t("cdm.complete")}</option>
+                    <option value="cancelled">{t("cdm.cancelled")}</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Start Date</label>
+                  <label className="text-sm font-medium">{t("common:date")} (Start)</label>
                   <Input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">End Date</label>
+                  <label className="text-sm font-medium">{t("common:date")} (End)</label>
                   <Input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Estimated Days</label>
+                  <label className="text-sm font-medium">{t("cdm.estimatedDays")}</label>
                   <Input type="number" min="0" value={form.estimatedDays} onChange={e => setForm({ ...form, estimatedDays: e.target.value })} placeholder="30" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Peak Workers on Site</label>
+                  <label className="text-sm font-medium">{t("cdm.peakWorkers")}</label>
                   <Input type="number" min="0" value={form.peakWorkers} onChange={e => setForm({ ...form, peakWorkers: e.target.value })} placeholder="20" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Estimated Person-Days</label>
+                  <label className="text-sm font-medium">{t("cdm.estimatedPersonDays")}</label>
                   <Input type="number" min="0" value={form.personDays} onChange={e => setForm({ ...form, personDays: e.target.value })} placeholder="500" />
                 </div>
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium">Description</label>
-                  <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Brief project description…" />
+                  <label className="text-sm font-medium">{t("cdm.description")}</label>
+                  <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder={t("cdm.descriptionPlaceholder")} />
                 </div>
                 {/* F10 auto-detection */}
                 {isNotifiable({ estimatedDays: form.estimatedDays ? parseInt(form.estimatedDays) : 0, peakWorkers: form.peakWorkers ? parseInt(form.peakWorkers) : 0, personDays: form.personDays ? parseInt(form.personDays) : 0 }) && (
                   <div className="col-span-2 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span><strong>F10 notification required</strong> — This project exceeds HSE thresholds ({">"} 30 days with {">"} 20 workers, or {">"} 500 person-days). Notify the HSE before construction starts.</span>
+                    <span><Trans i18nKey="cdm.f10ThresholdInfo" ns="contractors" /></span>
                   </div>
                 )}
               </div>
@@ -1154,15 +1218,15 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                   const personDaysThreshold = persons > 500;
                   return (
                     <div className={`flex items-start gap-3 rounded-lg p-3 border ${notifiable ? "bg-amber-50 border-amber-300 dark:bg-amber-950/30 dark:border-amber-700" : "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700"}`}>
-                      <span className={`text-2xl font-extrabold leading-none ${notifiable ? "text-amber-600" : "text-green-600"}`}>{notifiable ? "YES" : "NO"}</span>
+                      <span className={`text-2xl font-extrabold leading-none ${notifiable ? "text-amber-600" : "text-green-600"}`}>{notifiable ? t("common:yes").toUpperCase() : t("common:no").toUpperCase()}</span>
                       <div>
                         <p className={`text-sm font-semibold ${notifiable ? "text-amber-800 dark:text-amber-300" : "text-green-800 dark:text-green-300"}`}>
-                          {notifiable ? "This project IS notifiable to the HSE (CDM 2015 Reg 6)" : "This project is NOT notifiable to the HSE"}
+                          {notifiable ? t("cdm.isNotifiableHse") : t("cdm.isNotNotifiableHse")}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {notifiable
-                            ? `Notification required — ${daysThreshold ? `${days} working days with ${peak} peak workers` : ""}${daysThreshold && personDaysThreshold ? "; " : ""}${personDaysThreshold ? `${persons} person-days` : ""}. An F10 notice must be submitted to the HSE before work starts.`
-                            : "Below the notifiable threshold (>30 working days with >20 simultaneous workers, or >500 person-days). No F10 required."}
+                            ? t("cdm.notificationRequired", { days: days, peak: peak }) + (daysThreshold && personDaysThreshold ? "; " : "") + (personDaysThreshold ? t("cdm.personDaysInfo", { count: persons }) : "") + ". " + t("cdm.f10NoticeMustBeSubmitted")
+                            : t("cdm.belowThresholdInfo")}
                         </p>
                       </div>
                     </div>
@@ -1171,88 +1235,88 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
 
                 {/* S1 — F10 */}
                 <div className="rounded-md border border-border p-3 space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />1. F10 HSE Notification</h4>
+                  <h4 className="font-medium text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />1. {t("cdm.f10HseNotification")}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Status</label>
+                      <label className="text-xs font-medium">{t("common:status")}</label>
                       <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.f10Status} onChange={e => setForm({ ...form, f10Status: e.target.value })}>
-                        <option value="not_required">Not Required</option>
-                        <option value="pending">Pending</option>
-                        <option value="submitted">Submitted</option>
+                        <option value="not_required">{t("cdm.notRequired")}</option>
+                        <option value="pending">{t("common:pending")}</option>
+                        <option value="submitted">{t("cdm.submitted")}</option>
                       </select>
                     </div>
                     {(form.f10Status === "submitted" || form.f10Status === "pending") && (
                       <>
-                        <div className="space-y-1.5"><label className="text-xs font-medium">Date Submitted</label><Input type="date" value={form.f10Date} onChange={e => setForm({ ...form, f10Date: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium">HSE Reference</label><Input value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} placeholder="F10 ref" /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium">{t("cdm.dateSubmitted")}</label><Input type="date" value={form.f10Date} onChange={e => setForm({ ...form, f10Date: e.target.value })} /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium">{t("cdm.hseReference")}</label><Input value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} placeholder="F10 ref" /></div>
                       </>
                     )}
-                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.f10Notes} onChange={e => setForm({ ...form, f10Notes: e.target.value })} placeholder="Optional notes…" /></div>
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">{t("common:notes")}</label><Input value={form.f10Notes} onChange={e => setForm({ ...form, f10Notes: e.target.value })} placeholder={t("cdm.optionalNotes")} /></div>
                   </div>
                 </div>
 
                 {/* S2 — CPP */}
                 <div className="rounded-md border border-border p-3 space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-blue-600" />2. Construction Phase Plan</h4>
+                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-blue-600" />2. {t("cdm.cpp")}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Status</label>
+                      <label className="text-xs font-medium">{t("common:status")}</label>
                       <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.cppStatus} onChange={e => setForm({ ...form, cppStatus: e.target.value })}>
-                        <option value="not_prepared">Not Prepared</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="approved">Approved</option>
+                        <option value="not_prepared">{t("cdm.notRequired")}</option>
+                        <option value="in_progress">{t("cdm.inProgress")}</option>
+                        <option value="approved">{t("cdm.approved")}</option>
                       </select>
                     </div>
-                    <div className="space-y-1.5"><label className="text-xs font-medium">Date</label><Input type="date" value={form.cppDate} onChange={e => setForm({ ...form, cppDate: e.target.value })} /></div>
-                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.cppNotes} onChange={e => setForm({ ...form, cppNotes: e.target.value })} placeholder="Optional notes…" /></div>
+                    <div className="space-y-1.5"><label className="text-xs font-medium">{t("common:date")}</label><Input type="date" value={form.cppDate} onChange={e => setForm({ ...form, cppDate: e.target.value })} /></div>
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">{t("common:notes")}</label><Input value={form.cppNotes} onChange={e => setForm({ ...form, cppNotes: e.target.value })} placeholder={t("cdm.optionalNotes")} /></div>
                   </div>
                 </div>
 
                 {/* S3 — PCI */}
                 <div className="rounded-md border border-border p-3 space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-purple-600" />3. Pre-Construction Information</h4>
+                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-purple-600" />3. {t("cdm.pci")}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Status</label>
+                      <label className="text-xs font-medium">{t("common:status")}</label>
                       <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.pciStatus} onChange={e => setForm({ ...form, pciStatus: e.target.value })}>
-                        <option value="not_prepared">Not Prepared</option>
-                        <option value="prepared">Prepared</option>
-                        <option value="distributed">Distributed</option>
+                        <option value="not_prepared">{t("cdm.notRequired")}</option>
+                        <option value="prepared">{t("cdm.prepared")}</option>
+                        <option value="distributed">{t("cdm.distributed")}</option>
                       </select>
                     </div>
-                    <div className="space-y-1.5"><label className="text-xs font-medium">Date</label><Input type="date" value={form.pciDate} onChange={e => setForm({ ...form, pciDate: e.target.value })} /></div>
-                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.pciNotes} onChange={e => setForm({ ...form, pciNotes: e.target.value })} placeholder="Optional notes…" /></div>
+                    <div className="space-y-1.5"><label className="text-xs font-medium">{t("common:date")}</label><Input type="date" value={form.pciDate} onChange={e => setForm({ ...form, pciDate: e.target.value })} /></div>
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">{t("common:notes")}</label><Input value={form.pciNotes} onChange={e => setForm({ ...form, pciNotes: e.target.value })} placeholder={t("cdm.optionalNotes")} /></div>
                   </div>
                 </div>
 
                 {/* S4 — HSF */}
                 <div className="rounded-md border border-border p-3 space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-indigo-600" />4. Health & Safety File</h4>
+                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-indigo-600" />4. {t("cdm.hsf")}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Status</label>
+                      <label className="text-xs font-medium">{t("common:status")}</label>
                       <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.hsfStatus} onChange={e => setForm({ ...form, hsfStatus: e.target.value })}>
-                        <option value="not_started">Not Started</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="complete">Complete</option>
-                        <option value="handed_over">Handed Over</option>
+                        <option value="not_started">{t("cdm.notStarted")}</option>
+                        <option value="in_progress">{t("cdm.inProgress")}</option>
+                        <option value="complete">{t("cdm.complete")}</option>
+                        <option value="handed_over">{t("cdm.handedOver")}</option>
                       </select>
                     </div>
-                    <div className="space-y-1.5"><label className="text-xs font-medium">Date</label><Input type="date" value={form.hsfDate} onChange={e => setForm({ ...form, hsfDate: e.target.value })} /></div>
-                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.hsfNotes} onChange={e => setForm({ ...form, hsfNotes: e.target.value })} placeholder="Optional notes…" /></div>
+                    <div className="space-y-1.5"><label className="text-xs font-medium">{t("common:date")}</label><Input type="date" value={form.hsfDate} onChange={e => setForm({ ...form, hsfDate: e.target.value })} /></div>
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">{t("common:notes")}</label><Input value={form.hsfNotes} onChange={e => setForm({ ...form, hsfNotes: e.target.value })} placeholder={t("cdm.optionalNotes")} /></div>
                   </div>
                 </div>
 
                 {/* S5 — Welfare */}
                 <div className="rounded-md border border-border p-3 space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><CheckSquareIcon className="h-4 w-4 text-green-600" />5. Welfare Provisions (CDM Reg 25)</h4>
+                  <h4 className="font-medium text-sm flex items-center gap-2"><CheckSquareIcon className="h-4 w-4 text-green-600" />5. {t("cdm.welfareProvisions")}</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
-                      { key: "welfareToilets" as const, label: "Toilets" },
-                      { key: "welfareWashing" as const, label: "Washing Facilities" },
-                      { key: "welfareRestArea" as const, label: "Rest Area" },
-                      { key: "welfareDrinkingWater" as const, label: "Drinking Water" },
-                      { key: "welfareChanging" as const, label: "Changing Facilities" },
+                      { key: "welfareToilets" as const, label: t("cdm.toilets") },
+                      { key: "welfareWashing" as const, label: t("cdm.washingFacilities") },
+                      { key: "welfareRestArea" as const, label: t("cdm.restArea") },
+                      { key: "welfareDrinkingWater" as const, label: t("cdm.drinkingWater") },
+                      { key: "welfareChanging" as const, label: t("cdm.changingFacilities") },
                     ].map(opt => (
                       <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
                         <input type="checkbox" checked={!!form[opt.key]} onChange={e => setForm({ ...form, [opt.key]: e.target.checked })} className="h-4 w-4" />
@@ -1264,7 +1328,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
 
                 {/* General Notes */}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">General Notes</label>
+                  <label className="text-sm font-medium">{t("cdm.generalNotes")}</label>
                   <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="Any additional CDM notes…" />
                 </div>
               </div>
@@ -1273,15 +1337,15 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
 
           <div className="flex-shrink-0 px-6 py-4 border-t flex justify-between">
             <Button variant="outline" onClick={() => { if (addStep === 1) { setShowAddDialog(false); setForm(emptyForm); } else setAddStep(1); }}>
-              {addStep === 1 ? "Cancel" : "Back"}
+              {addStep === 1 ? t("common:cancel") : t("common:back")}
             </Button>
             {addStep === 1 ? (
               <Button onClick={() => setAddStep(2)} disabled={!form.title || !form.companyId} className="bg-amber-600 hover:bg-amber-700 text-white">
-                Next: F10 & Documents
+                {t("cdm.nextF10")}
               </Button>
             ) : (
               <Button onClick={() => createMutation.mutate(form)} disabled={createMutation.isPending} className="bg-amber-600 hover:bg-amber-700 text-white">
-                {createMutation.isPending ? "Creating…" : "Create CDM Project"}
+                {createMutation.isPending ? t("common:saving") : t("cdm.createCdmProject")}
               </Button>
             )}
           </div>
@@ -1292,137 +1356,137 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
       <Dialog open={!!editingProject} onOpenChange={(open) => { if (!open) setEditingProject(null); }}>
         <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><HardHatIcon className="h-5 w-5 text-amber-600" />Edit CDM Project</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><HardHatIcon className="h-5 w-5 text-amber-600" />{t("cdm.editProject")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-5 pt-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Project Title *</label>
+                <label className="text-sm font-medium">{t("cdm.projectTitle")}</label>
                 <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">CDM Role</label>
+                <label className="text-sm font-medium">{t("cdm.cdmRole")}</label>
                 <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.contractorRole} onChange={e => setForm({ ...form, contractorRole: e.target.value })}>
-                  <option value="contractor">Contractor</option>
-                  <option value="principal_contractor">Principal Contractor</option>
-                  <option value="principal_designer">Principal Designer</option>
-                  <option value="designer">Designer</option>
+                  <option value="contractor">{t("contractors:editCompanyDialog.contractor")}</option>
+                  <option value="principal_contractor">{t("cdm.principalContractor")}</option>
+                  <option value="principal_designer">{t("cdm.principalDesigner")}</option>
+                  <option value="designer">{t("cdm.designer")}</option>
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Status</label>
+                <label className="text-sm font-medium">{t("common:status")}</label>
                 <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  <option value="planning">Planning</option>
-                  <option value="active">Active</option>
-                  <option value="complete">Complete</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="planning">{t("cdm.planning")}</option>
+                  <option value="active">{t("cdm.active")}</option>
+                  <option value="complete">{t("cdm.complete")}</option>
+                  <option value="cancelled">{t("cdm.cancelled")}</option>
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Client Name</label>
+                <label className="text-sm font-medium">{t("cdm.clientName")}</label>
                 <Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Principal Designer Name</label>
-                <Input value={form.principalDesignerName} onChange={e => setForm({ ...form, principalDesignerName: e.target.value })} placeholder="Name of the appointed Principal Designer" />
+                <label className="text-sm font-medium">{t("cdm.principalDesignerName")}</label>
+                <Input value={form.principalDesignerName} onChange={e => setForm({ ...form, principalDesignerName: e.target.value })} placeholder={t("cdm.pdNamePlaceholder")} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Location</label>
+                <label className="text-sm font-medium">{t("common:location")}</label>
                 <Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Start Date</label>
+                <label className="text-sm font-medium">{t("common:date")} (Start)</label>
                 <Input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">End Date</label>
+                <label className="text-sm font-medium">{t("common:date")} (End)</label>
                 <Input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Est. Days</label>
+                <label className="text-sm font-medium">{t("cdm.estDays")}</label>
                 <Input type="number" min="0" value={form.estimatedDays} onChange={e => setForm({ ...form, estimatedDays: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Peak Workers</label>
+                <label className="text-sm font-medium">{t("cdm.peakWorkers")}</label>
                 <Input type="number" min="0" value={form.peakWorkers} onChange={e => setForm({ ...form, peakWorkers: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Person-Days</label>
+                <label className="text-sm font-medium">{t("cdm.estimatedPersonDays")}</label>
                 <Input type="number" min="0" value={form.personDays} onChange={e => setForm({ ...form, personDays: e.target.value })} />
               </div>
             </div>
 
             {/* Five compliance sections */}
             <div className="space-y-3">
-              <p className="text-sm font-semibold">Compliance Sections</p>
+              <p className="text-sm font-semibold">{t("cdm.complianceSections")}</p>
 
               {/* S1 — F10 */}
               <div className="rounded-md border border-border p-3 space-y-2">
-                <h4 className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. F10 HSE Notification</h4>
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. {t("cdm.f10HseNotification")}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:status")}</label>
                     <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.f10Status} onChange={e => setForm({ ...form, f10Status: e.target.value })}>
-                      <option value="not_required">Not Required</option><option value="pending">Pending</option><option value="submitted">Submitted</option>
+                      <option value="not_required">{t("cdm.notRequired")}</option><option value="pending">{t("common:pending")}</option><option value="submitted">{t("cdm.submitted")}</option>
                     </select>
                   </div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date Submitted</label><Input type="date" className="h-8 text-xs" value={form.f10Date} onChange={e => setForm({ ...form, f10Date: e.target.value })} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">HSE Reference</label><Input className="h-8 text-xs" value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.f10Notes} onChange={e => setForm({ ...form, f10Notes: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("cdm.dateSubmitted")}</label><Input type="date" className="h-8 text-xs" value={form.f10Date} onChange={e => setForm({ ...form, f10Date: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("cdm.hseReference")}</label><Input className="h-8 text-xs" value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:notes")}</label><Input className="h-8 text-xs" value={form.f10Notes} onChange={e => setForm({ ...form, f10Notes: e.target.value })} /></div>
                 </div>
               </div>
 
               {/* S2 — CPP */}
               <div className="rounded-md border border-border p-3 space-y-2">
-                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-blue-600" />2. Construction Phase Plan</h4>
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-blue-600" />2. {t("cdm.cpp")}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:status")}</label>
                     <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.cppStatus} onChange={e => setForm({ ...form, cppStatus: e.target.value })}>
-                      <option value="not_prepared">Not Prepared</option><option value="in_progress">In Progress</option><option value="approved">Approved</option>
+                      <option value="not_prepared">{t("cdm.notRequired")}</option><option value="in_progress">{t("cdm.inProgress")}</option><option value="approved">{t("cdm.approved")}</option>
                     </select>
                   </div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date</label><Input type="date" className="h-8 text-xs" value={form.cppDate} onChange={e => setForm({ ...form, cppDate: e.target.value })} /></div>
-                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.cppNotes} onChange={e => setForm({ ...form, cppNotes: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:date")}</label><Input type="date" className="h-8 text-xs" value={form.cppDate} onChange={e => setForm({ ...form, cppDate: e.target.value })} /></div>
+                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">{t("common:notes")}</label><Input className="h-8 text-xs" value={form.cppNotes} onChange={e => setForm({ ...form, cppNotes: e.target.value })} /></div>
                 </div>
               </div>
 
               {/* S3 — PCI */}
               <div className="rounded-md border border-border p-3 space-y-2">
-                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-purple-600" />3. Pre-Construction Information</h4>
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-purple-600" />3. {t("cdm.pci")}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:status")}</label>
                     <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.pciStatus} onChange={e => setForm({ ...form, pciStatus: e.target.value })}>
-                      <option value="not_prepared">Not Prepared</option><option value="prepared">Prepared</option><option value="distributed">Distributed</option>
+                      <option value="not_prepared">{t("cdm.notRequired")}</option><option value="prepared">{t("cdm.prepared")}</option><option value="distributed">{t("cdm.distributed")}</option>
                     </select>
                   </div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date</label><Input type="date" className="h-8 text-xs" value={form.pciDate} onChange={e => setForm({ ...form, pciDate: e.target.value })} /></div>
-                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.pciNotes} onChange={e => setForm({ ...form, pciNotes: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:date")}</label><Input type="date" className="h-8 text-xs" value={form.pciDate} onChange={e => setForm({ ...form, pciDate: e.target.value })} /></div>
+                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">{t("common:notes")}</label><Input className="h-8 text-xs" value={form.pciNotes} onChange={e => setForm({ ...form, pciNotes: e.target.value })} /></div>
                 </div>
               </div>
 
               {/* S4 — HSF */}
               <div className="rounded-md border border-border p-3 space-y-2">
-                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-indigo-600" />4. Health & Safety File</h4>
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-indigo-600" />4. {t("cdm.hsf")}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:status")}</label>
                     <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.hsfStatus} onChange={e => setForm({ ...form, hsfStatus: e.target.value })}>
-                      <option value="not_started">Not Started</option><option value="in_progress">In Progress</option><option value="complete">Complete</option><option value="handed_over">Handed Over</option>
+                      <option value="not_started">{t("cdm.notStarted")}</option><option value="in_progress">{t("cdm.inProgress")}</option><option value="complete">{t("cdm.complete")}</option><option value="handed_over">{t("cdm.handedOver")}</option>
                     </select>
                   </div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date</label><Input type="date" className="h-8 text-xs" value={form.hsfDate} onChange={e => setForm({ ...form, hsfDate: e.target.value })} /></div>
-                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.hsfNotes} onChange={e => setForm({ ...form, hsfNotes: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">{t("common:date")}</label><Input type="date" className="h-8 text-xs" value={form.hsfDate} onChange={e => setForm({ ...form, hsfDate: e.target.value })} /></div>
+                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">{t("common:notes")}</label><Input className="h-8 text-xs" value={form.hsfNotes} onChange={e => setForm({ ...form, hsfNotes: e.target.value })} /></div>
                 </div>
               </div>
 
               {/* S5 — Welfare */}
               <div className="rounded-md border border-border p-3 space-y-2">
-                <h4 className="text-xs font-semibold flex items-center gap-1.5"><CheckSquareIcon className="h-3.5 w-3.5 text-green-600" />5. Welfare Provisions (CDM Reg 25)</h4>
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><CheckSquareIcon className="h-3.5 w-3.5 text-green-600" />5. {t("cdm.welfareProvisions")}</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {[
-                    { key: "welfareToilets" as const, label: "Toilets" },
-                    { key: "welfareWashing" as const, label: "Washing" },
-                    { key: "welfareRestArea" as const, label: "Rest Area" },
-                    { key: "welfareDrinkingWater" as const, label: "Drinking Water" },
-                    { key: "welfareChanging" as const, label: "Changing" },
+                    { key: "welfareToilets" as const, label: t("cdm.toilets") },
+                    { key: "welfareWashing" as const, label: t("cdm.washing") },
+                    { key: "welfareRestArea" as const, label: t("cdm.restArea") },
+                    { key: "welfareDrinkingWater" as const, label: t("cdm.drinkingWater") },
+                    { key: "welfareChanging" as const, label: t("cdm.changing") },
                   ].map(opt => (
                     <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
                       <input type="checkbox" checked={!!form[opt.key]} onChange={e => setForm({ ...form, [opt.key]: e.target.checked })} className="h-4 w-4" />
@@ -1434,14 +1498,14 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">General Notes</label>
+              <label className="text-sm font-medium">{t("cdm.generalNotes")}</label>
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setEditingProject(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setEditingProject(null)}>{t("common:cancel")}</Button>
             <Button onClick={() => editingProject && updateMutation.mutate({ id: editingProject.id, data: form })} disabled={updateMutation.isPending || !form.title} className="bg-amber-600 hover:bg-amber-700 text-white">
-              {updateMutation.isPending ? "Saving…" : "Save Changes"}
+              {updateMutation.isPending ? t("common:saving") : t("common:saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1451,18 +1515,18 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
       <Dialog open={showPdfFilterDialog} onOpenChange={handlePdfDialogOpenChange}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Export CDM Report as PDF</DialogTitle>
-            <DialogDescription>Optionally filter which projects are included in the report.</DialogDescription>
+            <DialogTitle>{t("cdm.exportCdmPdf")}</DialogTitle>
+            <DialogDescription>{t("cdm.pdfFilterDesc")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Contractor Company</Label>
+              <Label className="text-sm font-medium">{t("cdm.contractorCompany")}</Label>
               <Select value={pdfCompanyFilter} onValueChange={(val) => { setPdfCompanyFilter(val); try { localStorage.setItem("cdm_pdf_last_company", val); } catch {} }}>
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="All companies" />
+                  <SelectValue placeholder={t("cdm.allCompanies")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All companies</SelectItem>
+                  <SelectItem value="all">{t("cdm.allCompanies")}</SelectItem>
                   {companies.map(c => (
                     <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                   ))}
@@ -1470,23 +1534,23 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Project Status</Label>
+              <Label className="text-sm font-medium">{t("common:status")}</Label>
               <Select value={pdfStatusFilter} onValueChange={setPdfStatusFilter}>
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="All statuses" />
+                  <SelectValue placeholder={t("cdm.allStatuses")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="planning">Planning</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="complete">Complete</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="all">{t("cdm.allStatuses")}</SelectItem>
+                  <SelectItem value="planning">{t("cdm.planning")}</SelectItem>
+                  <SelectItem value="active">{t("cdm.active")}</SelectItem>
+                  <SelectItem value="complete">{t("cdm.complete")}</SelectItem>
+                  <SelectItem value="cancelled">{t("cdm.cancelled")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Start date from</Label>
+                <Label className="text-sm font-medium">{t("cdm.startDateFrom")}</Label>
                 <Input
                   type="date"
                   className="h-9 text-sm"
@@ -1495,7 +1559,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Start date to</Label>
+                <Label className="text-sm font-medium">{t("cdm.startDateTo")}</Label>
                 <Input
                   type="date"
                   className="h-9 text-sm"
@@ -1511,9 +1575,9 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
               className="mr-auto"
               onClick={() => resetPdfFilters()}
             >
-              Reset filters
+              {t("cdm.clearFilters")}
             </Button>
-            <Button variant="outline" onClick={() => handlePdfDialogOpenChange(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => handlePdfDialogOpenChange(false)}>{t("common:cancel")}</Button>
             <Button
               className="bg-amber-600 hover:bg-amber-700 text-white"
               onClick={() => {
@@ -1528,7 +1592,7 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                 setShowPdfFilterDialog(false);
               }}
             >
-              <Download className="h-3.5 w-3.5 mr-1.5" />Generate PDF
+              <Download className="h-3.5 w-3.5 mr-1.5" />{t("cdm.generatePdf")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1536,4 +1600,3 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
     </div>
   );
 }
-

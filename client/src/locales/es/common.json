@@ -36,6 +36,13 @@
     "contractor": "Contratista",
     "member": "Miembro"
   },
+  "clear": "Borrar",
+  "matching": "que coinciden con",
+  "gridView": "Vista de cuadrícula",
+  "listView": "Vista de lista",
+  "showLess": "Mostrar menos",
+  "noPhoneProvided": "No se proporcionó teléfono",
+  "noPhone": "Sin teléfono",
   "noResults": "No se encontraron resultados",
   "saveChanges": "Guardar cambios",
   "sending": "Enviando...",
@@ -79,5 +86,7 @@
   "arrived": "Ha llegado",
   "meeting": "Reunión",
   "visitor": "Visitante",
-  "contractor": "Contratista"
+  "contractor": "Contratista",
+  "signedInAt": "Entrada registrada a las {{time}}",
+  "searchPlaceholder": "Buscar..."
 }

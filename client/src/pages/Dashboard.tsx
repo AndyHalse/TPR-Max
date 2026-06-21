@@ -13,6 +13,7 @@ import { useLocation } from "wouter";
 import { apiRequest, getSessionToken } from "@/lib/queryClient";
 import { useState } from "react";
 import type { Staff, Visitor, TransformedRoomBooking, MeetingRoom } from "@shared/schema";
+import { formatDateLocale, formatTimeLocale } from "@/utils/formatDate";
 import { formatDistanceToNow } from "date-fns";
 
 interface Stats {
@@ -35,7 +36,7 @@ interface Activity {
 }
 
 export default function Dashboard() {
-  const { t } = useTranslation('dashboard');
+  const { t } = useTranslation(['dashboard', 'common']);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -353,14 +354,14 @@ export default function Dashboard() {
   const contractorDiary = receptionDiaryData?.contractors || [];
 
   const getStaffName = (staffId?: string) => {
-    if (!staffId || !staff) return "Unknown";
+    if (!staffId || !staff) return t('common:unknown');
     const staffMember = staff.find(s => s.id === staffId);
-    return staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : "Unknown";
+    return staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : t('common:unknown');
   };
 
   // Reception Diary utility functions
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-GB', {
+    return formatDateLocale(date, {
       weekday: 'short',
       month: 'short', 
       day: 'numeric'
@@ -368,10 +369,7 @@ export default function Dashboard() {
   };
 
   const formatVisitTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatTimeLocale(date);
   };
 
   // Helper function to get the correct visit time from entry data
@@ -402,8 +400,8 @@ export default function Dashboard() {
   };
 
   const getDayStatus = (date: Date) => {
-    if (isToday(date)) return { label: 'Today', color: 'bg-blue-100 text-blue-800' };
-    if (isTomorrow(date)) return { label: 'Tomorrow', color: 'bg-green-100 text-green-800' };
+    if (isToday(date)) return { label: t('common:today'), color: 'bg-blue-100 text-blue-800' };
+    if (isTomorrow(date)) return { label: t('common:tomorrow'), color: 'bg-green-100 text-green-800' };
     return { label: formatDate(date), color: 'bg-[var(--background)] text-variable' };
   };
 
@@ -458,9 +456,9 @@ export default function Dashboard() {
     
     if (diaryViewMode === 'today') {
       if (currentDate.toDateString() === today.toDateString()) {
-        return 'Today';
+        return t('common:today');
       } else {
-        return currentDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
+        return formatDateLocale(currentDate, { weekday: 'long', month: 'short', day: 'numeric' });
       }
     } else if (diaryViewMode === 'tomorrow') {
       const targetDate = new Date(currentDate);
@@ -468,16 +466,16 @@ export default function Dashboard() {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       if (targetDate.toDateString() === tomorrow.toDateString()) {
-        return 'Tomorrow';
+        return t('common:tomorrow');
       } else {
-        return targetDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
+        return formatDateLocale(targetDate, { weekday: 'long', month: 'short', day: 'numeric' });
       }
     } else {
       if (isCurrentWeek) {
-        return 'This Week';
+        return t('common:thisWeek');
       } else {
         const { start, end } = getQueryDateAndDays(diaryViewMode, currentDate);
-        return `${start.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}`;
+        return `${formatDateLocale(start, { month: 'short', day: 'numeric' })} - ${formatDateLocale(end, { month: 'short', day: 'numeric' })}`;
       }
     }
   };
@@ -560,18 +558,14 @@ export default function Dashboard() {
   const handleEmergencyMuster = () => {
     setLocation('/muster');
     toast({
-      title: "Emergency Muster Activated",
-      description: "Redirecting to emergency muster management...",
+      title: t('common:emergency'),
+      description: t('dashboard:peopleOnSite:activateEmergency'),
       variant: "destructive"
     });
   };
 
   const formatTime = (date: string | Date) => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatTimeLocale(date);
   };
 
   // Checkout mutations
@@ -591,14 +585,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
-        title: "Success",
-        description: "Visitor checked out successfully",
+        title: t('common:success'),
+        description: t('dashboard:modals:visitorDetails:actions:alertReception'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to check out visitor",
+        title: t('common:error'),
+        description: t('common:failedToLoad'),
         variant: "destructive",
       });
     },
@@ -618,14 +612,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
-        title: "Success", 
-        description: "Contractor checked out successfully",
+        title: t('common:success'), 
+        description: t('common:checkedOut'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to check out contractor",
+        title: t('common:error'),
+        description: t('common:failedToLoad'),
         variant: "destructive",
       });
     },
@@ -643,14 +637,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
-        title: "Success", 
-        description: "Staff member checked out successfully",
+        title: t('common:success'), 
+        description: t('common:checkedOut'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to check out staff member",
+        title: t('common:error'),
+        description: t('common:failedToLoad'),
         variant: "destructive",
       });
     },
@@ -668,14 +662,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
-        title: "Success",
-        description: "Member checked out successfully",
+        title: t('common:success'),
+        description: t('common:checkedOut'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to check out member",
+        title: t('common:error'),
+        description: t('common:failedToLoad'),
         variant: "destructive",
       });
     },
@@ -693,11 +687,11 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Cancelled", description: "Pre-booking has been cancelled." });
+      toast({ title: t('common:success'), description: t('common:success') });
       setDiaryCancelId(null);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error?.message || "Failed to cancel pre-booking", variant: "destructive" });
+      toast({ title: t('common:error'), description: error?.message || t('common:error'), variant: "destructive" });
       setDiaryCancelId(null);
     },
   });
@@ -712,11 +706,11 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Cancelled", description: "Contractor pre-booking has been cancelled." });
+      toast({ title: t('common:success'), description: t('common:success') });
       setDiaryCancelId(null);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error?.message || "Failed to cancel contractor pre-booking", variant: "destructive" });
+      toast({ title: t('common:error'), description: error?.message || t('common:error'), variant: "destructive" });
       setDiaryCancelId(null);
     },
   });
@@ -736,11 +730,11 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
-      toast({ title: "Visitor Checked In", description: "Visitor has been checked in from pre-booking" });
+      toast({ title: t('common:checkedIn'), description: t('common:checkedIn') });
     },
     onError: (error: any) => {
-      const message = error?.message || "Failed to check in visitor";
-      toast({ title: "Error", description: message, variant: "destructive" });
+      const message = error?.message || t('common:error');
+      toast({ title: t('common:error'), description: message, variant: "destructive" });
     },
   });
 
@@ -759,47 +753,47 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
-      toast({ title: "Contractor Checked In", description: "Contractor has been checked in from pre-booking" });
+      toast({ title: t('common:checkedIn'), description: t('common:checkedIn') });
     },
     onError: (error: any) => {
-      const message = error?.message || "Failed to check in contractor";
-      toast({ title: "Error", description: message, variant: "destructive" });
+      const message = error?.message || t('common:error');
+      toast({ title: t('common:error'), description: message, variant: "destructive" });
     },
   });
 
   if (statsLoading) {
-    return <div>Loading dashboard...</div>;
+    return <div>{t('common:loading')}</div>;
   }
 
   const checklistStepDefs = [
     {
       key: "companyLogoSet" as const,
-      label: "Upload your company logo",
+      label: t('dashboard:gettingStarted:steps:logo'),
       href: "/settings",
     },
     {
       key: "emergencyEmailSet" as const,
-      label: "Set emergency / CDM alerts email",
+      label: t('dashboard:gettingStarted:steps:alertEmail'),
       href: "/settings",
     },
     {
       key: "emailSmtpConfigured" as const,
-      label: "Configure email delivery (SMTP)",
+      label: t('dashboard:gettingStarted:steps:smtp'),
       href: "/settings",
     },
     {
       key: "mustersPointNamed" as const,
-      label: "Name your muster points",
+      label: t('dashboard:gettingStarted:steps:musterPoints'),
       href: "/settings",
     },
     {
       key: "staffAdded" as const,
-      label: "Add your first staff member",
+      label: t('dashboard:gettingStarted:steps:staff'),
       href: "/staff",
     },
     {
       key: "firstVisitorOrContractor" as const,
-      label: "Register a visitor or contractor",
+      label: t('dashboard:gettingStarted:steps:register'),
       href: "/visitors",
     },
   ];
@@ -824,10 +818,10 @@ export default function Dashboard() {
             <Rocket size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
             <div>
               <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
-                Getting Started — {checklistStatus.completedCount} of {checklistStatus.totalCount} done
+                {t('dashboard:gettingStarted:title', { completed: checklistStatus.completedCount, total: checklistStatus.totalCount })}
               </h3>
               <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
-                Finish these steps to set up your site
+                {t('dashboard:gettingStarted:subtitle')}
               </p>
             </div>
           </div>
@@ -968,13 +962,13 @@ export default function Dashboard() {
                 <Shield className="text-amber-700 dark:text-amber-300" size={22} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-amber-800 dark:text-amber-200">Lone Worker Sessions</h3>
-                <p className="text-xs text-amber-600 dark:text-amber-400">{activeLoneWorkers.length} active — welfare checks in progress</p>
+                <h3 className="text-base font-bold text-amber-800 dark:text-amber-200">{t('dashboard:loneWorker.title')}</h3>
+                <p className="text-xs text-amber-600 dark:text-amber-400">{t('dashboard:loneWorker.active', { count: activeLoneWorkers.length })}</p>
               </div>
             </div>
             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-200 dark:bg-amber-800/60 text-amber-800 dark:text-amber-200 rounded-full text-xs font-semibold animate-pulse">
               <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
-              LIVE
+              {t('common:liveLabel')}
             </span>
           </div>
           <div className="space-y-2">
@@ -1002,15 +996,15 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2 min-w-0">
                     <Shield size={14} className={iconColor} />
                     <span className="font-medium text-sm text-fixed truncate">{session.personName}</span>
-                    <span className="text-xs text-variable hidden sm:block capitalize">({session.personType})</span>
+                    <span className="text-xs text-variable hidden sm:block capitalize">({t(`common:type.${session.personType}` as any)})</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {isEscalated && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white animate-pulse">L{session.escalationLevel} ALERT</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white animate-pulse">L{session.escalationLevel} {t('dashboard:loneWorker.overdue').toUpperCase()}</span>
                     )}
                     <span className="text-xs text-variable hidden sm:block">{session.minutesSinceStart}m ago</span>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeColor}`}>
-                      {minsLeft !== null ? (isOverdue ? `${Math.abs(minsLeft)}m overdue` : `next in ${minsLeft}m`) : 'checking…'}
+                      {minsLeft !== null ? (isOverdue ? `${Math.abs(minsLeft)}m ${t('dashboard:loneWorker.overdue')}` : t('dashboard:loneWorker.nextIn', { n: minsLeft })) : t('dashboard:loneWorker.checking')}
                     </span>
                   </div>
                 </div>
@@ -1060,11 +1054,11 @@ export default function Dashboard() {
                     ? 'text-amber-800 dark:text-amber-200'
                     : 'text-green-800 dark:text-green-200'
                 }`}>
-                  {fraStatus.overallStatus === 'no_fra' && '🚨 No Fire Risk Assessment recorded'}
-                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && '🚨 Fire Risk Assessment — Overdue'}
-                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `🚨 Fire Risk Assessment — ${fraStatus.actionItems.critical_outstanding} Critical Action${fraStatus.actionItems.critical_outstanding !== 1 ? 's' : ''} Outstanding`}
-                  {fraStatus.overallStatus === 'action_required' && '⚠ Fire Risk Assessment — Actions Outstanding'}
-                  {fraStatus.overallStatus === 'compliant' && '✅ Fire Risk Assessment — Current'}
+                  {fraStatus.overallStatus === 'no_fra' && `🚨 ${t('common:none')} ${t('dashboard:fireRisk.title')}`}
+                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && `🚨 ${t('dashboard:fireRisk.title')} — ${t('dashboard:loneWorker.overdue')}`}
+                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `🚨 ${t('dashboard:fireRisk.title')} — ${fraStatus.actionItems.critical_outstanding} Critical Actions Outstanding`}
+                  {fraStatus.overallStatus === 'action_required' && `⚠ ${t('dashboard:fireRisk.title')} — Actions Outstanding`}
+                  {fraStatus.overallStatus === 'compliant' && `✅ ${t('dashboard:fireRisk.title')} — ${t('common:active')}`}
                 </p>
                 <p className={`text-xs mt-0.5 ${
                   fraStatus.overallStatus === 'critical' || fraStatus.overallStatus === 'no_fra'
@@ -1074,10 +1068,10 @@ export default function Dashboard() {
                     : 'text-green-600 dark:text-green-400'
                 }`}>
                   {fraStatus.overallStatus === 'no_fra' && 'This is a legal requirement under RRO 2005 →'}
-                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && `Overdue by ${Math.abs(fraStatus.daysUntilReview!)} day${Math.abs(fraStatus.daysUntilReview!) !== 1 ? 's' : ''} →`}
+                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && `${t('dashboard:loneWorker.overdue')} by ${Math.abs(fraStatus.daysUntilReview!)} day${Math.abs(fraStatus.daysUntilReview!) !== 1 ? 's' : ''} →`}
                   {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `${fraStatus.actionItems.outstanding} action item${fraStatus.actionItems.outstanding !== 1 ? 's' : ''} outstanding →`}
                   {fraStatus.overallStatus === 'action_required' && `${fraStatus.actionItems.outstanding} action item${fraStatus.actionItems.outstanding !== 1 ? 's' : ''} need attention →`}
-                  {fraStatus.overallStatus === 'compliant' && fraStatus.daysUntilReview !== null && `Next review: ${fraStatus.currentFRA ? new Date(fraStatus.currentFRA.nextReviewDate).toLocaleDateString('en-GB') : '—'} · All actions resolved`}
+                  {fraStatus.overallStatus === 'compliant' && fraStatus.daysUntilReview !== null && `Next review: ${fraStatus.currentFRA ? formatDateLocale(fraStatus.currentFRA.nextReviewDate) : '—'} · All actions resolved`}
                 </p>
               </div>
             </div>
@@ -1098,22 +1092,22 @@ export default function Dashboard() {
           <div className="flex items-center">
             <CalendarDays className="mr-2 sm:mr-3 text-indigo-600 dark:text-indigo-400 flex-shrink-0" size={28} />
             <div>
-              <h3 className="text-lg sm:text-xl font-bold text-indigo-800 dark:text-indigo-200">Reception Diary</h3>
-              <p className="text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hidden sm:block">Complete operational overview - visitors, contractors & meetings</p>
+              <h3 className="text-lg sm:text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('dashboard:receptionDiary.title')}</h3>
+              <p className="text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hidden sm:block">{t('dashboard:receptionDiary.subtitle')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-xs">
-              {pendingVisitors.length} Expected
+              {pendingVisitors.length} {t('dashboard:receptionDiary.status.pending')}
             </Badge>
             <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800 text-xs">
-              {pendingContractors.length} Contractors
+              {pendingContractors.length} {t('dashboard:receptionDiary.filters.contractors')}
             </Badge>
             <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 text-xs">
-              {arrivedVisitors.length + arrivedContractors.length} Arrived
+              {arrivedVisitors.length + arrivedContractors.length} {t('dashboard:receptionDiary.status.arrived')}
             </Badge>
             <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs">
-              {currentViewRoomBookings?.length || 0} Meetings
+              {currentViewRoomBookings?.length || 0} {t('dashboard:receptionDiary.filters.meetings')}
             </Badge>
           </div>
         </div>
@@ -1134,7 +1128,7 @@ export default function Dashboard() {
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-today"
             >
-              Today
+              {t('dashboard:receptionDiary.tabs.today')}
             </Button>
             <Button
               variant={diaryViewMode === 'tomorrow' ? 'default' : 'outline'}
@@ -1148,7 +1142,7 @@ export default function Dashboard() {
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-tomorrow"
             >
-              Tomorrow
+              {t('dashboard:receptionDiary.tabs.tomorrow')}
             </Button>
             <Button
               variant={diaryViewMode === 'weekly' ? 'default' : 'outline'}
@@ -1162,7 +1156,7 @@ export default function Dashboard() {
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-weekly"
             >
-              Weekly
+              {t('dashboard:receptionDiary.tabs.weekly')}
             </Button>
           </div>
 
@@ -1198,7 +1192,7 @@ export default function Dashboard() {
               size="sm"
               onClick={() => setDiaryLayout('cards')}
               className="h-8 w-8 p-0 hidden sm:flex"
-              title="Card view"
+              title={t('dashboard:receptionDiary.viewCard')}
             >
               <LayoutGrid size={14} />
             </Button>
@@ -1207,7 +1201,7 @@ export default function Dashboard() {
               size="sm"
               onClick={() => setDiaryLayout('compact')}
               className="h-8 w-8 p-0 hidden sm:flex"
-              title="Compact list view"
+              title={t('dashboard:receptionDiary.viewCompact')}
             >
               <LayoutList size={14} />
             </Button>
@@ -1217,10 +1211,10 @@ export default function Dashboard() {
               size="sm"
               onClick={() => setShowHistory(!showHistory)}
               className={`h-8 px-3 text-xs ${showHistory ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-              title={showHistory ? 'Hide arrived entries' : 'Show arrived entries'}
+              title={showHistory ? t('dashboard:receptionDiary.hideHistory') : t('dashboard:receptionDiary.showHistory')}
             >
               <Clock3 size={14} className="mr-1" />
-              {showHistory ? 'Hide History' : 'Show History'}
+              {showHistory ? t('dashboard:receptionDiary.hideHistory') : t('dashboard:receptionDiary.showHistory')}
             </Button>
           </div>
         </div>
@@ -1238,7 +1232,7 @@ export default function Dashboard() {
                   <div className="text-lg font-bold text-indigo-800 dark:text-indigo-200">
                     {pendingVisitors.length}
                   </div>
-                  <div className="text-xs text-indigo-600 dark:text-indigo-400">Expected Visitors</div>
+                  <div className="text-xs text-indigo-600 dark:text-indigo-400">{t('dashboard:receptionDiary.filters.visitors')}</div>
                 </div>
               </div>
             </div>
@@ -1253,7 +1247,7 @@ export default function Dashboard() {
                   <div className="text-lg font-bold text-orange-800 dark:text-orange-200">
                     {pendingContractors.length}
                   </div>
-                  <div className="text-xs text-orange-600 dark:text-orange-400">Expected Contractors</div>
+                  <div className="text-xs text-orange-600 dark:text-orange-400">{t('dashboard:receptionDiary.filters.contractors')}</div>
                 </div>
               </div>
             </div>
@@ -1268,7 +1262,7 @@ export default function Dashboard() {
                   <div className="text-lg font-bold text-purple-800 dark:text-purple-200">
                     {currentViewRoomBookings?.length || 0}
                   </div>
-                  <div className="text-xs text-purple-600 dark:text-purple-400">Room Bookings</div>
+                  <div className="text-xs text-purple-600 dark:text-purple-400">{t('dashboard:receptionDiary.filters.meetings')}</div>
                 </div>
               </div>
             </div>
@@ -1284,7 +1278,7 @@ export default function Dashboard() {
                     {arrivedVisitors.length + arrivedContractors.length}
                   </div>
                   <div className="text-xs text-green-600 dark:text-green-400">
-                    {showHistory ? 'Showing History' : 'Already Arrived'}
+                    {showHistory ? t('dashboard:receptionDiary.hideHistory') : t('dashboard:receptionDiary.status.arrived')}
                   </div>
                 </div>
               </div>
@@ -1296,13 +1290,13 @@ export default function Dashboard() {
           {diaryLoading ? (
             <div className="text-center py-8 text-variable">
               <Calendar className="mx-auto mb-3 text-variable" size={40} />
-              <p>Loading reception diary...</p>
+              <p>{t('dashboard:receptionDiary.loading')}</p>
             </div>
           ) : (!filteredDiary || filteredDiary.length === 0) && (!filteredContractors || filteredContractors.length === 0) && (!currentViewRoomBookings || currentViewRoomBookings.length === 0) ? (
             <div className="text-center py-8 text-variable">
               <CalendarDays className="mx-auto mb-3 text-variable" size={40} />
-              <p className="font-medium">No activities scheduled for {getViewTitle().toLowerCase()}</p>
-              <p className="text-sm mt-2">Visitor pre-bookings, contractor bookings, and meetings will appear here</p>
+              <p className="font-medium">{t('dashboard:receptionDiary.noActivities', { period: getViewTitle().toLowerCase() })}</p>
+              <p className="text-sm mt-2">{t('dashboard:receptionDiary.noActivitiesDesc')}</p>
             </div>
           ) : diaryLayout === 'compact' ? (
             /* Compact List View - All events in unified sorted rows */
@@ -2514,7 +2508,7 @@ export default function Dashboard() {
               <div>
                 <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center">
                   <UserCheck className="mr-2 text-purple-600" size={20} />
-                  Members ({checkedInMembers.length})
+                  {t('peopleOnSite.members')} ({checkedInMembers.length})
                 </h3>
                 <div className="space-y-2">
                   {checkedInMembers.map((member) => (
@@ -2529,11 +2523,11 @@ export default function Dashboard() {
                           <div className="font-medium text-fixed">
                             {member.firstName} {member.lastName}
                           </div>
-                          <div className="text-sm text-variable">{member.membershipType || 'Member'}</div>
+                          <div className="text-sm text-variable">{member.membershipType || t('peopleOnSite.members')}</div>
                         </div>
                       </div>
                       <Badge variant="secondary" className="bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700">
-                        Member
+                        {t('peopleOnSite.members')}
                       </Badge>
                     </div>
                   ))}
@@ -2547,7 +2541,7 @@ export default function Dashboard() {
              (!checkedInContractors || checkedInContractors.length === 0) &&
              (!checkedInMembers || checkedInMembers.length === 0) && (
               <div className="text-center py-8 text-variable">
-                No people currently on-site
+                {t('peopleOnSite.noOneOnSite')}
               </div>
             )}
           </div>
@@ -2563,7 +2557,7 @@ export default function Dashboard() {
                 <Calendar className="text-white" size={20} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-base sm:text-xl font-semibold truncate">Visitor Pre-Booking Details</div>
+                <div className="text-base sm:text-xl font-semibold truncate">{t('dashboard:receptionDiary.details')}</div>
                 <div className="text-xs sm:text-sm text-variable font-normal truncate">
                   {selectedVisitorBooking?.visitorFirstName} {selectedVisitorBooking?.visitorLastName}
                 </div>
@@ -2587,10 +2581,10 @@ export default function Dashboard() {
                       <Clock3 className="text-blue-600 flex-shrink-0" size={18} />
                     )}
                     <Badge variant="default" className={`${selectedVisitorBooking.isCheckedIn ? 'bg-green-600' : 'bg-blue-600'} text-xs whitespace-nowrap`}>
-                      {selectedVisitorBooking.isCheckedIn ? '✓ Visitor Has Arrived' : '⏰ Expected Arrival'}
+                      {selectedVisitorBooking.isCheckedIn ? `✓ ${t('dashboard:receptionDiary.status.arrived')}` : `⏰ ${t('dashboard:receptionDiary.status.pending')}`}
                     </Badge>
                     <span className="text-xs sm:text-sm font-medium">
-                      {formatVisitTime(new Date(selectedVisitorBooking.visitDate))}
+                      {formatTimeLocale(new Date(selectedVisitorBooking.visitDate))}
                     </span>
                   </div>
                 </div>
@@ -2600,36 +2594,31 @@ export default function Dashboard() {
               <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:p-4">
                 <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
                   <User className="text-indigo-600 flex-shrink-0" size={18} />
-                  Visitor Information
+                  {t('common:visitorInfo')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-variable">Full Name</label>
+                    <label className="text-xs sm:text-sm font-medium text-variable">{t('common:fullName')}</label>
                     <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.visitorFirstName} {selectedVisitorBooking.visitorLastName}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-variable">Email Address</label>
+                    <label className="text-xs sm:text-sm font-medium text-variable">{t('common:emailAddress')}</label>
                     <p className="text-xs sm:text-sm font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-all">
                       {selectedVisitorBooking.visitorEmail}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-variable">Company</label>
+                    <label className="text-xs sm:text-sm font-medium text-variable">{t('common:company')}</label>
                     <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
-                      {selectedVisitorBooking.company || 'Not specified'}
+                      {selectedVisitorBooking.company || t('common:none')}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-variable">Visit Date & Time</label>
+                    <label className="text-xs sm:text-sm font-medium text-variable">{t('common:date')}</label>
                     <p className="text-xs sm:text-sm bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
-                      {new Date(selectedVisitorBooking.visitDate).toLocaleDateString('en-GB', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })} at {formatVisitTime(new Date(selectedVisitorBooking.visitDate))}
+                      {formatDateLocale(new Date(selectedVisitorBooking.visitDate))} at {formatTimeLocale(new Date(selectedVisitorBooking.visitDate))}
                     </p>
                   </div>
                 </div>
@@ -2639,31 +2628,31 @@ export default function Dashboard() {
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
                 <h3 className="text-base sm:text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
                   <UserCheck className="text-blue-600 flex-shrink-0" size={18} />
-                  Host & Meeting Details
+                  {t('common:visitDetails')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Host</label>
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">{t('common:host')}</label>
                     <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.hostFirstName} {selectedVisitorBooking.hostLastName}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">{t('common:department')}</label>
                     <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.hostDepartment}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Host Email</label>
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">{t('common:host')} {t('common:emailAddress')}</label>
                     <p className="text-xs sm:text-sm font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-all">
                       {selectedVisitorBooking.hostEmail}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Purpose of Visit</label>
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">{t('common:purpose')}</label>
                     <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
-                      {selectedVisitorBooking.purpose || 'Not specified'}
+                      {selectedVisitorBooking.purpose || t('common:none')}
                     </p>
                   </div>
                 </div>
@@ -2673,54 +2662,54 @@ export default function Dashboard() {
               <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
                   <AtSign className="text-purple-600" size={20} />
-                  Reception Services & Special Requests
+                  {t('dashboard:receptionDiary.receptionServices')}
                 </h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
-                      <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">☕ Refreshment Services</h4>
+                      <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">☕ {t('dashboard:receptionDiary.refreshmentServices')}</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Welcome coffee/tea upon arrival</span>
+                          <span>{t('dashboard:receptionDiary.services.coffee')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Meeting room refreshments</span>
+                          <span>{t('dashboard:receptionDiary.services.meetingRefreshments')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Special dietary requirements</span>
+                          <span>{t('dashboard:receptionDiary.services.dietary')}</span>
                         </div>
                       </div>
                     </div>
                     
                     <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
-                      <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">🏢 Building Services</h4>
+                      <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">🏢 {t('dashboard:receptionDiary.buildingServices')}</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Visitor parking required</span>
+                          <span>{t('dashboard:receptionDiary.services.parking')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Meeting room booking needed</span>
+                          <span>{t('dashboard:receptionDiary.services.roomBooking')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Technical equipment setup</span>
+                          <span>{t('dashboard:receptionDiary.services.technical')}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium text-purple-700 dark:text-purple-400">Additional Notes for Reception</label>
+                    <label className="text-sm font-medium text-purple-700 dark:text-purple-400">{t('dashboard:receptionDiary.additionalNotes')}</label>
                     <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border mt-1">
                       <p className="text-sm text-variable italic">
                         {selectedVisitorBooking.purpose ? 
-                          `Meeting purpose: ${selectedVisitorBooking.purpose}. Please ensure visitor is greeted professionally and host is notified immediately upon arrival.` :
-                          'Please ensure visitor is greeted professionally and host is notified immediately upon arrival.'
+                          `${t('common:purpose')}: ${selectedVisitorBooking.purpose}. ${t('dashboard:receptionDiary.greetVisitor')}` :
+                          t('dashboard:receptionDiary.greetVisitor')
                         }
                       </p>
                     </div>
@@ -2741,8 +2730,8 @@ export default function Dashboard() {
                       
                       if (result.success) {
                         toast({
-                          title: "✅ Visitor Checked In",
-                          description: `${selectedVisitorBooking.visitorFirstName} ${selectedVisitorBooking.visitorLastName} has been successfully checked in.`,
+                          title: `✅ ${t('common:checkedIn')}`,
+                          description: `${selectedVisitorBooking.visitorFirstName} ${selectedVisitorBooking.visitorLastName} ${t('common:checkedIn')}.`,
                         });
                         setOpenModal(null);
                         queryClient.invalidateQueries({ queryKey: ['/api/reception/diary'] });
@@ -2756,8 +2745,8 @@ export default function Dashboard() {
                       }
                     } catch (error: any) {
                       toast({
-                        title: "❌ Check-in Failed",
-                        description: error.message || "Failed to check in visitor. Please try again.",
+                        title: `❌ ${t('common:error')}`,
+                        description: error.message || t('common:error'),
                         variant: "destructive",
                       });
                     }
@@ -2766,20 +2755,20 @@ export default function Dashboard() {
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                   data-testid="button-manual-checkin-booking"
                 >
-                  {selectedVisitorBooking.isCheckedIn ? '✓ Already Checked In' : '👤 Manual Check-In'}
+                  {selectedVisitorBooking.isCheckedIn ? `✓ ${t('dashboard:receptionDiary.status.checkedIn')}` : `👤 ${t('dashboard:receptionDiary.manualCheckIn')}`}
                 </Button>
                 <Button 
                   onClick={() => {
                     toast({
-                      title: "Reception Service Checklist",
-                      description: "✅ Coffee/tea prepared ☑️ Meeting room ready ☑️ Parking arranged ☑️ Host notified",
+                      title: t('dashboard:receptionDiary.receptionServices'),
+                      description: `✅ ${t('dashboard:receptionDiary.services.coffee')} prepared ☑️ ${t('dashboard:receptionDiary.services.roomBooking')} ready ☑️ ${t('dashboard:receptionDiary.services.parking')} arranged ☑️ ${t('common:host')} notified`,
                     });
                   }}
                   variant="outline"
                   className="flex-1 bg-green-50 hover:bg-green-100 border-green-300"
                   data-testid="button-service-checklist"
                 >
-                  ✅ Service Checklist
+                  ✅ {t('dashboard:receptionDiary.serviceChecklist')}
                 </Button>
               </div>
             </div>
@@ -2796,7 +2785,7 @@ export default function Dashboard() {
                 <Calendar className="text-white" size={24} />
               </div>
               <div>
-                <div className="text-xl">Meeting Room Booking Details</div>
+                <div className="text-xl">{t('dashboard:receptionDiary.types.meeting')} {t('dashboard:receptionDiary.details')}</div>
                 <div className="text-sm text-variable font-normal">
                   {selectedMeetingBooking?.title}
                 </div>
@@ -2812,14 +2801,14 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <Calendar className="text-purple-600" size={20} />
                     <Badge variant="default" className="bg-purple-600">
-                      📅 Scheduled Meeting
+                      📅 {t('dashboard:receptionDiary.types.meeting')}
                     </Badge>
                     <span className="text-sm font-medium">
                       {selectedMeetingBooking.startTime} - {selectedMeetingBooking.endTime}
                     </span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-200">
-                    Meeting Room
+                    {selectedMeetingBooking.roomName}
                   </Badge>
                 </div>
               </div>
@@ -2828,11 +2817,11 @@ export default function Dashboard() {
               <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
                   <Calendar className="text-purple-600" size={20} />
-                  Meeting Information
+                  {t('dashboard:receptionDiary.types.meeting')} {t('common:details')}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-variable">Meeting Title</label>
+                    <label className="text-sm font-medium text-variable">{t('common:title')}</label>
                     <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.title}
                     </p>
@@ -2844,18 +2833,13 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-variable">Date</label>
+                    <label className="text-sm font-medium text-variable">{t('common:date')}</label>
                     <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
-                      {new Date(selectedMeetingBooking.date).toLocaleDateString('en-GB', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
+                      {formatDateLocale(new Date(selectedMeetingBooking.date))}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-variable">Time</label>
+                    <label className="text-sm font-medium text-variable">{t('dashboard:receptionDiary.headers.time')}</label>
                     <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.startTime} - {selectedMeetingBooking.endTime}
                     </p>
@@ -2863,7 +2847,7 @@ export default function Dashboard() {
                 </div>
                 {selectedMeetingBooking.description && (
                   <div className="mt-4">
-                    <label className="text-sm font-medium text-variable">Description</label>
+                    <label className="text-sm font-medium text-variable">{t('common:description')}</label>
                     <p className="text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border mt-1">
                       {selectedMeetingBooking.description}
                     </p>
@@ -2875,83 +2859,84 @@ export default function Dashboard() {
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
                   <Users className="text-blue-600" size={20} />
-                  Organizer & Attendees
+                  {t('common:host')} & {t('common:attendees')}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Meeting Organizer</label>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">{t('common:host')}</label>
                     <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.organizer}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Expected Attendees</label>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">{t('common:attendees')}</label>
                     <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
-                      {selectedMeetingBooking.expectedAttendees || 0} people
+                      {selectedMeetingBooking.expectedAttendees || 0} {t('common:people')}
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Catering & Technical Requirements */}
+              {/* Catering & Technical Requirements */}
               <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-300 mb-3 flex items-center gap-2">
                   <AtSign className="text-orange-600" size={20} />
-                  Catering & Technical Requirements
+                  {t('dashboard:receptionDiary.receptionServices')}
                 </h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
-                      <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">☕ Catering Services</h4>
+                      <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">☕ {t('dashboard:receptionDiary.refreshmentServices')}</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" defaultChecked={selectedMeetingBooking.expectedAttendees >= 5} />
-                          <span>Coffee & tea service</span>
+                          <span>{t('dashboard:receptionDiary.services.coffee')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" defaultChecked={selectedMeetingBooking.expectedAttendees >= 10} />
-                          <span>Light refreshments</span>
+                          <span>{t('dashboard:receptionDiary.services.meetingRefreshments')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Water & glasses</span>
+                          <span>{t('dashboard:receptionDiary.services.water')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Special dietary requirements</span>
+                          <span>{t('dashboard:receptionDiary.services.dietary')}</span>
                         </div>
                       </div>
                     </div>
                     
                     <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
-                      <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">🔧 Technical Setup</h4>
+                      <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">🔧 {t('dashboard:receptionDiary.technicalSetup')}</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" defaultChecked />
-                          <span>Projector & screen available</span>
+                          <span>{t('dashboard:receptionDiary.services.projector')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" defaultChecked />
-                          <span>Video conferencing ready</span>
+                          <span>{t('dashboard:receptionDiary.services.videoConferencing')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Flip chart & markers</span>
+                          <span>{t('dashboard:receptionDiary.services.flipChart')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" className="rounded" />
-                          <span>Power outlets accessible</span>
+                          <span>{t('dashboard:receptionDiary.services.powerOutlets')}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium text-orange-700 dark:text-orange-400">Room Setup Notes</label>
+                    <label className="text-sm font-medium text-orange-700 dark:text-orange-400">{t('dashboard:receptionDiary.roomSetupNotes')}</label>
                     <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border mt-1">
                       <p className="text-sm text-variable">
-                        Room configured for {selectedMeetingBooking.expectedAttendees || 'small group'} attendees. 
-                        {selectedMeetingBooking.description ? ` Meeting purpose: ${selectedMeetingBooking.description}` : ' Standard meeting room setup required.'}
+                        {t('dashboard:receptionDiary.roomSetupDesc', { count: selectedMeetingBooking.expectedAttendees || t('common:none') })} 
+                        {selectedMeetingBooking.description ? ` ${t('common:purpose')}: ${selectedMeetingBooking.description}` : ` ${t('dashboard:receptionDiary.standardSetup')}`}
                       </p>
                     </div>
                   </div>
@@ -2962,7 +2947,7 @@ export default function Dashboard() {
               <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
                   <Building2 className="text-variable" size={20} />
-                  Room Information
+                  {t('dashboard:receptionDiary.headers.location')}
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
@@ -2972,13 +2957,13 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-variable">Capacity</span>
                     <span className="text-base">
-                      {meetingRooms?.find(room => room.name === selectedMeetingBooking.roomName)?.capacity || 'Unknown'} people
+                      {meetingRooms?.find(room => room.name === selectedMeetingBooking.roomName)?.capacity || t('common:none')} {t('common:people')}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-variable">Equipment</span>
                     <span className="text-base">
-                      {'Standard AV equipment'}
+                      {t('dashboard:receptionDiary.standardSetup')}
                     </span>
                   </div>
                 </div>
@@ -2990,18 +2975,18 @@ export default function Dashboard() {
                   onClick={() => {
                     toast({
                       title: "Room Preparation Started",
-                      description: "✅ Room cleaned ☑️ Equipment tested ☑️ Catering ordered ☑️ Organizer notified",
+                      description: `✅ ${t('dashboard:receptionDiary.services.roomBooking')} cleaned ☑️ ${t('dashboard:receptionDiary.services.technical')} tested ☑️ Catering ordered ☑️ ${t('common:host')} notified`,
                     });
                   }}
                   className="flex-1"
                   data-testid="button-prepare-meeting-room"
                 >
-                  🏢 Prepare Room
+                  🏢 {t('dashboard:receptionDiary.prepareRoom')}
                 </Button>
                 <Button 
                   onClick={() => {
                     toast({
-                      title: "Catering Service Request",
+                      title: t('dashboard:receptionDiary.refreshmentServices'),
                       description: `Catering ordered for ${selectedMeetingBooking.expectedAttendees || 'estimated'} attendees in ${selectedMeetingBooking.roomName}`,
                     });
                   }}
@@ -3009,7 +2994,7 @@ export default function Dashboard() {
                   className="flex-1 bg-orange-50 hover:bg-orange-100 border-orange-300"
                   data-testid="button-order-catering"
                 >
-                  ☕ Order Catering
+                  ☕ {t('dashboard:receptionDiary.orderCatering')}
                 </Button>
                 <Button 
                   onClick={() => {
@@ -3022,7 +3007,7 @@ export default function Dashboard() {
                   className="flex-1 bg-blue-50 hover:bg-blue-100 border-blue-300"
                   data-testid="button-tech-check"
                 >
-                  🔧 Tech Check
+                  🔧 {t('dashboard:receptionDiary.techCheck')}
                 </Button>
               </div>
             </div>
@@ -3033,13 +3018,13 @@ export default function Dashboard() {
       <AlertDialog open={!!diaryCancelId} onOpenChange={(open) => !open && setDiaryCancelId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Pre-booking</AlertDialogTitle>
+            <AlertDialogTitle>{t('dashboard:receptionDiary.cancelBooking')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel this pre-booking? This action cannot be undone.
+              {t('dashboard:receptionDiary.cancelConfirmation')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:keep')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (!diaryCancelId) return;
@@ -3051,7 +3036,7 @@ export default function Dashboard() {
               }}
               className="bg-red-600 hover:bg-red-700"
             >
-              Cancel Pre-booking
+              {t('dashboard:receptionDiary.cancelBooking')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Staff } from "@shared/schema";
 import QRScannerModal from "@/components/QRScannerModal";
 
+import { getDateLocale, formatDateLocale, formatTimeLocale } from "@/utils/formatDate";
+
 function StaffProfilePanel({
   staff: vs,
   zone,
@@ -49,6 +51,7 @@ function StaffProfilePanel({
   onQrPass: () => void;
 }) {
   const [activeTab, setActiveTab] = useState("profile");
+  const { t } = useTranslation(['staff', 'common']);
 
   const { data: companySettings } = useQuery<any>({ queryKey: ["/api/settings"] });
   const featureHrModule = companySettings?.featureHrModule !== false;
@@ -66,17 +69,17 @@ function StaffProfilePanel({
     <>
       {/* Slim top bar */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 pr-10">
-        <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">Staff Profile · {vs.employeeId}</p>
+        <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">{t('dialogs.profile', { id: vs.employeeId })}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full rounded-none border-b h-9 bg-gray-50 gap-0 px-4">
-          <TabsTrigger value="profile" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">Profile</TabsTrigger>
+          <TabsTrigger value="profile" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">{t('tabs.profile')}</TabsTrigger>
           <TabsTrigger value="documents" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
-            <FileText size={11} className="mr-1" />Documents {featureHrModule && docs.length > 0 && <Badge className="ml-1 bg-blue-100 text-blue-700 text-[9px] px-1 py-0 h-4">{docs.length}</Badge>}
+            <FileText size={11} className="mr-1" />{t('tabs.documents')} {featureHrModule && docs.length > 0 && <Badge className="ml-1 bg-blue-100 text-blue-700 text-[9px] px-1 py-0 h-4">{docs.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="dbs" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
-            <Shield size={11} className="mr-1" />DBS
+            <Shield size={11} className="mr-1" />{t('tabs.dbs')}
           </TabsTrigger>
         </TabsList>
 
@@ -91,7 +94,7 @@ function StaffProfilePanel({
                   <span className="text-white font-bold text-3xl">{getInitials(vs)}</span>
                 )}
               </div>
-              <label htmlFor={staffPhotoInputId} className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" title="Upload photo">
+              <label htmlFor={staffPhotoInputId} className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" title={t('common:edit')}>
                 {isUploadingStaffPhoto ? <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" /> : <Camera size={20} className="text-white" />}
               </label>
             </div>
@@ -101,13 +104,13 @@ function StaffProfilePanel({
 
             <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${vs.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                {vs.isActive ? '● Active' : '● Inactive'}
+                {vs.isActive ? `● ${t('badges.active')}` : `● ${t('badges.inactive')}`}
               </span>
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getAccessLevelBadgeColor(vs.accessLevel || 'staff')}`}>
                 {getAccessLevelIcon(vs.accessLevel || 'staff')} {getAccessLevelLabel(vs.accessLevel || 'staff')}
               </span>
-              {vs.isFireMarshal && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">🚨 Fire Marshal</span>}
-              {vs.isCheckedIn && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800"><Clock size={10} /> On Site</span>}
+              {vs.isFireMarshal && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">🚨 {t('badges.fireMarshal')}</span>}
+              {vs.isCheckedIn && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800"><Clock size={10} /> {t('badges.onSite')}</span>}
             </div>
 
             <div className="mt-4 w-full space-y-2.5 border-t pt-4">
@@ -137,14 +140,14 @@ function StaffProfilePanel({
               {vs.isCheckedIn && vs.checkedInAt && (
                 <div className="flex items-center gap-3 text-sm">
                   <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0"><Clock size={13} className="text-green-600" /></div>
-                  <span className="text-gray-700">Signed in at {new Date(vs.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="text-gray-700">{t('common:signedInAt', { time: formatTimeLocale(vs.checkedInAt) })}</span>
                 </div>
               )}
             </div>
 
             <div className="flex gap-2 mt-4 w-full">
-              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={onEdit}><Edit size={13} className="mr-1" /> Edit Profile</Button>
-              <Button variant="outline" size="sm" className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50" onClick={onQrPass}><QrCode size={13} className="mr-1" /> QR Pass</Button>
+              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={onEdit}><Edit size={13} className="mr-1" /> {t('editProfile')}</Button>
+              <Button variant="outline" size="sm" className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50" onClick={onQrPass}><QrCode size={13} className="mr-1" /> {t('qrPass')}</Button>
             </div>
           </div>
         </TabsContent>
@@ -155,8 +158,8 @@ function StaffProfilePanel({
           ) : (
             <div className="text-center py-8">
               <Shield className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-              <p className="text-gray-500 text-sm font-medium">TPR Max required</p>
-              <p className="text-gray-400 text-xs mt-1">Upgrade to TPR Max for staff documents, Right to Work and DBS tracking.</p>
+              <p className="text-gray-500 text-sm font-medium">{t('upgrade.title')}</p>
+              <p className="text-gray-400 text-xs mt-1">{t('upgrade.desc')}</p>
             </div>
           )}
         </TabsContent>
@@ -167,8 +170,8 @@ function StaffProfilePanel({
           ) : (
             <div className="text-center py-8">
               <Shield className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-              <p className="text-gray-500 text-sm font-medium">TPR Max required</p>
-              <p className="text-gray-400 text-xs mt-1">Upgrade to TPR Max for DBS and safeguarding tracking.</p>
+              <p className="text-gray-500 text-sm font-medium">{t('upgrade.title')}</p>
+              <p className="text-gray-400 text-xs mt-1">{t('upgrade.desc')}</p>
             </div>
           )}
         </TabsContent>
@@ -190,7 +193,7 @@ export default function StaffManagement() {
   const [isDownloadingWalletPass, setIsDownloadingWalletPass] = useState(false);
   const staffPhotoInputId = "staff-photo-upload-input";
   const { toast } = useToast();
-  const { t } = useTranslation('staff');
+  const { t } = useTranslation(['staff', 'common']);
 
   // Auto-show QR code when dialog opens if the staff member already has one
   useEffect(() => {
@@ -221,14 +224,14 @@ export default function StaffManagement() {
       const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
       queryClient.invalidateQueries({ queryKey });
       toast({
-        title: "Success",
-        description: "Staff member deleted successfully",
+        title: t('toasts.deletedTitle'),
+        description: t('toasts.deletedDesc'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to delete staff member",
+        title: t('common:error'),
+        description: t('failedToDelete'),
         variant: "destructive",
       });
     },
@@ -251,7 +254,7 @@ export default function StaffManagement() {
       if (context?.previousStaff) {
         queryClient.setQueryData(context.staffQueryKey, context.previousStaff);
       }
-      toast({ title: "Error", description: "Failed to check in staff member", variant: "destructive" });
+      toast({ title: t('common:error'), description: t('failedToCheckIn'), variant: "destructive" });
     },
     onSettled: (_data, _err, _id, context) => {
       if (context?.staffQueryKey) queryClient.invalidateQueries({ queryKey: context.staffQueryKey });
@@ -279,7 +282,7 @@ export default function StaffManagement() {
       if (context?.previousStaff) {
         queryClient.setQueryData(context.staffQueryKey, context.previousStaff);
       }
-      toast({ title: "Error", description: "Failed to check out staff member", variant: "destructive" });
+      toast({ title: t('common:error'), description: t('failedToCheckOut'), variant: "destructive" });
     },
     onSettled: (_data, _err, _id, context) => {
       if (context?.staffQueryKey) queryClient.invalidateQueries({ queryKey: context.staffQueryKey });
@@ -302,16 +305,16 @@ export default function StaffManagement() {
       }
       if (data.method === 'email') {
         toast({
-          title: "QR Pass Sent",
-          description: data.message || "QR check-in pass has been emailed to the staff member",
+          title: t('toasts.qrSentTitle'),
+          description: data.message || t('toasts.qrSentDesc'),
         });
         // Keep the dialog open so the user can see / scan the QR code directly
       }
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to send QR pass",
+        title: t('common:error'),
+        description: t('failedToSendQr'),
         variant: "destructive",
       });
     },
@@ -325,10 +328,10 @@ export default function StaffManagement() {
     onSuccess: (updated) => {
       setViewingStaff((prev: any) => prev ? { ...prev, photoUrl: updated.photoUrl } : prev);
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
-      toast({ title: "Photo updated", description: "Staff photo saved successfully." });
+      toast({ title: t('toasts.photoUpdatedTitle'), description: t('toasts.photoUpdatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to save staff photo.", variant: "destructive" });
+      toast({ title: t('common:error'), description: t('failedToUpdatePhoto'), variant: "destructive" });
     },
   });
 
@@ -371,9 +374,9 @@ export default function StaffManagement() {
       await updateStaffPhotoMutation.mutateAsync({ staffId: viewingStaff.id, photoUrl: objectPath });
     } catch (err: any) {
       const msg = err?.status === 413
-        ? "That image is too large. Please try a smaller photo."
-        : "Failed to upload photo. Please try again.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
+        ? t('toasts.photoTooLarge')
+        : t('toasts.photoUploadFailed');
+      toast({ title: t('common:error'), description: msg, variant: "destructive" });
     } finally {
       setIsUploadingStaffPhoto(false);
       e.target.value = "";
@@ -392,23 +395,23 @@ export default function StaffManagement() {
   const startLoneWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/staff/${id}/lone-worker/start`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] }),
-    onError: () => toast({ title: "Error", description: "Failed to start lone worker session.", variant: "destructive" }),
+    onError: () => toast({ title: t('common:error'), description: t('failedToStartLoneWorker'), variant: "destructive" }),
   });
 
   const endLoneWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/staff/${id}/lone-worker/end`, { endedBy: 'supervisor' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] }),
-    onError: () => toast({ title: "Error", description: "Failed to end lone worker session.", variant: "destructive" }),
+    onError: () => toast({ title: t('common:error'), description: t('failedToEndLoneWorker'), variant: "destructive" }),
   });
 
   const getStaffLoneWorkerSession = (staffId: string) =>
     activeLoneWorkers.find((s: any) => s.personId === staffId && s.personType === 'staff');
 
   const getLoneWorkerCountdown = (session: any): string => {
-    if (!session?.nextDeadline) return 'Lone Worker';
+    if (!session?.nextDeadline) return t('loneWorker');
     const minsLeft = Math.round((new Date(session.nextDeadline).getTime() - Date.now()) / 60000);
-    if (minsLeft < 0) return `${Math.abs(minsLeft)}m overdue`;
-    return `Next: ${minsLeft}m`;
+    if (minsLeft < 0) return t('overdueMins', { mins: Math.abs(minsLeft) });
+    return t('nextMins', { mins: minsLeft });
   };
 
   const getPassBranding = () => {
@@ -703,9 +706,9 @@ export default function StaffManagement() {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#888';
     ctx.font = 'bold 8.5px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('Scan at kiosk to', cX + 16, footerY + 30);
+    ctx.fillText(t('scanAtKiosk'), cX + 16, footerY + 30);
     ctx.font = '8px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('check in / check out', cX + 16, footerY + 44);
+    ctx.fillText(t('checkInAndOut'), cX + 16, footerY + 44);
 
     ctx.restore();
 
@@ -725,7 +728,7 @@ export default function StaffManagement() {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast({ title: "Download Complete", description: "Staff ID card saved to your downloads" });
+      toast({ title: t('common:success'), description: t('photoUpdatedDesc') });
     }, 'image/png');
   };
 
@@ -739,7 +742,7 @@ export default function StaffManagement() {
       printWindow.document.write(`
         <html>
           <head>
-            <title>Staff ID Pass - ${staffName}</title>
+            <title>${t('dialogs.qrPass')} - ${staffName}</title>
             <style>
               @page { size: 54mm 85.6mm; margin: 0; }
               * { box-sizing: border-box; }
@@ -778,7 +781,7 @@ export default function StaffManagement() {
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to generate wallet pass');
+        throw new Error(err.error || t('failedToDownload'));
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -789,9 +792,9 @@ export default function StaffManagement() {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast({ title: 'Wallet Pass Downloaded', description: 'Open the .pkpass file to add it to Apple Wallet or a compatible wallet app.' });
+      toast({ title: t('common:success'), description: t('downloadWalletPass') });
     } catch (err: any) {
-      toast({ title: 'Download Failed', description: err.message || 'Could not generate wallet pass', variant: 'destructive' });
+      toast({ title: t('common:error'), description: err.message || t('failedToDownload'), variant: 'destructive' });
     } finally {
       setIsDownloadingWalletPass(false);
     }
@@ -838,14 +841,14 @@ export default function StaffManagement() {
   const getAccessLevelLabel = (accessLevel: string) => {
     switch (accessLevel) {
       case 'admin':
-        return 'Administrator';
+        return t('badges.admin');
       default:
-        return 'Standard User';
+        return t('badges.staff');
     }
   };
 
   if (isLoading) {
-    return <div>Loading staff...</div>;
+    return <div>{t('common:loading')}</div>;
   }
 
   const filteredStaff = (staff || []).filter(member => {
@@ -864,32 +867,32 @@ export default function StaffManagement() {
             <Button
               onClick={() => setShowQRScanner(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-              title="Scan a staff QR code to check in / out"
+              title={t('common:scanQrFull')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
                 <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
               </svg>
-              <span className="hidden sm:inline">Scan QR</span>
-              <span className="sm:hidden">Scan</span>
+              <span className="hidden sm:inline">{t('common:scanQr')}</span>
+              <span className="sm:hidden">{t('common:scanQr')}</span>
             </Button>
             <Button onClick={() => setIsAddModalOpen(true)} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 whitespace-nowrap" data-testid="button-add-staff">
               <Plus className="mr-1.5 sm:mr-2" size={16} />
               <span className="hidden sm:inline text-sm sm:text-base">{t('addStaffMember')}</span>
-              <span className="sm:hidden text-sm">Add</span>
+              <span className="sm:hidden text-sm">{t('common:add')}</span>
             </Button>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-variable" />
-            <Input placeholder="Search staff..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+            <Input placeholder={t('common:searchPlaceholder')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
           <div className="flex items-center gap-1">
-            <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0" title="Grid view">
+            <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0" title={t('common:view')}>
               <LayoutGrid size={14} />
             </Button>
-            <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0" title="List view">
+            <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0" title={t('common:view')}>
               <LayoutList size={14} />
             </Button>
           </div>
@@ -900,14 +903,13 @@ export default function StaffManagement() {
       <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6" : "space-y-2"}>
         {filteredStaff.length === 0 ? (
           <div className="col-span-full text-center py-12">
-            <p className="text-variable text-lg">No staff members found</p>
-            <p className="text-variable text-sm mt-2">Add your first staff member to get started</p>
+            <p className="text-variable text-lg">{t('common:noResults')}</p>
           </div>
         ) : (
           filteredStaff.map((member, index) => (
             viewMode === 'grid' ? (
               <GlassCard key={member.id} hover>
-                <div className="flex items-start space-x-3 mb-3 cursor-pointer group" onClick={() => setViewingStaff(member)} title="View profile">
+                <div className="flex items-start space-x-3 mb-3 cursor-pointer group" onClick={() => setViewingStaff(member)} title={t('common:view')}>
                   {member.photoUrl ? (
                     <img 
                       src={objectUrl(member.photoUrl)}
@@ -927,7 +929,7 @@ export default function StaffManagement() {
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
                         member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {member.isActive ? 'Active' : 'Inactive'}
+                        {member.isActive ? t('badges.active') : t('badges.inactive')}
                       </span>
                     </div>
                     <p className="text-variable text-xs truncate" data-testid={`staff-email-${member.id}`}>
@@ -944,7 +946,7 @@ export default function StaffManagement() {
                   </span>
                   {member.isFireMarshal && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-800" data-testid={`fire-marshal-badge-${member.id}`}>
-                      🚨 Fire Marshal
+                      🚨 {t('badges.fireMarshal')}
                     </span>
                   )}
                   {getStaffLoneWorkerSession(member.id) && (
@@ -964,10 +966,7 @@ export default function StaffManagement() {
                   {member.isCheckedIn && member.checkedInAt && (
                     <span className="text-[10px] text-variable flex items-center ml-auto">
                       <Clock size={9} className="mr-0.5" />
-                      {new Date(member.checkedInAt).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
+                      {formatTimeLocale(member.checkedInAt)}
                     </span>
                   )}
                 </div>
@@ -979,7 +978,7 @@ export default function StaffManagement() {
                       onClick={() => setEditingStaff(member)}
                       className="h-8 w-8 p-0"
                       data-testid={`button-edit-staff-${member.id}`}
-                      title="Edit"
+                      title={t('common:edit')}
                     >
                       <Edit size={15} />
                     </Button>
@@ -989,7 +988,7 @@ export default function StaffManagement() {
                       onClick={() => setQrPassStaff(member)}
                       className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                       data-testid={`button-qr-pass-${member.id}`}
-                      title="QR Pass"
+                      title={t('qrPass')}
                     >
                       <QrCode size={15} />
                     </Button>
@@ -1002,7 +1001,7 @@ export default function StaffManagement() {
                           onClick={() => endLoneWorkerMutation.mutate(member.id)}
                           disabled={endLoneWorkerMutation.isPending}
                           className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                          title="End lone worker session"
+                          title={t('endLoneWorkerSession')}
                         >
                           <ShieldOff size={15} />
                         </Button>
@@ -1013,7 +1012,7 @@ export default function StaffManagement() {
                           onClick={() => startLoneWorkerMutation.mutate(member.id)}
                           disabled={startLoneWorkerMutation.isPending || !member.email}
                           className="h-8 w-8 p-0 text-slate-500 hover:text-green-700 hover:bg-green-50"
-                          title={member.email ? "Start lone worker session" : "Staff needs an email address"}
+                          title={member.email ? t('startLoneWorkerSession') : t('staffNeedsEmail')}
                         >
                           <Shield size={15} />
                         </Button>
@@ -1026,7 +1025,7 @@ export default function StaffManagement() {
                       disabled={deleteMutation.isPending}
                       className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                       data-testid={`button-delete-staff-${member.id}`}
-                      title="Delete"
+                      title={t('common:delete')}
                     >
                       <Trash2 size={15} />
                     </Button>
@@ -1041,10 +1040,10 @@ export default function StaffManagement() {
                           disabled={checkInMutation.isPending}
                           className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                           data-testid={`button-checkin-${member.id}`}
-                          title="Manual check-in"
+                          title={t('manualCheckIn')}
                         >
                           <UserCheck size={16} className="mr-1.5" />
-                          Check In
+                          {t('common:checkIn')}
                         </Button>
                       ) : (
                         <Button
@@ -1054,10 +1053,10 @@ export default function StaffManagement() {
                           disabled={checkOutMutation.isPending}
                           className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                           data-testid={`button-checkout-${member.id}`}
-                          title="Check out"
+                          title={t('common:checkOut')}
                         >
                           <UserX size={16} className="mr-1.5" />
-                          Check Out
+                          {t('common:checkOut')}
                         </Button>
                       )}
                     </>
@@ -1079,7 +1078,7 @@ export default function StaffManagement() {
                     <p className="font-semibold text-fixed text-sm leading-tight" data-testid={`staff-name-${member.id}`}>{member.firstName} {member.lastName}</p>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-variable mt-0.5">
                       <span>{member.department}</span>
-                      {member.isFireMarshal && <span className="text-orange-600 font-medium">🚨 FM</span>}
+                      {member.isFireMarshal && <span className="text-orange-600 font-medium">🚨 {t('badges.fireMarshal')}</span>}
                       {(member as any).zoneId && (() => {
                         const zone = zones.find((z: any) => z.id === (member as any).zoneId);
                         return zone ? (
@@ -1093,28 +1092,28 @@ export default function StaffManagement() {
                   {/* Desktop: actions inline */}
                   <div className="hidden sm:flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium ${member.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                      {member.isCheckedIn ? 'On Site' : 'Off Site'}
+                      {member.isCheckedIn ? t('common:onSite') : t('common:offSite')}
                     </span>
                     {getStaffLoneWorkerSession(member.id) && (
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse">
                         <Shield size={9} />{getLoneWorkerCountdown(getStaffLoneWorkerSession(member.id))}
                       </span>
                     )}
-                    <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-8 w-8 p-0" title="Edit"><Edit size={14} /></Button>
-                    <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title="QR Pass"><QrCode size={14} /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-8 w-8 p-0" title={t('common:edit')}><Edit size={14} /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title={t('qrPass')}><QrCode size={14} /></Button>
                     {(() => {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (
-                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="End lone worker session"><ShieldOff size={14} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title={t('failedToEndLoneWorker')}><ShieldOff size={14} /></Button>
                       ) : (member.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
-                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? "Start lone worker session" : "Staff needs an email address"}><Shield size={14} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? t('loneWorker') : t('failedToStartLoneWorker')}><Shield size={14} /></Button>
                       ) : null;
                     })()}
                     {member.isActive && (
                       !member.isCheckedIn ? (
-                        <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-9 px-3 text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={15} className="mr-1" />Check In</Button>
+                        <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-9 px-3 text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={15} className="mr-1" />{t('common:checkIn')}</Button>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending} className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50"><UserX size={15} className="mr-1" />Check Out</Button>
+                        <Button size="sm" variant="outline" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending} className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50"><UserX size={15} className="mr-1" />{t('common:checkOut')}</Button>
                       )
                     )}
                   </div>
@@ -1122,24 +1121,24 @@ export default function StaffManagement() {
                 {/* Mobile: actions as bottom row */}
                 <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${member.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                    {member.isCheckedIn ? 'On Site' : 'Off Site'}
+                    {member.isCheckedIn ? t('common:onSite') : t('common:offSite')}
                   </span>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-9 w-9 p-0" title="Edit"><Edit size={15} /></Button>
-                    <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-9 w-9 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title="QR Pass"><QrCode size={15} /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-9 w-9 p-0" title={t('common:edit')}><Edit size={15} /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-9 w-9 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title={t('qrPass')}><QrCode size={15} /></Button>
                     {(() => {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (
-                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="End lone worker session"><ShieldOff size={15} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title={t('failedToEndLoneWorker')}><ShieldOff size={15} /></Button>
                       ) : (member.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
-                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? "Start lone worker session" : "Staff needs an email address"}><Shield size={15} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? t('loneWorker') : t('failedToStartLoneWorker')}><Shield size={15} /></Button>
                       ) : null;
                     })()}
                     {member.isActive && (
                       !member.isCheckedIn ? (
-                        <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={14} className="mr-1" />Check In</Button>
+                        <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={14} className="mr-1" />{t('common:checkIn')}</Button>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><UserX size={14} className="mr-1" />Check Out</Button>
+                        <Button size="sm" variant="outline" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><UserX size={14} className="mr-1" />{t('common:checkOut')}</Button>
                       )
                     )}
                   </div>
@@ -1187,10 +1186,10 @@ export default function StaffManagement() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <QrCode className="w-5 h-5 text-indigo-600" />
-              Staff QR Check-In Pass
+              {t('dialogs.qrPass')}
             </DialogTitle>
             <DialogDescription>
-              Send a QR code pass to {qrPassStaff?.firstName} {qrPassStaff?.lastName} for quick kiosk check-in and check-out.
+              {t('qrPassDesc', { firstName: qrPassStaff?.firstName, lastName: qrPassStaff?.lastName })}
             </DialogDescription>
           </DialogHeader>
 
@@ -1213,7 +1212,7 @@ export default function StaffManagement() {
               <div className="text-center p-4 bg-white rounded-lg border">
                 <img 
                   src=""
-                  alt="Staff QR Code"
+                  alt={t('qrPass')}
                   className="w-40 h-40 mx-auto mb-2 rounded-lg shadow-sm"
                   ref={el => { if (!el || !qrPassData?.qrCode) return; import('qrcode').then(Q => Q.toDataURL(qrPassData.qrCode, { width: 160, margin: 1 })).then(u => { el.src = u; }); }}
                 />
@@ -1229,8 +1228,8 @@ export default function StaffManagement() {
               >
                 <Mail size={20} />
                 <div className="text-left">
-                  <div className="font-medium">Email QR Pass</div>
-                  <div className="text-xs opacity-80">Send branded pass with QR code to {qrPassStaff?.email}</div>
+                  <div className="font-medium">{t('sendViaEmail')}</div>
+                  <div className="text-xs opacity-80">{t('sendEmailTo', { email: qrPassStaff?.email })}</div>
                 </div>
               </Button>
 
@@ -1257,8 +1256,8 @@ export default function StaffManagement() {
               >
                 <Printer size={20} className="text-green-600" />
                 <div className="text-left">
-                  <div className="font-medium">Print QR Pass</div>
-                  <div className="text-xs text-gray-500">Print a card-sized pass with QR code</div>
+                  <div className="font-medium">{t('common:print')} {t('qrPass')}</div>
+                  <div className="text-xs text-gray-500">{t('printDesc')}</div>
                 </div>
               </Button>
 
@@ -1282,8 +1281,8 @@ export default function StaffManagement() {
               >
                 <Download size={20} className="text-purple-600" />
                 <div className="text-left">
-                  <div className="font-medium">Download QR Image</div>
-                  <div className="text-xs text-gray-500">Download branded pass as image</div>
+                  <div className="font-medium">{t('common:download')} {t('qrPass')}</div>
+                  <div className="text-xs text-gray-500">{t('downloadDesc')}</div>
                 </div>
               </Button>
 
@@ -1303,9 +1302,9 @@ export default function StaffManagement() {
                   <Wallet size={20} className="text-gray-700 dark:text-gray-300" />
                 )}
                 <div className="text-left">
-                  <div className="font-medium">Download Wallet Pass</div>
+                  <div className="font-medium">{t('downloadWalletPass')}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Download .pkpass for Apple Wallet &amp; compatible apps
+                    {t('walletPassDesc')}
                   </div>
                 </div>
               </Button>
@@ -1314,7 +1313,7 @@ export default function StaffManagement() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setQrPassStaff(null); setQrPassData(null); }}>
-              Close
+              {t('common:close')}
             </Button>
           </DialogFooter>
         </DialogContent>

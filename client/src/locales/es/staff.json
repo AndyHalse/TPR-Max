@@ -4,6 +4,13 @@
   "qrScanner": "Escáner QR",
   "editProfile": "Editar perfil",
   "qrPass": "Pase QR",
+  "qrPassDesc": "Envíe un pase con código QR a {{firstName}} {{lastName}} para registrar la entrada y salida rápidamente en el quiosco.",
+  "sendEmailTo": "Enviar pase con código QR a {{email}}",
+  "printDesc": "Imprimir un pase del tamaño de una tarjeta con código QR",
+  "downloadDesc": "Descargar el pase como imagen",
+  "walletPassDesc": "Descargar .pkpass para Apple Wallet y aplicaciones compatibles",
+  "scanAtKiosk": "Escanear en el quiosco para",
+  "checkInAndOut": "registrar entrada / salida",
   "checkIn": "Registrar entrada",
   "checkOut": "Registrar salida",
   "downloadWalletPass": "Descargar pase de cartera",
@@ -31,14 +38,28 @@
     "qrPass": "Pase QR del personal",
     "addStaff": "Añadir miembro del personal"
   },
+  "upgrade": {
+    "title": "TPR Max requerido",
+    "desc": "Actualice a TPR Max para gestionar documentos del personal, verificación del derecho al trabajo y seguimiento de DBS."
+  },
+  "failedToDelete": "Error al eliminar al miembro del personal",
+  "failedToCheckIn": "Error al registrar la entrada del miembro del personal",
+  "failedToCheckOut": "Error al registrar la salida del miembro del personal",
+  "failedToSendQr": "Error al enviar el pase QR",
+  "failedToUpdatePhoto": "Error al actualizar la foto del personal",
+  "failedToStartLoneWorker": "Error al iniciar la sesión de trabajador solitario",
+  "failedToEndLoneWorker": "Error al finalizar la sesión de trabajador solitario",
+  "loneWorker": "Trabajador solitario",
+  "overdueMins": "{{mins}}m de retraso",
+  "nextMins": "Siguiente: {{mins}}m",
   "toasts": {
     "deletedTitle": "Éxito",
     "deletedDesc": "Miembro del personal eliminado correctamente",
     "qrSentTitle": "Pase QR enviado",
-    "qrSentDesc": "El pase QR de entrada ha sido enviado por correo al miembro del personal"
-  },
-  "upgrade": {
-    "title": "TPR Max requerido",
-    "desc": "Actualice a TPR Max para gestionar documentos del personal, verificación del derecho al trabajo y seguimiento de DBS."
+    "qrSentDesc": "El pase QR de entrada ha sido enviado por correo al miembro del personal",
+    "photoUpdatedTitle": "Foto actualizada",
+    "photoUpdatedDesc": "La foto del personal se guardó correctamente.",
+    "photoTooLarge": "Esa imagen es demasiado grande. Intente con una foto más pequeña.",
+    "photoUploadFailed": "Error al cargar la foto. Inténtelo de nuevo."
   }
 }

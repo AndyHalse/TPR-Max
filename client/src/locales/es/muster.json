@@ -73,11 +73,17 @@
     "clickToSelect": "Haga clic en las zonas del mapa para seleccionarlas",
     "selectedOnly": "Solo el personal en las zonas seleccionadas recibirá alertas de evacuación"
   },
+  "fireDrillInProgress": "🔶 SIMULACRO DE INCENDIO EN CURSO",
+  "drillDesc": "Este es un simulacro programado — no es una emergencia real",
+  "emergencyActiveLabel": "EMERGENCIA ACTIVA",
+  "emergencyActiveDesc": "Todo el personal debe dirigirse a un lugar seguro de inmediato",
   "stats": {
+    "marshals": "Jefes de emergencia",
     "total": "Total",
     "onSite": "En el sitio",
     "accounted": "Contabilizado",
     "missing": "Desaparecido",
+    "safeLabel": "A salvo",
     "allSafe": "Todos a salvo",
     "unaccounted": "No contabilizado",
     "peepOnSite": "{{count}} persona PEEP en el sitio",
@@ -87,8 +93,34 @@
     "staff": "Personal",
     "visitors": "Visitantes",
     "contractors": "Contratistas",
-    "members": "Miembros"
+    "members": "Miembros",
+    "peep": "PEEP",
+    "peepRequirement": "Requiere asistencia para la evacuación (PEEP)",
+    "safeLabel": "A salvo"
   },
+  "musterStatusUpdated": "Opciones de estado de muster actualizadas.",
+  "saveFailedDesc": "No se pudo guardar la configuración de muster.",
+  "updateFailed": "Error de actualización",
+  "updateFailedDesc": "No se pudo actualizar el estado de contabilización",
+  "alertSentSuccess": "Alerta enviada con éxito",
+  "alertSentDesc": "Alerta de emergencia enviada a {{sentCount}} personas de {{totalPersonnel}} personas en el sitio",
+  "alertFailed": "Error de alerta",
+  "alertFailedDesc": "No se pudo enviar la alerta de emergencia",
+  "personnelMarkedSafe": "Personal marcado como seguro{{zoneLabel}}",
+  "markedSafeDesc": "Se marcaron con éxito {{updatedCount}} de {{totalPersonnel}} personas como seguras",
+  "markAllSafeFailed": "Error al marcar todos como seguros",
+  "markAllSafeFailedDesc": "No se pudo marcar a todo el personal como seguro",
+  "drillStarted": "Simulacro de incendio iniciado",
+  "emergencyNotificationsSent": "Notificaciones de emergencia enviadas",
+  "notifiedAllSuccess": "Se notificó con éxito a todo el personal y jefes de emergencia por correo electrónico.",
+  "emailAlertFailed": "Error de alerta por correo electrónico",
+  "noPeopleInZones": "No se encontró personal en las zonas seleccionadas. Intente seleccionar zonas diferentes o salte la alerta por correo electrónico.",
+  "reminderSent": "Recordatorio enviado",
+  "reminderSentSuccess": "Recordatorio por correo electrónico enviado con éxito",
+  "sendFailed": "Error de envío",
+  "sendFailedDesc": "No se pudo enviar el recordatorio por correo electrónico",
+  "exportSuccessDesc": "Lista de muster de emergencia exportada como {{filename}}",
+  "exportFailedDesc": "No se pudo exportar la lista de muster",
   "zoneSweep": {
     "title": "Estado de barrido de zonas",
     "zonesSwepta": "{{swept}}/{{total}} zonas barridas",
@@ -98,7 +130,18 @@
     "notSwept": "No barrida",
     "safe": "{{safe}}/{{total}} a salvo"
   },
+  "legalTooltip1": "Los empleadores están legalmente obligados a establecer y mantener procedimientos de emergencia bajo la Orden de Reforma Regulatoria (Seguridad contra Incendios) de 2005 y la Ley de Salud y Seguridad en el Trabajo de 1974. Esto incluye planes de evacuación documentados, puntos de encuentro designados y simulacros de incendio regulares.",
+  "legalTooltip2": "es esencial para confirmar que todas las personas están a salvo después de una evacuación. No contabilizar a todas las personas en el sitio puede tener graves consecuencias legales y de seguridad. Se deben conservar registros de todos los simulacros y evacuaciones.",
+  "allReports": "Todos los informes",
+  "drillOn": "Simulacro ACTIVADO",
+  "statusOptions": "Opciones de estado",
+  "statusOptionsDesc": "Cuando está habilitado, los jefes de emergencias ven un botón desplegable junto al botón SEGURO de cada persona en su pantalla de muster. Pueden usarlo para marcar a alguien como contabilizado con un motivo de estado (por ejemplo, \"Trabajando de forma remota / fuera del sitio\"). La persona aparecerá con una insignia ámbar en la lista de muster y en el informe de incidente.",
+  "enableStatusOptions": "Habilitar menú desplegable de opciones de estado",
+  "enableStatusOptionsDesc": "Muestra un chevrón desplegable junto al botón SEGURO en la pantalla de muster del jefe de emergencias",
+  "statusOptionsInputDesc": "Estas opciones aparecen en el menú desplegable cuando un jefe de emergencias marca a alguien con un motivo.",
+  "addStatusOptionPlaceholder": "Añadir una nueva opción de estado...",
   "accountability": {
+    "rollCall": "Pase de lista",
     "title": "Contabilidad del personal",
     "zoneFilter": "1 zona",
     "zoneFilter_plural": "{{count}} zonas",
@@ -136,29 +179,35 @@
     "marshalLinkCopied": "Enlace del jefe de emergencias copiado para {{name}}"
   },
   "musterList": {
-    "title": "Pase de lista de emergencia",
-    "loading": "Cargando datos de muster...",
-    "noPersonnel": "No se encontró personal para esta vista",
-    "allZones": "Todas las zonas",
-    "report": "Informe",
+    "title": "Lista de Muster",
     "export": "Exportar",
+    "report": "Imprimir informe",
+    "allZones": "Todas las zonas",
+    "noPersonnel": "No hay personal en el sitio",
+    "biostarIntegration": "Integración de Biostar",
+    "includeBiometric": "Incluir datos biométricos",
+    "biometric": "Biométrico",
+    "biometricCount": "{{count}} solo de biométricos",
+    "biometricCount_plural": "{{count}} solo de biométricos",
+    "loading": "Cargando lista de muster...",
     "headers": {
       "name": "Nombre",
       "type": "Tipo",
-      "zone": "Zona",
-      "status": "Estado",
-      "action": "Acción"
-    },
-    "status": {
-      "accountedFor": "Contabilizado",
-      "notYet": "Pendiente",
-      "excused": "Excusado",
-      "unknown": "Desconocido"
-    },
-    "actions": {
-      "markSafe": "Marcar como seguro",
-      "markMissing": "Marcar como desaparecido",
-      "excuse": "Excusar"
+      "company": "Empresa/Departamento",
+      "checkIn": "Hora de entrada",
+      "host": "Anfitrión/ID",
+      "zone": "Zona"
     }
+  },
+  "settingsPanel": {
+    "title": "Opciones de estado de Muster",
+    "desc": "Cuando está habilitado, los jefes de emergencia verán un botón desplegable junto al botón SEGURO de cada persona en la pantalla de muster. Pueden usarlo para marcar a alguien como contabilizado con un motivo de estado adicional (p. ej., \"Trabajando de forma remota / fuera del sitio\"). La persona aparecerá de color ámbar en la lista de muster y en el informe de incidentes.",
+    "enableDropdown": "Habilitar menú desplegable de opciones de estado",
+    "dropdownDesc": "Muestra un cheurón desplegable junto al botón SEGURO en la pantalla de muster del jefe de emergencia",
+    "optionsLabel": "Opciones de estado",
+    "optionsDesc": "Estas opciones aparecen en el menú desplegable cuando un jefe de emergencia marca a alguien como contabilizado con un motivo.",
+    "removeOption": "Eliminar opción",
+    "addPlaceholder": "Agregar una nueva opción de estado...",
+    "unsaved": "Cambios sin guardar"
   }
 }

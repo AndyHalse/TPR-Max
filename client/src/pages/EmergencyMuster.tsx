@@ -44,6 +44,7 @@ import {
   Plus,
   Save,
 } from "lucide-react";
+import { formatElapsed, formatTimeLocale } from "@/utils/formatDate";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -118,7 +119,7 @@ export default function EmergencyMuster() {
   const [localOptions, setLocalOptions] = useState<string[] | null>(null);
   const [newOption, setNewOption] = useState("");
   const { toast } = useToast();
-  const { t } = useTranslation('muster');
+  const { t } = useTranslation(['muster', 'common']);
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -132,11 +133,6 @@ export default function EmergencyMuster() {
     return () => clearInterval(interval);
   }, [emergencyActive, emergencyStartTime]);
 
-  const formatElapsed = (secs: number) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
 
   const { data: musterList = [], isLoading } = useQuery<MusterListItem[]>({
     queryKey: ["/api/muster"],
@@ -174,12 +170,12 @@ export default function EmergencyMuster() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/muster/settings"] });
-      toast({ title: "Settings Saved", description: "Muster status options updated." });
+      toast({ title: t('common:settingsSaved'), description: t('muster:musterStatusUpdated') });
       setLocalEnabled(null);
       setLocalOptions(null);
     },
     onError: () => {
-      toast({ title: "Save Failed", description: "Could not save muster settings.", variant: "destructive" });
+      toast({ title: t('common:saveFailed'), description: t('muster:saveFailedDesc'), variant: "destructive" });
     },
   });
 
@@ -395,8 +391,8 @@ export default function EmergencyMuster() {
         queryClient.setQueryData(["/api/muster"], context.previousData);
       }
       toast({
-        title: "Update Failed",
-        description: error.message || "Failed to update accounted status",
+        title: t('muster:updateFailed'),
+        description: error.message || t('muster:updateFailedDesc'),
         variant: "destructive",
       });
     },
@@ -412,14 +408,14 @@ export default function EmergencyMuster() {
     },
     onSuccess: (data) => {
       toast({
-        title: "Alert Sent Successfully",
-        description: `Emergency alert sent to ${data.sentCount} people out of ${data.totalPersonnel} on-site personnel`,
+        title: t('muster:alertSentSuccess'),
+        description: t('muster:alertSentDesc', { sentCount: data.sentCount, totalPersonnel: data.totalPersonnel }),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Alert Failed",
-        description: error.message || "Failed to send emergency alert",
+        title: t('muster:alertFailed'),
+        description: error.message || t('muster:alertFailedDesc'),
         variant: "destructive",
       });
     },
@@ -447,10 +443,10 @@ export default function EmergencyMuster() {
       return { previousData };
     },
     onSuccess: (data) => {
-      const zoneLabel = selectedZones.size > 0 ? ` in ${selectedZones.size} zone${selectedZones.size !== 1 ? 's' : ''}` : '';
+      const zoneLabel = selectedZones.size > 0 ? t('muster:accountability.zoneFilter', { count: selectedZones.size }) : '';
       toast({
-        title: `Personnel Marked Safe${zoneLabel}`,
-        description: `Successfully marked ${data.updatedCount} out of ${data.totalPersonnel} personnel as safe`,
+        title: t('muster:personnelMarkedSafe', { zoneLabel }),
+        description: t('muster:markedSafeDesc', { updatedCount: data.updatedCount, totalPersonnel: data.totalPersonnel }),
       });
     },
     onError: (error: any, _variables, context) => {
@@ -458,8 +454,8 @@ export default function EmergencyMuster() {
         queryClient.setQueryData(["/api/muster"], context.previousData);
       }
       toast({
-        title: "Mark All Safe Failed", 
-        description: error.message || "Failed to mark all personnel as safe",
+        title: t('muster:markAllSafeFailed'), 
+        description: error.message || t('muster:markAllSafeFailedDesc'),
         variant: "destructive",
       });
     },
@@ -482,16 +478,16 @@ export default function EmergencyMuster() {
       setEmergencyStartTime(new Date());
       if (data.evacuationId) setLastEvacuationId(data.evacuationId);
       toast({
-        title: variables.isDrill ? "Fire Drill Started" : "Emergency Notifications Sent",
-        description: data.message || `Successfully notified all personnel & Fire Marshals via email.`,
+        title: variables.isDrill ? t('muster:drillStarted') : t('muster:emergencyNotificationsSent'),
+        description: data.message || t('muster:notifiedAllSuccess'),
       });
     },
     onError: (error: any) => {
       const errorMsg = error.message || "Failed to send emergency notifications";
       toast({
-        title: "Email Alert Failed",
+        title: t('muster:emailAlertFailed'),
         description: errorMsg.includes("No people") 
-          ? "No personnel found in the selected zones. Try selecting different zones or skip the email alert."
+          ? t('muster:noPeopleInZones')
           : errorMsg,
         variant: "destructive",
       });
@@ -515,11 +511,11 @@ export default function EmergencyMuster() {
     },
     onSuccess: (data) => {
       setEmailingPersonId(null);
-      toast({ title: "Reminder Sent", description: data.message || "Email reminder sent successfully" });
+      toast({ title: t('muster:reminderSent'), description: data.message || t('muster:reminderSentSuccess') });
     },
     onError: (error: any) => {
       setEmailingPersonId(null);
-      toast({ title: "Send Failed", description: error.message || "Failed to send email reminder", variant: "destructive" });
+      toast({ title: t('muster:sendFailed'), description: error.message || t('muster:sendFailedDesc'), variant: "destructive" });
     },
   });
 
@@ -556,13 +552,13 @@ export default function EmergencyMuster() {
       document.body.removeChild(a);
 
       toast({
-        title: "Export Successful",
-        description: `Emergency muster list exported as ${filename}`,
+        title: t('common:exportSuccessful'),
+        description: t('muster:exportSuccessDesc', { filename }),
       });
     } catch (error: any) {
       toast({
-        title: "Export Failed",
-        description: error.message || "Failed to export muster list",
+        title: t('common:exportFailed'),
+        description: error.message || t('muster:exportFailedDesc'),
         variant: "destructive",
       });
     }
@@ -742,10 +738,10 @@ export default function EmergencyMuster() {
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen pb-24 sm:pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-fixed">{t('title')}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-fixed">{t('muster:title')}</h2>
           <p className="text-variable mt-1 flex flex-wrap items-center gap-2 text-sm sm:text-base">
-            <span className="hidden sm:inline">Real-time emergency evacuation management and accountability</span>
-            <span className="sm:hidden">Real-time emergency evacuation</span>
+            <span className="hidden sm:inline">{t('muster:subtitle')}</span>
+            <span className="sm:hidden">{t('muster:subtitle')}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -754,8 +750,8 @@ export default function EmergencyMuster() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
-                  <p><strong>Emergency Evacuation</strong> — Employers are legally required to establish and maintain emergency procedures under the Regulatory Reform (Fire Safety) Order 2005 and the Health &amp; Safety at Work Act 1974. This includes documented evacuation plans, designated assembly points, and regular fire drills.</p>
-                  <p><strong>Roll-call accountability</strong> is essential to confirm all persons are safe following an evacuation. Failure to account for all persons on site can have serious legal and safety consequences. Records of all drills and evacuations should be retained.</p>
+                  <p><strong>{t('muster:checklist.emergencyTitle')}</strong> — {t('muster:legalTooltip1')}</p>
+                  <p><strong>{t('muster:accountability.rollCall')}</strong> {t('muster:legalTooltip2')}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -777,7 +773,7 @@ export default function EmergencyMuster() {
                 className="text-xs"
               >
                 <MapPin size={14} className="mr-1" />
-                Zones {selectedZones.size > 0 && `(${selectedZones.size})`}
+                {t('muster:zones')} {selectedZones.size > 0 && `(${selectedZones.size})`}
               </Button>
               {selectedZones.size > 0 && (
                 <Button
@@ -786,7 +782,7 @@ export default function EmergencyMuster() {
                   onClick={clearZoneSelection}
                   className="text-xs text-muted-foreground"
                 >
-                  Clear
+                  {t('common:clear')}
                 </Button>
               )}
             </>
@@ -833,7 +829,7 @@ export default function EmergencyMuster() {
           {emergencyPhase === 'idle' && (
             <a href="/incident-reports" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors">
               <Download size={13} />
-              All Reports
+              {t('muster:allReports')}
             </a>
           )}
           {/* Muster Settings button — idle phase only */}
@@ -849,7 +845,7 @@ export default function EmergencyMuster() {
               data-testid="button-muster-settings"
             >
               <Settings size={13} />
-              Muster Settings
+              {t('muster:musterSettings')}
               {showSettings ? <ChevronUp size={11} className="ml-0.5" /> : <ChevronDown size={11} className="ml-0.5" />}
             </button>
           )}
@@ -865,7 +861,7 @@ export default function EmergencyMuster() {
               title="Toggle drill mode — emails will be clearly marked as a drill (not a real emergency)"
             >
               <ShieldAlert size={13} />
-              {isDrillMode ? 'Drill ON' : 'Drill'}
+              {isDrillMode ? t('muster:drillOn') : t('muster:fireDrill')}
             </button>
           )}
           {/* Main action button — idle only: Activate Emergency / Start Drill */}
@@ -893,15 +889,13 @@ export default function EmergencyMuster() {
         <GlassCard solid className="p-5 border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={18} className="text-blue-600" />
-            <h3 className="text-base font-semibold text-fixed">Muster Status Options</h3>
+            <h3 className="text-base font-semibold text-fixed">{t('muster:statusOptions')}</h3>
             {effectiveEnabled && (
-              <Badge className="bg-green-100 text-green-800 text-xs">Enabled</Badge>
+              <Badge className="bg-green-100 text-green-800 text-xs">{t('common:enabled')}</Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground mb-4">
-            When enabled, Fire Marshals see a dropdown button next to each person's <strong>SAFE</strong> button on their muster screen.
-            They can use it to mark someone as accounted for with a status reason (e.g. "Working remotely / offsite").
-            The person will appear with an <span className="text-amber-600 font-semibold">amber badge</span> in the muster list and incident report.
+            {t('muster:statusOptionsDesc')}
           </p>
           <div className="flex items-center gap-3 mb-5 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <Switch
@@ -914,13 +908,13 @@ export default function EmergencyMuster() {
               data-testid="switch-status-options-enabled"
             />
             <div>
-              <Label className="text-sm font-medium">Enable Status Options Dropdown</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Shows a dropdown chevron next to the SAFE button on the Fire Marshal muster screen</p>
+              <Label className="text-sm font-medium">{t('muster:enableStatusOptions')}</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('muster:enableStatusOptionsDesc')}</p>
             </div>
           </div>
           <div className="mb-4">
-            <Label className="text-sm font-medium mb-2 block">Status Options</Label>
-            <p className="text-xs text-muted-foreground mb-3">These options appear in the dropdown when a Fire Marshal marks someone with a reason.</p>
+            <Label className="text-sm font-medium mb-2 block">{t('muster:statusOptions')}</Label>
+            <p className="text-xs text-muted-foreground mb-3">{t('muster:statusOptionsInputDesc')}</p>
             <div className="space-y-2 mb-3">
               {effectiveOptions.map((option, idx) => (
                 <div key={idx} className="flex items-center gap-2">
@@ -936,7 +930,7 @@ export default function EmergencyMuster() {
                     className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                     onClick={() => handleRemoveOption(idx)}
                     disabled={effectiveOptions.length <= 1}
-                    title="Remove option"
+                    title={t('common:remove')}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -948,12 +942,12 @@ export default function EmergencyMuster() {
                 value={newOption}
                 onChange={e => setNewOption(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddOption()}
-                placeholder="Add a new status option..."
+                placeholder={t('muster:addStatusOptionPlaceholder')}
                 className="flex-1 text-sm h-9"
                 data-testid="input-new-status-option"
               />
               <Button variant="outline" size="sm" className="h-9 px-3" onClick={handleAddOption} disabled={!newOption.trim()}>
-                <Plus size={14} className="mr-1" />Add
+                <Plus size={14} className="mr-1" />{t('common:add')}
               </Button>
             </div>
           </div>
@@ -965,7 +959,7 @@ export default function EmergencyMuster() {
               data-testid="button-save-muster-settings"
             >
               <Save size={14} />
-              {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+              {saveSettingsMutation.isPending ? t('common:saving') : t('common:saveChanges')}
             </Button>
           </div>
         </GlassCard>
@@ -977,8 +971,8 @@ export default function EmergencyMuster() {
             <div className="flex items-center gap-3">
               <ShieldAlert className="text-amber-600 flex-shrink-0 animate-pulse" size={24} />
               <div>
-                <h3 className="text-base font-bold text-amber-800 dark:text-amber-200">🔶 FIRE DRILL IN PROGRESS</h3>
-                <p className="text-sm text-amber-700 dark:text-amber-300">This is a scheduled drill — not a real emergency</p>
+                <h3 className="text-base font-bold text-amber-800 dark:text-amber-200">{t('muster:fireDrillInProgress')}</h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300">{t('muster:drillDesc')}</p>
               </div>
             </div>
             {emergencyStartTime && (
@@ -993,8 +987,8 @@ export default function EmergencyMuster() {
             <div className="flex items-center gap-3">
               <AlertTriangle className="text-red-600 flex-shrink-0 animate-pulse" size={24} />
               <div>
-                <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
-                <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
+                <h3 className="text-base font-bold text-red-800 dark:text-red-200">{t('muster:emergencyActiveLabel')}</h3>
+                <p className="text-sm text-red-700 dark:text-red-300">{t('muster:emergencyActiveDesc')}</p>
               </div>
             </div>
             {emergencyStartTime && (
@@ -1017,22 +1011,22 @@ export default function EmergencyMuster() {
                 <ShieldAlert size={16} className="text-white" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-fixed">Emergency Readiness</h3>
-                <p className="text-xs text-muted-foreground">Review before activating</p>
+                <h3 className="text-base font-bold text-fixed">{t('muster:readiness.title')}</h3>
+                <p className="text-xs text-muted-foreground">{t('muster:readiness.desc')}</p>
               </div>
             </div>
             <div className="flex gap-4 text-center">
               <div>
                 <p className={`text-2xl font-black ${fireMarshals.length > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fireMarshals.length}</p>
-                <p className="text-[10px] text-muted-foreground">Marshals</p>
+                <p className="text-[10px] text-muted-foreground">{t('muster:stats.marshals')}</p>
               </div>
               <div>
                 <p className={`text-2xl font-black ${activeZones.length > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>{activeZones.length}</p>
-                <p className="text-[10px] text-muted-foreground">Zones</p>
+                <p className="text-[10px] text-muted-foreground">{t('muster:zones')}</p>
               </div>
               <div>
                 <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalPeople}</p>
-                <p className="text-[10px] text-muted-foreground">On-Site</p>
+                <p className="text-[10px] text-muted-foreground">{t('common:onSite')}</p>
               </div>
             </div>
           </div>
@@ -1040,8 +1034,8 @@ export default function EmergencyMuster() {
           {/* Fire Marshal quick access — QR codes right here */}
           {fireMarshals.length > 0 ? (
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Fire Marshal Access Links</p>
-              <p className="text-xs text-muted-foreground mb-3">Share these links with your Fire Marshals now — they work without a login and update in real-time during an emergency.</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('muster:fireMarshals.accessLinks')}</p>
+              <p className="text-xs text-muted-foreground mb-3">{t('muster:fireMarshals.accessLinksDesc')}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {fireMarshals.map((fm: any) => {
                   const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
@@ -1054,16 +1048,16 @@ export default function EmergencyMuster() {
                           {fm.department && <p className="text-xs text-muted-foreground">{fm.department}</p>}
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
-                          <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `idle-${fm.id}`)} title="Show QR Code"><QrCode size={13} /></Button>
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: "Copied", description: `Link copied for ${fm.firstName}` }); }} title="Copy link"><Copy size={13} /></Button>
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title="Open in new tab"><ExternalLink size={13} /></Button>
+                          <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `idle-${fm.id}`)} title={t('common:showQrCode')}><QrCode size={13} /></Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: t('common:copied'), description: t('muster:toasts.marshalLinkCopied', { name: fm.firstName }) }); }} title={t('common:copyLink')}><Copy size={13} /></Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title={t('common:openInNewTab')}><ExternalLink size={13} /></Button>
                         </div>
                       </div>
                       <p className="text-[10px] text-muted-foreground font-mono truncate bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">{marshalUrl}</p>
                       {isShowingQr && (
                         <div className="mt-2 flex flex-col items-center gap-1">
                           <img src="" alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-blue-200" ref={el => { if (!el) return; import('qrcode').then(Q => Q.toDataURL(marshalUrl, { width: 96, margin: 1 })).then(u => { el.src = u; }); }} />
-                          <p className="text-[10px] text-muted-foreground">Scan to open on mobile</p>
+                          <p className="text-[10px] text-muted-foreground">{t('muster:wizard.scanToOpen')}</p>
                         </div>
                       )}
                     </div>
@@ -1075,8 +1069,8 @@ export default function EmergencyMuster() {
             <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <ShieldAlert size={20} className="text-red-500 flex-shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-red-700 dark:text-red-300">No Fire Marshals Assigned</p>
-                <p className="text-xs text-red-600 dark:text-red-400">Go to Staff Management and enable Fire Marshal status for relevant staff members.</p>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300">{t('muster:fireMarshals.none')}</p>
+                <p className="text-xs text-red-600 dark:text-red-400">{t('muster:fireMarshals.noneDesc')}</p>
               </div>
             </div>
           )}
@@ -1096,7 +1090,7 @@ export default function EmergencyMuster() {
                 <p className="text-xs text-muted-foreground">{t('wizard.workThrough')}</p>
               </div>
             </div>
-            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" onClick={() => { setEmergencyActive(false); setEmergencyPhase('idle'); setSelectedZones(new Set()); setShowZoneSelector(false); }} title="Cancel">
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" onClick={() => { setEmergencyActive(false); setEmergencyPhase('idle'); setSelectedZones(new Set()); setShowZoneSelector(false); }} title={t('common:cancel')}>
               <X size={16} />
             </Button>
           </div>
@@ -1105,9 +1099,9 @@ export default function EmergencyMuster() {
             {/* Activation status */}
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
               {activateFireMarshalMutation.isPending ? (
-                <><Loader2 size={15} className="animate-spin text-orange-600" /><span className="text-sm font-medium text-orange-800 dark:text-orange-300">{isDrillMode ? 'Starting drill…' : 'Sending emergency alerts…'}</span></>
+                <><Loader2 size={15} className="animate-spin text-orange-600" /><span className="text-sm font-medium text-orange-800 dark:text-orange-300">{isDrillMode ? t('muster:wizard.startingDrill') : t('muster:wizard.sendingAlerts')}</span></>
               ) : (
-                <><CheckCircle size={15} className="text-green-600" /><span className="text-sm font-medium text-green-800 dark:text-green-300">{isDrillMode ? 'Drill alert sent to all Fire Marshals' : 'Emergency alert sent to all personnel'}</span></>
+                <><CheckCircle size={15} className="text-green-600" /><span className="text-sm font-medium text-green-800 dark:text-green-300">{isDrillMode ? t('muster:wizard.drillAlertSent') : t('muster:wizard.emergencyAlertSent')}</span></>
               )}
             </div>
 
@@ -1117,8 +1111,8 @@ export default function EmergencyMuster() {
                 <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>1</div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold text-fixed">Select Zones to Evacuate</h4>
-                    <span className="text-xs text-muted-foreground">{selectedZones.size === 0 ? 'All zones' : `${selectedZones.size} selected`}</span>
+                    <h4 className="text-sm font-semibold text-fixed">{t('muster:wizard.selectZones')}</h4>
+                    <span className="text-xs text-muted-foreground">{selectedZones.size === 0 ? t('muster:wizard.allZones') : t('muster:wizard.zonesSelected', { count: selectedZones.size })}</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {activeZones.map(zone => {
@@ -1133,7 +1127,7 @@ export default function EmergencyMuster() {
                       );
                     })}
                   </div>
-                  {selectedZones.size === 0 && <p className="text-xs text-muted-foreground mt-1.5">Leave unselected to alert all zones</p>}
+                  {selectedZones.size === 0 && <p className="text-xs text-muted-foreground mt-1.5">{t('muster:wizard.leaveUnselected')}</p>}
                 </div>
               </div>
             )}
@@ -1143,8 +1137,8 @@ export default function EmergencyMuster() {
               <div className="flex gap-3">
                 <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>{activeZones.length > 0 ? 2 : 1}</div>
                 <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-fixed mb-1">Share Fire Marshal Links</h4>
-                  <p className="text-xs text-muted-foreground mb-2">Send these to your Fire Marshals — they open a live muster view on their phone, no login required.</p>
+                  <h4 className="text-sm font-semibold text-fixed mb-1">{t('muster:wizard.shareLinks')}</h4>
+                  <p className="text-xs text-muted-foreground mb-2">{t('muster:wizard.shareLinksDesc')}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {fireMarshals.map((fm: any) => {
                       const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
@@ -1157,16 +1151,16 @@ export default function EmergencyMuster() {
                               {fm.department && <p className="text-xs text-muted-foreground">{fm.department}</p>}
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `pre-${fm.id}`)} title="Show QR Code"><QrCode size={13} /></Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` }); }} title="Copy link"><Copy size={13} /></Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title="Open link"><ExternalLink size={13} /></Button>
+                              <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `pre-${fm.id}`)} title={t('common:showQrCode')}><QrCode size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: t('common:copied'), description: t('muster:toasts.marshalLinkCopied', { name: fm.firstName }) }); }} title={t('common:copyLink')}><Copy size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title={t('common:openInNewTab')}><ExternalLink size={13} /></Button>
                             </div>
                           </div>
                           <p className="text-[10px] text-muted-foreground font-mono truncate bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">{marshalUrl}</p>
                           {isShowingQr && (
                             <div className="mt-2 flex flex-col items-center gap-1">
                               <img src="" alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-gray-200" ref={el => { if (!el) return; import('qrcode').then(Q => Q.toDataURL(marshalUrl, { width: 96, margin: 1 })).then(u => { el.src = u; }); }} />
-                              <p className="text-[10px] text-muted-foreground">Scan to open on mobile</p>
+                              <p className="text-[10px] text-muted-foreground">{t('muster:wizard.scanToOpen')}</p>
                             </div>
                           )}
                         </div>
@@ -1189,8 +1183,8 @@ export default function EmergencyMuster() {
               <ClipboardList size={16} className="text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-fixed">{isDrillMode ? 'Drill Response Checklist' : 'Emergency Response Checklist'}</h3>
-              <p className="text-xs text-muted-foreground">Follow each step to manage the {isDrillMode ? 'drill' : 'emergency'}</p>
+              <h3 className="text-base font-bold text-fixed">{isDrillMode ? t('muster:checklist.drillTitle') : t('muster:checklist.emergencyTitle')}</h3>
+              <p className="text-xs text-muted-foreground">{t('muster:checklist.followSteps', { mode: isDrillMode ? t('muster:checklist.drill') : t('muster:checklist.emergency') })}</p>
             </div>
           </div>
 
@@ -1200,10 +1194,10 @@ export default function EmergencyMuster() {
               <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center"><CheckCircle size={15} /></div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-green-800 dark:text-green-200">{isDrillMode ? 'Drill Alert Sent' : 'Emergency Alert Sent'}</h4>
-                  {emergencyStartTime && <span className="text-xs text-green-600 dark:text-green-400 flex-shrink-0 font-mono">{emergencyStartTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+                  <h4 className="text-sm font-semibold text-green-800 dark:text-green-200">{isDrillMode ? t('muster:checklist.drillAlertSent') : t('muster:checklist.emergencyAlertSent')}</h4>
+                  {emergencyStartTime && <span className="text-xs text-green-600 dark:text-green-400 flex-shrink-0 font-mono">{formatTimeLocale(emergencyStartTime, { second: '2-digit' })}</span>}
                 </div>
-                <p className="text-xs text-green-700 dark:text-green-300">All on-site personnel notified via email</p>
+                <p className="text-xs text-green-700 dark:text-green-300">{t('muster:checklist.allNotified')}</p>
               </div>
             </div>
 
@@ -1211,7 +1205,7 @@ export default function EmergencyMuster() {
             <div className={`flex gap-3 p-3 rounded-lg border ${fireMarshals.length > 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700'}`}>
               <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${fireMarshals.length > 0 ? 'bg-blue-600 text-white' : 'bg-gray-400 text-white'}`}><HardHat size={15} /></div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-fixed mb-2">Deploy Fire Marshals</h4>
+                <h4 className="text-sm font-semibold text-fixed mb-2">{t('muster:checklist.deployMarshals')}</h4>
                 {fireMarshals.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {fireMarshals.map((fm: any) => {
@@ -1225,16 +1219,16 @@ export default function EmergencyMuster() {
                               {fm.department && <p className="text-xs text-muted-foreground">{fm.department}</p>}
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `active-${fm.id}`)} title="Show QR Code"><QrCode size={13} /></Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` }); }} title="Copy link"><Copy size={13} /></Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title="Open in new tab"><ExternalLink size={13} /></Button>
+                              <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `active-${fm.id}`)} title={t('common:showQrCode')}><QrCode size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: t('common:copied'), description: t('muster:toasts.marshalLinkCopied', { name: fm.firstName }) }); }} title={t('common:copyLink')}><Copy size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title={t('common:openInNewTab')}><ExternalLink size={13} /></Button>
                             </div>
                           </div>
                           <p className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">{marshalUrl}</p>
                           {isShowingQr && (
                             <div className="mt-2 flex items-center gap-3">
                               <img src="" alt={`QR for ${fm.firstName}`} className="w-28 h-28 rounded bg-white border border-blue-200 flex-shrink-0" ref={el => { if (!el) return; import('qrcode').then(Q => Q.toDataURL(marshalUrl, { width: 112, margin: 1 })).then(u => { el.src = u; }); }} />
-                              <p className="text-xs text-muted-foreground">Scan to open the Fire Marshal mobile view — no login required</p>
+                              <p className="text-xs text-muted-foreground">{t('muster:fireMarshals.accessLinksDesc')}</p>
                             </div>
                           )}
                         </div>
@@ -1242,7 +1236,7 @@ export default function EmergencyMuster() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No Fire Marshals configured. Assign them in Staff Management.</p>
+                  <p className="text-xs text-muted-foreground">{t('muster:fireMarshals.noneActive')}</p>
                 )}
               </div>
             </div>
@@ -1255,13 +1249,13 @@ export default function EmergencyMuster() {
                   <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${allSafe ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'}`}>{allSafe ? <CheckCircle size={15} /> : <Users size={15} />}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <h4 className="text-sm font-semibold text-fixed">Account for All Personnel</h4>
+                      <h4 className="text-sm font-semibold text-fixed">{t('muster:checklist.accountForAll')}</h4>
                       <span className={`text-xs font-bold flex-shrink-0 ${allSafe ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{accountedFor}/{totalPeople}</span>
                     </div>
                     <Progress value={totalPeople > 0 ? (accountedFor / totalPeople) * 100 : 0} className={`h-2 mb-2 ${allSafe ? '[&>div]:bg-green-500' : '[&>div]:bg-orange-500'}`} />
                     {!allSafe && totalPeople > 0 && (
                       <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2">
-                        <p className="text-xs text-orange-700 dark:text-orange-300 flex-1">{totalPeople - accountedFor} person{totalPeople - accountedFor !== 1 ? 's' : ''} unaccounted for</p>
+                        <p className="text-xs text-orange-700 dark:text-orange-300 flex-1">{t('muster:checklist.unaccountedCount', { count: totalPeople - accountedFor })}</p>
                         <Button size="sm" variant="outline" onClick={() => nudgeUnaccountedMutation.mutate()} disabled={nudgeUnaccountedMutation.isPending} className="w-full xs:w-auto text-xs h-8 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 justify-center">
                           <BellRing size={12} className="mr-1" />{nudgeUnaccountedMutation.isPending ? t('checklist.sending') : t('nudgeUnaccounted')}
                         </Button>
@@ -1279,15 +1273,15 @@ export default function EmergencyMuster() {
               <div className="flex-1 min-w-0">
                 <div className="flex flex-col gap-2">
                   <div>
-                    <h4 className="text-sm font-semibold text-fixed">End the Incident</h4>
-                    <p className="text-xs text-muted-foreground">Save the incident report and close this {isDrillMode ? 'drill' : 'event'}</p>
+                    <h4 className="text-sm font-semibold text-fixed">{t('muster:checklist.endIncident')}</h4>
+                    <p className="text-xs text-muted-foreground">{t('muster:checklist.saveReport', { mode: isDrillMode ? t('muster:checklist.drill') : t('muster:checklist.emergency') })}</p>
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" variant="outline" onClick={copyMonitorLink} className="flex-1 sm:flex-initial text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 justify-center" title="Share a read-only live view with management">
-                      <Copy size={12} className="mr-1" />Monitor Link
+                      <Copy size={12} className="mr-1" />{t('muster:monitorLink')}
                     </Button>
                     <Button size="sm" onClick={() => setShowEndEvacDialog(true)} disabled={completeEvacuationMutation.isPending} className="flex-1 sm:flex-initial text-xs text-white border-0 bg-red-600 hover:bg-red-700 justify-center">
-                      <ShieldAlert size={12} className="mr-1" />End Evacuation
+                      <ShieldAlert size={12} className="mr-1" />{t('muster:checklist.endEvacuation')}
                     </Button>
                   </div>
                 </div>
@@ -1303,10 +1297,10 @@ export default function EmergencyMuster() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <MapPin className="text-blue-600" size={18} />
-              <h3 className="text-sm font-semibold text-fixed">Select Zones to Evacuate</h3>
+              <h3 className="text-sm font-semibold text-fixed">{t('muster:zoneSelector.title')}</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              {selectedZones.size === 0 ? "No zones selected - all zones will be alerted" : `${selectedZones.size} zone${selectedZones.size > 1 ? 's' : ''} selected`}
+              {selectedZones.size === 0 ? t('muster:zoneSelector.noneSelected') : t('muster:zoneSelector.countSelected', { count: selectedZones.size })}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1335,7 +1329,7 @@ export default function EmergencyMuster() {
           </div>
           {selectedZones.size > 0 && (
             <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-              Only personnel in selected zones will receive evacuation alerts
+              {t('muster:zoneSelector.selectedOnly')}
             </p>
           )}
 
@@ -1343,8 +1337,8 @@ export default function EmergencyMuster() {
             <div className="mt-4 pt-4 border-t border-border/50">
               <div className="flex items-center gap-2 mb-3">
                 <Map className="text-blue-600" size={16} />
-                <h4 className="text-sm font-medium text-fixed">Zone Map</h4>
-                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Click zones on map to select</span>
+                <h4 className="text-sm font-medium text-fixed">{t('muster:zoneSelector.zoneMap')}</h4>
+                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{t('muster:zoneSelector.clickToSelect')}</span>
               </div>
               <div className="relative rounded-lg overflow-hidden border-2 border-border/30 bg-muted/20">
                 <img
@@ -1429,11 +1423,11 @@ export default function EmergencyMuster() {
           <GlassCard solid hover className={`dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 cursor-pointer transition-all !p-3 sm:!p-5 ${typeFilter === 'all' ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-600' : 'border-emerald-200 dark:border-emerald-800'}`} onClick={() => setTypeFilter('all')}>
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
-                <p className="text-emerald-700 dark:text-emerald-300 text-[10px] sm:text-sm font-semibold leading-tight">Total</p>
+                <p className="text-emerald-700 dark:text-emerald-300 text-[10px] sm:text-sm font-semibold leading-tight">{t('muster:stats.total')}</p>
                 <p className="text-3xl sm:text-5xl font-black text-emerald-700 dark:text-emerald-300 leading-none mt-1" data-testid="stat-total-people">
                   {totalPeople}
                 </p>
-                <p className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">On-Site</p>
+                <p className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">{t('muster:stats.onSite')}</p>
               </div>
               <div className="w-8 h-8 sm:w-12 sm:h-12 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
                 <Users className="text-emerald-700 dark:text-emerald-300" size={16} />
@@ -1444,7 +1438,7 @@ export default function EmergencyMuster() {
           <GlassCard solid hover className="dark:glass-dark border-2 border-transparent !p-3 sm:!p-5">
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0 flex-1">
-                <p className="text-variable text-[10px] sm:text-sm font-semibold leading-tight">Accounted</p>
+                <p className="text-variable text-[10px] sm:text-sm font-semibold leading-tight">{t('muster:stats.accounted')}</p>
                 <p className="text-3xl sm:text-5xl font-black text-green-600 dark:text-green-400 leading-none mt-1" data-testid="stat-accounted">
                   {accountedFor}
                 </p>
@@ -1464,12 +1458,12 @@ export default function EmergencyMuster() {
           <GlassCard solid hover className={`dark:glass-dark border-2 !p-3 sm:!p-5 transition-all ${(totalPeople - accountedFor) > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'border-transparent'}`}>
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
-                <p className={`text-[10px] sm:text-sm font-semibold leading-tight ${(totalPeople - accountedFor) > 0 ? 'text-red-700 dark:text-red-300' : 'text-variable'}`}>Missing</p>
+                <p className={`text-[10px] sm:text-sm font-semibold leading-tight ${(totalPeople - accountedFor) > 0 ? 'text-red-700 dark:text-red-300' : 'text-variable'}`}>{t('muster:stats.missing')}</p>
                 <p className={`text-3xl sm:text-5xl font-black leading-none mt-1 ${(totalPeople - accountedFor) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`} data-testid="stat-unaccounted">
                   {totalPeople - accountedFor}
                 </p>
                 <p className={`text-[10px] sm:text-xs mt-1 font-medium ${(totalPeople - accountedFor) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                  {(totalPeople - accountedFor) === 0 ? 'All safe' : 'Unaccounted'}
+                  {(totalPeople - accountedFor) === 0 ? t('muster:stats.allSafe') : t('muster:stats.unaccounted')}
                 </p>
               </div>
               <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${(totalPeople - accountedFor) > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-gray-100 dark:bg-gray-800/30'}`}>
@@ -1487,12 +1481,12 @@ export default function EmergencyMuster() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
-                {peepCount} PEEP person{peepCount !== 1 ? 's' : ''} on-site
+                {t('muster:stats.peepOnSite', { count: peepCount })}
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 {peepUnaccounted > 0
-                  ? `${peepUnaccounted} still unaccounted — prioritise evacuation assistance`
-                  : 'All PEEP individuals are accounted for'}
+                  ? t('muster:stats.peepUnaccounted', { count: peepUnaccounted })
+                  : t('muster:stats.allPeepSafe')}
               </p>
             </div>
             {peepUnaccounted > 0 && (
@@ -1506,21 +1500,21 @@ export default function EmergencyMuster() {
           <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
             <div className="text-center">
               <p className="text-xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 leading-none" data-testid="stat-staff-count">{staffCount}</p>
-              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Staff</p>
+              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">{t('muster:stats.staff')}</p>
             </div>
           </GlassCard>
 
           <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'visitor' ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'visitor' ? 'all' : 'visitor')}>
             <div className="text-center">
               <p className="text-xl sm:text-3xl font-black text-blue-600 dark:text-blue-400 leading-none" data-testid="stat-visitor-count">{visitorCount}</p>
-              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Visitors</p>
+              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">{t('muster:stats.visitors')}</p>
             </div>
           </GlassCard>
 
           <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'contractor' ? 'border-orange-500 dark:border-orange-400 ring-2 ring-orange-300 dark:ring-orange-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'contractor' ? 'all' : 'contractor')}>
             <div className="text-center">
               <p className="text-xl sm:text-3xl font-black text-orange-600 dark:text-orange-400 leading-none" data-testid="stat-contractor-count">{contractorCount}</p>
-              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Contractors</p>
+              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">{t('muster:stats.contractors')}</p>
             </div>
           </GlassCard>
 
@@ -1528,7 +1522,7 @@ export default function EmergencyMuster() {
             <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'member' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'member' ? 'all' : 'member')}>
               <div className="text-center">
                 <p className="text-xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 leading-none" data-testid="stat-member-count">{memberCount}</p>
-                <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Members</p>
+                <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">{t('muster:stats.members')}</p>
               </div>
             </GlassCard>
           )}
@@ -1546,7 +1540,7 @@ export default function EmergencyMuster() {
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground mb-3">
-            Fire Marshals physically sweep their zone and mark it cleared via their dedicated mobile link. Status updates here in real-time.
+            {t('zoneSweep.desc')}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {activeZones.map(zone => {
@@ -1571,27 +1565,27 @@ export default function EmergencyMuster() {
                     <div>
                       <div className="flex items-center gap-1 text-green-700 dark:text-green-400 font-semibold">
                         <Footprints size={10} />
-                        <span>SWEPT</span>
+                        <span>{t('zoneSweep.swept')}</span>
                         {sweep.hasUnaccountedAtTime && (
-                          <span className="text-amber-600 dark:text-amber-400 ml-1">⚠ override</span>
+                          <span className="text-amber-600 dark:text-amber-400 ml-1">{t('zoneSweep.override')}</span>
                         )}
                       </div>
                       <div className="text-muted-foreground mt-0.5 truncate">
                         {sweep.sweptByName}
                       </div>
                       <div className="text-muted-foreground">
-                        {new Date(sweep.sweptAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                        {formatTimeLocale(sweep.sweptAt)}
                       </div>
                     </div>
                   ) : (
                     <div className="text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Clock size={10} />
-                        <span>Not swept</span>
+                        <span>{t('zoneSweep.notSwept')}</span>
                       </div>
                       {counts && counts.total > 0 && (
                         <div className={counts.safe === counts.total ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                          {counts.safe}/{counts.total} safe
+                          {t('zoneSweep.safe', { safe: counts.safe, total: counts.total })}
                         </div>
                       )}
                     </div>
@@ -1618,7 +1612,7 @@ export default function EmergencyMuster() {
                 )}
                 {typeFilter !== 'all' && (
                   <span className="text-xs font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                    {typeFilter === 'staff' ? 'Staff' : typeFilter === 'visitor' ? 'Visitors' : typeFilter === 'contractor' ? 'Contractors' : 'Members'}
+                    {typeFilter === 'staff' ? t('muster:stats.staff') : typeFilter === 'visitor' ? t('muster:stats.visitors') : typeFilter === 'contractor' ? t('muster:stats.contractors') : t('muster:stats.members')}
                     <button onClick={() => setTypeFilter('all')} className="ml-1 hover:text-blue-900 dark:hover:text-blue-100">&times;</button>
                   </span>
                 )}
@@ -1635,7 +1629,7 @@ export default function EmergencyMuster() {
                     title={selectedZones.size > 0 ? `Mark all safe in selected zone(s) only` : `Mark all on-site personnel as safe`}
                   >
                     <CheckCircle className="mr-1.5 flex-shrink-0" size={13} />
-                    {markAllSafeMutation.isPending ? "Marking..." : selectedZones.size > 0 ? `Mark Zone${selectedZones.size > 1 ? 's' : ''} Safe` : "Mark All Safe"}
+                    {markAllSafeMutation.isPending ? t('muster:accountability.marking') : selectedZones.size > 0 ? t('muster:accountability.markZonesSafe', { count: selectedZones.size }) : t('muster:accountability.markAllSafe')}
                   </Button>
                 )}
                 {accountedFor > 0 && (
@@ -1647,9 +1641,9 @@ export default function EmergencyMuster() {
                     className="text-xs h-8 px-3 font-semibold"
                   >
                     {showSafePeople ? (
-                      <><EyeOff className="mr-1.5 flex-shrink-0" size={13} />Hide Safe ({accountedFor})</>
+                      <><EyeOff className="mr-1.5 flex-shrink-0" size={13} />{t('muster:accountability.hideSafe', { count: accountedFor })}</>
                     ) : (
-                      <><Eye className="mr-1.5 flex-shrink-0" size={13} />Show Safe ({accountedFor})</>
+                      <><Eye className="mr-1.5 flex-shrink-0" size={13} />{t('muster:accountability.showSafe', { count: accountedFor })}</>
                     )}
                   </Button>
                 )}
@@ -1662,7 +1656,7 @@ export default function EmergencyMuster() {
                 <Input
                   id="search"
                   type="text"
-                  placeholder="Search by name, department, or company..."
+                  placeholder={t('muster:accountability.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed text-sm"
@@ -1685,18 +1679,18 @@ export default function EmergencyMuster() {
                   <Users size={40} className="mb-3 opacity-30" />
                   {totalPeople === 0 ? (
                     <>
-                      <p className="font-medium text-sm">No one is currently on-site</p>
-                      <p className="text-xs mt-1 max-w-xs">Once visitors, staff, or contractors check in, they will appear here ready for emergency roll-call.</p>
+                      <p className="font-medium text-sm">{t('muster:accountability.emptyTitle')}</p>
+                      <p className="text-xs mt-1 max-w-xs">{t('muster:accountability.emptyDesc')}</p>
                     </>
                   ) : !showSafePeople && accountedFor === totalPeople ? (
                     <>
-                      <p className="font-medium text-sm text-green-600 dark:text-green-400">All personnel are accounted for</p>
-                      <p className="text-xs mt-1">Tap <strong>Show Safe</strong> above to view the full list.</p>
+                      <p className="font-medium text-sm text-green-600 dark:text-green-400">{t('muster:accountability.allAccountedFor')}</p>
+                      <p className="text-xs mt-1">{t('muster:accountability.tapShowSafe')}</p>
                     </>
                   ) : (
                     <>
-                      <p className="font-medium text-sm">No results match your search</p>
-                      <p className="text-xs mt-1">Try clearing the search or adjusting your filter.</p>
+                      <p className="font-medium text-sm">{t('muster:accountability.noSearchResults')}</p>
+                      <p className="text-xs mt-1">{t('muster:accountability.tryClearing')}</p>
                     </>
                   )}
                 </div>
@@ -1722,7 +1716,7 @@ export default function EmergencyMuster() {
                     {person.needsEvacuationAssistance && (
                       <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-400 dark:bg-amber-500">
                         <Accessibility size={12} className="text-amber-900 flex-shrink-0" />
-                        <span className="text-amber-900 text-[10px] font-black uppercase tracking-wide">Requires Evacuation Assistance (PEEP)</span>
+                        <span className="text-amber-900 text-[10px] font-black uppercase tracking-wide">{t('muster:stats.peepRequirement')}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2.5 sm:gap-3 px-3 py-2.5">
@@ -1736,13 +1730,15 @@ export default function EmergencyMuster() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-semibold text-fixed text-sm leading-tight truncate">{person.name}</p>
                         {person.needsEvacuationAssistance && (
-                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 dark:bg-amber-800/60 dark:text-amber-200 border border-amber-400 dark:border-amber-500">
-                            <Accessibility size={11} /> PEEP
+                          <span title={t('muster:stats.peepRequirement')} className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 dark:bg-amber-800/60 dark:text-amber-200 border border-amber-400 dark:border-amber-500">
+                            <Accessibility size={11} /> {t('muster:stats.peep')}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold ${typeBadge}`}>{person.type}</span>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold ${typeBadge}`}>
+                          {person.type === 'staff' ? t('muster:stats.staff') : person.type === 'visitor' ? t('muster:stats.visitors') : person.type === 'contractor' ? t('muster:stats.contractors') : t('muster:stats.members')}
+                        </span>
                         <span className="text-[11px] text-variable truncate max-w-[120px] sm:max-w-none">{person.type === 'staff' ? person.department : person.company}</span>
                         {person.location && person.location !== 'Not specified' && (
                           <span className={`hidden sm:inline-flex items-center gap-0.5 text-[10px] ${!person.accounted ? 'text-red-500 dark:text-red-400 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
@@ -1750,7 +1746,7 @@ export default function EmergencyMuster() {
                           </span>
                         )}
                         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                          <Clock size={9} />{new Date(person.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          <Clock size={9} />{formatTimeLocale(person.checkedInAt)}
                         </span>
                       </div>
                     </div>
@@ -1760,12 +1756,12 @@ export default function EmergencyMuster() {
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         {person.accounted ? (
                           <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
-                            <CheckCircle size={11} />Safe
+                            <CheckCircle size={11} />{t('muster:stats.safeLabel')}
                           </span>
                         ) : (
                           <>
                             <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
-                              <XCircle size={11} />Missing
+                              <XCircle size={11} />{t('muster:stats.missing')}
                             </span>
                             {person.type !== 'member' && (
                               <Button
@@ -1774,7 +1770,7 @@ export default function EmergencyMuster() {
                                 className={`h-7 w-7 p-0 flex-shrink-0 ${person.hasEmail ? 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400' : 'border-gray-200 text-gray-300 cursor-not-allowed dark:border-gray-700 dark:text-gray-600'}`}
                                 disabled={!person.hasEmail || emailingPersonId === person.id}
                                 onClick={() => person.hasEmail && emailPersonMutation.mutate({ personId: person.id, personType: person.type })}
-                                title={person.hasEmail ? `Email reminder to ${person.name}` : 'No email on file'}
+                                title={person.hasEmail ? t('muster:accountability.emailReminder', { name: person.name }) : t('muster:accountability.noEmail')}
                                 data-testid={`button-email-${person.id}`}
                               >
                                 {emailingPersonId === person.id ? (
@@ -1794,9 +1790,9 @@ export default function EmergencyMuster() {
                           data-testid={`button-toggle-${person.id}`}
                         >
                           {person.accounted ? (
-                            <><XCircle className="mr-1" size={11} />Undo</>
+                            <><XCircle className="mr-1" size={11} />{t('common:undo')}</>
                           ) : (
-                            <><CheckCircle className="mr-1" size={11} />Mark Safe</>
+                            <><CheckCircle className="mr-1" size={11} />{t('muster:accountability.markSafe')}</>
                           )}
                         </Button>
                       </div>
@@ -1839,7 +1835,7 @@ export default function EmergencyMuster() {
                 {completeEvacuationMutation.isPending ? t('endEvacDialog.ending') : t('endEvacDialog.endAndKeep')}
               </Button>
               <Button variant="ghost" className="w-full text-gray-600" onClick={() => setShowEndEvacDialog(false)}>
-                Cancel
+                {t('common:cancel')}
               </Button>
             </div>
           </div>

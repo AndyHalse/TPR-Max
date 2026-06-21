@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,7 @@ export default function ContractorCompaniesTab({
   setLocation,
   setShowAddContractorDialog,
 }: ContractorCompaniesTabProps) {
+  const { t } = useTranslation(['contractors', 'common']);
   const [docTypeFilter, setDocTypeFilter] = useState<DocTypeFilter>(() => {
     const v = new URLSearchParams(window.location.search).get("docType") as DocTypeFilter;
     return DOC_CHIPS.some(c => c.key === v) ? v : null;
@@ -96,9 +98,9 @@ export default function ContractorCompaniesTab({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-purple-600" />
-            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Contractor Companies</h2>
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{t('companies.title')}</h2>
             <span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400">
-              Manage all contractor companies and their details
+              {t('companies.sub')}
             </span>
           </div>
           <Button
@@ -107,7 +109,7 @@ export default function ContractorCompaniesTab({
             data-testid="button-add-contractor"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Contractor
+            {t('companies.addContractor')}
           </Button>
         </div>
 
@@ -117,7 +119,7 @@ export default function ContractorCompaniesTab({
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by company name, industry, phone, or email..."
+            placeholder={t('companies.searchPlaceholder')}
             className="pl-10"
             data-testid="input-search-companies"
           />
@@ -127,12 +129,13 @@ export default function ContractorCompaniesTab({
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
             <AlertTriangle size={12} className="text-red-500" />
-            Filter by missing document
+            {t('companies.filterMissing')}
           </div>
           <div className="flex flex-wrap gap-2">
             {DOC_CHIPS.map(({ key, label }) => {
               const isActive = docTypeFilter === key;
               const count = missingCount(key);
+              const translatedLabel = key === null ? t('companies.allContractors') : label;
               return (
                 <button
                   key={key ?? "all"}
@@ -147,7 +150,7 @@ export default function ContractorCompaniesTab({
                       : "bg-white text-slate-600 border-slate-300 hover:border-red-400 hover:text-red-700"
                   }`}
                 >
-                  {label}
+                  {translatedLabel}
                   {key !== null && (
                     <span className={`text-[10px] px-1 rounded-full ${isActive ? "bg-white/25" : "bg-slate-100 text-slate-500"}`}>
                       {count}
@@ -161,13 +164,13 @@ export default function ContractorCompaniesTab({
                 onClick={() => setDocTypeFilter(null)}
                 className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-full text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-300 transition-all"
               >
-                <X size={11} />Clear
+                <X size={11} />{t('common:clear')}
               </button>
             )}
           </div>
           {docTypeFilter && (
             <p className="text-xs text-red-600 font-medium">
-              Showing {afterSearch.length} contractor{afterSearch.length !== 1 ? "s" : ""} with missing {DOC_CHIPS.find(c => c.key === docTypeFilter)?.label.replace("🛡 ", "")} documents
+              {t('companies.showingMissing', { count: afterSearch.length, label: (DOC_CHIPS.find(c => c.key === docTypeFilter)?.label || "").replace("🛡 ", "") })}
             </p>
           )}
         </div>
@@ -175,8 +178,8 @@ export default function ContractorCompaniesTab({
         {/* Show All Button & View Toggle */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <div className="text-sm text-slate-600 dark:text-slate-300">
-            Showing {displayed.length} of {afterSearch.length} companies
-            {searchTerm && ` matching "${searchTerm}"`}
+            {t('companies.showingInfo', { count: displayed.length, total: afterSearch.length })}
+            {searchTerm && ` ${t('common:matching')} "${searchTerm}"`}
           </div>
           <div className="flex items-center gap-2">
             <div className="flex border rounded-lg overflow-hidden">
@@ -185,7 +188,7 @@ export default function ContractorCompaniesTab({
                 variant={companyViewMode === 'grid' ? 'default' : 'outline'}
                 className="rounded-none border-0 px-2"
                 onClick={() => setCompanyViewMode('grid')}
-                title="Grid view"
+                title={t('common:gridView')}
               >
                 <LayoutGrid size={14} />
               </Button>
@@ -194,7 +197,7 @@ export default function ContractorCompaniesTab({
                 variant={companyViewMode === 'list' ? 'default' : 'outline'}
                 className="rounded-none border-0 px-2"
                 onClick={() => setCompanyViewMode('list')}
-                title="List view"
+                title={t('common:listView')}
               >
                 <List size={14} />
               </Button>
@@ -205,7 +208,7 @@ export default function ContractorCompaniesTab({
               className="text-purple-600 border-purple-600 hover:bg-purple-50 text-xs sm:text-sm whitespace-nowrap"
               onClick={() => setShowAllCompanies(!showAllCompanies)}
             >
-              {showAllCompanies ? 'Show Less' : `Show All ${afterSearch.length} Companies`}
+              {showAllCompanies ? t('common:showLess') : t('companies.showAll', { count: afterSearch.length })}
             </Button>
           </div>
         </div>
@@ -220,19 +223,19 @@ export default function ContractorCompaniesTab({
                   <h3
                     className="font-semibold text-slate-800 dark:text-slate-100 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer hover:underline transition-colors"
                     onClick={() => handleViewContractorDetails(company.id)}
-                    title="Click to view contractor details"
+                    title={t('companies.viewDetailsTooltip')}
                   >
                     {company.name}
                   </h3>
                   <p className="text-sm text-slate-600 dark:text-slate-300">{company.contactEmail || company.email}</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-300">{(company as any).contactPhone || company.phone || 'No phone provided'}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">{(company as any).contactPhone || company.phone || t('common:noPhoneProvided')}</p>
                   {company.industry && (
                     <p className="text-sm text-blue-600 font-medium capitalize">
                       {company.industry}
                     </p>
                   )}
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Workers: {company.workersCount || 0}
+                    {t('companies.workersCount', { count: company.workersCount || 0 })}
                   </p>
                 </div>
 
@@ -240,7 +243,7 @@ export default function ContractorCompaniesTab({
                   <Badge
                     className={company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
                   >
-                    {company.status || 'pending'}
+                    {t(`badges.${company.status || 'pending'}`)}
                   </Badge>
 
                   {company.industry && (
@@ -252,14 +255,14 @@ export default function ContractorCompaniesTab({
                   {(() => {
                     const badge = getComplianceBadge((company as any).documentsStatus);
                     return (
-                      <Badge className={`${badge.className} text-xs`} title="Document compliance status">
-                        {badge.icon} {badge.label}
+                      <Badge className={`${badge.className} text-xs`} title={t('companies.complianceTooltip')}>
+                        {badge.icon} {t(`badges.${badge.label.toLowerCase().replace(/\s+/g, '')}`) || badge.label}
                       </Badge>
                     );
                   })()}
 
                   {company.cdmRole && (
-                    <Badge className="bg-purple-100 text-purple-800 text-xs" title="CDM duty holder role">
+                    <Badge className="bg-purple-100 text-purple-800 text-xs" title={t('companies.cdmRoleTooltip')}>
                       CDM: {company.cdmRole.replace(/_/g, ' ')}
                     </Badge>
                   )}
@@ -288,7 +291,7 @@ export default function ContractorCompaniesTab({
                     className="text-xs text-amber-600 font-medium flex items-center gap-1 hover:underline"
                     onClick={() => handleViewContractorDetails(company.id)}
                   >
-                    <Zap className="w-3 h-3" /> Finish setup
+                    <Zap className="w-3 h-3" /> {t('companies.finishSetup')}
                   </button>
                 )}
 
@@ -301,7 +304,7 @@ export default function ContractorCompaniesTab({
                       data-testid={`button-workers-${company.id}`}
                     >
                       <Users className="h-3 w-3 mr-1" />
-                      Workers
+                      {t('companies.workers')}
                     </Button>
 
                     <Button
@@ -312,7 +315,7 @@ export default function ContractorCompaniesTab({
                       data-testid={`button-documents-${company.id}`}
                     >
                       <FileText className="h-3 w-3 mr-1" />
-                      Documents
+                      {t('companies.documents')}
                     </Button>
                   </div>
                   <div className="flex gap-2">
@@ -327,7 +330,7 @@ export default function ContractorCompaniesTab({
                       data-testid={`button-add-worker-${company.id}`}
                     >
                       <UserPlus className="h-3 w-3 mr-1" />
-                      Add Worker
+                      {t('companies.addWorker')}
                     </Button>
                   </div>
 
@@ -340,7 +343,7 @@ export default function ContractorCompaniesTab({
                       data-testid={`button-edit-company-${company.id}`}
                     >
                       <Edit className="h-3 w-3 mr-1" />
-                      Edit
+                      {t('common:edit')}
                     </Button>
 
                     <Button
@@ -352,7 +355,7 @@ export default function ContractorCompaniesTab({
                       data-testid={`button-delete-company-${company.id}`}
                     >
                       <Trash2 className="h-3 w-3 mr-1" />
-                      Delete
+                      {t('common:delete')}
                     </Button>
                   </div>
                 </div>
@@ -371,7 +374,7 @@ export default function ContractorCompaniesTab({
                       <Badge
                         className={`text-xs ${company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
                       >
-                        {company.status || 'pending'}
+                        {t(`badges.${company.status || 'pending'}`)}
                       </Badge>
                       {company.industry && (
                         <Badge className="text-xs bg-blue-100 text-blue-800 capitalize">
@@ -382,12 +385,12 @@ export default function ContractorCompaniesTab({
                         const badge = getComplianceBadge((company as any).documentsStatus);
                         return (
                           <Badge className={`${badge.className} text-xs`}>
-                            {badge.icon} {badge.label}
+                            {badge.icon} {t(`badges.${badge.label.toLowerCase().replace(/\s+/g, '')}`) || badge.label}
                           </Badge>
                         );
                       })()}
                       {company.cdmRole && (
-                        <Badge className="bg-purple-100 text-purple-800 text-xs" title="CDM duty holder role">
+                        <Badge className="bg-purple-100 text-purple-800 text-xs" title={t('companies.cdmRoleTooltip')}>
                           CDM: {company.cdmRole.replace(/_/g, ' ')}
                         </Badge>
                       )}
@@ -398,14 +401,14 @@ export default function ContractorCompaniesTab({
                       {company.smasAccredited && <Badge className="bg-cyan-100 text-cyan-800 text-xs">SMAS</Badge>}
                       {(company as any).onboardingCompleted === false && (
                         <span className="text-xs text-amber-600 font-medium flex items-center gap-1 cursor-pointer hover:underline" onClick={() => handleViewContractorDetails(company.id)}>
-                          <Zap className="w-3 h-3" /> Finish setup
+                          <Zap className="w-3 h-3" /> {t('companies.finishSetup')}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-300 mt-1">
                       <span>{company.contactEmail || company.email}</span>
-                      <span>{(company as any).contactPhone || company.phone || 'No phone'}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Workers: {company.workersCount || 0}</span>
+                      <span>{(company as any).contactPhone || company.phone || t('common:noPhone')}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{t('companies.workersCount', { count: company.workersCount || 0 })}</span>
                     </div>
                   </div>
                 </div>
@@ -416,7 +419,7 @@ export default function ContractorCompaniesTab({
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Users className="h-3 w-3 mr-1" />
-                    Workers
+                    {t('companies.workers')}
                   </Button>
                   <Button
                     size="sm"
@@ -425,7 +428,7 @@ export default function ContractorCompaniesTab({
                     onClick={() => setLocation(`/contractors/${company.id}?tab=documents`)}
                   >
                     <FileText className="h-3 w-3 mr-1" />
-                    Documents
+                    {t('companies.documents')}
                   </Button>
                   <Button
                     size="sm"
@@ -437,7 +440,7 @@ export default function ContractorCompaniesTab({
                     }}
                   >
                     <UserPlus className="h-3 w-3 mr-1" />
-                    Add Worker
+                    {t('companies.addWorker')}
                   </Button>
                   <Button
                     size="sm"
@@ -446,7 +449,7 @@ export default function ContractorCompaniesTab({
                     onClick={() => handleEditContractor(company.id)}
                   >
                     <Edit className="h-3 w-3 mr-1" />
-                    Edit
+                    {t('common:edit')}
                   </Button>
                   <Button
                     size="sm"
@@ -456,7 +459,7 @@ export default function ContractorCompaniesTab({
                     disabled={deleteContractorMutation.isPending}
                   >
                     <Trash2 className="h-3 w-3 mr-1" />
-                    Delete
+                    {t('common:delete')}
                   </Button>
                 </div>
               </div>
@@ -468,10 +471,13 @@ export default function ContractorCompaniesTab({
         {afterSearch.length === 0 && (
           <div className="text-center py-8 text-slate-500 dark:text-slate-400">
             {docTypeFilter
-              ? `No contractors found with missing ${DOC_CHIPS.find(c => c.key === docTypeFilter)?.label.replace("🛡 ", "")} documents${searchTerm ? ` matching "${searchTerm}"` : ""}`
+              ? t('companies.noContractorsWithMissingDocs', {
+                  label: (DOC_CHIPS.find(c => c.key === docTypeFilter)?.label || "").replace("🛡 ", ""),
+                  search: searchTerm ? ` ${t('common:matching')} "${searchTerm}"` : ""
+                })
               : searchTerm
-              ? `No contractor companies found matching "${searchTerm}"`
-              : "No contractor companies found"}
+              ? t('companies.noCompaniesMatching', { search: searchTerm })
+              : t('companies.noCompaniesFound')}
           </div>
         )}
       </div>

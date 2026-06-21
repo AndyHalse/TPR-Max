@@ -11,11 +11,13 @@ import {
   User,
   CalendarDays,
 } from "lucide-react";
+import { useTranslation, Trans } from "react-i18next";
 import { type PpmWorkOrderSummary, PPM_STATUS_BADGE } from "./types";
 
 // Shows PPM work orders grouped by contractor company so site managers can
 // see at a glance what maintenance tasks are assigned to each contractor.
 export default function ContractorPPMTab() {
+  const { t } = useTranslation(["contractors", "common"]);
   const [search, setSearch] = useState("");
 
   const { data: workOrders = [], isLoading } = useQuery<PpmWorkOrderSummary[]>({
@@ -28,7 +30,7 @@ export default function ContractorPPMTab() {
   // Group by contractor company
   const grouped = assigned.reduce<Record<string, { companyName: string; items: PpmWorkOrderSummary[] }>>((acc, wo) => {
     const key = wo.contractorCompanyId ?? wo.contractorCompanyName ?? "unassigned";
-    const label = wo.contractorCompanyName ?? "Unknown Company";
+    const label = wo.contractorCompanyName ?? t("common:unknown");
     if (!acc[key]) acc[key] = { companyName: label, items: [] };
     acc[key].items.push(wo);
     return acc;
@@ -50,7 +52,7 @@ export default function ContractorPPMTab() {
   if (isLoading) {
     return (
       <GlassCard className="p-8 text-center text-muted-foreground">
-        Loading PPM work orders…
+        {t("ppm.loading")}
       </GlassCard>
     );
   }
@@ -61,9 +63,9 @@ export default function ContractorPPMTab() {
       <GlassCard className="p-4">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div>
-            <h3 className="font-semibold text-fixed">PPM Work Orders by Contractor</h3>
+            <h3 className="font-semibold text-fixed">{t("ppm.workOrdersByContractor")}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {assigned.length} work order{assigned.length !== 1 ? "s" : ""} assigned across {Object.keys(grouped).length} contractor{Object.keys(grouped).length !== 1 ? "s" : ""}
+              {t("ppm.workOrdersAssigned", { assignedCount: assigned.length, contractorCount: Object.keys(grouped).length, count: assigned.length })}
             </p>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -71,14 +73,14 @@ export default function ContractorPPMTab() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="Search contractors or tasks…"
+                placeholder={t("ppm.searchPlaceholder")}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
             <a href="/ppm" className="flex items-center gap-1.5 text-xs text-primary hover:underline whitespace-nowrap">
               <ExternalLink className="h-3.5 w-3.5" />
-              Open PPM
+              {t("ppm.open")}
             </a>
           </div>
         </div>
@@ -88,10 +90,14 @@ export default function ContractorPPMTab() {
         <GlassCard className="p-12 text-center">
           <Wrench className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-foreground">
-            {search ? "No results match your search." : "No PPM work orders are currently assigned to contractors."}
+            {search ? t("ppm.noResults") : t("ppm.empty")}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Assign contractors to work orders from the <a href="/ppm" className="text-primary hover:underline">PPM module</a>.
+            <Trans
+              i18nKey="ppm.assignContractorsInfo"
+              ns="contractors"
+              components={[<a key="0" href="/ppm" className="text-primary hover:underline" />]}
+            />
           </p>
         </GlassCard>
       )}
@@ -110,18 +116,18 @@ export default function ContractorPPMTab() {
                 </div>
                 <div>
                   <p className="font-semibold text-sm text-fixed">{group.companyName}</p>
-                  <p className="text-xs text-muted-foreground">{group.items.length} work order{group.items.length !== 1 ? "s" : ""}</p>
+                  <p className="text-xs text-muted-foreground">{t("ppm.workOrder", { count: group.items.length })}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
                 {overdueCount > 0 && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                    <AlertTriangle className="h-3 w-3" />{overdueCount} overdue
+                    <AlertTriangle className="h-3 w-3" />{t("ppm.overdue", { count: overdueCount })}
                   </span>
                 )}
                 {pendingCertCount > 0 && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                    <Shield className="h-3 w-3" />{pendingCertCount} cert pending
+                    <Shield className="h-3 w-3" />{t("ppm.certPending", { count: pendingCertCount })}
                   </span>
                 )}
               </div>
@@ -142,7 +148,7 @@ export default function ContractorPPMTab() {
                         </span>
                         {awaitingCert && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                            <Shield className="h-2.5 w-2.5" />Cert needed
+                            <Shield className="h-2.5 w-2.5" />{t("ppm.certNeeded")}
                           </span>
                         )}
                       </div>
@@ -154,7 +160,7 @@ export default function ContractorPPMTab() {
                         )}
                         {wo.dueDate && (
                           <span className={`text-xs flex items-center gap-1 ${isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
-                            <CalendarDays className="h-3 w-3" />Due: {new Date(wo.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                            <CalendarDays className="h-3 w-3" />{t("ppm.due", { date: new Date(wo.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) })}
                           </span>
                         )}
                       </div>
@@ -163,7 +169,7 @@ export default function ContractorPPMTab() {
                       href={`/ppm?wo=${wo.id}`}
                       className="flex-shrink-0 flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
                     >
-                      <ExternalLink className="h-3 w-3" />View
+                      <ExternalLink className="h-3 w-3" />{t("ppm.view")}
                     </a>
                   </div>
                 );

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useId } from "react";
+import { formatDateLocale } from "@/utils/formatDate";
 import { useTranslation } from "react-i18next";
 import { printPassViaIframe } from "@/lib/printUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -215,14 +216,14 @@ export default function Visitors() {
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
-        title: "Success",
-        description: "Visitor checked out successfully",
+        title: t('common:success'),
+        description: t('toasts.checkOutSuccess'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to check out visitor",
+        title: t('common:error'),
+        description: t('toasts.checkOutError'),
         variant: "destructive",
       });
     },
@@ -236,10 +237,10 @@ export default function Visitors() {
     onSuccess: (updatedVisitor) => {
       setViewingVisitor(updatedVisitor);
       queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
-      toast({ title: "Photo updated", description: "Visitor photo saved successfully." });
+      toast({ title: t('toasts.photoUpdated'), description: t('toasts.photoUpdatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to save visitor photo.", variant: "destructive" });
+      toast({ title: t('common:error'), description: t('toasts.photoUpdateError'), variant: "destructive" });
     },
   });
 
@@ -255,7 +256,7 @@ export default function Visitors() {
         reader.readAsDataURL(file);
       });
     } catch {
-      toast({ title: "Error", description: "Could not read the file. Please try again.", variant: "destructive" });
+      toast({ title: t('common:error'), description: t('toasts.fileReadError'), variant: "destructive" });
       return;
     }
     setIsUploadingVisitorPhoto(true);
@@ -264,7 +265,7 @@ export default function Visitors() {
       const { objectPath } = await uploadRes.json();
       updateVisitorPhotoMutation.mutate({ visitorId: viewingVisitor.id, photoUrl: objectPath });
     } catch {
-      toast({ title: "Error", description: "Failed to upload photo.", variant: "destructive" });
+      toast({ title: t('common:error'), description: t('toasts.photoUploadError'), variant: "destructive" });
     } finally {
       setIsUploadingVisitorPhoto(false);
       e.target.value = "";
@@ -287,8 +288,8 @@ export default function Visitors() {
         queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       }
       toast({
-        title: "Success",
-        description: "Pre-booking created and confirmation emails sent!",
+        title: t('common:success'),
+        description: t('toasts.prebookingSuccess'),
       });
       const { timeStr: resetTime, date: resetDate } = getNextFullHourTime();
       setVisitTimeValue(resetTime);
@@ -306,8 +307,8 @@ export default function Visitors() {
     onError: (error: Error) => {
       const isDuplicate = error.message?.includes('already pre-booked') || error.message?.includes('Duplicate');
       toast({
-        title: isDuplicate ? "Duplicate Pre-booking" : "Error",
-        description: error.message || "Failed to create pre-booking",
+        title: isDuplicate ? t('toasts.duplicatePrebooking') : t('common:error'),
+        description: error.message || t('toasts.prebookingError'),
         variant: "destructive",
         duration: isDuplicate ? 8000 : 5000,
       });
@@ -324,8 +325,8 @@ export default function Visitors() {
       if (visitor.ePassSent) {
         // Show e-Pass confirmation instead of printing
         toast({
-          title: "✅ Digital Pass Sent",
-          description: `E-Pass has been sent to ${visitor.email || 'visitor'}. They can use it to check out.`,
+          title: t('toasts.passSentTitle'),
+          description: t('toasts.passSentDesc', { email: visitor.email || t('common:type.visitor') }),
           variant: "default",
           duration: 5000
         });
@@ -368,20 +369,20 @@ export default function Visitors() {
       
       if (!visitor.ePassSent) {
         toast({
-          title: "Success",
-          description: "Visitor checked in successfully! Pass is printing...",
+          title: t('common:success'),
+          description: t('toasts.checkInSuccessPrint'),
         });
       }
     },
     onError: (error: any) => {
       if (error?.message?.includes("Visitor already checked in")) {
-        setDuplicateMessage(error.details || "This visitor is already checked in and on-site.");
+        setDuplicateMessage(error.details || t('alreadyCheckedIn'));
         setShowDuplicateDialog(true);
         return;
       }
       toast({
-        title: "Error",
-        description: "Failed to check in visitor",
+        title: t('common:error'),
+        description: t('toasts.checkInError'),
         variant: "destructive",
       });
     },
@@ -401,14 +402,14 @@ export default function Visitors() {
         queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       }
       toast({
-        title: "Success",
-        description: `Removed ${result.duplicatesRemoved} duplicate visitors. ${result.uniqueVisitorsRemaining} unique visitors remaining.`,
+        title: t('common:success'),
+        description: t('toasts.cleanupSuccess', { removed: result.duplicatesRemoved, remaining: result.uniqueVisitorsRemaining }),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to clean up duplicate visitors",
+        title: t('common:error'),
+        description: t('toasts.cleanupError'),
         variant: "destructive",
       });
     },
@@ -424,8 +425,8 @@ export default function Visitors() {
       if (visitor.ePassSent) {
         // Show e-Pass confirmation instead of printing
         toast({
-          title: "✅ Digital Pass Sent",
-          description: `E-Pass has been sent to ${visitor.email || 'visitor'}. They can use it to check out.`,
+          title: t('toasts.passSentTitle'),
+          description: t('toasts.passSentDesc', { email: visitor.email || t('common:type.visitor') }),
           variant: "default",
           duration: 5000
         });
@@ -435,8 +436,8 @@ export default function Visitors() {
         printPassViaIframe(`/api/passes/print/visitor/${visitor.id}`);
         setShowPassPreview(true);
         toast({
-          title: "Success",
-          description: "Previous visitor checked in successfully! Pass is printing...",
+          title: t('common:success'),
+          description: t('toasts.checkInSuccessPrint'),
         });
       }
       
@@ -461,7 +462,7 @@ export default function Visitors() {
       
       if (error?.message?.includes("Visitor already checked in")) {
         console.info("✅ Duplicate detected - showing dialog");
-        setDuplicateMessage(error.details || "This visitor is already checked in and on-site.");
+        setDuplicateMessage(error.details || t('alreadyCheckedIn'));
         setShowDuplicateDialog(true);
         setShowHostSelection(false);
         setSelectedPreviousVisitor(null);
@@ -470,8 +471,8 @@ export default function Visitors() {
       }
       console.info("❌ Not a duplicate error - showing generic error");
       toast({
-        title: "Error",
-        description: "Failed to check in visitor",
+        title: t('common:error'),
+        description: t('toasts.checkInError'),
         variant: "destructive",
       });
     },
@@ -487,11 +488,11 @@ export default function Visitors() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
-      toast({ title: "Cancelled", description: "Pre-booking has been cancelled." });
+      toast({ title: t('toasts.cancelled'), description: t('toasts.prebookingCancelled') });
       setCancelBookingId(null);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error?.message || "Failed to cancel pre-booking", variant: "destructive" });
+      toast({ title: t('common:error'), description: error?.message || t('toasts.cancelError'), variant: "destructive" });
       setCancelBookingId(null);
     },
   });
@@ -513,21 +514,21 @@ export default function Visitors() {
       queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       if (visitor?.ePassSent) {
         toast({
-          title: "✅ Digital Pass Sent",
-          description: `E-Pass has been sent to ${visitor.email || 'visitor'}'s email. They can use it to check out.`,
+          title: t('toasts.passSentTitle'),
+          description: t('toasts.passSentDesc', { email: visitor.email || t('common:type.visitor') }),
           duration: 6000,
         });
       } else {
         toast({
-          title: "Success",
-          description: "Visitor checked in manually!",
+          title: t('common:success'),
+          description: t('toasts.manualCheckInSuccess'),
         });
       }
     },
     onError: () => {
       toast({
-        title: "Error", 
-        description: "Failed to check in visitor",
+        title: t('common:error'), 
+        description: t('toasts.checkInError'),
         variant: "destructive",
       });
     },
@@ -539,8 +540,8 @@ export default function Visitors() {
     
     if (!preBookingData.visitorFirstName || !preBookingData.visitorLastName || !preBookingData.visitorEmail || !preBookingData.hostStaffId || !preBookingData.visitDate) {
       toast({
-        title: "Error",
-        description: "Please fill in all required fields (First Name, Last Name, Email, Host, Visit Date)",
+        title: t('common:error'),
+        description: t('toasts.missingRequiredFields'),
         variant: "destructive",
       });
       return;
@@ -593,8 +594,8 @@ export default function Visitors() {
     // Validate required fields with professional highlighting
     if (!validateWalkInForm()) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields highlighted in red.",
+        title: t('toasts.validationError'),
+        description: t('toasts.fillRequiredFields'),
         variant: "destructive",
       });
       return;
@@ -733,8 +734,8 @@ export default function Visitors() {
   const handleHostSelectionConfirm = () => {
     if (!selectedHostForPrevious) {
       toast({
-        title: "Error",
-        description: "Please select a host",
+        title: t('common:error'),
+        description: t('toasts.selectHost'),
         variant: "destructive",
       });
       return;
@@ -744,8 +745,8 @@ export default function Visitors() {
       // Validate visitor data before submitting
       if (!selectedPreviousVisitor.firstName || !selectedPreviousVisitor.lastName) {
         toast({
-          title: "Error",
-          description: "Invalid visitor data: Missing first name or last name",
+          title: t('common:error'),
+          description: t('toasts.invalidVisitorData'),
           variant: "destructive",
         });
         return;
@@ -802,7 +803,7 @@ export default function Visitors() {
   };
 
   const formatBookingDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-GB', {
+    return formatDateLocale(date, {
       weekday: 'short',
       day: 'numeric',
       month: 'short',
@@ -821,43 +822,43 @@ export default function Visitors() {
   };
 
   const getStatusText = (booking: PreBooking) => {
-    if (booking.isCheckedIn) return "Checked In";
+    if (booking.isCheckedIn) return t('common:checkedIn');
     const visitDateTime = new Date(booking.visitDate);
     const now = new Date();
     const hoursSinceVisit = (now.getTime() - visitDateTime.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceVisit > 2) return "Expired";
-    return "Pending";
+    if (hoursSinceVisit > 2) return t('common:status.expired', 'Expired');
+    return t('common:pending');
   };
 
   if (isLoadingStaff) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return <div className="flex items-center justify-center h-64">{t('common:loading')}</div>;
   }
 
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-3xl font-bold text-fixed">Visitor Management</h1>
+        <h1 className="text-xl sm:text-3xl font-bold text-fixed">{t('title')}</h1>
         <div className="flex items-center gap-2">
           <Button
             onClick={() => setShowAddVisitor(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-            title="Manually add a new visitor profile"
+            title={t('addVisitorTitle', 'Manually add a new visitor profile')}
           >
             <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="hidden sm:inline">Add Visitor</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">{t('addVisitor', 'Add Visitor')}</span>
+            <span className="sm:hidden">{t('common:add')}</span>
           </Button>
           <Button
             onClick={() => setShowQRScanner(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-            title="Scan a visitor or contractor QR code to check them in"
+            title={t('scanQrTitle', 'Scan a visitor or contractor QR code to check them in')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
               <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
             </svg>
-            <span className="hidden sm:inline">Scan QR</span>
-            <span className="sm:hidden">Scan</span>
+            <span className="hidden sm:inline">{t('qrScanner')}</span>
+            <span className="sm:hidden">{t('common:scanQr')}</span>
           </Button>
         </div>
       </div>
@@ -870,7 +871,7 @@ export default function Visitors() {
           >
             <History size={14} className="flex-shrink-0" />
             <span className="hidden sm:inline">{t('tabs.existing')}</span>
-            <span className="sm:hidden">Previous...</span>
+            <span className="sm:hidden">{t('tabs.existingShort', 'Previous')}</span>
           </TabsTrigger>
           <TabsTrigger 
             value="walkin" 
@@ -878,7 +879,7 @@ export default function Visitors() {
           >
             <UserPlus size={14} className="flex-shrink-0" />
             <span className="hidden sm:inline">{t('tabs.walkin')}</span>
-            <span className="sm:hidden">Walk-in ...</span>
+            <span className="sm:hidden">{t('tabs.walkinShort', 'Walk-in')}</span>
           </TabsTrigger>
           <TabsTrigger 
             value="prebook" 
@@ -886,7 +887,7 @@ export default function Visitors() {
           >
             <CalendarPlus size={14} className="flex-shrink-0" />
             <span className="hidden sm:inline">{t('tabs.prebooking')}</span>
-            <span className="sm:hidden">Pre-boo...</span>
+            <span className="sm:hidden">{t('tabs.prebookingShort', 'Pre-book')}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -900,7 +901,7 @@ export default function Visitors() {
                 </div>
                 <div>
                   <h2 className="text-lg sm:text-xl font-semibold text-fixed">{t('tabs.existing')}</h2>
-                  <p className="text-variable text-xs sm:text-sm">Select a visitor who has been onsite before</p>
+                  <p className="text-variable text-xs sm:text-sm">{t('previousVisitorsSubtitle', 'Select a visitor who has been onsite before')}</p>
                 </div>
               </div>
             </div>
@@ -924,7 +925,7 @@ export default function Visitors() {
                 size="sm"
                 onClick={() => setViewMode('grid')}
                 className="h-8 w-8 p-0"
-                title="Grid view"
+                title={t('gridView', 'Grid view')}
               >
                 <LayoutGrid size={14} />
               </Button>
@@ -933,7 +934,7 @@ export default function Visitors() {
                 size="sm"
                 onClick={() => setViewMode('list')}
                 className="h-8 w-8 p-0"
-                title="List view"
+                title={t('listView', 'List view')}
               >
                 <LayoutList size={14} />
               </Button>

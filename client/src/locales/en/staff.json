@@ -4,6 +4,13 @@
   "qrScanner": "QR Scanner",
   "editProfile": "Edit Profile",
   "qrPass": "QR Pass",
+  "qrPassDesc": "Send a QR code pass to {{firstName}} {{lastName}} for quick kiosk check-in and check-out.",
+  "sendEmailTo": "Send branded pass with QR code to {{email}}",
+  "printDesc": "Print a card-sized pass with QR code",
+  "downloadDesc": "Download branded pass as image",
+  "walletPassDesc": "Download .pkpass for Apple Wallet & compatible apps",
+  "scanAtKiosk": "Scan at kiosk to",
+  "checkInAndOut": "check in / check out",
   "checkIn": "Check In",
   "checkOut": "Check Out",
   "downloadWalletPass": "Download Wallet Pass",
@@ -31,14 +38,28 @@
     "qrPass": "Staff QR Pass",
     "addStaff": "Add Staff Member"
   },
+  "upgrade": {
+    "title": "TPR Max required",
+    "desc": "Upgrade to TPR Max for staff documents, Right to Work and DBS tracking."
+  },
+  "failedToDelete": "Failed to delete staff member",
+  "failedToCheckIn": "Failed to check in staff member",
+  "failedToCheckOut": "Failed to check out staff member",
+  "failedToSendQr": "Failed to send QR pass",
+  "failedToUpdatePhoto": "Failed to update staff photo",
+  "failedToStartLoneWorker": "Failed to start lone worker session",
+  "failedToEndLoneWorker": "Failed to end lone worker session",
+  "loneWorker": "Lone Worker",
+  "overdueMins": "{{mins}}m overdue",
+  "nextMins": "Next: {{mins}}m",
   "toasts": {
     "deletedTitle": "Success",
     "deletedDesc": "Staff member deleted successfully",
     "qrSentTitle": "QR Pass Sent",
-    "qrSentDesc": "QR check-in pass has been emailed to the staff member"
-  },
-  "upgrade": {
-    "title": "TPR Max required",
-    "desc": "Upgrade to TPR Max for staff documents, Right to Work and DBS tracking."
+    "qrSentDesc": "QR check-in pass has been emailed to the staff member",
+    "photoUpdatedTitle": "Photo updated",
+    "photoUpdatedDesc": "Staff photo saved successfully.",
+    "photoTooLarge": "That image is too large. Please try a smaller photo.",
+    "photoUploadFailed": "Failed to upload photo. Please try again."
   }
 }

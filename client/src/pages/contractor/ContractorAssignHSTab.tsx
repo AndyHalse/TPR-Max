@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import HSDocumentAssignment from "@/components/HSDocumentAssignment";
 
 type Tab = "previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs" | "rams" | "ppm" | "cdm";
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function ContractorAssignHSTab({ setActiveTab, toast }: Props) {
+  const { t } = useTranslation(["contractors", "common"]);
   return (
     <HSDocumentAssignment
       onNavigateToTab={(target) => {
@@ -15,10 +17,10 @@ export default function ContractorAssignHSTab({ setActiveTab, toast }: Props) {
           case "contractors": setActiveTab("contractors"); break;
           case "previous": setActiveTab("previous"); break;
           case "templates":
-            toast({ title: "Document Templates", description: "Use the assignment dialog to view and manage document templates" });
+            toast({ title: t("assignHS.templatesTitle"), description: t("assignHS.templatesDesc") });
             break;
           case "assignments":
-            toast({ title: "Assignment History", description: "Assignment history is displayed in the current dashboard" });
+            toast({ title: t("assignHS.assignmentsTitle"), description: t("assignHS.assignmentsDesc") });
             break;
           default: break;
         }

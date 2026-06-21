@@ -14,6 +14,7 @@ import { StaffSearchSelect } from "@/components/StaffSearchSelect";
 import { CheckCircle, CalendarPlus } from "lucide-react";
 import { format } from "date-fns";
 import type { ContractorWorker } from "@shared/schema";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   worker: ContractorWorker | null;
@@ -29,10 +30,11 @@ function defaultTime() {
 }
 
 export default function ContractorPreBookDialog({ worker, companyName, onClose }: Props) {
+  const { t } = useTranslation(["contractors", "common"]);
   const { toast } = useToast();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(defaultTime);
-  const [purpose, setPurpose] = useState("Site work");
+  const [purpose, setPurpose] = useState("site_work");
   const [duration, setDuration] = useState("8");
   const [notes, setNotes] = useState("");
   const [host, setHost] = useState('');
@@ -42,7 +44,7 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
   const resetForm = () => {
     setDate(new Date());
     setTime(defaultTime());
-    setPurpose("Site work");
+    setPurpose("site_work");
     setDuration("8");
     setNotes("");
     setHost('');
@@ -69,10 +71,10 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
     },
     onSuccess: (data: any) => {
       toast({
-        title: "Worker pre-booked successfully",
+        title: t("preBookDialog.successTitle"),
         description: data?.emailSent
-          ? "Pre-booking pass with QR code has been emailed to the contractor"
-          : "The booking has been created and will appear in the Reception Diary"
+          ? t("preBookDialog.successEmailSent")
+          : t("preBookDialog.successDiary")
       });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/prebookings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/prebookings/today'] });
@@ -81,7 +83,7 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
       resetForm();
       onClose();
     },
-    onError: (error: any) => toast({ title: "Failed to pre-book worker", description: error.message, variant: "destructive" }),
+    onError: (error: any) => toast({ title: t("preBookDialog.failedToPrebook"), description: error.message, variant: "destructive" }),
   });
 
   return (
@@ -90,10 +92,10 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarPlus className="w-5 h-5 text-indigo-600" />
-            Pre-Book Worker
+            {t("preBookDialog.title")}
           </DialogTitle>
           <DialogDescription>
-            Schedule {worker?.firstName} {worker?.lastName} from {companyName} for an upcoming site visit.
+            {t("preBookDialog.description", { workerName: worker ? `${worker.firstName} ${worker.lastName}` : '', companyName })}
           </DialogDescription>
         </DialogHeader>
 
@@ -102,13 +104,13 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-600" />
               <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                {worker?.firstName} {worker?.lastName} - Cleared for Work
+                {t("preBookDialog.clearedForWork", { name: worker ? `${worker.firstName} ${worker.lastName}` : '' })}
               </span>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Date</Label>
+            <Label>{t("common:date")}</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-left font-normal">
@@ -130,7 +132,7 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Arrival Time</Label>
+              <Label>{t("preBookDialog.arrivalTime")}</Label>
               <Input
                 type="time"
                 value={time}
@@ -147,48 +149,48 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
               />
             </div>
             <div className="space-y-2">
-              <Label>Duration (hours)</Label>
+              <Label>{t("preBookDialog.durationHours")}</Label>
               <select value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none">
-                <option value="2">2 hours</option>
-                <option value="4">4 hours (Half day)</option>
-                <option value="8">8 hours (Full day)</option>
-                <option value="10">10 hours</option>
-                <option value="12">12 hours</option>
+                <option value="2">{t("preBookDialog.twoHours")}</option>
+                <option value="4">{t("preBookDialog.fourHours")}</option>
+                <option value="8">{t("preBookDialog.eightHours")}</option>
+                <option value="10">{t("preBookDialog.tenHours")}</option>
+                <option value="12">{t("preBookDialog.twelveHours")}</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Purpose</Label>
+            <Label>{t("preBookDialog.purpose")}</Label>
             <select value={purpose} onChange={(e) => setPurpose(e.target.value)} className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none">
-              <option value="Site work">Site Work</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Installation">Installation</option>
-              <option value="Inspection">Inspection</option>
-              <option value="Repair">Repair</option>
-              <option value="Survey">Survey</option>
-              <option value="Other">Other</option>
+              <option value="site_work">{t("preBookDialog.siteWork")}</option>
+              <option value="maintenance">{t("preBookDialog.maintenance")}</option>
+              <option value="installation">{t("preBookDialog.installation")}</option>
+              <option value="inspection">{t("preBookDialog.inspection")}</option>
+              <option value="repair">{t("preBookDialog.repair")}</option>
+              <option value="survey">{t("preBookDialog.survey")}</option>
+              <option value="other">{t("preBookDialog.other")}</option>
             </select>
           </div>
 
           <div className="space-y-2">
-            <Label>Host Staff Member *</Label>
+            <Label>{t("preBookDialog.hostStaffMember")}</Label>
             <StaffSearchSelect
               staff={staffList.filter((s: any) => s.isActive !== false)}
               value={host}
               onChange={setHost}
-              placeholder="Search by name or department…"
+              placeholder={t("preBookDialog.searchHostPlaceholder")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Notes (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes..." rows={2} />
+            <Label>{t("preBookDialog.notesOptional")}</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("preBookDialog.notesPlaceholder")} rows={2} />
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{t("common:cancel")}</Button>
           <Button
             onClick={() => {
               if (!worker) return;
@@ -202,7 +204,7 @@ export default function ContractorPreBookDialog({ worker, companyName, onClose }
             disabled={preBookWorkerMutation.isPending || !host}
             className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
-            {preBookWorkerMutation.isPending ? "Booking..." : "Confirm Pre-Booking"}
+            {preBookWorkerMutation.isPending ? t("preBookDialog.booking") : t("preBookDialog.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

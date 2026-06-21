@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { formatTimeLocale } from "@/utils/formatDate";
 
 interface BiostarStaffMember {
   userId: string;
@@ -51,7 +52,7 @@ export default function MusterList() {
   const [newOption, setNewOption] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { t } = useTranslation('muster');
+  const { t } = useTranslation(['muster', 'common']);
 
   const { data: musterList, isLoading } = useQuery<MusterEntry[]>({
     queryKey: ["/api/muster"],
@@ -83,12 +84,12 @@ export default function MusterList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/muster/settings"] });
-      toast({ title: "Settings Saved", description: "Muster status options updated." });
+      toast({ title: t('muster:toasts.settingsSaved'), description: t('muster:toasts.musterStatusUpdated') });
       setLocalEnabled(null);
       setLocalOptions(null);
     },
     onError: () => {
-      toast({ title: "Save Failed", description: "Could not save muster settings.", variant: "destructive" });
+      toast({ title: t('muster:toasts.saveFailed'), description: t('muster:toasts.saveFailedDesc'), variant: "destructive" });
     },
   });
 
@@ -183,7 +184,7 @@ export default function MusterList() {
   };
 
   const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return formatTimeLocale(dateString);
   };
 
   if (isLoading) {
@@ -199,7 +200,7 @@ export default function MusterList() {
             <div className="flex items-center gap-4 mt-2">
               <div className="flex items-center gap-2">
                 <Shield size={16} className="text-blue-600" />
-                <span className="text-sm text-variable">Biostar Integration</span>
+                <span className="text-sm text-variable">{t('musterList.biostarIntegration')}</span>
                 {biostarLoading ? (
                   <WifiOff size={14} className="text-amber-500" />
                 ) : biostarStaff ? (
@@ -214,12 +215,12 @@ export default function MusterList() {
                   onCheckedChange={setShowBiostarData}
                   data-testid="switch-biostar-muster"
                 />
-                <Label className="text-sm text-variable">Include Biometric Data</Label>
+                <Label className="text-sm text-variable">{t('musterList.includeBiometric')}</Label>
               </div>
               {counts.biostarOnly > 0 && (
                 <Badge variant="secondary" className="text-xs">
                   <Fingerprint size={12} className="mr-1" />
-                  {counts.biostarOnly} from biometric only
+                  {t('musterList.biometricCount', { count: counts.biostarOnly })}
                 </Badge>
               )}
             </div>
@@ -259,16 +260,14 @@ export default function MusterList() {
         <GlassCard solid className="p-5 border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={18} className="text-blue-600" />
-            <h3 className="text-base font-semibold text-fixed">Muster Status Options</h3>
+            <h3 className="text-base font-semibold text-fixed">{t('muster:settingsPanel.title')}</h3>
             {musterSettings?.statusOptionsEnabled && (
-              <Badge className="bg-green-100 text-green-800 text-xs">Enabled</Badge>
+              <Badge className="bg-green-100 text-green-800 text-xs">{t('common:enabled')}</Badge>
             )}
           </div>
 
           <p className="text-sm text-variable mb-4">
-            When enabled, Fire Marshals will see a dropdown button next to each person's <strong>SAFE</strong> button on the muster screen.
-            They can use it to mark someone as accounted for with an additional status reason (e.g. "Working remotely / offsite").
-            The person will appear as <span className="text-amber-600 font-semibold">amber</span> in the muster list and incident report.
+            {t('muster:settingsPanel.desc')}
           </p>
 
           <div className="flex items-center gap-3 mb-5 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -278,14 +277,14 @@ export default function MusterList() {
               data-testid="switch-status-options-enabled"
             />
             <div>
-              <Label className="text-sm font-medium text-fixed">Enable Status Options Dropdown</Label>
-              <p className="text-xs text-variable mt-0.5">Shows a dropdown chevron next to the SAFE button on the Fire Marshal muster screen</p>
+              <Label className="text-sm font-medium text-fixed">{t('muster:settingsPanel.enableDropdown')}</Label>
+              <p className="text-xs text-variable mt-0.5">{t('muster:settingsPanel.dropdownDesc')}</p>
             </div>
           </div>
 
           <div className="mb-4">
-            <Label className="text-sm font-medium text-fixed mb-2 block">Status Options</Label>
-            <p className="text-xs text-variable mb-3">These options appear in the dropdown when a Fire Marshal marks someone as accounted for with a reason.</p>
+            <Label className="text-sm font-medium text-fixed mb-2 block">{t('muster:settingsPanel.optionsLabel')}</Label>
+            <p className="text-xs text-variable mb-3">{t('muster:settingsPanel.optionsDesc')}</p>
 
             <div className="space-y-2 mb-3">
               {effectiveOptions.map((option, idx) => (
@@ -303,7 +302,7 @@ export default function MusterList() {
                     onClick={() => handleRemoveOption(idx)}
                     disabled={effectiveOptions.length <= 1}
                     data-testid={`button-remove-option-${idx}`}
-                    title="Remove option"
+                    title={t('muster:settingsPanel.removeOption')}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -316,7 +315,7 @@ export default function MusterList() {
                 value={newOption}
                 onChange={e => setNewOption(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddOption()}
-                placeholder="Add a new status option..."
+                placeholder={t('muster:settingsPanel.addPlaceholder')}
                 className="flex-1 text-sm h-9"
                 data-testid="input-new-status-option"
               />
@@ -329,7 +328,7 @@ export default function MusterList() {
                 data-testid="button-add-option"
               >
                 <Plus size={14} className="mr-1" />
-                Add
+                {t('common:add')}
               </Button>
             </div>
           </div>
@@ -337,7 +336,7 @@ export default function MusterList() {
           <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2">
               {isDirty && (
-                <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+                <span className="text-xs text-amber-600 font-medium">{t('muster:settingsPanel.unsaved')}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -348,7 +347,7 @@ export default function MusterList() {
                 onClick={() => { setLocalEnabled(null); setLocalOptions(null); setNewOption(""); }}
                 disabled={!isDirty || saveSettingsMutation.isPending}
               >
-                Reset
+                {t('common:reset')}
               </Button>
               <Button
                 size="sm"
@@ -358,7 +357,7 @@ export default function MusterList() {
                 data-testid="button-save-muster-settings"
               >
                 <Save size={14} className="mr-1.5" />
-                {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+                {saveSettingsMutation.isPending ? t('common:saving') : t('muster:saveSettings')}
               </Button>
             </div>
           </div>
@@ -453,9 +452,9 @@ export default function MusterList() {
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.name')}</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.type')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Company/Department</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Check-in Time</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Host/ID</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.company')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.checkIn')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.host')}</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t('musterList.headers.zone')}</th>
                 </tr>
               </thead>
@@ -489,19 +488,19 @@ export default function MusterList() {
                         {entry.isBiostarOnly && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                             <Fingerprint className="mr-1" size={10} />
-                            Biometric
+                            {t('musterList.biometric')}
                           </Badge>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
-                      {entry.type === "staff" ? entry.department : entry.company || "No company"}
+                      {entry.type === "staff" ? entry.department : entry.company || t('common:noCompany')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
-                      {formatTime(entry.checkedInAt)}
+                      {formatTimeLocale(entry.checkedInAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
-                      {entry.type === "staff" ? entry.employeeId : "Visitor"}
+                      {entry.type === "staff" ? entry.employeeId : t('common:visitor')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
                       {entry.location}

@@ -26,7 +26,7 @@ import ContractorCheckInDialog from "./contractor/ContractorCheckInDialog";
 import { useContractorManagement } from "./contractor/useContractorManagement";
 
 export default function ContractorManagement() {
-  const { t } = useTranslation('contractors');
+  const { t } = useTranslation(['contractors', 'common']);
   const st = useContractorManagement();
 
   if (st.showWalkInForm) {
@@ -43,25 +43,25 @@ export default function ContractorManagement() {
           {st.headerF10OverdueCount > 0 && (
             <span
               className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold cursor-pointer hover:bg-red-200 transition-colors"
-              title={`${st.headerF10OverdueCount} CDM project${st.headerF10OverdueCount > 1 ? "s" : ""} with overdue F10 notification`}
+              title={t('f10OverdueTooltip', { count: st.headerF10OverdueCount })}
               onClick={() => st.setActiveTab("cdm")}
             >
               <AlertTriangle className="h-3 w-3" />
-              {st.headerF10OverdueCount} F10 overdue
+              {st.headerF10OverdueCount} {t('f10Overdue')}
             </span>
           )}
         </div>
         <Button
           onClick={() => st.setShowQRScanner(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-          title="Scan a contractor QR code to check in / out"
+          title={t('common:scanQrFull')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
             <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
           </svg>
-          <span className="hidden sm:inline">Scan QR</span>
-          <span className="sm:hidden">Scan</span>
+          <span className="hidden sm:inline">{t('common:scanQr')}</span>
+          <span className="sm:hidden">{t('scan')}</span>
         </Button>
       </div>
 
@@ -109,14 +109,14 @@ export default function ContractorManagement() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-green-600" />
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Walk-in Registration</h2>
-              <span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400">Register new contractor with document upload for clearance</span>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{t('walkinRegistration')}</h2>
+              <span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400">{t('walkinSub')}</span>
             </div>
             <div className="text-center py-8">
-              <p className="text-slate-600 dark:text-slate-300 mb-4">Register a new contractor who is visiting for the first time</p>
+              <p className="text-slate-600 dark:text-slate-300 mb-4">{t('walkinDesc')}</p>
               <Button onClick={() => st.setShowWalkInForm(true)} className="bg-green-600 hover:bg-green-700 text-white" data-testid="button-start-walkin-registration">
                 <UserPlus className="mr-2 h-4 w-4" />
-                Start Walk-in Registration
+                {t('startWalkin')}
               </Button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 import { History, Building2, UserPlus, CalendarPlus, Leaf, Shield, FileText, Wrench, HardHat as HardHatIcon } from "lucide-react";
 
 type Tab = "previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs" | "rams" | "ppm" | "cdm";
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function ContractorTabNav({ activeTab, setActiveTab, settings }: Props) {
+  const { t } = useTranslation('contractors');
   const btn = (tab: Tab, label: string, mobileLabel: string, Icon: any, testId: string) => (
     <Button
       key={tab}
@@ -36,12 +38,12 @@ export default function ContractorTabNav({ activeTab, setActiveTab, settings }: 
 
   return (
     <div className="flex overflow-x-auto gap-1.5 sm:flex-wrap sm:overflow-visible pb-1 sm:pb-0 scrollbar-hide">
-      {btn("previous", "Existing Workers", "Workers", History, "tab-previous-contractors")}
-      {btn("contractors", "Contractors", "Companies", Building2, "tab-contractors")}
-      {btn("walkin", "Walk-in", "Walk-in", UserPlus, "tab-walkin-registration")}
-      {btn("prebook", "Pre-booking", "Pre-book", CalendarPlus, "tab-pre-booking")}
-      {settings?.featureContractors !== false && btn("co2", "CO2 Reports", "CO2", Leaf, "tab-co2-reports")}
-      {btn("assign-hs", "H&S Document", "H&S", Shield, "tab-assign-hs")}
+      {btn("previous", t('tabs.existingWorkers'), t('tabs.workersMobile'), History, "tab-previous-contractors")}
+      {btn("contractors", t('tabs.contractors'), t('tabs.companiesMobile'), Building2, "tab-contractors")}
+      {btn("walkin", t('tabs.walkin'), t('tabs.walkin'), UserPlus, "tab-walkin-registration")}
+      {btn("prebook", t('tabs.prebooking'), t('tabs.prebookMobile'), CalendarPlus, "tab-pre-booking")}
+      {settings?.featureContractors !== false && btn("co2", t('tabs.co2Reports'), "CO2", Leaf, "tab-co2-reports")}
+      {btn("assign-hs", t('tabs.hsDocument'), "H&S", Shield, "tab-assign-hs")}
       {btn("rams", "RAMS", "RAMS", FileText, "tab-rams")}
       {settings?.featurePPM !== false && btn("ppm", "PPM", "PPM", Wrench, "tab-ppm")}
       {settings?.featureContractors !== false && btn("cdm", "CDM 2015", "CDM 2015", HardHatIcon, "tab-cdm")}
