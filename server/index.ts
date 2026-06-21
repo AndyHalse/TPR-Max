@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
 import helmet from "helmet";
 import compression from "compression";
 import session from "express-session";
@@ -91,11 +92,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "'unsafe-inline'", "https://replit.com"],   // tighten further once Vite nonces are set up
-      styleSrc:   ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc:    ["'self'", "https://fonts.gstatic.com"],
+      scriptSrc:  ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:", "https://replit.com"],   // blob: needed for brand-video bundler
+      styleSrc:   ["'self'", "'unsafe-inline'", "blob:", "https://fonts.googleapis.com"],
+      fontSrc:    ["'self'", "blob:", "data:", "https://fonts.gstatic.com"],
       imgSrc:     ["'self'", "data:", "blob:", "https:"],
-      connectSrc: ["'self'", "https://api.stripe.com", "wss:"],
+      connectSrc: ["'self'", "blob:", "https://api.stripe.com", "wss:"],
+      mediaSrc:   ["'self'", "blob:", "data:"],
       frameSrc:   ["'self'"],
       objectSrc:  ["'none'"],
       upgradeInsecureRequests: [],
@@ -640,6 +642,30 @@ app.use((req, res, next) => {
       if (!res.headersSent) {
         res.status(status).json({ error: responseMessage, errorId });
       }
+    });
+
+    // Brand video: serve as a terminating Express route (before Vite middleware) so we
+    // control the CSP headers. The bundler inside this file creates blob: URLs for
+    // scripts/fonts/styles at runtime, which requires relaxed CSP directives.
+    app.get('/tpr-brand-video.html', (req, res) => {
+      const videoFile = path.resolve(import.meta.dirname, '../client/public/tpr-brand-video.html');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader(
+        'Content-Security-Policy',
+        [
+          "default-src 'self' blob: data: https:",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:",
+          "style-src 'self' 'unsafe-inline' blob: data: https:",
+          "img-src 'self' data: blob: https:",
+          "font-src 'self' blob: data: https:",
+          "connect-src 'self' blob: data: https: wss:",
+          "worker-src blob:",
+          "frame-src 'self'",
+          "media-src 'self' blob: data: https:",
+        ].join('; ')
+      );
+      res.sendFile(videoFile);
     });
 
     // Static file serving MUST come after route registration
