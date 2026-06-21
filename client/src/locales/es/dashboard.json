@@ -30,7 +30,18 @@
     "checking": "verificando…"
   },
   "fireRisk": {
-    "title": "Evaluación de riesgos de incendio"
+    "title": "Evaluación de riesgos de incendio",
+    "criticalActions": "acciones críticas pendientes",
+    "actionsOutstanding": "acciones pendientes",
+    "legalRequirement": "Este es un requisito legal bajo RRO 2005",
+    "overdueBy": "vencido por {{count}} día",
+    "overdueBy_plural": "vencido por {{count}} días",
+    "actionsOutstandingCount": "{{count}} acción pendiente",
+    "actionsOutstandingCount_plural": "{{count}} acciones pendientes",
+    "actionsNeedAttention": "{{count}} acción necesita atención",
+    "actionsNeedAttention_plural": "{{count}} acciones necesitan atención",
+    "nextReview": "Próxima revisión: {{date}}",
+    "allResolved": "Todas las acciones resueltas"
   },
   "receptionDiary": {
     "title": "Agenda de recepción",
@@ -93,7 +104,27 @@
       "checkedIn": "Entrada registrada",
       "meeting": "Reunión",
       "past": "Pasado"
-    }
+    },
+    "techCheck": "Verificación técnica",
+    "cancelBooking": "¿Cancelar reserva?",
+    "cancelConfirmation": "¿Está seguro de que desea cancelar esta reserva? Esta acción no se puede deshacer.",
+    "techCheckTitle": "Verificación técnica completada",
+    "techCheckDesc": "✅ Proyector funcionando ☑️ WiFi fuerte ☑️ Videoconferencia lista ☑️ Todos los sistemas listos",
+    "contractor": "Contratista",
+    "generalContractor": "Contratista general",
+    "role": "Rol",
+    "onSiteNow": "En el sitio ahora",
+    "noOneOnSite": "No hay personas en el sitio actualmente",
+    "noCompanyListed": "Ninguna empresa listada",
+    "minutesOnPremises": "{{count}} minutos en las instalaciones",
+    "minutesOnPremises_plural": "{{count}} minutos en las instalaciones",
+    "alternativePhone": "Teléfono alternativo",
+    "durationOnSite": "Duración en el sitio",
+    "hoursMinutes": "{{hours}}h {{minutes}}m",
+    "minutes": "{{count}} minutos",
+    "expectedDuration": "Duración prevista",
+    "urgentContactRequired": "Contacto urgente requerido - Soporte de emergencia",
+    "callHostNotAvailable": "Llamar al anfitrión (N/D)"
   },
   "modals": {
     "currentVisitors": {

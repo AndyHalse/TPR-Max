@@ -89,8 +89,9 @@ export default function ContractorPreviousTab({
   setShowPassPreview,
   toast,
 }: ContractorPreviousTabProps) {
-  const { t } = useTranslation(["contractors", "common"]);
+  const { t, i18n } = useTranslation(["contractors", "common"]);
   const [, setLocation] = useLocation();
+  const dateLocale = i18n.language === 'es' ? 'es-ES' : 'en-GB';
   return (
         <div className="space-y-4">
           <div className="space-y-4">
@@ -204,7 +205,7 @@ export default function ContractorPreviousTab({
                         {contractor.companyName}
                       </p>
                       <p className="text-variable text-xs">
-                        {t("previousWorkers.lastVisit", { date: contractor.updatedAt ? new Date(contractor.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : t("previousWorkers.unknown") })}
+                        {t("previousWorkers.lastVisit", { date: contractor.updatedAt ? new Date(contractor.updatedAt).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' }) : t("previousWorkers.unknown") })}
                       </p>
                     </div>
                   </div>
@@ -247,7 +248,7 @@ export default function ContractorPreviousTab({
                     {contractor.isCheckedIn && contractor.checkedInAt && (
                       <span className="text-[10px] text-variable flex items-center ml-auto">
                         <Clock className="h-3 w-3 mr-0.5" />
-                        {new Date(contractor.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(contractor.checkedInAt).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
@@ -423,16 +424,16 @@ export default function ContractorPreviousTab({
                           {contractor.isCheckedIn ? t("badges.checkedIn") : t("badges.available")}
                         </span>
                         {contractor.rightToWork === 'valid' ? (
-                          <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title="Right to Work verified — click to view worker profile" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer transition-colors"><CheckCircle className="h-2.5 w-2.5 mr-0.5" />{t("previousWorkers.workAuth")}</button>
+                          <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title={t("previousWorkers.rtwVerifiedTip")} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer transition-colors"><CheckCircle className="h-2.5 w-2.5 mr-0.5" />{t("previousWorkers.workAuth")}</button>
                         ) : (
-                          <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title="Right to Work not verified — click to review and approve" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer transition-colors"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Work Auth</button>
+                          <button onClick={(e) => { e.stopPropagation(); setLocation(`/contractors/${contractor.companyId}?tab=workers&workerId=${contractor.id}`); }} title={t("previousWorkers.rtwNotVerifiedTip")} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer transition-colors"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />{t("previousWorkers.workAuth")}</button>
                         )}
                         {!contractor.inductionCompleted && (
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Site induction not completed — click to update induction status" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-pointer transition-colors"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No Induction</button>
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title={t("previousWorkers.inductionNotCompletedTip")} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-pointer transition-colors"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />{t("previousWorkers.noInduction")}</button>
                         )}
-                        {(contractor as any).hasRedCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">Red Card</span>}
-                        {(contractor as any).hasYellowCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-200 text-yellow-900">Yellow Card</span>}
-                        {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-200 text-green-900">Clear</span>}
+                        {(contractor as any).hasRedCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">{t("badges.redCard")}</span>}
+                        {(contractor as any).hasYellowCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-200 text-yellow-900">{t("badges.yellowCard")}</span>}
+                        {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-200 text-green-900">{t("badges.clear")}</span>}
                         {(contractor as any).zoneId && (() => {
                           const zone = zones.find((z: any) => z.id === (contractor as any).zoneId);
                           return zone ? <span className="inline-flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: zone.color }} />{zone.name}</span> : null;
@@ -450,17 +451,17 @@ export default function ContractorPreviousTab({
                       return (
                         <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                           {lwSession && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse"><Shield className="h-3 w-3" />{getLoneWorkerCountdown(lwSession)}</span>}
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
-                          {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-3.5 w-3.5" /></Button>}
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title={t("common:edit")}><Edit className="h-3.5 w-3.5" /></Button>
+                          {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title={t("previousWorkers.preBookWorker")}><CalendarPlus className="h-3.5 w-3.5" /></Button>}
                           {lwSession ? (
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-3.5 w-3.5" /></Button>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title={t("previousWorkers.endLoneWorker")}><ShieldOff className="h-3.5 w-3.5" /></Button>
                           ) : (contractor.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-3.5 w-3.5" /></Button>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? t("previousWorkers.startLoneWorker") : t("previousWorkers.loneWorkerEmailReq")}><Shield className="h-3.5 w-3.5" /></Button>
                           ) : null}
                           {!contractor.isCheckedIn ? (
-                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : 'Check in'} className={`h-9 px-3 ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />Check In</Button>
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: t("previousWorkers.cannotCheckIn"), description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : t("previousWorkers.checkIn")} className={`h-9 px-3 ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />{t("previousWorkers.checkIn")}</Button>
                           ) : (
-                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }} disabled={checkOutMutation.isPending} className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50"><LogOut className="mr-1 h-4 w-4" />Check Out</Button>
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }} disabled={checkOutMutation.isPending} className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50"><LogOut className="mr-1 h-4 w-4" />{t("previousWorkers.checkOut")}</Button>
                           )}
                         </div>
                       );
@@ -477,18 +478,18 @@ export default function ContractorPreviousTab({
                     return (
                       <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5">
-                          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Edit"><Edit className="h-4 w-4" /></Button>
-                          {isClear && <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-4 w-4" /></Button>}
+                          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title={t("common:edit")}><Edit className="h-4 w-4" /></Button>
+                          {isClear && <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title={t("previousWorkers.preBookWorker")}><CalendarPlus className="h-4 w-4" /></Button>}
                           {lwSession ? (
-                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title={t("previousWorkers.endLoneWorker")}><ShieldOff className="h-4 w-4" /></Button>
                           ) : (contractor.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
-                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? t("previousWorkers.startLoneWorker") : t("previousWorkers.loneWorkerEmailReq")}><Shield className="h-4 w-4" /></Button>
                           ) : null}
                         </div>
                         {!contractor.isCheckedIn ? (
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : 'Check in'} className={`h-9 px-3 font-medium ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />Check In</Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: t("previousWorkers.cannotCheckIn"), description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : t("previousWorkers.checkIn")} className={`h-9 px-3 font-medium ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />{t("previousWorkers.checkIn")}</Button>
                         ) : (
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }} disabled={checkOutMutation.isPending} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><LogOut className="mr-1 h-4 w-4" />Check Out</Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }} disabled={checkOutMutation.isPending} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><LogOut className="mr-1 h-4 w-4" />{t("previousWorkers.checkOut")}</Button>
                         )}
                       </div>
                     );
@@ -500,7 +501,7 @@ export default function ContractorPreviousTab({
 
             {previousContractors.length === 0 && (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                {searchTerm ? `No contractors found matching "${searchTerm}"` : "No existing contractor workers found"}
+                {searchTerm ? t("previousWorkers.noMatchSearch", { term: searchTerm }) : t("previousWorkers.noWorkersFound")}
               </div>
             )}
           </div>

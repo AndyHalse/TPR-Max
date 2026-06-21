@@ -1,10 +1,11 @@
 {
-  "title": "Visitors",
+  "title": "Visitor Management",
   "tabs": {
     "existing": "Existing Visitors",
     "existingShort": "Previous",
     "walkin": "Walk-in Registration",
     "walkinShort": "Walk-in",
+    "walkinDesc": "Register a new visitor who just turned up",
     "prebooking": "Pre-booking",
     "prebookingShort": "Pre-book"
   },
@@ -31,6 +32,10 @@
   "quickSelectDesc": "Start typing to search for a previous visitor and auto-fill their details",
   "upcomingVisits": "Upcoming Visits",
   "noUpcomingVisits": "No upcoming visits scheduled.",
+  "upcomingVisitsDesc": "Recent and scheduled pre-bookings",
+  "noResults": "No visitors found matching your search.",
+  "noVisitors": "No previous visitors found.",
+  "showRegularView": "Show Regular View (24 Visitors)",
   "confirmCancelPrebooking": "Are you sure you want to cancel this pre-booking?",
   "duplicateCheckInQuestion": "Would you like to keep the existing check-in or re-check them in (this will checkout the previous entry)?",
   "checkInAnyway": "Check In Anyway",
@@ -42,6 +47,8 @@
   "mobileNumber": "Mobile Number",
   "address": "Address",
   "visitDetails": "Visit Details",
+  "visitDateTime": "Visit Date & Time",
+  "checkedInBy": "Checked in by",
   "hostStaff": "Host Staff Member",
   "purposeOfVisit": "Purpose of Visit",
   "searchVisitors": "Search visitors...",
@@ -52,9 +59,15 @@
   "editProfile": "Edit Profile",
   "showAllPrevious": "Show All Previous Visitors",
   "showLess": "Show Less",
-  "confirmPrebooking": "Confirm Pre-booking",
-  "completeCheckIn": "Complete Check-in",
   "selectHost": "Select Host",
+  "visitorProfile": "Visitor Profile",
+  "visitingHost": "Visiting: {{name}}",
+  "whoIsVisiting": "Who is {{name}} visiting?",
+  "checkInPrintPass": "Check In & Print Pass",
+  "cancelPrebooking": "Cancel Pre-booking",
+  "cancelPrebookingDesc": "Are you sure you want to cancel this pre-booking? This action cannot be undone.",
+  "confirmCancel": "Cancel Pre-booking",
+  "selectHostDesc": "Please choose which staff member this visitor is here to meet.",
   "tableHeaders": {
     "visitor": "Visitor",
     "company": "Company",
@@ -65,12 +78,14 @@
   },
   "placeholders": {
     "search": "Search by visitor name or company...",
+    "searchStaff": "Search by name or department…",
     "firstName": "First Name",
     "lastName": "Last Name",
     "email": "Email Address",
     "company": "Company Name",
     "jobTitle": "Job Title",
-    "carReg": "Car Registration"
+    "carReg": "Car Registration",
+    "address": "Enter full address (street, city, postcode)"
   },
   "toasts": {
     "checkOutSuccess": "Visitor checked out successfully",
@@ -95,13 +110,15 @@
     "manualCheckInSuccess": "Visitor checked in manually!",
     "missingRequiredFields": "Please fill in all required fields (First Name, Last Name, Email, Host, Visit Date)",
     "validationError": "Validation Error",
-    "fillRequiredFields": "Please fill in all required fields highlighted in red."
+    "fillRequiredFields": "Please fill in all required fields highlighted in red.",
+    "ndaRequired": "NDA acceptance is required to check in.",
+    "hsRequired": "You must accept the Health & Safety rules to check in."
   },
   "dialogs": {
     "selectHost": "Select Host for {{name}}",
     "duplicateCheckIn": "Duplicate Check-in",
-    "passPreview": "Visitor Pass Preview"
+    "passPreview": "Visitor Pass Preview",
+    "cancelPrebooking": "Cancel Pre-booking"
   },
-  "confirmCancelPrebooking": "Are you sure you want to cancel this pre-booking?",
   "alreadyCheckedIn": "This visitor is already checked in and on-site."
 }

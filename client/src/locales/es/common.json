@@ -80,6 +80,7 @@
   "host": "Anfitrión",
   "attendees": "{{count}} asistentes",
   "duration": "{{hours}}h de duración",
+  "id": "ID",
   "past": "Pasado",
   "confirmed": "Confirmado",
   "pending": "Pendiente",
@@ -88,5 +89,17 @@
   "visitor": "Visitante",
   "contractor": "Contratista",
   "signedInAt": "Entrada registrada a las {{time}}",
-  "searchPlaceholder": "Buscar..."
+  "searchPlaceholder": "Buscar...",
+  "keep": "Mantener",
+  "expected": "Esperado",
+  "photo": "Foto",
+  "details": "Detalles",
+  "activity": "Actividad",
+  "uploadPhoto": "Cargar foto",
+  "personalInfo": "Información personal",
+  "visitorInfo": "Información del visitante",
+  "emergencyNotify": "¡Notificación de emergencia enviada a recepción!",
+  "failedNotify": "Error al enviar la notificación: {{message}}",
+  "failedNotifyGeneric": "Error al enviar la notificación de emergencia. Por favor, contacte con recepción directamente.",
+  "staffPhoneNotStored": "Los números de teléfono del personal no están almacenados en el sistema. Contacte con ellos por correo electrónico o a través de la oficina."
 }

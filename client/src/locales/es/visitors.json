@@ -1,10 +1,11 @@
 {
-  "title": "Visitantes",
+  "title": "Gestión de Visitantes",
   "tabs": {
     "existing": "Visitantes anteriores",
     "existingShort": "Anteriores",
     "walkin": "Registro espontáneo",
     "walkinShort": "Espontáneo",
+    "walkinDesc": "Registrar un nuevo visitante que acaba de llegar",
     "prebooking": "Pre-registro",
     "prebookingShort": "Pre-registro"
   },
@@ -31,6 +32,10 @@
   "quickSelectDesc": "Comience a escribir para buscar un visitante anterior y autocompletar sus datos",
   "upcomingVisits": "Próximas visitas",
   "noUpcomingVisits": "No hay visitas programadas próximamente.",
+  "upcomingVisitsDesc": "Pre-registros recientes y programados",
+  "noResults": "No se encontraron visitantes que coincidan con su búsqueda.",
+  "noVisitors": "No se encontraron visitantes anteriores.",
+  "showRegularView": "Mostrar vista normal (24 visitantes)",
   "confirmCancelPrebooking": "¿Está seguro de que desea cancelar este pre-registro?",
   "duplicateCheckInQuestion": "¿Desea mantener la entrada existente o volver a registrarla (esto cerrará la entrada anterior)?",
   "checkInAnyway": "Registrar entrada de todos modos",
@@ -42,6 +47,8 @@
   "mobileNumber": "Número de móvil",
   "address": "Dirección",
   "visitDetails": "Detalles de la visita",
+  "visitDateTime": "Fecha y hora de la visita",
+  "checkedInBy": "Registrado por",
   "hostStaff": "Miembro del personal anfitrión",
   "purposeOfVisit": "Motivo de la visita",
   "searchVisitors": "Buscar visitantes...",
@@ -52,9 +59,15 @@
   "editProfile": "Editar perfil",
   "showAllPrevious": "Mostrar todos los visitantes anteriores",
   "showLess": "Mostrar menos",
-  "confirmPrebooking": "Confirmar prebook",
-  "completeCheckIn": "Completar entrada",
   "selectHost": "Seleccionar anfitrión",
+  "visitorProfile": "Perfil del visitante",
+  "visitingHost": "Visitando a: {{name}}",
+  "whoIsVisiting": "¿A quién visita {{name}}?",
+  "checkInPrintPass": "Registrar entrada e imprimir pase",
+  "cancelPrebooking": "Cancelar pre-registro",
+  "cancelPrebookingDesc": "¿Está seguro de que desea cancelar este pre-registro? Esta acción no se puede deshacer.",
+  "confirmCancel": "Cancelar pre-registro",
+  "selectHostDesc": "Por favor, elija con qué miembro del personal se reunirá este visitante.",
   "tableHeaders": {
     "visitor": "Visitante",
     "company": "Empresa",
@@ -65,12 +78,14 @@
   },
   "placeholders": {
     "search": "Buscar por nombre de visitante o empresa...",
+    "searchStaff": "Buscar por nombre o departamento...",
     "firstName": "Nombre",
     "lastName": "Apellidos",
     "email": "Dirección de correo electrónico",
     "company": "Nombre de la empresa",
     "jobTitle": "Cargo",
-    "carReg": "Matrícula del vehículo"
+    "carReg": "Matrícula del vehículo",
+    "address": "Ingrese la dirección completa (calle, ciudad, código postal)"
   },
   "toasts": {
     "checkOutSuccess": "Salida del visitante registrada correctamente",
@@ -95,13 +110,15 @@
     "manualCheckInSuccess": "¡Entrada registrada manualmente!",
     "missingRequiredFields": "Por favor, complete todos los campos obligatorios (nombre, apellidos, correo electrónico, anfitrión, fecha de visita)",
     "validationError": "Error de validación",
-    "fillRequiredFields": "Por favor, complete todos los campos obligatorios resaltados en rojo."
+    "fillRequiredFields": "Por favor, complete todos los campos obligatorios resaltados en rojo.",
+    "ndaRequired": "Se requiere la aceptación del NDA para registrarse.",
+    "hsRequired": "Debe aceptar las normas de Salud y Seguridad para registrarse."
   },
   "dialogs": {
     "selectHost": "Seleccionar anfitrión para {{name}}",
     "duplicateCheckIn": "Entrada duplicada",
-    "passPreview": "Vista previa del pase de visitante"
+    "passPreview": "Vista previa del pase de visitante",
+    "cancelPrebooking": "Cancelar pre-registro"
   },
-  "confirmCancelPrebooking": "¿Seguro que desea cancelar este prebook?",
   "alreadyCheckedIn": "Este visitante ya tiene la entrada registrada y se encuentra en el sitio."
 }

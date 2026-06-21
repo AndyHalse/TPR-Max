@@ -45,11 +45,11 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
   });
 
   const transportOptions = [
-    { value: "car_diesel", label: t("contractors:addWorkerDialog.transport.car_diesel") }, { value: "car_petrol", label: t("contractors:addWorkerDialog.transport.car_petrol") },
-    { value: "electric_car", label: t("contractors:addWorkerDialog.transport.electric_car") }, { value: "hybrid_car", label: t("contractors:addWorkerDialog.transport.hybrid_car") },
-    { value: "van_diesel", label: t("contractors:addWorkerDialog.transport.van_diesel") }, { value: "van_petrol", label: t("contractors:addWorkerDialog.transport.van_petrol") },
-    { value: "motorcycle", label: t("contractors:addWorkerDialog.transport.motorcycle") }, { value: "public_transport", label: t("contractors:addWorkerDialog.transport.public_transport") },
-    { value: "bicycle", label: t("contractors:addWorkerDialog.transport.bicycle") }, { value: "walking", label: t("contractors:addWorkerDialog.transport.walking") },
+    { value: "car_diesel", label: t("addWorkerDialog.transport.car_diesel") }, { value: "car_petrol", label: t("addWorkerDialog.transport.car_petrol") },
+    { value: "electric_car", label: t("addWorkerDialog.transport.electric_car") }, { value: "hybrid_car", label: t("addWorkerDialog.transport.hybrid_car") },
+    { value: "van_diesel", label: t("addWorkerDialog.transport.van_diesel") }, { value: "van_petrol", label: t("addWorkerDialog.transport.van_petrol") },
+    { value: "motorcycle", label: t("addWorkerDialog.transport.motorcycle") }, { value: "public_transport", label: t("addWorkerDialog.transport.public_transport") },
+    { value: "bicycle", label: t("addWorkerDialog.transport.bicycle") }, { value: "walking", label: t("addWorkerDialog.transport.walking") },
   ];
 
   const step1Invalid = !form.firstName || !form.lastName || !form.email || !form.phone;

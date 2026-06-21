@@ -234,7 +234,7 @@ export default function MusterList() {
             data-testid="button-muster-settings"
           >
             <Settings className="mr-2" size={16} />
-            {t('musterSettings')}
+            {t('muster:musterSettings')}
             {showSettings ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />}
           </Button>
           <Button
@@ -243,14 +243,14 @@ export default function MusterList() {
             data-testid="button-export-pdf"
           >
             <Download className="mr-2" size={16} />
-            {t('musterList.export')} PDF
+            {t('muster:musterList.export')} PDF
           </Button>
           <Button
             className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
             data-testid="button-print-list"
           >
             <Printer className="mr-2" size={16} />
-            {t('musterList.report')}
+            {t('muster:musterList.report')}
           </Button>
         </div>
       </div>
@@ -483,7 +483,7 @@ export default function MusterList() {
                           }
                         >
                           <UserCheck className="mr-1" size={12} />
-                          {entry.type === "staff" ? t('stats.staff') : entry.type === "visitor" ? t('stats.visitors').replace(/s$/, '') : entry.type === "contractor" ? t('stats.contractors').replace(/s$/, '') : t('stats.members').replace(/s$/, '')}
+                          {entry.type === "staff" ? t('common:type.staff') : entry.type === "visitor" ? t('common:type.visitor') : entry.type === "contractor" ? t('common:type.contractor') : t('common:type.member')}
                         </Badge>
                         {entry.isBiostarOnly && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">

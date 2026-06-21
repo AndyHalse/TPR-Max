@@ -35,9 +35,25 @@
   },
   "dialogs": {
     "profile": "Staff Profile · {{id}}",
+    "profileHiddenTitle": "Staff Profile",
     "qrPass": "Staff QR Pass",
     "addStaff": "Add Staff Member"
   },
+  "sorting": {
+    "firstName": "First name (A–Z)",
+    "lastName": "Last name (A–Z)",
+    "recentCheckIn": "Most recently checked in"
+  },
+  "generatingPass": {
+    "title": "Generating Pass",
+    "desc": "Creating staff ID card image..."
+  },
+  "idPassLabel": "Staff ID Pass",
+  "manualCheckIn": "Manual Check-In",
+  "staffNeedsEmail": "Staff member needs an email address for lone worker sessions",
+  "startLoneWorkerSession": "Start lone worker session",
+  "endLoneWorkerSession": "End lone worker session",
+  "failedToDownload": "Failed to download",
   "upgrade": {
     "title": "TPR Max required",
     "desc": "Upgrade to TPR Max for staff documents, Right to Work and DBS tracking."

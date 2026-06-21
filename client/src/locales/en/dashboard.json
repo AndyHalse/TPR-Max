@@ -30,7 +30,18 @@
     "checking": "checking…"
   },
   "fireRisk": {
-    "title": "Fire Risk Assessment"
+    "title": "Fire Risk Assessment",
+    "criticalActions": "Critical Actions Outstanding",
+    "actionsOutstanding": "Actions Outstanding",
+    "legalRequirement": "This is a legal requirement under RRO 2005",
+    "overdueBy": "overdue by {{count}} day",
+    "overdueBy_plural": "overdue by {{count}} days",
+    "actionsOutstandingCount": "{{count}} action item outstanding",
+    "actionsOutstandingCount_plural": "{{count}} action items outstanding",
+    "actionsNeedAttention": "{{count}} action item need attention",
+    "actionsNeedAttention_plural": "{{count}} action items need attention",
+    "nextReview": "Next review: {{date}}",
+    "allResolved": "All actions resolved"
   },
   "receptionDiary": {
     "title": "Reception Diary",
@@ -93,7 +104,27 @@
       "checkedIn": "Checked In",
       "meeting": "Meeting",
       "past": "Past"
-    }
+    },
+    "techCheck": "Technical Check",
+    "cancelBooking": "Cancel Booking?",
+    "cancelConfirmation": "Are you sure you want to cancel this booking? This cannot be undone.",
+    "techCheckTitle": "Technical Check Completed",
+    "techCheckDesc": "✅ Projector working ☑️ WiFi strong ☑️ Video conferencing ready ☑️ All systems go",
+    "contractor": "Contractor",
+    "generalContractor": "General Contractor",
+    "role": "Role",
+    "onSiteNow": "On-Site Now",
+    "noOneOnSite": "No people currently on-site",
+    "noCompanyListed": "No company listed",
+    "minutesOnPremises": "{{count}} minutes on premises",
+    "minutesOnPremises_plural": "{{count}} minutes on premises",
+    "alternativePhone": "Alternative Phone",
+    "durationOnSite": "Duration on Site",
+    "hoursMinutes": "{{hours}}h {{minutes}}m",
+    "minutes": "{{count}} minutes",
+    "expectedDuration": "Expected Duration",
+    "urgentContactRequired": "Urgent Contact Required - Emergency Support",
+    "callHostNotAvailable": "Call Host (N/A)"
   },
   "modals": {
     "currentVisitors": {

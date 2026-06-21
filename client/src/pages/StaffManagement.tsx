@@ -189,6 +189,7 @@ export default function StaffManagement() {
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; staffName: string } | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<'firstName' | 'lastName' | 'recentCheckIn'>('firstName');
   const [isUploadingStaffPhoto, setIsUploadingStaffPhoto] = useState(false);
   const [isDownloadingWalletPass, setIsDownloadingWalletPass] = useState(false);
   const staffPhotoInputId = "staff-photo-upload-input";
@@ -453,10 +454,10 @@ export default function StaffManagement() {
           ${logoHtml}
           <div style="flex:1;min-width:0;">
             <div style="color:${variableTextColor};font-weight:700;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${companyName}</div>
-            <div style="color:${variableTextColor};opacity:0.7;font-size:7px;letter-spacing:0.6px;text-transform:uppercase;margin-top:1px;">Staff ID Pass</div>
+            <div style="color:${variableTextColor};opacity:0.7;font-size:7px;letter-spacing:0.6px;text-transform:uppercase;margin-top:1px;">${t('idPassLabel')}</div>
           </div>
           <div style="background:${variableTextColor};border-radius:4px;padding:2px 6px;white-space:nowrap;">
-            <div style="color:${brandColor};font-size:6.5px;font-weight:700;letter-spacing:0.5px;">STAFF</div>
+            <div style="color:${brandColor};font-size:6.5px;font-weight:700;letter-spacing:0.5px;">${t('badges.staff').toUpperCase()}</div>
           </div>
         </div>
         <div style="display:flex;justify-content:center;padding:14px 0 10px;">
@@ -469,12 +470,12 @@ export default function StaffManagement() {
           <div style="font-size:9px;color:#555;margin-bottom:${email ? '2px' : '6px'};">${department}</div>
           ${email ? `<div style="font-size:8px;color:#777;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;">${email}</div>` : ''}
           <div style="display:inline-block;background:#f3f4f6;border-radius:4px;padding:2px 8px;">
-            <span style="font-size:7.5px;color:#555;font-family:monospace;font-weight:600;">ID: ${employeeId}</span>
+            <span style="font-size:7.5px;color:#555;font-family:monospace;font-weight:600;">${t('common:id')}: ${employeeId}</span>
           </div>
         </div>
         <div style="background:#f9fafb;border-top:1px solid #f0f0f0;padding:8px 10px;display:flex;align-items:center;gap:8px;">
           <div style="flex:1;">
-            <div style="font-size:7px;color:#999;line-height:1.4;">Scan at kiosk to<br>check in / check out</div>
+            <div style="font-size:7px;color:#999;line-height:1.4;">${t('scanAtKiosk')}<br>${t('checkInAndOut')}</div>
           </div>
           <img src="${qrUrl}" style="width:52px;height:52px;border:1px solid #e5e7eb;border-radius:4px;flex-shrink:0;" crossorigin="anonymous">
         </div>
@@ -503,7 +504,7 @@ export default function StaffManagement() {
     qrCode: string, staffName: string, department: string, employeeId: string,
     photoUrl?: string | null, email?: string | null, jobTitle?: string | null
   ) => {
-    toast({ title: "Generating Pass", description: "Creating staff ID card image..." });
+    toast({ title: t('generatingPass.title'), description: t('generatingPass.desc') });
     setQrPassStaff(null);
     setQrPassData(null);
 
@@ -591,7 +592,7 @@ export default function StaffManagement() {
     ctx.globalAlpha = 0.7;
     ctx.fillStyle = variableTextColor;
     ctx.font = '8px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('Staff ID Pass', logoEndX, hCY + 10);
+    ctx.fillText(t('idPassLabel'), logoEndX, hCY + 10);
     ctx.globalAlpha = 1;
 
     // STAFF badge (right of header) — variableTextColor bg, brandColor text for contrast
@@ -601,7 +602,7 @@ export default function StaffManagement() {
     ctx.fillStyle = brandColor;
     ctx.font = 'bold 8px "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('STAFF', cX + cW - 30, cY + headerH / 2 + 3);
+    ctx.fillText(t('badges.staff').toUpperCase(), cX + cW - 30, cY + headerH / 2 + 3);
 
     // ── Photo ─────────────────────────────────────────────
     const cx = W / 2;
@@ -666,7 +667,7 @@ export default function StaffManagement() {
     }
 
     // Employee ID pill
-    const idText = `ID: ${employeeId}`;
+    const idText = `${t('common:id')}: ${employeeId}`;
     ctx.font = '9px monospace';
     const idW = ctx.measureText(idText).width + 20;
     ctx.fillStyle = '#f3f4f6';
@@ -851,11 +852,23 @@ export default function StaffManagement() {
     return <div>{t('common:loading')}</div>;
   }
 
-  const filteredStaff = (staff || []).filter(member => {
+  const filteredStaff = [...(staff || [])].filter(member => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
     return fullName.includes(search) || member.email?.toLowerCase().includes(search) || member.department?.toLowerCase().includes(search);
+  }).sort((a, b) => {
+    if (sortBy === 'firstName') {
+      return a.firstName.localeCompare(b.firstName) || a.lastName.localeCompare(b.lastName);
+    }
+    if (sortBy === 'lastName') {
+      return a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName);
+    }
+    // recentCheckIn — most recent first, never-checked-in go to end
+    if (!a.checkedInAt && !b.checkedInAt) return 0;
+    if (!a.checkedInAt) return 1;
+    if (!b.checkedInAt) return -1;
+    return new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime();
   });
 
   return (
@@ -883,11 +896,21 @@ export default function StaffManagement() {
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[180px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-variable" />
             <Input placeholder={t('common:searchPlaceholder')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="w-44 h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="firstName">{t('sorting.firstName')}</SelectItem>
+              <SelectItem value="lastName">{t('sorting.lastName')}</SelectItem>
+              <SelectItem value="recentCheckIn">{t('sorting.recentCheckIn')}</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="flex items-center gap-1">
             <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0" title={t('common:view')}>
               <LayoutGrid size={14} />
@@ -1104,9 +1127,9 @@ export default function StaffManagement() {
                     {(() => {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (
-                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title={t('failedToEndLoneWorker')}><ShieldOff size={14} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title={t('endLoneWorkerSession')}><ShieldOff size={14} /></Button>
                       ) : (member.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
-                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? t('loneWorker') : t('failedToStartLoneWorker')}><Shield size={14} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? t('startLoneWorkerSession') : t('staffNeedsEmail')}><Shield size={14} /></Button>
                       ) : null;
                     })()}
                     {member.isActive && (
@@ -1129,9 +1152,9 @@ export default function StaffManagement() {
                     {(() => {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (
-                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title={t('failedToEndLoneWorker')}><ShieldOff size={15} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title={t('endLoneWorkerSession')}><ShieldOff size={15} /></Button>
                       ) : (member.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
-                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? t('loneWorker') : t('failedToStartLoneWorker')}><Shield size={15} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? t('startLoneWorkerSession') : t('staffNeedsEmail')}><Shield size={15} /></Button>
                       ) : null;
                     })()}
                     {member.isActive && (
@@ -1161,7 +1184,7 @@ export default function StaffManagement() {
       {/* Staff Profile Card Dialog */}
       <Dialog open={!!viewingStaff} onOpenChange={(open) => { if (!open) setViewingStaff(null); }}>
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
-          <DialogTitle className="sr-only">Staff Profile</DialogTitle>
+          <DialogTitle className="sr-only">{t('dialogs.profileHiddenTitle')}</DialogTitle>
           {viewingStaff && (
             <StaffProfilePanel
               staff={viewingStaff as any}
@@ -1203,7 +1226,7 @@ export default function StaffManagement() {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-800">{qrPassStaff?.firstName} {qrPassStaff?.lastName}</p>
-                  <p className="text-sm text-gray-600">{qrPassStaff?.department} | ID: {qrPassStaff?.employeeId}</p>
+                  <p className="text-sm text-gray-600">{qrPassStaff?.department} | {t('common:id')}: {qrPassStaff?.employeeId}</p>
                 </div>
               </div>
             </div>

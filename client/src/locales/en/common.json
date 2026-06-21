@@ -80,6 +80,7 @@
   "host": "Host",
   "attendees": "{{count}} attendees",
   "duration": "{{hours}}h duration",
+  "id": "ID",
   "past": "Past",
   "confirmed": "Confirmed",
   "pending": "Pending",
@@ -88,5 +89,17 @@
   "visitor": "Visitor",
   "contractor": "Contractor",
   "signedInAt": "Signed in at {{time}}",
-  "searchPlaceholder": "Search..."
+  "searchPlaceholder": "Search...",
+  "keep": "Keep",
+  "expected": "Expected",
+  "photo": "Photo",
+  "details": "Details",
+  "activity": "Activity",
+  "uploadPhoto": "Upload Photo",
+  "personalInfo": "Personal Information",
+  "visitorInfo": "Visitor Information",
+  "emergencyNotify": "Emergency notification sent to Reception!",
+  "failedNotify": "Failed to send notification: {{message}}",
+  "failedNotifyGeneric": "Failed to send emergency notification. Please contact Reception directly.",
+  "staffPhoneNotStored": "Staff phone numbers are not stored in the system. Contact them via email or through the office."
 }

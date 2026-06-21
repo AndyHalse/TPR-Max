@@ -13,18 +13,18 @@ import { CheckSquare } from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
 
 const UK_LEGAL_DOCS = [
-  { key: "publicLiability" as const, name: "Public Liability Insurance", basis: "Common law duty of care", note: "Minimum £2m recommended" },
-  { key: "employersLiability" as const, name: "Employers' Liability Insurance", basis: "Employers' Liability Act 1969", note: "Minimum £5m — required if they employ anyone" },
-  { key: "cisRegistration" as const, name: "CIS Registration", basis: "Finance Act 2004", note: "Construction industry only — skip if not applicable" },
+  { key: "publicLiability" as const, nameKey: "addCompanyDialog.docs.publicLiability.name", basisKey: "addCompanyDialog.docs.publicLiability.basis", noteKey: "addCompanyDialog.docs.publicLiability.note" },
+  { key: "employersLiability" as const, nameKey: "addCompanyDialog.docs.employersLiability.name", basisKey: "addCompanyDialog.docs.employersLiability.basis", noteKey: "addCompanyDialog.docs.employersLiability.note" },
+  { key: "cisRegistration" as const, nameKey: "addCompanyDialog.docs.cisRegistration.name", basisKey: "addCompanyDialog.docs.cisRegistration.basis", noteKey: "addCompanyDialog.docs.cisRegistration.note" },
 ];
 const UK_SITE_DOCS = [
-  { key: "healthSafetyPolicy" as const, name: "Health & Safety Policy", basis: "H&S at Work Act 1974", note: "Required before work commences" },
-  { key: "rams" as const, name: "Risk Assessment & Method Statement (RAMS)", basis: "MHSWR 1999", note: "Site-specific — required before each job" },
+  { key: "healthSafetyPolicy" as const, nameKey: "addCompanyDialog.docs.healthSafetyPolicy.name", basisKey: "addCompanyDialog.docs.healthSafetyPolicy.basis", noteKey: "addCompanyDialog.docs.healthSafetyPolicy.note" },
+  { key: "rams" as const, nameKey: "addCompanyDialog.docs.rams.name", basisKey: "addCompanyDialog.docs.rams.basis", noteKey: "addCompanyDialog.docs.rams.note" },
 ];
 const UK_GOOD_DOCS = [
-  { key: "modernSlavery" as const, name: "Modern Slavery Statement", basis: "Modern Slavery Act 2015", note: "Good practice — mandatory for businesses >£36m turnover" },
-  { key: "environmentalPolicy" as const, name: "Environmental Policy", basis: "Client / ISO 14001", note: "Increasingly required by clients" },
-  { key: "professionalIndemnity" as const, name: "Professional Indemnity Insurance", basis: "Client / design work", note: "Required for design/consultancy work" },
+  { key: "modernSlavery" as const, nameKey: "addCompanyDialog.docs.modernSlavery.name", basisKey: "addCompanyDialog.docs.modernSlavery.basis", noteKey: "addCompanyDialog.docs.modernSlavery.note" },
+  { key: "environmentalPolicy" as const, nameKey: "addCompanyDialog.docs.environmentalPolicy.name", basisKey: "addCompanyDialog.docs.environmentalPolicy.basis", noteKey: "addCompanyDialog.docs.environmentalPolicy.note" },
+  { key: "professionalIndemnity" as const, nameKey: "addCompanyDialog.docs.professionalIndemnity.name", basisKey: "addCompanyDialog.docs.professionalIndemnity.basis", noteKey: "addCompanyDialog.docs.professionalIndemnity.note" },
 ];
 
 interface Props {
@@ -54,14 +54,14 @@ export default function ContractorAddCompanyDialog({ open, onOpenChange, custome
     },
     onSuccess: (response: { description: string }) => {
       setForm(prev => ({ ...prev, description: response.description }));
-      toast({ title: t("common:success"), description: t("addCompanyDialog.descGenerated") || "Company description generated successfully" });
+      toast({ title: t("common:success"), description: t("addCompanyDialog.descGenerated") });
     },
-    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("addCompanyDialog.descFailed") || "Failed to generate description", variant: "destructive" }),
+    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("addCompanyDialog.descFailed"), variant: "destructive" }),
     onSettled: () => setIsGeneratingDesc(false),
   });
 
   const handleGenerateDescription = () => {
-    if (!form.website || !form.name) { toast({ title: t("common:error"), description: t("addCompanyDialog.missingInfo") || "Please enter company name and website first", variant: "destructive" }); return; }
+    if (!form.website || !form.name) { toast({ title: t("common:error"), description: t("addCompanyDialog.missingInfo"), variant: "destructive" }); return; }
     setIsGeneratingDesc(true);
     generateDescriptionMutation.mutate({ website: form.website, companyName: form.name, industry: form.industry || undefined });
   };
@@ -70,7 +70,7 @@ export default function ContractorAddCompanyDialog({ open, onOpenChange, custome
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/contractors", data);
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || "Failed to add contractor");
+      if (!res.ok) throw new Error(body?.error || t("addCompanyDialog.addFailed"));
       return body;
     },
     onSuccess: (data: any) => {
@@ -79,7 +79,7 @@ export default function ContractorAddCompanyDialog({ open, onOpenChange, custome
       setStep(4);
       setForm({ name: "", email: "", contactFirstName: "", contactLastName: "", phone: "", address: "", postcode: "", website: "", description: "", industry: "", status: "pending" as const });
     },
-    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("addCompanyDialog.addFailed") || "Failed to add contractor", variant: "destructive" }),
+    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("addCompanyDialog.addFailed"), variant: "destructive" }),
   });
 
   return (
@@ -112,19 +112,19 @@ export default function ContractorAddCompanyDialog({ open, onOpenChange, custome
                 <Select value={form.industry} onValueChange={(v) => setForm({ ...form, industry: v })}>
                   <SelectTrigger data-testid="select-industry"><SelectValue placeholder={t("addCompanyDialog.selectIndustry")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="construction">{t("contractors:addCompanyDialog.industries.construction")}</SelectItem>
-                    <SelectItem value="electrical">{t("contractors:addCompanyDialog.industries.electrical")}</SelectItem>
-                    <SelectItem value="plumbing">{t("contractors:addCompanyDialog.industries.plumbing")}</SelectItem>
-                    <SelectItem value="hvac">{t("contractors:addCompanyDialog.industries.hvac")}</SelectItem>
-                    <SelectItem value="roofing">{t("contractors:addCompanyDialog.industries.roofing")}</SelectItem>
-                    <SelectItem value="painting">{t("contractors:addCompanyDialog.industries.painting")}</SelectItem>
-                    <SelectItem value="landscaping">{t("contractors:addCompanyDialog.industries.landscaping")}</SelectItem>
-                    <SelectItem value="security">{t("contractors:addCompanyDialog.industries.security")}</SelectItem>
-                    <SelectItem value="cleaning">{t("contractors:addCompanyDialog.industries.cleaning")}</SelectItem>
-                    <SelectItem value="it">{t("contractors:addCompanyDialog.industries.it")}</SelectItem>
-                    <SelectItem value="catering">{t("contractors:addCompanyDialog.industries.catering")}</SelectItem>
-                    <SelectItem value="engineering">{t("contractors:addCompanyDialog.industries.engineering")}</SelectItem>
-                    <SelectItem value="other">{t("contractors:addCompanyDialog.industries.other")}</SelectItem>
+                    <SelectItem value="construction">{t("addCompanyDialog.industries.construction")}</SelectItem>
+                    <SelectItem value="electrical">{t("addCompanyDialog.industries.electrical")}</SelectItem>
+                    <SelectItem value="plumbing">{t("addCompanyDialog.industries.plumbing")}</SelectItem>
+                    <SelectItem value="hvac">{t("addCompanyDialog.industries.hvac")}</SelectItem>
+                    <SelectItem value="roofing">{t("addCompanyDialog.industries.roofing")}</SelectItem>
+                    <SelectItem value="painting">{t("addCompanyDialog.industries.painting")}</SelectItem>
+                    <SelectItem value="landscaping">{t("addCompanyDialog.industries.landscaping")}</SelectItem>
+                    <SelectItem value="security">{t("addCompanyDialog.industries.security")}</SelectItem>
+                    <SelectItem value="cleaning">{t("addCompanyDialog.industries.cleaning")}</SelectItem>
+                    <SelectItem value="it">{t("addCompanyDialog.industries.it")}</SelectItem>
+                    <SelectItem value="catering">{t("addCompanyDialog.industries.catering")}</SelectItem>
+                    <SelectItem value="engineering">{t("addCompanyDialog.industries.engineering")}</SelectItem>
+                    <SelectItem value="other">{t("addCompanyDialog.industries.other")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -168,8 +168,8 @@ export default function ContractorAddCompanyDialog({ open, onOpenChange, custome
                     <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docs[doc.key] ? 'border-green-400 bg-green-50 dark:bg-green-900/20 dark:border-green-600' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                       <input type="checkbox" checked={docs[doc.key]} onChange={(e) => setDocs({ ...docs, [doc.key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-medium text-sm text-gray-900 dark:text-white">{doc.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{doc.basis} — {doc.note}</p>
+                        <p className="font-medium text-sm text-gray-900 dark:text-white">{t(doc.nameKey)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t(doc.basisKey)} — {t(doc.noteKey)}</p>
                       </div>
                       {docs[doc.key] && <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />}
                     </label>
@@ -203,7 +203,7 @@ export default function ContractorAddCompanyDialog({ open, onOpenChange, custome
                 {[...UK_LEGAL_DOCS, ...UK_SITE_DOCS, ...UK_GOOD_DOCS].map(doc => (
                   <div key={doc.key} className="flex items-center gap-2 text-sm">
                     {docs[doc.key] ? <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" /> : <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-500 flex-shrink-0" />}
-                    <span className={docs[doc.key] ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}>{doc.name}</span>
+                    <span className={docs[doc.key] ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}>{t(doc.nameKey)}</span>
                     {!docs[doc.key] && UK_LEGAL_DOCS.some(d => d.key === doc.key) && <Badge className="bg-red-100 text-red-700 text-xs ml-auto">{t("badges.required")}</Badge>}
                   </div>
                 ))}

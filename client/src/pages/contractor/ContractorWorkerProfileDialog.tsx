@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function ContractorWorkerProfileDialog({ worker, onClose, checkInMutation, checkOutMutation, onEditWorker, onQrPass, onPreBook, onCheckIn }: Props) {
-  const { t } = useTranslation(["contractors", "common"]);
+  const { t, i18n } = useTranslation(["contractors", "common"]);
   const { toast } = useToast();
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
@@ -148,7 +148,7 @@ export default function ContractorWorkerProfileDialog({ worker, onClose, checkIn
               {worker.updatedAt && !isCheckedIn && (
                 <div className="flex items-center gap-3 text-sm">
                   <div className="w-7 h-7 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0"><History size={13} className="text-orange-600" /></div>
-                  <span className="text-gray-700 dark:text-gray-200">{t("workerProfile.lastVisit", { date: new Date(worker.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) })}</span>
+                  <span className="text-gray-700 dark:text-gray-200">{t("workerProfile.lastVisit", { date: new Date(worker.updatedAt).toLocaleDateString(i18n.language === 'es' ? 'es-ES' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) })}</span>
                 </div>
               )}
               {isCheckedIn && worker.checkedInAt && (

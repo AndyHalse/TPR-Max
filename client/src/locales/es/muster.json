@@ -9,6 +9,9 @@
   "activateEmergency": "Activar emergencia",
   "monitorLink": "Enlace de monitoreo",
   "monitorLinkCopied": "Enlace de monitoreo copiado al portapapeles",
+  "monitorLinkCopiedDesc": "Comparta este enlace de solo lectura con la gerencia",
+  "noActiveEvacuation": "No hay evacuación activa",
+  "startEmergencyFirst": "Inicie una emergencia primero",
   "nudgeUnaccounted": "Notificar no contabilizados",
   "incidentReport": "Informe de incidente",
   "settings": "Configuración",
@@ -62,7 +65,8 @@
     "endIncident": "Finalizar el incidente",
     "saveReport": "Guardar el informe de incidente y cerrar {{mode}}",
     "endEvacuation": "Finalizar evacuación",
-    "sending": "Enviando..."
+    "sending": "Enviando...",
+    "monitorLinkTooltip": "Compartir una vista en vivo de solo lectura con la gerencia"
   },
   "zoneSelector": {
     "title": "Seleccionar zonas a evacuar",
@@ -199,6 +203,26 @@
       "zone": "Zona"
     }
   },
+  "nudges": {
+    "noEmails": "No hay correos para enviar",
+    "noEmailsDesc": "Todo el personal en el sitio ya está contabilizado o no tiene dirección de correo registrada.",
+    "sentTitle": "Correos de notificación enviados ({{count}})",
+    "sentDesc": "{{count}} persona no contabilizada notificada. {{skipped}} ya a salvo o sin correo.",
+    "sentDesc_plural": "{{count}} personas no contabilizadas notificadas. {{skipped}} ya a salvo o sin correo.",
+    "failed": "Error al enviar correos de notificación",
+    "tooltip": "Enviar correo de recordatorio a todo el personal no contabilizado con un enlace de confirmación de seguridad"
+  },
+  "completion": {
+    "drillEnded": "Simulacro de incendio finalizado",
+    "evacuationEnded": "Evacuación finalizada",
+    "checkOutAllDesc": "Se ha registrado la salida de todo el personal. Informe de incidente guardado — véalo en el encabezado.",
+    "keepCheckedInDesc": "Evacuación cerrada. El personal permanece con la entrada registrada. Informe de incidente guardado — véalo en el encabezado.",
+    "alreadyEnded": "Ya finalizada",
+    "alreadyEndedDesc": "La evacuación ya ha sido completada por otro usuario.",
+    "failed": "Error al finalizar la evacuación",
+    "failedDesc": "Ocurrió un error al finalizar la evacuación.",
+    "monitorLinkTooltip": "Compartir una vista en vivo de solo lectura con la gerencia"
+  },
   "settingsPanel": {
     "title": "Opciones de estado de Muster",
     "desc": "Cuando está habilitado, los jefes de emergencia verán un botón desplegable junto al botón SEGURO de cada persona en la pantalla de muster. Pueden usarlo para marcar a alguien como contabilizado con un motivo de estado adicional (p. ej., \"Trabajando de forma remota / fuera del sitio\"). La persona aparecerá de color ámbar en la lista de muster y en el informe de incidentes.",
@@ -208,6 +232,8 @@
     "optionsDesc": "Estas opciones aparecen en el menú desplegable cuando un jefe de emergencia marca a alguien como contabilizado con un motivo.",
     "removeOption": "Eliminar opción",
     "addPlaceholder": "Agregar una nueva opción de estado...",
-    "unsaved": "Cambios sin guardar"
-  }
+    "unsaved": "Cambios sin guardar",
+    "tooltip": "Configurar las opciones del menú desplegable del estado de muster para los jefes de emergencia"
+  },
+  "drillModeTooltip": "Activar el modo de simulacro — los correos electrónicos se marcarán claramente como un simulacro (no como una emergencia real)"
 }

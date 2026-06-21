@@ -41,8 +41,9 @@ import {
 } from "./types";
 
 export default function ContractorCDMTab({ companies }: { companies: any[] }) {
-  const { t } = useTranslation(["contractors", "common"]);
+  const { t, i18n } = useTranslation(["contractors", "common"]);
   const { toast } = useToast();
+  const dateLocale = i18n.language === 'es' ? 'es-ES' : 'en-GB';
 
   const { data: currentUser } = useQuery<{ customerId: string }>({
     queryKey: ["/api/auth/me"],
@@ -710,9 +711,9 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                       <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{t("cdm.projectDates")}</p>
                       <p className="text-[10px] font-medium flex items-center gap-1">
                         <CalendarDays className="h-2.5 w-2.5 text-muted-foreground" />
-                        {p.startDate ? new Date(p.startDate).toLocaleDateString("en-GB", { day: '2-digit', month: 'short' }) : '—'}
+                        {p.startDate ? new Date(p.startDate).toLocaleDateString(dateLocale, { day: '2-digit', month: 'short' }) : '—'}
                         <span className="text-muted-foreground mx-1">→</span>
-                        {p.endDate ? new Date(p.endDate).toLocaleDateString("en-GB", { day: '2-digit', month: 'short' }) : '—'}
+                        {p.endDate ? new Date(p.endDate).toLocaleDateString(dateLocale, { day: '2-digit', month: 'short' }) : '—'}
                       </p>
                     </div>
                     <div className="space-y-0.5">
@@ -768,8 +769,8 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                                 </div>
                                 {p.f10Date && (
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-muted-foreground">Date</span>
-                                    <span className="text-[10px] font-medium">{new Date(p.f10Date).toLocaleDateString("en-GB")}</span>
+                                    <span className="text-[10px] text-muted-foreground">{t("common:date")}</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.f10Date).toLocaleDateString(dateLocale)}</span>
                                   </div>
                                 )}
                                 {p.f10Reference && (
@@ -854,8 +855,8 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                                 </div>
                                 {p.cppDate && (
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-muted-foreground">Date</span>
-                                    <span className="text-[10px] font-medium">{new Date(p.cppDate).toLocaleDateString("en-GB")}</span>
+                                    <span className="text-[10px] text-muted-foreground">{t("common:date")}</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.cppDate).toLocaleDateString(dateLocale)}</span>
                                   </div>
                                 )}
                                 {!isCompliant && p.status === 'active' && (
@@ -921,8 +922,8 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                                 </div>
                                 {p.pciDate && (
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-muted-foreground">Date</span>
-                                    <span className="text-[10px] font-medium">{new Date(p.pciDate).toLocaleDateString("en-GB")}</span>
+                                    <span className="text-[10px] text-muted-foreground">{t("common:date")}</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.pciDate).toLocaleDateString(dateLocale)}</span>
                                   </div>
                                 )}
                               </div>
@@ -985,8 +986,8 @@ export default function ContractorCDMTab({ companies }: { companies: any[] }) {
                                 </div>
                                 {p.hsfDate && (
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-muted-foreground">Date</span>
-                                    <span className="text-[10px] font-medium">{new Date(p.hsfDate).toLocaleDateString("en-GB")}</span>
+                                    <span className="text-[10px] text-muted-foreground">{t("common:date")}</span>
+                                    <span className="text-[10px] font-medium">{new Date(p.hsfDate).toLocaleDateString(dateLocale)}</span>
                                   </div>
                                 )}
                               </div>

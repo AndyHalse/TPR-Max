@@ -42,11 +42,11 @@ export default function ContractorTabNav({ activeTab, setActiveTab, settings }: 
       {btn("contractors", t('tabs.contractors'), t('tabs.companiesMobile'), Building2, "tab-contractors")}
       {btn("walkin", t('tabs.walkin'), t('tabs.walkin'), UserPlus, "tab-walkin-registration")}
       {btn("prebook", t('tabs.prebooking'), t('tabs.prebookMobile'), CalendarPlus, "tab-pre-booking")}
-      {settings?.featureContractors !== false && btn("co2", t('tabs.co2Reports'), "CO2", Leaf, "tab-co2-reports")}
-      {btn("assign-hs", t('tabs.hsDocument'), "H&S", Shield, "tab-assign-hs")}
-      {btn("rams", "RAMS", "RAMS", FileText, "tab-rams")}
-      {settings?.featurePPM !== false && btn("ppm", "PPM", "PPM", Wrench, "tab-ppm")}
-      {settings?.featureContractors !== false && btn("cdm", "CDM 2015", "CDM 2015", HardHatIcon, "tab-cdm")}
+      {settings?.featureContractors !== false && btn("co2", t('tabs.co2Reports'), t('tabs.co2'), Leaf, "tab-co2-reports")}
+      {btn("assign-hs", t('tabs.hsDocument'), t('tabs.hsMobile'), Shield, "tab-assign-hs")}
+      {btn("rams", t('tabs.rams'), t('tabs.rams'), FileText, "tab-rams")}
+      {settings?.featurePPM !== false && btn("ppm", t('tabs.ppm'), t('tabs.ppm'), Wrench, "tab-ppm")}
+      {settings?.featureContractors !== false && btn("cdm", t('tabs.cdm'), t('tabs.cdm'), HardHatIcon, "tab-cdm")}
     </div>
   );
 }

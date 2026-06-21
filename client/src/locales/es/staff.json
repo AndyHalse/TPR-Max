@@ -35,9 +35,25 @@
   },
   "dialogs": {
     "profile": "Perfil del personal · {{id}}",
+    "profileHiddenTitle": "Perfil del personal",
     "qrPass": "Pase QR del personal",
     "addStaff": "Añadir miembro del personal"
   },
+  "sorting": {
+    "firstName": "Nombre (A–Z)",
+    "lastName": "Apellido (A–Z)",
+    "recentCheckIn": "Entrada más reciente"
+  },
+  "generatingPass": {
+    "title": "Generando pase",
+    "desc": "Creando imagen de tarjeta de identificación del personal..."
+  },
+  "idPassLabel": "Pase de identificación del personal",
+  "manualCheckIn": "Registro de entrada manual",
+  "staffNeedsEmail": "El miembro del personal necesita una dirección de correo electrónico para las sesiones de trabajador solitario",
+  "startLoneWorkerSession": "Iniciar sesión de trabajador solitario",
+  "endLoneWorkerSession": "Finalizar sesión de trabajador solitario",
+  "failedToDownload": "Error al descargar",
   "upgrade": {
     "title": "TPR Max requerido",
     "desc": "Actualice a TPR Max para gestionar documentos del personal, verificación del derecho al trabajo y seguimiento de DBS."

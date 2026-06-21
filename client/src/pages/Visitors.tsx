@@ -53,7 +53,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import AddVisitorModal from "@/components/AddVisitorModal";
 
 export default function Visitors() {
-  const { t } = useTranslation('visitors');
+  const { t } = useTranslation(['visitors', 'common']);
   const { toast } = useToast();
   
   // Detect if we're in tenant context
@@ -675,8 +675,8 @@ export default function Visitors() {
     setPendingCheckinData(null);
     setPendingCheckinType(null);
     toast({
-      title: "Check-in Cancelled",
-      description: "NDA acceptance is required to check in.",
+      title: t('toasts.cancelled', 'Check-in Cancelled'),
+      description: t('toasts.ndaRequired', 'NDA acceptance is required to check in.'),
       variant: "destructive",
     });
   };
@@ -686,8 +686,8 @@ export default function Visitors() {
     setPendingCheckinData(null);
     setPendingCheckinType(null);
     toast({
-      title: "Check-in Cancelled",
-      description: "You must accept the Health & Safety rules to check in.",
+      title: t('toasts.cancelled', 'Check-in Cancelled'),
+      description: t('toasts.hsRequired', 'You must accept the Health & Safety rules to check in.'),
       variant: "destructive",
     });
   };
@@ -842,16 +842,16 @@ export default function Visitors() {
           <Button
             onClick={() => setShowAddVisitor(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-            title={t('addVisitorTitle', 'Manually add a new visitor profile')}
+            title={t('addVisitorTitle')}
           >
             <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="hidden sm:inline">{t('addVisitor', 'Add Visitor')}</span>
+            <span className="hidden sm:inline">{t('addVisitor')}</span>
             <span className="sm:hidden">{t('common:add')}</span>
           </Button>
           <Button
             onClick={() => setShowQRScanner(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-            title={t('scanQrTitle', 'Scan a visitor or contractor QR code to check them in')}
+            title={t('scanQrTitle')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
@@ -871,7 +871,7 @@ export default function Visitors() {
           >
             <History size={14} className="flex-shrink-0" />
             <span className="hidden sm:inline">{t('tabs.existing')}</span>
-            <span className="sm:hidden">{t('tabs.existingShort', 'Previous')}</span>
+            <span className="sm:hidden">{t('tabs.existingShort')}</span>
           </TabsTrigger>
           <TabsTrigger 
             value="walkin" 
@@ -879,7 +879,7 @@ export default function Visitors() {
           >
             <UserPlus size={14} className="flex-shrink-0" />
             <span className="hidden sm:inline">{t('tabs.walkin')}</span>
-            <span className="sm:hidden">{t('tabs.walkinShort', 'Walk-in')}</span>
+            <span className="sm:hidden">{t('tabs.walkinShort')}</span>
           </TabsTrigger>
           <TabsTrigger 
             value="prebook" 
@@ -887,7 +887,7 @@ export default function Visitors() {
           >
             <CalendarPlus size={14} className="flex-shrink-0" />
             <span className="hidden sm:inline">{t('tabs.prebooking')}</span>
-            <span className="sm:hidden">{t('tabs.prebookingShort', 'Pre-book')}</span>
+            <span className="sm:hidden">{t('tabs.prebookingShort')}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -901,7 +901,7 @@ export default function Visitors() {
                 </div>
                 <div>
                   <h2 className="text-lg sm:text-xl font-semibold text-fixed">{t('tabs.existing')}</h2>
-                  <p className="text-variable text-xs sm:text-sm">{t('previousVisitorsSubtitle', 'Select a visitor who has been onsite before')}</p>
+                  <p className="text-variable text-xs sm:text-sm">{t('previousVisitorsSubtitle')}</p>
                 </div>
               </div>
             </div>
@@ -925,7 +925,7 @@ export default function Visitors() {
                 size="sm"
                 onClick={() => setViewMode('grid')}
                 className="h-8 w-8 p-0"
-                title={t('gridView', 'Grid view')}
+                title={t('gridView')}
               >
                 <LayoutGrid size={14} />
               </Button>
@@ -934,7 +934,7 @@ export default function Visitors() {
                 size="sm"
                 onClick={() => setViewMode('list')}
                 className="h-8 w-8 p-0"
-                title={t('listView', 'List view')}
+                title={t('listView')}
               >
                 <LayoutList size={14} />
               </Button>
@@ -1003,7 +1003,7 @@ export default function Visitors() {
                             <p className="text-variable text-xs truncate">{visitor.company}</p>
                           )}
                           <p className="text-variable text-xs">
-                            Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
+                            {t('tableHeaders.lastVisit')}: {formatDateLocale(visitor.checkedInAt, { 
                               day: 'numeric', 
                               month: 'short', 
                               year: 'numeric' 
@@ -1030,7 +1030,7 @@ export default function Visitors() {
                             onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
                             data-testid={`button-edit-visitor-${visitor.id}`}
                             className="h-8 w-8 p-0"
-                            title="Edit visitor details"
+                            title={t('editProfile')}
                           >
                             <Edit size={15} />
                           </Button>
@@ -1040,7 +1040,7 @@ export default function Visitors() {
                             onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
                             data-testid={`button-prebook-visitor-${visitor.id}`}
                             className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                            title="Pre-book this visitor"
+                            title={t('preBookTitle')}
                           >
                             <CalendarPlus size={15} />
                           </Button>
@@ -1052,11 +1052,11 @@ export default function Visitors() {
                             onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
                             disabled={checkoutVisitorMutation.isPending}
                             data-testid={`button-checkout-visitor-${visitor.id}`}
-                            title="Check out visitor"
+                            title={t('checkOut')}
                             className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                           >
                             <UserX size={16} className="mr-1.5" />
-                            Check Out
+                            {t('checkOut')}
                           </Button>
                         ) : (
                           <Button 
@@ -1064,11 +1064,11 @@ export default function Visitors() {
                             variant="outline" 
                             onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
                             data-testid={`button-select-visitor-${visitor.id}`}
-                            title="Check in visitor"
+                            title={t('checkIn')}
                             className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                           >
                             <UserCheck size={16} className="mr-1.5" />
-                            Check In
+                            {t('checkIn')}
                           </Button>
                         )}
                       </div>
@@ -1093,20 +1093,20 @@ export default function Visitors() {
                           <p className="font-semibold text-fixed text-sm leading-tight">{visitor.firstName} {visitor.lastName}</p>
                           {visitor.company && <p className="text-xs text-variable mt-0.5">{visitor.company}</p>}
                           <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {t('tableHeaders.lastVisit')}: {formatDateLocale(visitor.checkedInAt, { day: 'numeric', month: 'short', year: 'numeric' })}
                           </p>
                         </div>
                         {/* Desktop only: actions inline */}
                         <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                           <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className={visitor.isCheckedIn ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-600"}>
-                            {visitor.isCheckedIn ? "On Site" : "Off Site"}
+                            {visitor.isCheckedIn ? t('common:onSite') : t('common:offSite')}
                           </Badge>
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title="Edit visitor details"><Edit size={14} /></Button>
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title="Pre-book this visitor"><CalendarPlus size={14} /></Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title={t('editProfile')}><Edit size={14} /></Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title={t('preBookTitle')}><CalendarPlus size={14} /></Button>
                           {visitor.isCheckedIn ? (
-                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-${visitor.id}`} className="h-9 px-3 text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"><UserX size={15} className="mr-1" />Check Out</Button>
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-${visitor.id}`} className="h-9 px-3 text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"><UserX size={15} className="mr-1" />{t('checkOut')}</Button>
                           ) : (
-                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }} data-testid={`button-select-visitor-list-${visitor.id}`} className="h-9 px-3 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"><UserCheck size={15} className="mr-1" />Check In</Button>
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }} data-testid={`button-select-visitor-list-${visitor.id}`} className="h-9 px-3 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"><UserCheck size={15} className="mr-1" />{t('checkIn')}</Button>
                           )}
                         </div>
                       </div>
@@ -1114,15 +1114,15 @@ export default function Visitors() {
                       {/* Mobile-only: actions as a bottom row */}
                       <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1">
                         <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className={visitor.isCheckedIn ? "bg-green-100 text-green-700 border-green-200 text-xs" : "bg-gray-100 text-gray-600 text-xs"}>
-                          {visitor.isCheckedIn ? "On Site" : "Off Site"}
+                          {visitor.isCheckedIn ? t('common:onSite') : t('common:offSite')}
                         </Badge>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title="Edit"><Edit size={14} /></Button>
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title="Pre-book"><CalendarPlus size={14} /></Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title={t('common:edit')}><Edit size={14} /></Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title={t('preBook')}><CalendarPlus size={14} /></Button>
                           {visitor.isCheckedIn ? (
-                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-mob-${visitor.id}`} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><UserX size={14} className="mr-1" />Check Out</Button>
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-mob-${visitor.id}`} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><UserX size={14} className="mr-1" />{t('checkOut')}</Button>
                           ) : (
-                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }} data-testid={`button-select-visitor-list-mob-${visitor.id}`} className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={14} className="mr-1" />Check In</Button>
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }} data-testid={`button-select-visitor-list-mob-${visitor.id}`} className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={14} className="mr-1" />{t('checkIn')}</Button>
                           )}
                         </div>
                       </div>
@@ -1131,7 +1131,7 @@ export default function Visitors() {
                 ))
               ) : (
                 <div className="col-span-full text-center py-8 text-variable">
-                  {searchTerm ? "No visitors found matching your search." : "No previous visitors found."}
+                  {searchTerm ? t('noResults') : t('noVisitors')}
                 </div>
               )}
             </div>
@@ -1145,7 +1145,7 @@ export default function Visitors() {
                   className="bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300"
                   data-testid="button-show-less-visitors"
                 >
-                  Show Regular View (24 Visitors)
+                  {t('showRegularView')}
                 </Button>
               </div>
             )}
@@ -1160,19 +1160,19 @@ export default function Visitors() {
                 <UserPlus className="text-green-600" size={24} />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-fixed">Walk-in Registration</h2>
-                <p className="text-variable">Register a new visitor who just turned up</p>
+                <h2 className="text-xl font-semibold text-fixed">{t('tabs.walkin')}</h2>
+                <p className="text-variable">{t('tabs.walkinDesc')}</p>
               </div>
             </div>
 
             <form onSubmit={handleWalkInSubmit} className="space-y-6">
               {/* Required Fields */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">Required Information</h3>
+                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">{t('requiredInfo')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName" className="text-sm font-medium text-fixed">
-                      Visitor First Name *
+                      {t('visitorFirstName')} *
                     </Label>
                     <Input
                       id="firstName"
@@ -1191,7 +1191,7 @@ export default function Visitors() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="lastName" className="text-sm font-medium text-fixed">
-                      Visitor Last Name *
+                      {t('visitorLastName')} *
                     </Label>
                     <Input
                       id="lastName"
@@ -1212,13 +1212,13 @@ export default function Visitors() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="company-required" className="text-sm font-medium text-fixed">
-                      Company *
+                      {t('common:company')} *
                     </Label>
                     <CompanyCombobox
                       value={walkInData.company}
                       onChange={(value) => handleWalkInInputChange("company", value)}
                       companies={companies}
-                      placeholder="Select or type company name..."
+                      placeholder={t('placeholders.company')}
                       className={`px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                         walkInValidationErrors.company 
                           ? 'border-red-500 focus:ring-red-500 ring-red-200' 
@@ -1230,7 +1230,7 @@ export default function Visitors() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="email-required" className="text-sm font-medium text-fixed">
-                      Email Address *
+                      {t('common:email')} *
                     </Label>
                     <Input
                       id="email-required"
@@ -1251,11 +1251,11 @@ export default function Visitors() {
 
               {/* Optional Visitor Profile */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">Additional Information (Optional)</h3>
+                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">{t('additionalInfo')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="phoneNumber" className="text-sm font-medium text-fixed">
-                      Phone Number
+                      {t('common:phone')}
                     </Label>
                     <Input
                       id="phoneNumber"
@@ -1269,7 +1269,7 @@ export default function Visitors() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="mobileNumber" className="text-sm font-medium text-fixed">
-                      Mobile Number
+                      {t('mobileNumber')}
                     </Label>
                     <Input
                       id="mobileNumber"
@@ -1283,7 +1283,7 @@ export default function Visitors() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="jobTitle" className="text-sm font-medium text-fixed">
-                      Job Title
+                      {t('placeholders.jobTitle')}
                     </Label>
                     <Input
                       id="jobTitle"
@@ -1299,14 +1299,14 @@ export default function Visitors() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="address" className="text-sm font-medium text-fixed">
-                    Address
+                    {t('address')}
                   </Label>
                   <Textarea
                     id="address"
                     value={walkInData.address}
                     onChange={(e) => setWalkInData(prev => ({ ...prev, address: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-fixed min-h-[80px]"
-                    placeholder="Enter full address (street, city, postcode)"
+                    placeholder={t('placeholders.address')}
                     data-testid="input-walkin-address"
                   />
                 </div>
@@ -1314,16 +1314,16 @@ export default function Visitors() {
 
               {/* Host Selection */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">Visit Details</h3>
+                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">{t('visitDetails')}</h3>
                 <div className="space-y-2">
                   <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
-                    Host Staff Member *
+                    {t('hostStaffMember')} *
                   </Label>
                   <StaffSearchSelect
                     staff={staff ?? []}
                     value={walkInData.hostStaffId}
                     onChange={(id) => handleWalkInInputChange("hostStaffId", id)}
-                    placeholder="Search by name or department…"
+                    placeholder={t('placeholders.searchStaff')}
                     error={walkInValidationErrors.hostStaffId}
                     inputClassName="rounded-xl"
                   />
@@ -1333,7 +1333,7 @@ export default function Visitors() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="purpose" className="text-sm font-medium text-fixed">
-                    Purpose of Visit
+                    {t('purposeOfVisit')}
                   </Label>
                   <Input
                     id="purpose"
@@ -1347,7 +1347,7 @@ export default function Visitors() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="carRegistration" className="text-sm font-medium text-fixed">
-                    Car Registration
+                    {t('placeholders.carReg')}
                   </Label>
                   <Input
                     id="carRegistration"
@@ -1371,11 +1371,11 @@ export default function Visitors() {
                     className="w-4 h-4 accent-amber-600"
                   />
                   <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    ♿ Requires Evacuation Assistance (PEEP)
+                    ♿ {t('requiresPeep')}
                   </span>
                 </label>
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 ml-7">
-                  Flag for Personal Emergency Evacuation Plan — will appear on muster list during an emergency.
+                  {t('peepDesc')}
                 </p>
               </div>
 
@@ -1386,7 +1386,7 @@ export default function Visitors() {
                 data-testid="button-walkin-submit"
               >
                 <UserCheck size={20} />
-                {checkInWalkInMutation.isPending ? "Checking In..." : "Check In Visitor"}
+                {checkInWalkInMutation.isPending ? t('common:loading') : t('checkInVisitor')}
               </Button>
             </form>
           </GlassCard>
@@ -1402,8 +1402,8 @@ export default function Visitors() {
                   <CalendarPlus className="text-blue-600" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-fixed">Create Pre-booking</h2>
-                  <p className="text-variable">Schedule a future visitor</p>
+                  <h2 className="text-xl font-semibold text-fixed">{t('createPrebooking')}</h2>
+                  <p className="text-variable">{t('prebookingDesc')}</p>
                 </div>
               </div>
               
@@ -1411,16 +1411,16 @@ export default function Visitors() {
               <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
                 <div className="mb-3">
                   <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Quick Select Previous Visitor
+                    {t('quickSelect')}
                   </Label>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                    Start typing to search for a previous visitor and auto-fill their details
+                    {t('quickSelectDesc')}
                   </p>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 text-blue-600" size={18} />
                   <Input
-                    placeholder="Search by name or company..."
+                    placeholder={t('placeholders.search')}
                     value={preBookSearchTerm}
                     onChange={(e) => {
                       setPreBookSearchTerm(e.target.value);
@@ -1460,7 +1460,7 @@ export default function Visitors() {
                               {visitor.firstName} {visitor.lastName}
                             </div>
                             <div className="text-sm text-variable">
-                              {visitor.company || 'No company'} • {visitor.email || 'No email'}
+                              {visitor.company || t('common:none')} • {visitor.email || t('common:none')}
                             </div>
                           </div>
                           <UserCheck className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" size={18} />
@@ -1473,7 +1473,7 @@ export default function Visitors() {
                         !v.isCheckedIn
                       ).length === 0 && (
                         <div className="px-4 py-3 text-center text-variable">
-                          No visitors found matching "{preBookSearchTerm}"
+                          {t('noUpcomingVisits')}
                         </div>
                       )}
                     </div>
@@ -1485,7 +1485,7 @@ export default function Visitors() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="visitorFirstName" className="text-sm font-medium text-fixed">
-                      Visitor First Name *
+                      {t('visitorFirstName')} *
                     </Label>
                     <Input
                       id="visitorFirstName"
@@ -1500,7 +1500,7 @@ export default function Visitors() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="visitorLastName" className="text-sm font-medium text-fixed">
-                      Visitor Last Name *
+                      {t('visitorLastName')} *
                     </Label>
                     <Input
                       id="visitorLastName"
@@ -1515,7 +1515,7 @@ export default function Visitors() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="visitorEmail" className="text-sm font-medium text-fixed">
-                      Visitor Email *
+                      {t('common:email')} *
                     </Label>
                     <Input
                       id="visitorEmail"
@@ -1531,13 +1531,13 @@ export default function Visitors() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="company" className="text-sm font-medium text-fixed">
-                    Company *
+                    {t('common:company')} *
                   </Label>
                   <CompanyCombobox
                     value={preBookingData.company || ""}
                     onChange={(value) => setPreBookingData(prev => ({ ...prev, company: value }))}
                     companies={companies}
-                    placeholder="Select or type company name..."
+                    placeholder={t('placeholders.company')}
                     className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     testId="input-prebook-company"
                   />
@@ -1545,20 +1545,20 @@ export default function Visitors() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
-                    Host Staff Member *
+                    {t('hostStaffMember')} *
                   </Label>
                   <StaffSearchSelect
                     staff={staff ?? []}
                     value={preBookingData.hostStaffId || ""}
                     onChange={(id) => setPreBookingData(prev => ({ ...prev, hostStaffId: id }))}
-                    placeholder="Search by name or department…"
+                    placeholder={t('placeholders.searchStaff')}
                     inputClassName="rounded-xl"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-fixed">Visit Date *</Label>
+                    <Label className="text-sm font-medium text-fixed">{t('common:date')} *</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -1566,7 +1566,7 @@ export default function Visitors() {
                           className="w-full px-3 py-2 h-10 rounded-xl border border-white/30 bg-white/50 text-left justify-start text-sm"
                         >
                           <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{selectedDate ? format(selectedDate, "d MMM yy") : "Pick date"}</span>
+                          <span className="truncate">{selectedDate ? formatDateLocale(selectedDate, { day: 'numeric', month: 'short', year: '2-digit' }) : t('pickDate')}</span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
@@ -1587,7 +1587,7 @@ export default function Visitors() {
 
                   <div className="space-y-2">
                     <Label htmlFor="visitTime" className="text-sm font-medium text-fixed">
-                      Visit Time *
+                      {t('common:time')} *
                     </Label>
                     <Input
                       id="visitTime"
@@ -1601,14 +1601,14 @@ export default function Visitors() {
 
                 <div className="space-y-2">
                   <Label htmlFor="purpose" className="text-sm font-medium text-fixed">
-                    Purpose of Visit
+                    {t('purposeOfVisit')}
                   </Label>
                   <Textarea
                     id="purpose"
                     value={preBookingData.purpose || ""}
                     onChange={(e) => setPreBookingData(prev => ({ ...prev, purpose: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                    placeholder="Brief description of the visit purpose"
+                    placeholder={t('placeholders.visitDescription')}
                     rows={3}
                     data-testid="textarea-prebook-purpose"
                   />
@@ -1621,7 +1621,7 @@ export default function Visitors() {
                   data-testid="button-prebook-submit"
                 >
                   <Send size={20} />
-                  {createPreBookingMutation.isPending ? "Creating..." : "Create Pre-booking"}
+                  {createPreBookingMutation.isPending ? t('common:loading') : t('confirmPrebooking')}
                 </Button>
               </form>
             </GlassCard>
@@ -1633,8 +1633,8 @@ export default function Visitors() {
                   <Clock className="text-amber-600" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-fixed">Upcoming Visits</h2>
-                  <p className="text-variable">Recent and scheduled pre-bookings</p>
+                  <h2 className="text-xl font-semibold text-fixed">{t('upcomingVisits')}</h2>
+                  <p className="text-variable">{t('upcomingVisitsDesc')}</p>
                 </div>
               </div>
 
@@ -1655,7 +1655,7 @@ export default function Visitors() {
                             </Badge>
                             {staff?.find(s => s.id === booking.hostStaffId) && (
                               <span className="text-xs text-variable">
-                                Host: {staff.find(s => s.id === booking.hostStaffId)?.firstName} {staff.find(s => s.id === booking.hostStaffId)?.lastName}
+                                {t('common:host')}: {staff.find(s => s.id === booking.hostStaffId)?.firstName} {staff.find(s => s.id === booking.hostStaffId)?.lastName}
                               </span>
                             )}
                           </div>
@@ -1671,7 +1671,7 @@ export default function Visitors() {
                               className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                             >
                               <CheckCircle size={16} className="mr-1" />
-                              Check In
+                              {t('checkIn')}
                             </Button>
                           )}
                           {!booking.isCheckedIn && booking.status !== 'completed' && (
@@ -1682,7 +1682,7 @@ export default function Visitors() {
                               className="text-red-600 border-red-300 hover:bg-red-50"
                             >
                               <Trash2 size={16} className="mr-1" />
-                              Cancel
+                              {t('common:cancel')}
                             </Button>
                           )}
                         </div>
@@ -1691,7 +1691,7 @@ export default function Visitors() {
                   ))
                 ) : (
                   <div className="text-center py-8 text-variable">
-                    No upcoming visits scheduled.
+                    {t('noUpcomingVisits')}
                   </div>
                 )}
               </div>
@@ -1700,18 +1700,18 @@ export default function Visitors() {
             <AlertDialog open={!!cancelBookingId} onOpenChange={(open) => !open && setCancelBookingId(null)}>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Cancel Pre-booking</AlertDialogTitle>
+                  <AlertDialogTitle>{t('cancelPrebooking')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to cancel this pre-booking? This action cannot be undone.
+                    {t('cancelPrebookingDesc')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Keep</AlertDialogCancel>
+                  <AlertDialogCancel>{t('common:no')}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => cancelBookingId && cancelPreBookingMutation.mutate(cancelBookingId)}
                     className="bg-red-600 hover:bg-red-700"
                   >
-                    Cancel Pre-booking
+                    {t('confirmCancel')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -1729,17 +1729,17 @@ export default function Visitors() {
         >
           <DialogHeader>
             <DialogTitle className="text-base">
-              Who is {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName} visiting?
+              {t('whoIsVisiting', { name: `${selectedPreviousVisitor?.firstName} ${selectedPreviousVisitor?.lastName}` })}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-fixed">Host Staff Member *</Label>
+              <Label className="text-sm font-medium text-fixed">{t('hostStaffMember')} *</Label>
               <StaffSearchSelect
                 staff={staff ?? []}
                 value={selectedHostForPrevious}
                 onChange={setSelectedHostForPrevious}
-                placeholder="Search by name or department…"
+                placeholder={t('placeholders.searchStaff')}
                 inputClassName="rounded-xl"
               />
             </div>
@@ -1753,7 +1753,7 @@ export default function Visitors() {
                 }}
                 className="flex-1 h-12"
               >
-                Cancel
+                {t('common:cancel')}
               </Button>
               <Button
                 onClick={handleHostSelectionConfirm}
@@ -1761,7 +1761,7 @@ export default function Visitors() {
                 className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
                 data-testid="button-confirm-host"
               >
-                {checkInPreviousVisitorMutation.isPending ? "Checking In…" : "Check In & Print Pass"}
+                {checkInPreviousVisitorMutation.isPending ? t('common:loading') : t('checkInPrintPass')}
               </Button>
             </div>
           </div>
@@ -1782,7 +1782,7 @@ export default function Visitors() {
               <>
                 {/* Slim top bar */}
                 <div className="bg-gradient-to-r from-green-600 to-teal-600 px-4 py-2 pr-10">
-                  <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">Visitor Profile</p>
+                  <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">{t('visitorProfile')}</p>
                 </div>
 
                 <div className="flex flex-col items-center px-6 pt-5 pb-6">
@@ -1799,7 +1799,7 @@ export default function Visitors() {
                   <div className="relative group">
                     <div className="w-36 h-36 rounded-full border-4 border-green-100 shadow-xl overflow-hidden bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
                       {photoSrc ? (
-                        <img src={photoSrc} alt="Visitor photo" className="w-full h-full object-cover" />
+                        <img src={photoSrc} alt={t('common:photo')} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-white font-bold text-4xl">
                           {(vv.firstName?.[0] || '').toUpperCase()}{(vv.lastName?.[0] || '').toUpperCase()}
@@ -1809,7 +1809,7 @@ export default function Visitors() {
                     <label
                       htmlFor={visitorPhotoInputId}
                       className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
-                      title="Upload photo"
+                      title={t('common:uploadPhoto')}
                     >
                       {isUploadingVisitorPhoto ? (
                         <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" />
@@ -1826,7 +1826,7 @@ export default function Visitors() {
                   {/* Status badges */}
                   <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${vv.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                      {vv.isCheckedIn ? '● On Site' : '● Off Site'}
+                      {vv.isCheckedIn ? `● ${t('common:onSite')}` : `● ${t('common:offSite')}`}
                     </span>
                     {vv.isCheckedIn && vv.checkedInAt && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-800">
@@ -1874,7 +1874,7 @@ export default function Visitors() {
                         <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
                           <UserCheck size={13} className="text-green-600" />
                         </div>
-                        <span className="text-gray-700">Visiting: {hostStaff.firstName} {hostStaff.lastName}</span>
+                        <span className="text-gray-700">{t('visitingHost', { name: `${hostStaff.firstName} ${hostStaff.lastName}` })}</span>
                       </div>
                     )}
                   </div>

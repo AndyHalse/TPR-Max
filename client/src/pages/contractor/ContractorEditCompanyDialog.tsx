@@ -60,14 +60,14 @@ export default function ContractorEditCompanyDialog({ open, onOpenChange, compan
     },
     onSuccess: (response: { description: string }) => {
       setForm(prev => ({ ...prev, description: response.description }));
-      toast({ title: t("common:success"), description: t("addCompanyDialog.descGenerated") || "Company description generated successfully" });
+      toast({ title: t("common:success"), description: t("addCompanyDialog.descGenerated") });
     },
-    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("addCompanyDialog.descFailed") || "Failed to generate description", variant: "destructive" }),
+    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("addCompanyDialog.descFailed"), variant: "destructive" }),
     onSettled: () => setIsGeneratingDesc(false),
   });
 
   const handleGenerateDescription = () => {
-    if (!form.website || !form.name) { toast({ title: t("common:error"), description: t("addCompanyDialog.missingInfo") || "Please enter company name and website first", variant: "destructive" }); return; }
+    if (!form.website || !form.name) { toast({ title: t("common:error"), description: t("addCompanyDialog.missingInfo"), variant: "destructive" }); return; }
     setIsGeneratingDesc(true);
     generateDescriptionMutation.mutate({ website: form.website, companyName: form.name, industry: form.industry || undefined });
   };
@@ -75,11 +75,11 @@ export default function ContractorEditCompanyDialog({ open, onOpenChange, compan
   const updateContractorMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => apiRequest("PUT", `/api/contractors/${id}`, data),
     onSuccess: () => {
-      toast({ title: t("common:success"), description: t("editCompanyDialog.updateSuccess") || "Contractor company updated successfully" });
+      toast({ title: t("common:success"), description: t("editCompanyDialog.updateSuccess") });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       onOpenChange(false);
     },
-    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("editCompanyDialog.updateFailed") || "Failed to update contractor", variant: "destructive" }),
+    onError: (error: any) => toast({ title: t("common:error"), description: error.message || t("editCompanyDialog.updateFailed"), variant: "destructive" }),
   });
 
   const updateCdmMutation = useMutation({

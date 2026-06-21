@@ -9,6 +9,9 @@
   "activateEmergency": "Activate Emergency",
   "monitorLink": "Monitor Link",
   "monitorLinkCopied": "Monitor link copied to clipboard",
+  "monitorLinkCopiedDesc": "Share this read-only link with management",
+  "noActiveEvacuation": "No active evacuation",
+  "startEmergencyFirst": "Start an emergency first",
   "nudgeUnaccounted": "Nudge Unaccounted",
   "incidentReport": "Incident Report",
   "settings": "Settings",
@@ -62,7 +65,8 @@
     "endIncident": "End the Incident",
     "saveReport": "Save the incident report and close this {{mode}}",
     "endEvacuation": "End Evacuation",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "monitorLinkTooltip": "Share a read-only live view with management"
   },
   "zoneSelector": {
     "title": "Select Zones to Evacuate",
@@ -199,6 +203,26 @@
       "zone": "Zone"
     }
   },
+  "nudges": {
+    "noEmails": "No emails to send",
+    "noEmailsDesc": "All on-site personnel are already accounted for, or have no email address on file.",
+    "sentTitle": "Nudge emails sent ({{count}})",
+    "sentDesc": "{{count}} unaccounted person emailed. {{skipped}} already safe or no email.",
+    "sentDesc_plural": "{{count}} unaccounted people emailed. {{skipped}} already safe or no email.",
+    "failed": "Failed to send nudge emails",
+    "tooltip": "Send reminder email to all unaccounted personnel with a self-confirm safety link"
+  },
+  "completion": {
+    "drillEnded": "Fire Drill Ended",
+    "evacuationEnded": "Evacuation Ended",
+    "checkOutAllDesc": "All personnel checked out. Incident report saved — view it in the header.",
+    "keepCheckedInDesc": "Evacuation closed. Personnel remain checked in. Incident report saved — view it in the header.",
+    "alreadyEnded": "Already ended",
+    "alreadyEndedDesc": "The evacuation has already been completed by another user.",
+    "failed": "Ending Evacuation Failed",
+    "failedDesc": "An error occurred while ending the evacuation.",
+    "monitorLinkTooltip": "Share a read-only live view with management"
+  },
   "settingsPanel": {
     "title": "Muster Status Options",
     "desc": "When enabled, Fire Marshals will see a dropdown button next to each person's SAFE button on the muster screen. They can use it to mark someone as accounted for with an additional status reason (e.g. \"Working remotely / offsite\"). The person will appear as amber in the muster list and incident report.",
@@ -208,6 +232,8 @@
     "optionsDesc": "These options appear in the dropdown when a Fire Marshal marks someone as accounted for with a reason.",
     "removeOption": "Remove option",
     "addPlaceholder": "Add a new status option...",
-    "unsaved": "Unsaved changes"
-  }
+    "unsaved": "Unsaved changes",
+    "tooltip": "Configure muster status dropdown options for Fire Marshals"
+  },
+  "drillModeTooltip": "Toggle drill mode — emails will be clearly marked as a drill (not a real emergency)"
 }

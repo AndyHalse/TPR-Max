@@ -41,13 +41,13 @@ interface ContractorCompaniesTabProps {
 
 type DocTypeFilter = null | "insurance" | "publicLiability" | "employersLiability" | "healthSafety" | "cisRegistration";
 
-const DOC_CHIPS: { key: DocTypeFilter; label: string }[] = [
-  { key: null,                 label: "All contractors" },
-  { key: "insurance",          label: "🛡 Insurance" },
-  { key: "publicLiability",    label: "Public Liability" },
-  { key: "employersLiability", label: "Employers Liability" },
-  { key: "healthSafety",       label: "H&S Policy" },
-  { key: "cisRegistration",    label: "CIS Registration" },
+const DOC_CHIPS: { key: DocTypeFilter; labelKey: string }[] = [
+  { key: null,                 labelKey: "companies.allContractors" },
+  { key: "insurance",          labelKey: "companies.insuranceChip" },
+  { key: "publicLiability",    labelKey: "companies.publicLiabilityChip" },
+  { key: "employersLiability", labelKey: "companies.employersLiabilityChip" },
+  { key: "healthSafety",       labelKey: "companies.healthSafetyChip" },
+  { key: "cisRegistration",    labelKey: "companies.cisRegistrationChip" },
 ];
 
 function hasDocGap(company: ExtendedContractorCompany, filter: DocTypeFilter): boolean {
@@ -132,10 +132,10 @@ export default function ContractorCompaniesTab({
             {t('companies.filterMissing')}
           </div>
           <div className="flex flex-wrap gap-2">
-            {DOC_CHIPS.map(({ key, label }) => {
+            {DOC_CHIPS.map(({ key, labelKey }) => {
               const isActive = docTypeFilter === key;
               const count = missingCount(key);
-              const translatedLabel = key === null ? t('companies.allContractors') : label;
+              const translatedLabel = key === "insurance" ? `🛡 ${t(labelKey)}` : t(labelKey);
               return (
                 <button
                   key={key ?? "all"}
@@ -170,7 +170,7 @@ export default function ContractorCompaniesTab({
           </div>
           {docTypeFilter && (
             <p className="text-xs text-red-600 font-medium">
-              {t('companies.showingMissing', { count: afterSearch.length, label: (DOC_CHIPS.find(c => c.key === docTypeFilter)?.label || "").replace("🛡 ", "") })}
+              {t('companies.showingMissing', { count: afterSearch.length, label: t(DOC_CHIPS.find(c => c.key === docTypeFilter)?.labelKey || "") })}
             </p>
           )}
         </div>
@@ -268,19 +268,19 @@ export default function ContractorCompaniesTab({
                   )}
 
                   {company.constructionlineGrade && company.constructionlineGrade !== "not_registered" && (
-                    <Badge className="bg-indigo-100 text-indigo-800 text-xs" title="Constructionline grade">
+                    <Badge className="bg-indigo-100 text-indigo-800 text-xs" title={t('companies.constructionlineGradeTooltip')}>
                       CL {company.constructionlineGrade}
                     </Badge>
                   )}
 
                   {company.chasCertified && (
-                    <Badge className="bg-teal-100 text-teal-800 text-xs" title="CHAS accredited">
+                    <Badge className="bg-teal-100 text-teal-800 text-xs" title={t('companies.chasAccreditedTooltip')}>
                       CHAS
                     </Badge>
                   )}
 
                   {company.smasAccredited && (
-                    <Badge className="bg-cyan-100 text-cyan-800 text-xs" title="SMAS accredited">
+                    <Badge className="bg-cyan-100 text-cyan-800 text-xs" title={t('companies.smasAccreditedTooltip')}>
                       SMAS
                     </Badge>
                   )}

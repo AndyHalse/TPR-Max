@@ -630,16 +630,16 @@ export default function EmergencyMuster() {
     mutationFn: () => apiRequest("POST", "/api/emergency/nudge-unaccounted"),
     onSuccess: (data: any) => {
       if (data.sent === 0) {
-        toast({ title: "No emails to send", description: "All on-site personnel are already accounted for, or have no email address on file." });
+        toast({ title: t('muster:nudges.noEmails'), description: t('muster:nudges.noEmailsDesc') });
       } else {
         toast({
-          title: `Nudge emails sent (${data.sent})`,
-          description: `${data.sent} unaccounted ${data.sent === 1 ? 'person' : 'people'} emailed. ${data.skipped} already safe or no email.`,
+          title: t('muster:nudges.sentTitle', { count: data.sent }),
+          description: t('muster:nudges.sentDesc', { count: data.sent, skipped: data.skipped }),
         });
       }
     },
     onError: () => {
-      toast({ title: "Failed to send nudge emails", variant: "destructive" });
+      toast({ title: t('muster:nudges.failed'), variant: "destructive" });
     }
   });
 
@@ -678,10 +678,10 @@ export default function EmergencyMuster() {
       setShowZoneSelector(false);
       if (data?.evacuationId) setLastEvacuationId(data.evacuationId);
       toast({
-        title: isDrillMode ? "Fire Drill Ended" : "Evacuation Ended",
+        title: isDrillMode ? t('muster:completion.drillEnded') : t('muster:completion.evacuationEnded'),
         description: data?.checkOutMode === 'check_out_all'
-          ? `All personnel checked out. Incident report saved — view it in the header.`
-          : `Evacuation closed. Personnel remain checked in. Incident report saved — view it in the header.`,
+          ? t('muster:completion.checkOutAllDesc')
+          : t('muster:completion.keepCheckedInDesc'),
         duration: 6000,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/evacuation/status"] });
@@ -697,27 +697,27 @@ export default function EmergencyMuster() {
       if (error?.status === 404) {
         // Evacuation was already completed (e.g. double-click or concurrent session)
         toast({
-          title: "Evacuation Already Ended",
-          description: "This evacuation has already been closed. The system is up to date.",
+          title: t('muster:completion.alreadyEnded'),
+          description: t('muster:completion.alreadyEndedDesc'),
         });
         queryClient.invalidateQueries({ queryKey: ["/api/evacuation/status"] });
         queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       } else {
-        toast({ title: "Failed to End Evacuation", description: error?.serverMessage || "An unexpected error occurred. Please try again.", variant: "destructive" });
+        toast({ title: t('muster:completion.failed'), description: error?.serverMessage || t('muster:completion.failedDesc'), variant: "destructive" });
       }
     }
   });
 
   const copyMonitorLink = () => {
     if (!activeEvacuation?.evacuationId || !activeEvacuation?.customerId) {
-      toast({ title: "No active evacuation", description: "Start an emergency first", variant: "destructive" });
+      toast({ title: t('muster:noActiveEvacuation'), description: t('muster:startEmergencyFirst'), variant: "destructive" });
       return;
     }
     const monitorUrl = `${window.location.origin}/monitor/${activeEvacuation.evacuationId}?customer=${encodeURIComponent(activeEvacuation.customerId)}`;
     navigator.clipboard.writeText(monitorUrl).then(() => {
-      toast({ title: "Monitor link copied", description: "Share this read-only link with management" });
+      toast({ title: t('common:copied'), description: t('muster:monitorLinkCopiedDesc') });
     }).catch(() => {
-      toast({ title: "Monitor link", description: monitorUrl });
+      toast({ title: t('muster:monitorLink'), description: monitorUrl });
     });
   };
 
@@ -761,7 +761,7 @@ export default function EmergencyMuster() {
             {wsConnected && (
               <span className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
                 <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                LIVE
+                {t('common:liveLabel')}
               </span>
             )}
           </p>
@@ -799,7 +799,7 @@ export default function EmergencyMuster() {
                 onClick={() => nudgeUnaccountedMutation.mutate()}
                 disabled={nudgeUnaccountedMutation.isPending}
                 className="text-xs border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300"
-                title="Send reminder email to all unaccounted personnel with a self-confirm safety link"
+                title={t('muster:nudges.tooltip')}
               >
                 <BellRing size={14} className="mr-1" />
                 {nudgeUnaccountedMutation.isPending ? t('checklist.sending') : t('nudgeUnaccounted')}
@@ -809,7 +809,7 @@ export default function EmergencyMuster() {
                 size="sm"
                 onClick={copyMonitorLink}
                 className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300"
-                title="Copy a read-only monitor link to share with management"
+                title={t('muster:monitorLinkTooltip')}
               >
                 <Copy size={14} className="mr-1" />
                 {t('monitorLink')}
@@ -844,7 +844,7 @@ export default function EmergencyMuster() {
                   ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-300'
                   : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
               }`}
-              title="Configure muster status dropdown options for Fire Marshals"
+              title={t('muster:settingsPanel.tooltip')}
               data-testid="button-muster-settings"
             >
               <Settings size={13} />
@@ -861,7 +861,7 @@ export default function EmergencyMuster() {
                   ? 'bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-900/30 dark:border-amber-600 dark:text-amber-300'
                   : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
               }`}
-              title="Toggle drill mode — emails will be clearly marked as a drill (not a real emergency)"
+              title={t('muster:drillModeTooltip')}
             >
               <ShieldAlert size={13} />
               {isDrillMode ? t('muster:drillOn') : t('muster:fireDrill')}
@@ -1280,7 +1280,7 @@ export default function EmergencyMuster() {
                     <p className="text-xs text-muted-foreground">{t('muster:checklist.saveReport', { mode: isDrillMode ? t('muster:checklist.drill') : t('muster:checklist.emergency') })}</p>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={copyMonitorLink} className="flex-1 sm:flex-initial text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 justify-center" title="Share a read-only live view with management">
+                    <Button size="sm" variant="outline" onClick={copyMonitorLink} className="flex-1 sm:flex-initial text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 justify-center" title={t('muster:checklist.monitorLinkTooltip')}>
                       <Copy size={12} className="mr-1" />{t('muster:monitorLink')}
                     </Button>
                     <Button size="sm" onClick={() => setShowEndEvacDialog(true)} disabled={completeEvacuationMutation.isPending} className="flex-1 sm:flex-initial text-xs text-white border-0 bg-red-600 hover:bg-red-700 justify-center">
@@ -1609,14 +1609,14 @@ export default function EmergencyMuster() {
                 {t('accountability.title')}
                 {selectedZones.size > 0 && (
                   <span className="text-xs font-normal bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                    {selectedZones.size === 1 ? t('accountability.zoneFilter') : t('accountability.zoneFilter_plural', { count: selectedZones.size })}
-                    <button onClick={() => setSelectedZones(new Set())} className="ml-1 hover:text-amber-900 dark:hover:text-amber-100" title="Clear zone filter">&times;</button>
+                    {selectedZones.size === 1 ? t('muster:accountability.zoneFilter') : t('muster:accountability.zoneFilter_plural', { count: selectedZones.size })}
+                    <button onClick={() => setSelectedZones(new Set())} className="ml-1 hover:text-amber-900 dark:hover:text-amber-100" title={t('common:clear')}>&times;</button>
                   </span>
                 )}
                 {typeFilter !== 'all' && (
                   <span className="text-xs font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
                     {typeFilter === 'staff' ? t('muster:stats.staff') : typeFilter === 'visitor' ? t('muster:stats.visitors') : typeFilter === 'contractor' ? t('muster:stats.contractors') : t('muster:stats.members')}
-                    <button onClick={() => setTypeFilter('all')} className="ml-1 hover:text-blue-900 dark:hover:text-blue-100">&times;</button>
+                    <button onClick={() => setTypeFilter('all')} className="ml-1 hover:text-blue-900 dark:hover:text-blue-100" title={t('common:clear')}>&times;</button>
                   </span>
                 )}
               </h3>
@@ -1740,9 +1740,9 @@ export default function EmergencyMuster() {
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold ${typeBadge}`}>
-                          {person.type === 'staff' ? t('muster:stats.staff') : person.type === 'visitor' ? t('muster:stats.visitors') : person.type === 'contractor' ? t('muster:stats.contractors') : t('muster:stats.members')}
+                          {person.type === 'staff' ? t('common:type.staff') : person.type === 'visitor' ? t('common:type.visitor') : person.type === 'contractor' ? t('common:type.contractor') : t('common:type.member')}
                         </span>
-                        <span className="text-[11px] text-variable truncate max-w-[120px] sm:max-w-none">{person.type === 'staff' ? person.department : person.company}</span>
+                        <span className="text-[11px] text-variable truncate max-w-[120px] sm:max-w-none">{person.type === 'staff' ? person.department : person.company || t('common:noCompany')}</span>
                         {person.location && person.location !== 'Not specified' && (
                           <span className={`hidden sm:inline-flex items-center gap-0.5 text-[10px] ${!person.accounted ? 'text-red-500 dark:text-red-400 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
                             <MapPin size={9} className="flex-shrink-0" />{person.location}
@@ -1773,7 +1773,7 @@ export default function EmergencyMuster() {
                                 className={`h-7 w-7 p-0 flex-shrink-0 ${person.hasEmail ? 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400' : 'border-gray-200 text-gray-300 cursor-not-allowed dark:border-gray-700 dark:text-gray-600'}`}
                                 disabled={!person.hasEmail || emailingPersonId === person.id}
                                 onClick={() => person.hasEmail && emailPersonMutation.mutate({ personId: person.id, personType: person.type })}
-                                title={person.hasEmail ? t('muster:accountability.emailReminder', { name: person.name }) : t('muster:accountability.noEmail')}
+                                title={person.hasEmail ? t('muster:accountability.emailTooltip', { name: person.name }) : t('muster:accountability.noEmailTooltip')}
                                 data-testid={`button-email-${person.id}`}
                               >
                                 {emailingPersonId === person.id ? (
@@ -1816,10 +1816,10 @@ export default function EmergencyMuster() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <ShieldAlert className="w-7 h-7 text-red-600 shrink-0" />
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('endEvacDialog.title')}</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('muster:endEvacDialog.title')}</h2>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-              {t('endEvacDialog.message')}
+              {t('muster:endEvacDialog.message')}
             </p>
             <div className="flex flex-col gap-3">
               <Button
@@ -1827,7 +1827,7 @@ export default function EmergencyMuster() {
                 disabled={completeEvacuationMutation.isPending}
                 onClick={() => completeEvacuationMutation.mutate('check_out_all')}
               >
-                {completeEvacuationMutation.isPending ? t('endEvacDialog.ending') : t('endEvacDialog.endAndCheckOut')}
+                {completeEvacuationMutation.isPending ? t('muster:endEvacDialog.ending') : t('muster:endEvacDialog.endAndCheckOut')}
               </Button>
               <Button
                 variant="outline"
@@ -1835,7 +1835,7 @@ export default function EmergencyMuster() {
                 disabled={completeEvacuationMutation.isPending}
                 onClick={() => completeEvacuationMutation.mutate('keep_checked_in')}
               >
-                {completeEvacuationMutation.isPending ? t('endEvacDialog.ending') : t('endEvacDialog.endAndKeep')}
+                {completeEvacuationMutation.isPending ? t('muster:endEvacDialog.ending') : t('muster:endEvacDialog.endAndKeep')}
               </Button>
               <Button variant="ghost" className="w-full text-gray-600" onClick={() => setShowEndEvacDialog(false)}>
                 {t('common:cancel')}

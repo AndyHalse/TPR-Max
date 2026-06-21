@@ -17,8 +17,9 @@ import { type PpmWorkOrderSummary, PPM_STATUS_BADGE } from "./types";
 // Shows PPM work orders grouped by contractor company so site managers can
 // see at a glance what maintenance tasks are assigned to each contractor.
 export default function ContractorPPMTab() {
-  const { t } = useTranslation(["contractors", "common"]);
+  const { t, i18n } = useTranslation(["contractors", "common"]);
   const [search, setSearch] = useState("");
+  const dateLocale = i18n.language === 'es' ? 'es-ES' : 'en-GB';
 
   const { data: workOrders = [], isLoading } = useQuery<PpmWorkOrderSummary[]>({
     queryKey: ["/api/ppm/work-orders"],
@@ -160,7 +161,7 @@ export default function ContractorPPMTab() {
                         )}
                         {wo.dueDate && (
                           <span className={`text-xs flex items-center gap-1 ${isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
-                            <CalendarDays className="h-3 w-3" />{t("ppm.due", { date: new Date(wo.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) })}
+                            <CalendarDays className="h-3 w-3" />{t("ppm.due", { date: new Date(wo.dueDate).toLocaleDateString(dateLocale, { day: "2-digit", month: "short", year: "numeric" }) })}
                           </span>
                         )}
                       </div>

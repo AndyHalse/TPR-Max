@@ -385,7 +385,7 @@ export default function Dashboard() {
     }
     
     // Fallback
-    return 'Not set';
+    return t('common:notSet');
   };
 
   const isToday = (date: Date) => {
@@ -1056,8 +1056,8 @@ export default function Dashboard() {
                 }`}>
                   {fraStatus.overallStatus === 'no_fra' && `🚨 ${t('common:none')} ${t('dashboard:fireRisk.title')}`}
                   {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && `🚨 ${t('dashboard:fireRisk.title')} — ${t('dashboard:loneWorker.overdue')}`}
-                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `🚨 ${t('dashboard:fireRisk.title')} — ${fraStatus.actionItems.critical_outstanding} Critical Actions Outstanding`}
-                  {fraStatus.overallStatus === 'action_required' && `⚠ ${t('dashboard:fireRisk.title')} — Actions Outstanding`}
+                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `🚨 ${t('dashboard:fireRisk.title')} — ${t('dashboard:fireRisk.criticalActions', { count: fraStatus.actionItems.critical_outstanding })}`}
+                  {fraStatus.overallStatus === 'action_required' && `⚠ ${t('dashboard:fireRisk.title')} — ${t('dashboard:fireRisk.actionsOutstanding')}`}
                   {fraStatus.overallStatus === 'compliant' && `✅ ${t('dashboard:fireRisk.title')} — ${t('common:active')}`}
                 </p>
                 <p className={`text-xs mt-0.5 ${
@@ -1067,11 +1067,11 @@ export default function Dashboard() {
                     ? 'text-amber-600 dark:text-amber-400'
                     : 'text-green-600 dark:text-green-400'
                 }`}>
-                  {fraStatus.overallStatus === 'no_fra' && 'This is a legal requirement under RRO 2005 →'}
-                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && `${t('dashboard:loneWorker.overdue')} by ${Math.abs(fraStatus.daysUntilReview!)} day${Math.abs(fraStatus.daysUntilReview!) !== 1 ? 's' : ''} →`}
-                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `${fraStatus.actionItems.outstanding} action item${fraStatus.actionItems.outstanding !== 1 ? 's' : ''} outstanding →`}
-                  {fraStatus.overallStatus === 'action_required' && `${fraStatus.actionItems.outstanding} action item${fraStatus.actionItems.outstanding !== 1 ? 's' : ''} need attention →`}
-                  {fraStatus.overallStatus === 'compliant' && fraStatus.daysUntilReview !== null && `Next review: ${fraStatus.currentFRA ? formatDateLocale(fraStatus.currentFRA.nextReviewDate) : '—'} · All actions resolved`}
+                  {fraStatus.overallStatus === 'no_fra' && `${t('dashboard:fireRisk.legalRequirement')} →`}
+                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && `${t('dashboard:fireRisk.overdueBy', { count: Math.abs(fraStatus.daysUntilReview!) })} →`}
+                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `${t('dashboard:fireRisk.actionsOutstandingCount', { count: fraStatus.actionItems.outstanding })} →`}
+                  {fraStatus.overallStatus === 'action_required' && `${t('dashboard:fireRisk.actionsNeedAttention', { count: fraStatus.actionItems.outstanding })} →`}
+                  {fraStatus.overallStatus === 'compliant' && fraStatus.daysUntilReview !== null && `${t('dashboard:fireRisk.nextReview', { date: fraStatus.currentFRA ? formatDateLocale(fraStatus.currentFRA.nextReviewDate) : '—' })} · ${t('dashboard:fireRisk.allResolved')}`}
                 </p>
               </div>
             </div>
@@ -1380,10 +1380,10 @@ export default function Dashboard() {
 
                 if (displayEvents.length === 0) return (
                   <div className="text-center py-6 text-variable">
-                    <p className="text-sm">{showHistory ? 'No events scheduled' : 'No pending arrivals'}</p>
+                    <p className="text-sm">{showHistory ? t('common:noResults') : t('dashboard:receptionDiary.status.pending')}</p>
                     {!showHistory && (arrivedVisitors.length > 0 || arrivedContractors.length > 0) && (
                       <Button variant="ghost" size="sm" onClick={() => setShowHistory(true)} className="mt-2 text-xs text-green-600">
-                        Show {arrivedVisitors.length + arrivedContractors.length} arrived
+                        {t('dashboard:receptionDiary.showArrived', { count: arrivedVisitors.length + arrivedContractors.length })}
                       </Button>
                     )}
                   </div>
@@ -1392,13 +1392,13 @@ export default function Dashboard() {
                 return (
                   <div className="border rounded-lg overflow-hidden">
                     <div className="hidden sm:grid grid-cols-[60px_1fr_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
-                      <span>Time</span>
-                      <span>Name</span>
-                      <span>Company</span>
-                      <span>Host</span>
-                      <span>Type</span>
-                      <span>Status</span>
-                      <span className="text-right">Action</span>
+                      <span>{t('dashboard:receptionDiary.headers.time')}</span>
+                      <span>{t('dashboard:receptionDiary.headers.name')}</span>
+                      <span>{t('dashboard:receptionDiary.headers.company')}</span>
+                      <span>{t('dashboard:receptionDiary.headers.host')}</span>
+                      <span>{t('dashboard:receptionDiary.headers.type')}</span>
+                      <span>{t('dashboard:receptionDiary.headers.status')}</span>
+                      <span className="text-right">{t('dashboard:receptionDiary.headers.action')}</span>
                     </div>
                     {displayEvents.map(event => {
                       const isPast = isHistorical(event.date);
@@ -1412,10 +1412,10 @@ export default function Dashboard() {
                           <span className="truncate text-variable">{event.company}</span>
                           <span className="truncate text-variable">{event.host || '—'}</span>
                           <Badge className={`text-[10px] px-1.5 py-0 ${event.type === 'visitor' ? 'bg-indigo-100 text-indigo-700' : event.type === 'contractor' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'}`}>
-                            {event.type === 'visitor' ? 'Visitor' : event.type === 'contractor' ? 'Contractor' : 'Meeting'}
+                            {event.type === 'visitor' ? t('dashboard:receptionDiary.types.visitor') : event.type === 'contractor' ? t('dashboard:receptionDiary.types.contractor') : t('dashboard:receptionDiary.types.meeting')}
                           </Badge>
                           <Badge className={`text-[10px] px-1.5 py-0 ${event.isCheckedIn ? 'bg-green-100 text-green-700' : event.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {event.isCheckedIn ? 'Arrived' : event.status === 'confirmed' ? 'Confirmed' : 'Pending'}
+                            {event.isCheckedIn ? t('dashboard:receptionDiary.status.arrived') : event.status === 'confirmed' ? t('dashboard:receptionDiary.status.confirmed') : t('dashboard:receptionDiary.status.pending')}
                           </Badge>
                           <div className="flex justify-end gap-1">
                             {!isPast && !event.isCheckedIn && event.type !== 'meeting' && (
@@ -1510,11 +1510,11 @@ export default function Dashboard() {
                                 </div>
                                 <div className="flex items-center gap-2 text-variable">
                                   <UserCheck size={14} className="flex-shrink-0" />
-                                  <span className="truncate">Host: {booking.organizer}</span>
+                                  <span className="truncate">{t('common:host')}: {booking.organizer}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-variable">
                                   <Users size={14} className="flex-shrink-0" />
-                                  <span>{booking.expectedAttendees || 0} attendees</span>
+                                  <span>{t('common:attendees', { count: booking.expectedAttendees || 0 })}</span>
                                 </div>
                                 {booking.description && (
                                   <div className="flex items-center gap-2 text-variable">
@@ -1528,7 +1528,7 @@ export default function Dashboard() {
                             <div className="text-right">
                               {diaryViewMode === 'weekly' && booking.date && (
                                 <div className="text-xs text-variable mb-0.5">
-                                  {new Date(booking.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                  {formatDateLocale(new Date(booking.date), { weekday: 'short', day: 'numeric', month: 'short' })}
                                 </div>
                               )}
                               <div className="text-sm font-medium text-fixed">
@@ -1536,12 +1536,12 @@ export default function Dashboard() {
                               </div>
                               {meetingPast && (
                                 <Badge className="bg-gray-200 text-gray-500 text-xs mt-1">
-                                  Past
+                                  {t('dashboard:receptionDiary.status.past')}
                                 </Badge>
                               )}
                               {!meetingPast && (
                                 <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
-                                  Meeting
+                                  {t('dashboard:receptionDiary.types.meeting')}
                                 </Badge>
                               )}
                             </div>
@@ -1563,10 +1563,10 @@ export default function Dashboard() {
                     <div key={`contractor-${dateKey}`} className="space-y-3">
                       <div className="flex items-center gap-3">
                         <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-medium">
-                          {dayStatus.label} - Contractors
+                          {dayStatus.label} - {t('dashboard:receptionDiary.filters.contractors')}
                         </Badge>
                         <span className="text-xs text-variable">
-                          {contractors.length} contractor{contractors.length !== 1 ? 's' : ''}
+                          {t('dashboard:receptionDiary.contractorsCount', { count: contractors.length })}
                         </span>
                       </div>
                       
@@ -1606,7 +1606,7 @@ export default function Dashboard() {
                                       {(contractor.hostFirstName || contractor.hostName) && (
                                         <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
                                           <User size={14} className="flex-shrink-0" />
-                                          <span className="truncate">Host: {contractor.hostFirstName && contractor.hostLastName ? `${contractor.hostFirstName} ${contractor.hostLastName}` : contractor.hostName}</span>
+                                          <span className="truncate">{t('common:host')}: {contractor.hostFirstName && contractor.hostLastName ? `${contractor.hostFirstName} ${contractor.hostLastName}` : (contractor.hostName || t('common:unknown'))}</span>
                                         </div>
                                       )}
                                       {contractor.workerEmail && (
@@ -1618,7 +1618,7 @@ export default function Dashboard() {
                                       {contractor.duration && (
                                         <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
                                           <Clock3 size={14} className="flex-shrink-0" />
-                                          <span>{contractor.duration}h duration</span>
+                                          <span>{t('common:duration', { hours: contractor.duration })}</span>
                                         </div>
                                       )}
                                     </div>
@@ -1627,7 +1627,7 @@ export default function Dashboard() {
                                   <div className="text-right">
                                     {diaryViewMode === 'weekly' && (
                                       <div className="text-xs text-variable mb-0.5">
-                                        {new Date(contractor.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                        {formatDateLocale(new Date(contractor.scheduledDate), { weekday: 'short', day: 'numeric', month: 'short' })}
                                       </div>
                                     )}
                                     <div className={`text-sm font-medium ${isPast ? 'text-gray-500' : 'text-fixed'}`}>
@@ -1635,17 +1635,17 @@ export default function Dashboard() {
                                     </div>
                                     {isPast && (
                                       <Badge className="bg-gray-200 text-gray-500 text-xs mt-1">
-                                        Past
+                                        {t('dashboard:receptionDiary.status.past')}
                                       </Badge>
                                     )}
                                     {contractor.status === 'confirmed' && !isPast && (
                                       <Badge className="bg-green-100 text-green-800 text-xs mt-1">
-                                        Confirmed
+                                        {t('dashboard:receptionDiary.status.confirmed')}
                                       </Badge>
                                     )}
                                     {contractor.status === 'pending' && !isPast && (
                                       <Badge className="bg-yellow-100 text-yellow-800 text-xs mt-1">
-                                        Pending
+                                        {t('dashboard:receptionDiary.status.pending')}
                                       </Badge>
                                     )}
                                     {!isPast && contractor.status !== 'completed' && (
@@ -1660,7 +1660,7 @@ export default function Dashboard() {
                                         disabled={diaryContractorCheckInMutation.isPending}
                                       >
                                         <LogIn size={12} className="mr-1" />
-                                        Check In
+                                        {t('common:checkIn')}
                                       </Button>
                                     )}
                                   </div>
@@ -1685,10 +1685,10 @@ export default function Dashboard() {
                     <div key={dateKey} className="space-y-3">
                       <div className="flex items-center gap-3">
                         <Badge className={`${dayStatus.color} font-medium`}>
-                          {dayStatus.label} - Visitors
+                          {dayStatus.label} - {t('dashboard:receptionDiary.filters.visitors')}
                         </Badge>
                         <span className="text-xs text-variable">
-                          {entries.length} visit{entries.length !== 1 ? 's' : ''}
+                          {t('dashboard:receptionDiary.visitsCount', { count: entries.length })}
                         </span>
                       </div>
                       
@@ -1734,7 +1734,7 @@ export default function Dashboard() {
                                       </div>
                                       <div className="flex items-center gap-2 text-variable">
                                         <UserCheck size={14} className="flex-shrink-0" />
-                                        <span className="truncate">Host: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
+                                        <span className="truncate">{t('common:host')}: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
                                       </div>
                                       <div className="flex items-center gap-2 text-variable sm:hidden">
                                         <Mail size={14} className="flex-shrink-0" />
@@ -2017,11 +2017,11 @@ export default function Dashboard() {
                 <div>
                   <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center">
                     <User className="mr-2" size={20} />
-                    Staff Members ({departmentDetails.staffMembers.length})
+                    {t('dashboard:modals.departmentDetails.staffSection', { count: departmentDetails.staffMembers.length })}
                   </h3>
                   <div className="space-y-3">
                     {departmentDetails.staffMembers.length === 0 ? (
-                      <div className="text-center py-4 text-variable">No staff assigned to this department</div>
+                      <div className="text-center py-4 text-variable">{t('dashboard:modals.departmentDetails.noStaff')}</div>
                     ) : (
                       departmentDetails.staffMembers.map((staffMember) => (
                         <div key={staffMember.id} className="flex items-center justify-between p-4 bg-[var(--card)] border rounded-lg">
@@ -2039,13 +2039,13 @@ export default function Dashboard() {
                           <div className="text-right">
                             {staffMember.isCheckedIn ? (
                               <div>
-                                <Badge variant="default" className="mb-1">On-Site</Badge>
+                                <Badge variant="default" className="mb-1">{t('dashboard:modals.departmentDetails.onSite')}</Badge>
                                 <p className="text-xs text-variable">
-                                  Since: {staffMember.checkedInAt ? formatTime(staffMember.checkedInAt) : 'Unknown'}
+                                  {t('dashboard:modals.departmentDetails.since', { time: staffMember.checkedInAt ? formatTime(staffMember.checkedInAt) : t('common:unknown') })}
                                 </p>
                               </div>
                             ) : (
-                              <Badge variant="secondary">Off-Site</Badge>
+                              <Badge variant="secondary">{t('dashboard:modals.departmentDetails.offSite')}</Badge>
                             )}
                           </div>
                         </div>
@@ -2058,11 +2058,11 @@ export default function Dashboard() {
                 <div>
                   <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center">
                     <UsersRound className="mr-2" size={20} />
-                    Current Visitors ({departmentDetails.visitors.length})
+                    {t('dashboard:modals.departmentDetails.visitorsSection', { count: departmentDetails.visitors.length })}
                   </h3>
                   <div className="space-y-3">
                     {departmentDetails.visitors.length === 0 ? (
-                      <div className="text-center py-4 text-variable">No visitors currently hosted by this department</div>
+                      <div className="text-center py-4 text-variable">{t('dashboard:modals.departmentDetails.noVisitors')}</div>
                     ) : (
                       departmentDetails.visitors.map((visitor) => (
                         <div key={visitor.id} className="flex items-center justify-between p-4 bg-[var(--card)] border rounded-lg">
@@ -2074,14 +2074,14 @@ export default function Dashboard() {
                             </div>
                             <div>
                               <p className="font-medium text-fixed">{visitor.firstName} {visitor.lastName}</p>
-                              <p className="text-sm text-variable">{visitor.company || 'No company'}</p>
-                              <p className="text-xs text-variable">Host: {visitor.hostName}</p>
+                              <p className="text-sm text-variable">{visitor.company || t('dashboard:modals.departmentDetails.noCompany')}</p>
+                              <p className="text-xs text-variable">{t('common:host')}: {visitor.hostName}</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <Badge variant="default" className="mb-1">Checked In</Badge>
+                            <Badge variant="default" className="mb-1">{t('dashboard:receptionDiary.status.arrived')}</Badge>
                             <p className="text-xs text-variable">
-                              Since: {formatTime(visitor.checkedInAt)}
+                              {t('dashboard:modals.departmentDetails.since', { time: formatTime(visitor.checkedInAt) })}
                             </p>
                           </div>
                         </div>
@@ -2105,7 +2105,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <div className="text-xl">{selectedVisitor?.firstName} {selectedVisitor?.lastName}</div>
-                  <div className="text-sm text-variable font-normal">{selectedVisitor?.company || "No company listed"}</div>
+                  <div className="text-sm text-variable font-normal">{selectedVisitor?.company || t('dashboard:noCompanyListed')}</div>
                 </div>
               </DialogTitle>
             </DialogHeader>
@@ -2117,10 +2117,10 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Badge variant="default" className="bg-green-600">
-                        ✓ Currently On-Site
+                        {t('dashboard:modals.visitorDetails.currentlyOnSite')}
                       </Badge>
                       <span className="text-sm text-green-800 dark:text-green-300">
-                        {Math.floor((Date.now() - new Date(selectedVisitor.checkedInAt).getTime()) / (1000 * 60))} minutes on premises
+                        {t('dashboard:modals.visitorDetails.minutesOnPremises', { count: Math.floor((Date.now() - new Date(selectedVisitor.checkedInAt).getTime()) / (1000 * 60)) })}
                       </span>
                     </div>
                   </div>
@@ -2129,19 +2129,19 @@ export default function Dashboard() {
                 {/* Emergency Contact Information */}
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-3 flex items-center gap-2">
-                    🚨 Emergency Contact Information
+                    {t('dashboard:modals.visitorDetails.emergency.title')}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-red-700 dark:text-red-400">
-                        {selectedVisitor.mobileNumber ? "Mobile Number" : "Phone Number"}
+                        {selectedVisitor.mobileNumber ? t('dashboard:modals.visitorDetails.emergency.mobile') : t('dashboard:modals.visitorDetails.emergency.phone')}
                       </label>
                       <p className="text-lg font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
-                        {selectedVisitor.mobileNumber || selectedVisitor.phoneNumber || "Not provided"}
+                        {selectedVisitor.mobileNumber || selectedVisitor.phoneNumber || t('dashboard:modals.visitorDetails.emergency.notProvided')}
                       </p>
                       {selectedVisitor.mobileNumber && selectedVisitor.phoneNumber && (
                         <div className="mt-2">
-                          <label className="text-xs font-medium text-red-600 dark:text-red-500">Alternative Phone</label>
+                          <label className="text-xs font-medium text-red-600 dark:text-red-500">{t('dashboard:alternativePhone')}</label>
                           <p className="text-sm font-mono bg-red-100 dark:bg-red-900/30 p-1 rounded text-red-800 dark:text-red-300">
                             {selectedVisitor.phoneNumber}
                           </p>
@@ -2149,9 +2149,9 @@ export default function Dashboard() {
                       )}
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-red-700 dark:text-red-400">Email Address</label>
+                      <label className="text-sm font-medium text-red-700 dark:text-red-400">{t('dashboard:modals.visitorDetails.emergency.email')}</label>
                       <p className="text-lg font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
-                        {selectedVisitor.email || "Not provided"}
+                        {selectedVisitor.email || t('dashboard:modals.visitorDetails.emergency.notProvided')}
                       </p>
                     </div>
                   </div>
@@ -2160,19 +2160,19 @@ export default function Dashboard() {
                 {/* Host & Location Information */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
-                    📍 Host & Location Details
+                    {t('dashboard:modals.visitorDetails.hostLocation.title')}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Visiting</label>
+                      <label className="text-sm font-medium text-blue-700 dark:text-blue-400">{t('dashboard:modals.visitorDetails.hostLocation.visiting')}</label>
                       <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                         {getStaffName(selectedVisitor.hostStaffId)}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
+                      <label className="text-sm font-medium text-blue-700 dark:text-blue-400">{t('dashboard:modals.visitorDetails.hostLocation.department')}</label>
                       <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
-                        {staff?.find(s => s.id === selectedVisitor.hostStaffId)?.department || "Unknown"}
+                        {staff?.find(s => s.id === selectedVisitor.hostStaffId)?.department || t('common:unknown')}
                       </p>
                     </div>
                   </div>
@@ -2181,28 +2181,28 @@ export default function Dashboard() {
                 {/* Visit Timeline */}
                 <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
-                    ⏰ Visit Timeline
+                    {t('dashboard:modals.visitorDetails.timeline.title')}
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-variable">Check-in Time</span>
+                      <span className="text-sm font-medium text-variable">{t('dashboard:modals.visitorDetails.timeline.checkInTime')}</span>
                       <span className="text-lg font-mono">{formatTime(selectedVisitor.checkedInAt)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-variable">Duration on Site</span>
+                      <span className="text-sm font-medium text-variable">{t('dashboard:modals.visitorDetails.timeline.duration')}</span>
                       <span className="text-lg font-mono">
                         {(() => {
                           const minutes = Math.floor((Date.now() - new Date(selectedVisitor.checkedInAt).getTime()) / (1000 * 60));
                           const hours = Math.floor(minutes / 60);
                           const remainingMinutes = minutes % 60;
-                          return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
+                          return hours > 0 ? t('dashboard:hoursMinutes', { hours, minutes: remainingMinutes }) : t('dashboard:minutes', { count: remainingMinutes });
                         })()}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-variable">Expected Duration</span>
+                      <span className="text-sm font-medium text-variable">{t('dashboard:modals.visitorDetails.timeline.expectedDuration')}</span>
                       <span className="text-lg">
-                        {selectedVisitor.expectedDuration ? `${selectedVisitor.expectedDuration} minutes` : "Not specified"}
+                        {selectedVisitor.expectedDuration ? t('dashboard:minutes', { count: selectedVisitor.expectedDuration }) : t('dashboard:modals.visitorDetails.timeline.notSpecified')}
                       </span>
                     </div>
                   </div>
@@ -2211,18 +2211,18 @@ export default function Dashboard() {
                 {/* Visit Details */}
                 <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
-                    📋 Visit Details
+                    {t('dashboard:modals.visitorDetails.details.title')}
                   </h3>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-variable">Purpose of Visit</label>
+                      <label className="text-sm font-medium text-variable">{t('dashboard:modals.visitorDetails.details.purpose')}</label>
                       <p className="text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
-                        {selectedVisitor.purpose || "Not specified"}
+                        {selectedVisitor.purpose || t('dashboard:modals.visitorDetails.timeline.notSpecified')}
                       </p>
                     </div>
                     {selectedVisitor.notes && (
                       <div>
-                        <label className="text-sm font-medium text-variable">Additional Notes</label>
+                        <label className="text-sm font-medium text-variable">{t('dashboard:modals.visitorDetails.details.notes')}</label>
                         <p className="text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                           {selectedVisitor.notes}
                         </p>
@@ -2244,42 +2244,42 @@ export default function Dashboard() {
                     className="flex-1"
                     data-testid="button-call-visitor"
                   >
-                    📞 Call Visitor
+                    {t('dashboard:modals.visitorDetails.actions.callVisitor')}
                   </Button>
                   <Button 
                     onClick={async () => {
                       try {
                         const response = await apiRequest('POST', `/api/visitors/${selectedVisitor.id}/emergency-notify`, {
-                          urgencyReason: "Urgent Contact Required - Emergency Support"
+                          urgencyReason: t('dashboard:urgentContactRequired')
                         });
                         const result = await response.json();
                         
                         if (response.ok) {
-                          alert(`✅ Emergency notification sent to Reception!\n\nRecipient: ${result.recipient}\nVisitor: ${result.visitorName}\n\nReception will contact the visitor immediately.`);
+                          alert(`✅ ${t('common:emergencyNotify')}\n\nRecipient: ${result.recipient}\nVisitor: ${result.visitorName}\n\nReception will contact the visitor immediately.`);
                         } else {
-                          alert(`❌ Failed to send notification: ${result.message || result.error}`);
+                          alert(`❌ ${t('common:failedNotify', { message: result.message || result.error })}`);
                         }
                       } catch (error) {
                         console.error('Failed to send emergency notification:', error);
-                        alert('❌ Failed to send emergency notification. Please contact Reception directly.');
+                        alert(`❌ ${t('common:failedNotifyGeneric')}`);
                       }
                     }}
                     variant="outline"
                     className="flex-1 bg-orange-50 hover:bg-orange-100 border-orange-300"
                     data-testid="button-email-visitor"
                   >
-                    📧 Alert Reception
+                    {t('dashboard:modals.visitorDetails.actions.alertReception')}
                   </Button>
                   <Button 
                     onClick={() => {
                       // Staff phone numbers not available in current system
-                      alert('Staff phone numbers are not stored in the system. Contact them via email or through the office.');
+                      alert(t('common:staffPhoneNotStored'));
                     }}
                     variant="outline"
                     className="flex-1 opacity-50"
                     data-testid="button-call-host"
                   >
-                    📞 Call Host (N/A)
+                    {t('dashboard:callHostNotAvailable')}
                   </Button>
                 </div>
               </div>
@@ -2293,7 +2293,7 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-fixed">
               <HardHat className="text-orange-600" size={24} />
-              Contractors On-Site ({checkedInContractors?.length || 0})
+              {t('dashboard:modals.contractorsOnSite.title', { count: checkedInContractors?.length || 0 })}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
@@ -2311,10 +2311,10 @@ export default function Dashboard() {
                         {contractor.firstName} {contractor.lastName}
                       </div>
                       <div className="text-sm text-variable">
-                        {contractor.companyName || contractor.company || 'Company not specified'}
+                        {contractor.companyName || contractor.company || t('dashboard:modals.contractorsOnSite.noCompany')}
                       </div>
                       <div className="text-xs text-variable">
-                        Role: {contractor.role || 'General Contractor'} • Checked in: {contractor.checkedInAt ? formatDistanceToNow(new Date(contractor.checkedInAt), { addSuffix: true }) : 'Recently'}
+                        {t('dashboard:role')}: {contractor.role || t('dashboard:generalContractor')} • {t('common:checkedIn')}: {contractor.checkedInAt ? formatDistanceToNow(new Date(contractor.checkedInAt), { addSuffix: true }) : t('common:today')}
                       </div>
                     </div>
                   </div>
@@ -2327,13 +2327,13 @@ export default function Dashboard() {
                     data-testid={`checkout-contractor-${contractor.id}`}
                   >
                     <LogOut size={14} />
-                    Check Out
+                    {t('common:checkOut')}
                   </Button>
                 </div>
               ))
             ) : (
               <div className="text-center py-8 text-variable">
-                No contractors currently on-site
+                {t('dashboard:modals.contractorsOnSite.empty')}
               </div>
             )}
           </div>
@@ -2346,10 +2346,10 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-fixed">
               <UserCheck className="text-purple-600" size={24} />
-              Members On-Site ({checkedInMembers?.length || 0})
+              {t('dashboard:modals.membersOnSite.title', { count: checkedInMembers?.length || 0 })}
             </DialogTitle>
             <DialogDescription>
-              View and manage all members currently checked in on-site.
+              {t('dashboard:modals.membersOnSite.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
@@ -2367,10 +2367,10 @@ export default function Dashboard() {
                         {member.firstName} {member.lastName}
                       </div>
                       <div className="text-sm text-variable">
-                        {member.membershipType || 'Standard Member'}
+                        {member.membershipType || t('dashboard:modals.membersOnSite.standardMember')}
                       </div>
                       <div className="text-xs text-variable">
-                        {member.email && `${member.email} • `}Checked in: {member.checkedInAt ? formatDistanceToNow(new Date(member.checkedInAt), { addSuffix: true }) : 'Recently'}
+                        {member.email && `${member.email} • `}{t('common:checkedIn')}: {member.checkedInAt ? formatDistanceToNow(new Date(member.checkedInAt), { addSuffix: true }) : t('common:today')}
                       </div>
                     </div>
                   </div>
@@ -2383,13 +2383,13 @@ export default function Dashboard() {
                     data-testid={`checkout-member-${member.id}`}
                   >
                     <LogOut size={14} />
-                    Check Out
+                    {t('common:checkOut')}
                   </Button>
                 </div>
               ))
             ) : (
               <div className="text-center py-8 text-variable">
-                No members currently on-site
+                {t('dashboard:modals.membersOnSite.empty')}
               </div>
             )}
           </div>
@@ -2827,7 +2827,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-variable">Room</label>
+                    <label className="text-sm font-medium text-variable">{t('dashboard:receptionDiary.labels.room')}</label>
                     <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.roomName}
                     </p>
@@ -2951,17 +2951,17 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-variable">Room Name</span>
+                    <span className="text-sm font-medium text-variable">{t('dashboard:receptionDiary.labels.roomName')}</span>
                     <span className="text-base font-mono">{selectedMeetingBooking.roomName}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-variable">Capacity</span>
+                    <span className="text-sm font-medium text-variable">{t('dashboard:receptionDiary.labels.capacity')}</span>
                     <span className="text-base">
                       {meetingRooms?.find(room => room.name === selectedMeetingBooking.roomName)?.capacity || t('common:none')} {t('common:people')}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-variable">Equipment</span>
+                    <span className="text-sm font-medium text-variable">{t('dashboard:receptionDiary.labels.equipment')}</span>
                     <span className="text-base">
                       {t('dashboard:receptionDiary.standardSetup')}
                     </span>
@@ -2974,8 +2974,8 @@ export default function Dashboard() {
                 <Button 
                   onClick={() => {
                     toast({
-                      title: "Room Preparation Started",
-                      description: `✅ ${t('dashboard:receptionDiary.services.roomBooking')} cleaned ☑️ ${t('dashboard:receptionDiary.services.technical')} tested ☑️ Catering ordered ☑️ ${t('common:host')} notified`,
+                      title: t('dashboard:receptionDiary.roomPreparationStarted'),
+                      description: `✅ ${t('dashboard:receptionDiary.services.roomBooking')} ${t('common:cleaned')} ☑️ ${t('dashboard:receptionDiary.services.technical')} ${t('common:tested')} ☑️ ${t('dashboard:receptionDiary.services.meetingRefreshments')} ${t('common:confirmed')} ☑️ ${t('common:host')} ${t('common:notified')}`,
                     });
                   }}
                   className="flex-1"
@@ -2987,7 +2987,7 @@ export default function Dashboard() {
                   onClick={() => {
                     toast({
                       title: t('dashboard:receptionDiary.refreshmentServices'),
-                      description: `Catering ordered for ${selectedMeetingBooking.expectedAttendees || 'estimated'} attendees in ${selectedMeetingBooking.roomName}`,
+                      description: t('dashboard:receptionDiary.cateringOrderedDesc', { count: selectedMeetingBooking.expectedAttendees || t('common:unknown'), room: selectedMeetingBooking.roomName }),
                     });
                   }}
                   variant="outline"
@@ -2999,8 +2999,8 @@ export default function Dashboard() {
                 <Button 
                   onClick={() => {
                     toast({
-                      title: "Technical Check Completed",
-                      description: "✅ Projector working ☑️ WiFi strong ☑️ Video conferencing ready ☑️ All systems go",
+                      title: t('dashboard:receptionDiary.technicalCheckCompleted'),
+                      description: `✅ ${t('dashboard:receptionDiary.services.projector')} ${t('common:working')} ☑️ ${t('dashboard:receptionDiary.services.wifiAccess')} ${t('common:strong')} ☑️ ${t('dashboard:receptionDiary.services.videoConferencing')} ${t('common:ready')} ☑️ ${t('dashboard:receptionDiary.allSystemsGo')}`,
                     });
                   }}
                   variant="outline"
