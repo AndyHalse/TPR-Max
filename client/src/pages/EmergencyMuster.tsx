@@ -284,10 +284,13 @@ export default function EmergencyMuster() {
 
       ws.onopen = () => {
         setWsConnected(true);
+        const sessionToken = getSessionToken();
         ws.send(JSON.stringify({
           type: 'register',
           customerId: activeEvacuation?.customerId || '',
-          evacuationId: activeEvacuation?.evacuationId || 'muster-standby'
+          evacuationId: activeEvacuation?.evacuationId || 'muster-standby',
+          credential: sessionToken || '',
+          credentialType: 'session',
         }));
       };
 

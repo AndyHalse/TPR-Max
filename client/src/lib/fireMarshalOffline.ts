@@ -2,14 +2,18 @@ const DB_NAME = 'tpr-marshal-outbox';
 const DB_VERSION = 1;
 const STORE = 'outbox';
 
+export type OutboxKind = 'mark-safe' | 'mark-zone-safe' | 'note';
+
 export interface OutboxItem {
   id?: number;
-  personId: string;
+  kind?: OutboxKind;        // undefined / missing → treated as 'mark-safe' for backward compat
+  personId: string;         // '' for note items
   urlId: string;
   evacuationId: string | null;
   marshalName: string;
-  statusOption?: string;
-  markedAt: string;
+  statusOption?: string;    // for mark-safe with a status dropdown option
+  text?: string;            // for note items
+  markedAt: string;         // ISO string of when the marshal acted (not when synced)
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -101,7 +105,17 @@ export function registerFireMarshalSW(): void {
   }
 }
 
-export async function flushMarkSafeOutbox({
+/**
+ * Flush all queued outbox items in insertion order.
+ * Each item is dispatched to the correct endpoint based on its `kind`:
+ *   - 'mark-safe' / 'mark-zone-safe' → POST /api/emergency/mark-safe/:personId
+ *   - 'note'                         → POST /api/emergency/evacuation-note
+ *
+ * On success each item is removed from IndexedDB.
+ * On failure it is kept for the next flush attempt.
+ * Returns the number of items still remaining after the flush.
+ */
+export async function flushOutbox({
   urlId,
   marshalName,
   onSuccess,
@@ -115,27 +129,54 @@ export async function flushMarkSafeOutbox({
 
   let remaining = items.length;
   for (const item of items) {
+    const kind: OutboxKind = item.kind || 'mark-safe';
     try {
-      const res = await fetch(`/api/emergency/mark-safe/${item.personId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Fire-Marshal-Id': item.urlId || urlId,
-        },
-        body: JSON.stringify({
-          musterPoint: 'Safe Location',
-          evacuationId: item.evacuationId || 'standalone',
-          marshalName: item.marshalName || marshalName,
-          statusOption: item.statusOption,
-          markedAt: item.markedAt,
-        }),
-      });
-      if (res.ok && item.id !== undefined) {
+      let ok = false;
+      const marshalHeader = item.urlId || urlId;
+      const resolvedMarshal = item.marshalName || marshalName;
+
+      if (kind === 'mark-safe' || kind === 'mark-zone-safe') {
+        const res = await fetch(`/api/emergency/mark-safe/${item.personId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Fire-Marshal-Id': marshalHeader,
+          },
+          body: JSON.stringify({
+            musterPoint: 'Safe Location',
+            evacuationId: item.evacuationId || 'standalone',
+            marshalName: resolvedMarshal,
+            statusOption: item.statusOption,
+            markedAt: item.markedAt,    // server uses the time the marshal acted
+          }),
+        });
+        ok = res.ok;
+      } else if (kind === 'note') {
+        const res = await fetch('/api/emergency/evacuation-note', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Fire-Marshal-Id': marshalHeader,
+          },
+          body: JSON.stringify({
+            evacuationId: item.evacuationId,
+            noteText: item.text || '',
+            marshalName: resolvedMarshal,
+            markedAt: item.markedAt,    // original action timestamp
+          }),
+        });
+        ok = res.ok;
+      }
+
+      if (ok && item.id !== undefined) {
         await removeOutboxItem(item.id);
         remaining--;
         onSuccess(item.personId);
       }
-    } catch { /* keep for next attempt */ }
+    } catch { /* network error — keep for next attempt */ }
   }
   return remaining;
 }
+
+/** Backward-compat alias — existing call sites keep working. */
+export const flushMarkSafeOutbox = flushOutbox;

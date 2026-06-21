@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   addToOutbox,
-  flushMarkSafeOutbox,
+  flushOutbox,
   getOutboxCount,
   registerFireMarshalSW,
   clearMusterCache,
@@ -104,6 +104,13 @@ interface FireMarshalMobileProps {
   token?: string;
 }
 
+/** Fetch with an 8-second abort timeout — throws AbortError on timeout, TypeError on network down. */
+function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 8000): Promise<Response> {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
+}
+
 interface MarshalInfo {
   id: string;
   name: string;
@@ -146,6 +153,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [lastDataAt, setLastDataAt] = useState<Date | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isDataStale, setIsDataStale] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -154,7 +162,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Authenticate using static URL ID
   useEffect(() => {
     if (urlId) {
-      fetch(`/api/emergency/fire-marshal/${urlId}`)
+      fetchWithTimeout(`/api/emergency/fire-marshal/${urlId}`)
         .then(res => {
           if (!res.ok) throw new Error('Authentication failed');
           return res.json();
@@ -188,7 +196,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       setIsOnline(true);
       if (!urlId) return;
       try {
-        const remaining = await flushMarkSafeOutbox({
+        const remaining = await flushOutbox({
           urlId,
           marshalName: marshalName || marshalInfo?.name || 'Fire Marshal',
           onSuccess: () => {
@@ -212,6 +220,18 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     getOutboxCount().then(setPendingSyncCount).catch(() => {});
   }, []);
 
+  // Stale-data detection — amber banner when last successful poll was >15 s ago and online
+  useEffect(() => {
+    if (!isOnline) { setIsDataStale(false); return; }
+    const STALE_MS = 15_000;
+    const check = () => {
+      setIsDataStale(!!lastDataAt && Date.now() - lastDataAt.getTime() > STALE_MS);
+    };
+    check();
+    const id = setInterval(check, 5_000);
+    return () => clearInterval(id);
+  }, [lastDataAt, isOnline]);
+
   // WebSocket connection for real-time updates
   useEffect(() => {
     if (!marshalInfo?.customerId) return;
@@ -226,13 +246,19 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         ws.send(JSON.stringify({
           type: 'register',
           customerId: marshalInfo.customerId,
-          evacuationId: activeEvacuationId || 'fire-marshal-standalone'
+          evacuationId: activeEvacuationId || 'fire-marshal-standalone',
+          credential: urlId,
+          credentialType: 'fire-marshal',
         }));
       };
 
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          if (message.type === 'register_failed') {
+            setWsConnected(false);
+            return;
+          }
           if (message.type === 'muster_update') {
             // Silently patch the one person — no toast, no full list refetch
             if (message.personId !== undefined && message.isAccountedFor !== undefined) {
@@ -287,9 +313,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     enabled: !!urlId,
     refetchInterval: 5000,
     queryFn: async () => {
-      const response = await fetch(`/api/emergency/fire-marshal/${urlId}/personnel`);
+      const response = await fetchWithTimeout(`/api/emergency/fire-marshal/${urlId}/personnel`);
       if (!response.ok) throw new Error('Failed to fetch personnel data');
-      return response.json();
+      const data = await response.json();
+      setLastDataAt(new Date());
+      return data;
     }
   });
 
@@ -407,19 +435,31 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers["X-Emergency-Token"] = token;
       else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+      const markedAt = new Date().toISOString();
 
-      const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({
-          musterPoint: "Safe Location",
-          evacuationId: activeEvacuationId || 'standalone',
-          marshalName
-        })
-      });
-      if (!response.ok) throw new Error("Failed to mark person as safe");
-      return response.json();
+      try {
+        const response = await fetchWithTimeout(`/api/emergency/mark-safe/${personId}`, {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify({
+            musterPoint: "Safe Location",
+            evacuationId: activeEvacuationId || 'standalone',
+            marshalName,
+            markedAt,
+          }),
+        });
+        if (!response.ok) throw new Error("server");
+        return response.json();
+      } catch (err: any) {
+        // Network / timeout → queue for later sync
+        if ((err?.name === 'AbortError' || err instanceof TypeError) && urlId) {
+          await addToOutbox({ personId, urlId, evacuationId: activeEvacuationId, marshalName: marshalName || marshalInfo?.name || 'Fire Marshal', markedAt });
+          setPendingSyncCount(c => c + 1);
+          return { personId, queued: true, isAccountedFor: true };
+        }
+        throw err;
+      }
     },
     onMutate: async ({ personId }) => {
       // Cancel in-flight fetches so they don't clobber the optimistic state
@@ -495,19 +535,30 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       if (token) headers["X-Emergency-Token"] = token;
       else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
 
-      const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({
-          musterPoint: "Safe Location",
-          evacuationId: activeEvacuationId || 'standalone',
-          marshalName,
-          statusOption,
-        })
-      });
-      if (!response.ok) throw new Error("Failed to mark person as safe");
-      return response.json();
+      const markedAt = new Date().toISOString();
+      try {
+        const response = await fetchWithTimeout(`/api/emergency/mark-safe/${personId}`, {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify({
+            musterPoint: "Safe Location",
+            evacuationId: activeEvacuationId || 'standalone',
+            marshalName,
+            statusOption,
+            markedAt,
+          }),
+        });
+        if (!response.ok) throw new Error("server");
+        return response.json();
+      } catch (err: any) {
+        if ((err?.name === 'AbortError' || err instanceof TypeError) && urlId) {
+          await addToOutbox({ personId, urlId, evacuationId: activeEvacuationId, marshalName: marshalName || marshalInfo?.name || 'Fire Marshal', statusOption, markedAt });
+          setPendingSyncCount(c => c + 1);
+          return { personId, queued: true, isAccountedFor: true, statusOption };
+        }
+        throw err;
+      }
     },
     onMutate: async ({ personId, statusOption }) => {
       await queryClient.cancelQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
@@ -559,19 +610,43 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       const unaccounted = filteredPeople.filter((p: any) => !p.isAccountedFor);
       if (unaccounted.length === 0) return;
       const resolvedName = marshalName || marshalInfo?.name || 'Fire Marshal';
+      const markedAt = new Date().toISOString();
+
+      // Fast path: offline → queue all
+      if (!navigator.onLine && urlId) {
+        for (const person of unaccounted) {
+          await addToOutbox({ kind: 'mark-zone-safe', personId: person.id, urlId, evacuationId: activeEvacuationId, marshalName: resolvedName, markedAt });
+        }
+        setPendingSyncCount(c => c + unaccounted.length);
+        return;
+      }
+
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers["X-Emergency-Token"] = token;
       else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+
+      const failed: any[] = [];
       await Promise.all(
-        unaccounted.map((person: any) =>
-          fetch(`/api/emergency/mark-safe/${person.id}`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ marshalName: resolvedName, musterPoint: myZone?.name || 'Muster Point' }),
-            credentials: "include",
-          })
-        )
+        unaccounted.map(async (person: any) => {
+          try {
+            await fetchWithTimeout(`/api/emergency/mark-safe/${person.id}`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ marshalName: resolvedName, musterPoint: myZone?.name || 'Muster Point', markedAt }),
+              credentials: "include",
+            });
+          } catch {
+            failed.push(person);
+          }
+        })
       );
+
+      if (failed.length > 0 && urlId) {
+        for (const person of failed) {
+          await addToOutbox({ kind: 'mark-zone-safe', personId: person.id, urlId, evacuationId: activeEvacuationId, marshalName: resolvedName, markedAt });
+        }
+        setPendingSyncCount(c => c + failed.length);
+      }
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
@@ -711,17 +786,38 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // ── Add Note mutation (FM auth)
   const addNoteMutation = useMutation({
     mutationFn: async (text: string) => {
+      const markedAt = new Date().toISOString();
+      const resolvedMarshal = marshalName || marshalInfo?.name || 'Fire Marshal';
+
+      // Fast path: offline → queue
+      if (!navigator.onLine && urlId) {
+        await addToOutbox({ kind: 'note', personId: '', urlId, evacuationId: activeEvacuationId, marshalName: resolvedMarshal, text, markedAt });
+        setPendingSyncCount(c => c + 1);
+        return { queued: true };
+      }
+
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers["X-Emergency-Token"] = token;
       else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
-      const response = await fetch("/api/emergency/evacuation-note", {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({ evacuationId: activeEvacuationId, noteText: text }),
-      });
-      if (!response.ok) throw new Error("Failed to save note");
-      return response.json();
+
+      try {
+        const response = await fetchWithTimeout("/api/emergency/evacuation-note", {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify({ evacuationId: activeEvacuationId, noteText: text, markedAt }),
+        });
+        if (!response.ok) throw new Error("server");
+        return response.json();
+      } catch (err: any) {
+        // Network / timeout → queue for later sync
+        if ((err?.name === 'AbortError' || err instanceof TypeError) && urlId) {
+          await addToOutbox({ kind: 'note', personId: '', urlId, evacuationId: activeEvacuationId, marshalName: resolvedMarshal, text, markedAt });
+          setPendingSyncCount(c => c + 1);
+          return { queued: true };
+        }
+        throw err;
+      }
     },
     onSuccess: () => {
       toast({ title: "Note saved", description: "Added to the incident report." });
@@ -844,6 +940,19 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       className={`min-h-screen pb-24 overflow-x-hidden w-full max-w-full ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}
       onClick={() => { if (openDropdownId) { setOpenDropdownId(null); setDropdownPos(null); } }}
     >
+
+      {/* ── Stale data banner (online but polls failing >15s) ───────── */}
+      {isOnline && isDataStale && pendingSyncCount === 0 && (
+        <div className="sticky top-0 z-40 flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-amber-400 text-amber-900 shadow-sm">
+          <AlertTriangle className="flex-shrink-0 w-4 h-4" />
+          <span>
+            Data may be out of date
+            {lastDataAt
+              ? ` — last updated ${Math.round((Date.now() - lastDataAt.getTime()) / 1000)}s ago`
+              : ''}
+          </span>
+        </div>
+      )}
 
       {/* ── Offline / Sync-pending banner ──────────────────────────────── */}
       {(!isOnline || pendingSyncCount > 0) && (

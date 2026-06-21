@@ -243,12 +243,22 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
 
       ws.onopen = () => {
         setWsConnected(true);
-        ws.send(JSON.stringify({ type: 'register', customerId, evacuationId }));
+        ws.send(JSON.stringify({
+          type: 'register',
+          customerId,
+          evacuationId,
+          credential: token,
+          credentialType: 'emergency-token',
+        }));
       };
 
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          if (message.type === 'register_failed') {
+            setWsConnected(false);
+            return;
+          }
           if (message.type === 'muster_update') {
             queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';

@@ -88,9 +88,19 @@ export default function IncidentMonitor({ evacuationId, customerId }: IncidentMo
     const host = window.location.host;
     const ws = new WebSocket(`${protocol}//${host}/ws/muster`);
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'register', customerId, evacuationId }));
+      ws.send(JSON.stringify({
+        type: 'register',
+        customerId,
+        evacuationId,
+        credential: evacuationId,
+        credentialType: 'monitor',
+      }));
     };
-    ws.onmessage = () => {
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'register_failed') return; // read-only; silently ignore
+      } catch { /* ignore */ }
       refetch();
     };
     wsRef.current = ws;
