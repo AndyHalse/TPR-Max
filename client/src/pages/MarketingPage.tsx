@@ -278,6 +278,14 @@ export default function MarketingPage() {
               >
                 Contact
               </button>
+              <button
+                onClick={() => window.location.href = "/tpr-video"}
+                className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9] font-medium"
+                data-testid="link-tpr-video"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" />
+                TPR Video
+              </button>
               <Button
                 size="sm"
                 onClick={() => scrollToSection("contact")}
@@ -357,6 +365,13 @@ export default function MarketingPage() {
                 className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
               >
                 Contact
+              </button>
+              <button
+                onClick={() => { window.location.href = "/tpr-video"; }}
+                className="flex items-center gap-2 w-full text-left px-4 py-2 text-[#2460A9] font-medium hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
+              >
+                <Play className="h-4 w-4 fill-current" />
+                TPR Video
               </button>
               <div className="px-4 flex flex-col gap-2">
                 <Button

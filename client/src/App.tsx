@@ -46,6 +46,7 @@ import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
 import ContractorDocumentUpload from "@/pages/ContractorDocumentUpload";
 import WorkerDocumentUpload from "@/pages/WorkerDocumentUpload";
 import MarketingPage from "@/pages/MarketingPage";
+import TprVideoPage from "@/pages/TprVideoPage";
 import BlogListPage from "@/pages/BlogListPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import AboutPage from "@/pages/AboutPage";
@@ -353,6 +354,11 @@ function Router() {
   // Public marketing page - no authentication required
   if (window.location.pathname === '/marketing') {
     return <MarketingPage />;
+  }
+
+  // Public TPR brand video page - no authentication required
+  if (window.location.pathname === '/tpr-video') {
+    return <TprVideoPage />;
   }
 
   // Public about page - no authentication required
