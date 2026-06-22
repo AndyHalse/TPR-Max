@@ -4,10 +4,10 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import sgMail from '@sendgrid/mail';
-import { eq, sql, desc, and, gte } from 'drizzle-orm';
+import { eq, sql, desc, and, gte, isNull, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { requirePlatformAdmin, requireSuperAdmin } from '../auth';
-import { CustomerDatabaseService } from '../customerDatabase';
+import { CustomerDatabaseService, customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { db } from '../db';
 import * as sharedSchema from '@shared/schema';
@@ -421,11 +421,22 @@ export function registerPlatformAdminRoutes(app: Express): void {
       }
       
       logger.info(`Customer provisioned successfully by platform admin: ${result.customer.companyName}`);
+
+      // Optionally flag as enterprise at creation time
+      const isEnterpriseFlagSet = req.body.isEnterprise === true;
+      if (isEnterpriseFlagSet) {
+        await db.update(sharedSchema.customers)
+          .set({ isEnterprise: true, updatedAt: sql`NOW()` })
+          .where(eq(sharedSchema.customers.id, result.customerId));
+        const adminId = req.session.platformAdminId!;
+        const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+        await writeAudit({ adminId, adminUsername: adminRow?.username ?? 'unknown', action: 'customer.enterprise_enable', targetType: 'customer', targetId: result.customerId, targetLabel: result.customer.companyName, details: { setAtCreation: true } });
+      }
       
       res.status(201).json({
         success: true,
         message: 'Customer provisioned successfully',
-        customer: result.customer,
+        customer: { ...result.customer, isEnterprise: isEnterpriseFlagSet || false },
         adminUser: result.adminUser,
         loginUrl: result.loginUrl,
       });
@@ -511,6 +522,9 @@ export function registerPlatformAdminRoutes(app: Express): void {
           onboardingCompleted: customer.onboardingCompleted,
           maxVisitorsPerMonth: customer.maxVisitorsPerMonth,
           stripeCustomerId: customer.stripeCustomerId,
+          isEnterprise: customer.isEnterprise,
+          enterpriseGroupId: customer.enterpriseGroupId,
+          enterpriseRole: customer.enterpriseRole,
           createdAt: customer.createdAt,
           updatedAt: customer.updatedAt,
           deletedAt: customer.deletedAt,
@@ -793,6 +807,122 @@ export function registerPlatformAdminRoutes(app: Express): void {
         success: false,
         error: 'Failed to update customer'
       });
+    }
+  });
+
+  // ============================================
+  // PLATFORM ADMIN ENTERPRISE MANAGEMENT
+  // ============================================
+
+  /**
+   * List all enterprise groups.
+   */
+  app.get('/platform-admin/enterprise-groups', requirePlatformAdmin, async (req, res) => {
+    try {
+      const groups = await db
+        .select()
+        .from(sharedSchema.enterpriseGroups)
+        .orderBy(sharedSchema.enterpriseGroups.name);
+      return res.json({ success: true, groups });
+    } catch (err) {
+      logger.error('Error fetching enterprise groups:', err);
+      return res.status(500).json({ success: false, error: 'Failed to fetch enterprise groups' });
+    }
+  });
+
+  /**
+   * Create a new enterprise group. Super admin only.
+   */
+  app.post('/platform-admin/enterprise-groups', requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+        slug: z.string().trim().min(2).max(50).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, or hyphens'),
+        contactEmail: z.string().trim().email().optional().nullable(),
+      });
+      const body = schema.parse(req.body);
+      const [group] = await db.insert(sharedSchema.enterpriseGroups).values({ ...body }).returning();
+      const adminId = req.session.platformAdminId!;
+      const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+      await writeAudit({ adminId, adminUsername: adminRow?.username ?? 'unknown', action: 'enterprise_group.create', targetType: 'enterprise_group', targetId: group.id, targetLabel: group.name });
+      return res.status(201).json({ success: true, group });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ success: false, error: err.errors[0]?.message ?? 'Invalid data' });
+      logger.error('Error creating enterprise group:', err);
+      return res.status(500).json({ success: false, error: 'Failed to create enterprise group' });
+    }
+  });
+
+  /**
+   * Set or clear the enterprise flag on a customer. Audited.
+   */
+  app.patch('/platform-admin/customers/:customerId/enterprise', requirePlatformAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        isEnterprise: z.boolean(),
+        enterpriseGroupId: z.string().nullable().optional(),
+      });
+      const { isEnterprise, enterpriseGroupId = null } = schema.parse(req.body);
+      const { customerId } = req.params;
+
+      if (isEnterprise && enterpriseGroupId) {
+        const [grp] = await db.select({ id: sharedSchema.enterpriseGroups.id }).from(sharedSchema.enterpriseGroups).where(eq(sharedSchema.enterpriseGroups.id, enterpriseGroupId)).limit(1);
+        if (!grp) return res.status(400).json({ success: false, error: 'Enterprise group not found' });
+      }
+
+      const [updated] = await db.update(sharedSchema.customers)
+        .set({ isEnterprise, enterpriseGroupId: isEnterprise ? (enterpriseGroupId ?? null) : null, updatedAt: sql`NOW()` })
+        .where(eq(sharedSchema.customers.id, customerId))
+        .returning();
+
+      if (!updated) return res.status(404).json({ success: false, error: 'Customer not found' });
+
+      const adminId = req.session.platformAdminId!;
+      const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+      await writeAudit({
+        adminId, adminUsername: adminRow?.username ?? 'unknown',
+        action: isEnterprise ? 'customer.enterprise_enable' : 'customer.enterprise_disable',
+        targetType: 'customer', targetId: customerId, targetLabel: updated.companyName,
+        details: { isEnterprise, enterpriseGroupId },
+      });
+
+      return res.json({ success: true, customer: updated });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ success: false, error: 'Invalid request data' });
+      logger.error('Error updating enterprise flag:', err);
+      return res.status(500).json({ success: false, error: 'Failed to update enterprise flag' });
+    }
+  });
+
+  /**
+   * Get enterprise stats (site count + latest estate compliance score) for a single customer.
+   */
+  app.get('/platform-admin/customers/:customerId/enterprise-stats', requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const [siteRow] = await custDb
+        .select({ count: sql<number>`count(*)::int` })
+        .from(isolatedSchema.sites)
+        .where(ne(isolatedSchema.sites.status, 'archived'));
+
+      const [snapshotRow] = await custDb
+        .select({ score: isolatedSchema.complianceSnapshots.overallScore, date: isolatedSchema.complianceSnapshots.date })
+        .from(isolatedSchema.complianceSnapshots)
+        .where(isNull(isolatedSchema.complianceSnapshots.siteId))
+        .orderBy(desc(isolatedSchema.complianceSnapshots.date))
+        .limit(1);
+
+      return res.json({
+        success: true,
+        siteCount: Number(siteRow?.count ?? 0),
+        complianceScore: snapshotRow?.score ?? null,
+        complianceDate: snapshotRow?.date ?? null,
+      });
+    } catch (err) {
+      logger.error(`Error fetching enterprise stats for customer ${req.params.customerId}:`, err);
+      return res.json({ success: true, siteCount: 0, complianceScore: null, complianceDate: null });
     }
   });
 

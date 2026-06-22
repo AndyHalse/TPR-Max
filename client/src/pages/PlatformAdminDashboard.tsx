@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug, TrendingUp, RotateCcw, FlameKindling, ClipboardList } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug, TrendingUp, RotateCcw, FlameKindling, ClipboardList, Layers, Star } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -35,10 +36,22 @@ interface Customer {
   onboardingCompleted: boolean;
   maxVisitorsPerMonth: number;
   stripeCustomerId: string | null;
+  isEnterprise: boolean;
+  enterpriseGroupId: string | null;
+  enterpriseRole: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
   deletedBy?: string | null;
+}
+
+interface EnterpriseGroup {
+  id: string;
+  name: string;
+  slug: string;
+  contactEmail: string | null;
+  isActive: boolean;
+  createdAt: string;
 }
 
 interface AuditRow {
@@ -161,6 +174,210 @@ function AuditLogTab() {
   );
 }
 
+function EnterpriseSettingsDialog({
+  customer,
+  groups,
+  open,
+  onOpenChange,
+  onSuccess,
+  isSuperAdmin,
+}: {
+  customer: Customer | null;
+  groups: EnterpriseGroup[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+  isSuperAdmin: boolean;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isEnterprise, setIsEnterprise] = useState(customer?.isEnterprise ?? false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(customer?.enterpriseGroupId ?? '');
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupSlug, setNewGroupSlug] = useState('');
+  const [newGroupEmail, setNewGroupEmail] = useState('');
+
+  // Sync local state when the customer prop changes
+  useEffect(() => {
+    setIsEnterprise(customer?.isEnterprise ?? false);
+    setSelectedGroupId(customer?.enterpriseGroupId ?? '');
+    setShowCreateGroup(false);
+    setNewGroupName('');
+    setNewGroupSlug('');
+    setNewGroupEmail('');
+  }, [customer?.id, open]);
+
+  const { data: statsData } = useQuery<{ success: boolean; siteCount: number; complianceScore: number | null; complianceDate: string | null }>({
+    queryKey: ['/platform-admin/customers', customer?.id, 'enterprise-stats'],
+    queryFn: async () => {
+      const res = await fetch(`/platform-admin/customers/${customer?.id}/enterprise-stats`, { credentials: 'include' });
+      return res.json();
+    },
+    enabled: open && !!customer?.id && !!customer?.isEnterprise,
+  });
+
+  const flagMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('PATCH', `/platform-admin/customers/${customer?.id}/enterprise`, {
+        isEnterprise,
+        enterpriseGroupId: (isEnterprise && selectedGroupId) ? selectedGroupId : null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/platform-admin/customers'] });
+      onSuccess();
+      onOpenChange(false);
+      toast({ title: 'Saved', description: `${customer?.companyName} enterprise status updated.` });
+    },
+    onError: (e: any) => {
+      toast({ title: 'Failed to save', description: e.message, variant: 'destructive' });
+    },
+  });
+
+  const createGroupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/platform-admin/enterprise-groups', {
+        name: newGroupName.trim(),
+        slug: newGroupSlug.trim(),
+        contactEmail: newGroupEmail.trim() || null,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/platform-admin/enterprise-groups'] });
+      setSelectedGroupId(data.group.id);
+      setShowCreateGroup(false);
+      setNewGroupName(''); setNewGroupSlug(''); setNewGroupEmail('');
+      toast({ title: 'Group created', description: `"${data.group.name}" ready to use.` });
+    },
+    onError: (e: any) => {
+      toast({ title: 'Failed to create group', description: e.message, variant: 'destructive' });
+    },
+  });
+
+  function autoSlug(name: string) {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function scoreColor(s: number | null) {
+    if (s == null) return 'text-slate-400';
+    if (s >= 80) return 'text-green-600';
+    if (s >= 50) return 'text-amber-600';
+    return 'text-red-600';
+  }
+
+  if (!customer) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-blue-600" />
+            Enterprise Settings — {customer.companyName}
+          </DialogTitle>
+          <DialogDescription>
+            Flag this customer as an enterprise account and optionally assign them to a group.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label className="font-medium">Enterprise customer</Label>
+              <p className="text-xs text-gray-500 mt-0.5">Enables multi-site management, compliance dashboard, and estate reporting.</p>
+            </div>
+            <Switch checked={isEnterprise} onCheckedChange={setIsEnterprise} />
+          </div>
+
+          {isEnterprise && (
+            <div className="space-y-2">
+              <Label>Enterprise group <span className="text-gray-400 font-normal">(optional)</span></Label>
+              {!showCreateGroup ? (
+                <div className="flex gap-2">
+                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="None (standalone enterprise)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None (standalone)</SelectItem>
+                      {groups.map(g => (
+                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isSuperAdmin && (
+                    <Button variant="outline" size="icon" title="Create new group" onClick={() => setShowCreateGroup(true)}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border p-3 space-y-2 bg-slate-50 dark:bg-slate-900">
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">New enterprise group</p>
+                  <Input
+                    placeholder="Group name (e.g. Cowiesburn Ltd)"
+                    value={newGroupName}
+                    onChange={e => { setNewGroupName(e.target.value); if (!newGroupSlug || newGroupSlug === autoSlug(newGroupName)) setNewGroupSlug(autoSlug(e.target.value)); }}
+                  />
+                  <Input
+                    placeholder="Slug (e.g. cowiesburn-ltd)"
+                    value={newGroupSlug}
+                    onChange={e => setNewGroupSlug(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Contact email (optional)"
+                    type="email"
+                    value={newGroupEmail}
+                    onChange={e => setNewGroupEmail(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => createGroupMutation.mutate()} disabled={!newGroupName.trim() || !newGroupSlug.trim() || createGroupMutation.isPending}>
+                      {createGroupMutation.isPending ? 'Creating…' : 'Create group'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setShowCreateGroup(false)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-gray-400">Groups let you organise multiple enterprise customers (e.g. subsidiaries of the same parent) together.</p>
+            </div>
+          )}
+
+          {customer.isEnterprise && statsData?.success && (
+            <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Current stats</p>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Active sites</span>
+                <span className="font-semibold">{statsData.siteCount}</span>
+              </div>
+              {statsData.complianceScore !== null && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Estate compliance score</span>
+                    <span className={`font-semibold ${scoreColor(statsData.complianceScore)}`}>{statsData.complianceScore} / 100</span>
+                  </div>
+                  {statsData.complianceDate && (
+                    <p className="text-xs text-slate-400">Score as at {statsData.complianceDate.split('-').reverse().join('/')}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={() => flagMutation.mutate()} disabled={flagMutation.isPending}>
+            {flagMutation.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PlatformAdminDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -173,6 +390,7 @@ export default function PlatformAdminDashboard() {
   const [purgingCustomer, setPurgingCustomer] = useState<Customer | null>(null);
   const [purgeConfirmText, setPurgeConfirmText] = useState('');
   const [showDeletedCustomers, setShowDeletedCustomers] = useState(false);
+  const [enterpriseCustomer, setEnterpriseCustomer] = useState<Customer | null>(null);
 
   // Blog state
   const [showBlogForm, setShowBlogForm] = useState(false);
@@ -243,6 +461,17 @@ export default function PlatformAdminDashboard() {
   });
 
   const customers = customersData?.customers || [];
+
+  // Fetch enterprise groups (for the enterprise settings dialog)
+  const { data: enterpriseGroupsData } = useQuery<{ success: boolean; groups: EnterpriseGroup[] }>({
+    queryKey: ['/platform-admin/enterprise-groups'],
+    queryFn: async () => {
+      const res = await fetch('/platform-admin/enterprise-groups', { credentials: 'include' });
+      return res.json();
+    },
+    enabled: !!admin,
+  });
+  const enterpriseGroups = enterpriseGroupsData?.groups ?? [];
 
   // Logout mutation
   const logoutMutation = useMutation({
@@ -948,7 +1177,7 @@ export default function PlatformAdminDashboard() {
 
           <TabsContent value="customers">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Customers</CardDescription>
@@ -989,6 +1218,17 @@ export default function PlatformAdminDashboard() {
             </CardHeader>
             <CardContent>
               <CheckCircle2 className="w-4 h-4 text-blue-400" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Enterprise</CardDescription>
+              <CardTitle className="text-3xl text-purple-600">
+                {customers.filter(c => c.isEnterprise).length}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Layers className="w-4 h-4 text-purple-400" />
             </CardContent>
           </Card>
         </div>
@@ -1053,6 +1293,11 @@ export default function PlatformAdminDashboard() {
                         {customer.onboardingCompleted && (
                           <Badge variant="outline" className="text-blue-700 border-blue-300">Onboarded</Badge>
                         )}
+                        {customer.isEnterprise && (
+                          <Badge variant="outline" className="text-purple-700 border-purple-300 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-700">
+                            <Layers className="w-3 h-3 mr-1" />Enterprise
+                          </Badge>
+                        )}
                         {customer.deletedAt && (
                           <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Deleted</Badge>
                         )}
@@ -1082,6 +1327,16 @@ export default function PlatformAdminDashboard() {
                       >
                         <Edit className="w-3 h-3 mr-1" />
                         Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEnterpriseCustomer(customer)}
+                        data-testid={`button-enterprise-${customer.id}`}
+                        className={customer.isEnterprise ? "text-purple-700 border-purple-300" : ""}
+                      >
+                        <Layers className="w-3 h-3 mr-1" />
+                        Enterprise
                       </Button>
                       <Button
                         variant="outline"
@@ -1492,6 +1747,18 @@ export default function PlatformAdminDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Enterprise Settings Dialog */}
+      <EnterpriseSettingsDialog
+        customer={enterpriseCustomer}
+        groups={enterpriseGroups}
+        open={!!enterpriseCustomer}
+        onOpenChange={(open) => { if (!open) setEnterpriseCustomer(null); }}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['/platform-admin/customers'] });
+        }}
+        isSuperAdmin={isSuperAdmin}
+      />
 
       {/* Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={(open) => { setShowSettings(open); if (!open) { setShowAddAdmin(false); setEditingAdmin(null); } }}>

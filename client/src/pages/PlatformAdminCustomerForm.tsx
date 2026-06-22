@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Layers } from "lucide-react";
 
 interface PlatformAdminCustomerFormProps {
   onSuccess: () => void;
@@ -27,6 +28,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
     trialDays: 14,
     timezone: "Europe/London",
     currency: "GBP",
+    isEnterprise: false,
   });
 
   const [createdCustomer, setCreatedCustomer] = useState<any>(null);
@@ -211,6 +213,24 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
               required
             />
           </div>
+        </div>
+      </div>
+
+      {/* Enterprise Option */}
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold">Enterprise</h3>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label className="font-medium flex items-center gap-2">
+              <Layers className="w-4 h-4 text-purple-600" />
+              Enterprise customer
+            </Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Enables multi-site management, compliance dashboard, and estate reporting.</p>
+          </div>
+          <Switch
+            checked={formData.isEnterprise}
+            onCheckedChange={(v) => handleChange("isEnterprise", v)}
+          />
         </div>
       </div>
 
