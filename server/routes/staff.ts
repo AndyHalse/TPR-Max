@@ -697,8 +697,13 @@ export function registerStaffRoutes(app: Express): void {
 
   app.post("/api/staff/remove-duplicates", requireAuth, async (req, res) => {
     try {
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      // Use req.customerId directly — createCustomerContext ignores username when
+      // sessionCustomerId is supplied, so accessing req.user!.username was unnecessary
+      // and would crash if req.user was not populated (e.g. Bearer-token DB lookup failure).
+      if (!req.customerId) {
+        return res.status(401).json({ error: "No customer context — please log in again" });
+      }
+      const context = { customerId: req.customerId };
 
       const allStaff = await databaseService.getAllStaff(context);
 
@@ -732,8 +737,8 @@ export function registerStaffRoutes(app: Express): void {
 
       res.json({ success: true, removed, duplicateNames });
     } catch (error: any) {
-      logger.error("Failed to remove duplicate staff:", error?.message || error);
-      res.status(500).json({ error: "Failed to remove duplicates" });
+      logger.error("Failed to remove duplicate staff:", error?.message || error, error?.stack);
+      res.status(500).json({ error: "Failed to remove duplicates", detail: error?.message });
     }
   });
 
