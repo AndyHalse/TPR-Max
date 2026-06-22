@@ -184,6 +184,8 @@ export default function StaffManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showRemoveDuplicatesConfirm, setShowRemoveDuplicatesConfirm] = useState(false);
+  const [removeDuplicatesResult, setRemoveDuplicatesResult] = useState<{ removed: number; duplicateNames: string[] } | null>(null);
   const [viewingStaff, setViewingStaff] = useState<Staff | null>(null);
   const [qrPassStaff, setQrPassStaff] = useState<Staff | null>(null);
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; staffName: string } | null>(null);
@@ -235,6 +237,21 @@ export default function StaffManagement() {
         description: t('failedToDelete'),
         variant: "destructive",
       });
+    },
+  });
+
+  const removeDuplicatesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/staff/remove-duplicates");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      setShowRemoveDuplicatesConfirm(false);
+      setRemoveDuplicatesResult(data);
+    },
+    onError: () => {
+      toast({ title: t('common:error'), description: "Failed to remove duplicates", variant: "destructive" });
     },
   });
 
@@ -878,6 +895,16 @@ export default function StaffManagement() {
           <h2 className="text-xl sm:text-2xl font-bold text-fixed">{t('title')}</h2>
           <div className="flex items-center gap-2">
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRemoveDuplicatesConfirm(true)}
+              className="hidden sm:flex items-center gap-1.5 text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+              title="Remove duplicate staff records"
+            >
+              <Trash2 size={13} />
+              Remove Duplicates
+            </Button>
+            <Button
               onClick={() => setShowQRScanner(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
               title={t('common:scanQrFull')}
@@ -1338,6 +1365,65 @@ export default function StaffManagement() {
             <Button variant="outline" onClick={() => { setQrPassStaff(null); setQrPassData(null); }}>
               {t('common:close')}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Duplicates — confirmation */}
+      <Dialog open={showRemoveDuplicatesConfirm} onOpenChange={setShowRemoveDuplicatesConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 size={18} className="text-orange-500" />
+              Remove Duplicate Staff
+            </DialogTitle>
+            <DialogDescription>
+              This will scan all staff records and permanently delete any duplicates that share the same first and last name — keeping the oldest record for each person.
+              <br /><br />
+              <strong>This cannot be undone.</strong> Are you sure you want to continue?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowRemoveDuplicatesConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => removeDuplicatesMutation.mutate()}
+              disabled={removeDuplicatesMutation.isPending}
+            >
+              {removeDuplicatesMutation.isPending ? (
+                <><Loader2 size={14} className="mr-1.5 animate-spin" /> Removing…</>
+              ) : "Yes, Remove Duplicates"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Duplicates — results */}
+      <Dialog open={!!removeDuplicatesResult} onOpenChange={(open) => { if (!open) setRemoveDuplicatesResult(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Duplicates Removed</DialogTitle>
+            <DialogDescription>
+              {removeDuplicatesResult?.removed === 0
+                ? "No duplicate staff records were found."
+                : `${removeDuplicatesResult?.removed} duplicate record${(removeDuplicatesResult?.removed ?? 0) > 1 ? 's' : ''} removed.`}
+            </DialogDescription>
+          </DialogHeader>
+          {(removeDuplicatesResult?.duplicateNames?.length ?? 0) > 0 && (
+            <div className="text-sm text-muted-foreground space-y-1 max-h-48 overflow-y-auto">
+              <p className="font-medium text-foreground mb-1">Affected names:</p>
+              {removeDuplicatesResult!.duplicateNames.map((name, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setRemoveDuplicatesResult(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

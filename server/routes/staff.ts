@@ -695,6 +695,48 @@ export function registerStaffRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/staff/remove-duplicates", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const allStaff = await databaseService.getAllStaff(context);
+
+      // Group by normalised full name
+      const groups = new Map<string, typeof allStaff>();
+      for (const member of allStaff) {
+        const key = `${(member.firstName || '').trim().toLowerCase()} ${(member.lastName || '').trim().toLowerCase()}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(member);
+      }
+
+      const duplicateNames: string[] = [];
+      let removed = 0;
+
+      for (const [, members] of groups) {
+        if (members.length <= 1) continue;
+        // Sort so the oldest record (lowest id / earliest createdAt) is kept
+        const sorted = members.slice().sort((a, b) => {
+          if (a.createdAt && b.createdAt) {
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          }
+          return String(a.id).localeCompare(String(b.id));
+        });
+        const [keep, ...toDelete] = sorted;
+        duplicateNames.push(`${keep.firstName} ${keep.lastName}`);
+        for (const dup of toDelete) {
+          await databaseService.deleteStaff(context, String(dup.id));
+          removed++;
+        }
+      }
+
+      res.json({ success: true, removed, duplicateNames });
+    } catch (error: any) {
+      logger.error("Failed to remove duplicate staff:", error?.message || error);
+      res.status(500).json({ error: "Failed to remove duplicates" });
+    }
+  });
+
   app.delete("/api/staff/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
