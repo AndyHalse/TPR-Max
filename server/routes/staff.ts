@@ -697,9 +697,6 @@ export function registerStaffRoutes(app: Express): void {
 
   app.post("/api/staff/remove-duplicates", requireAuth, async (req, res) => {
     try {
-      // Use req.customerId directly — createCustomerContext ignores username when
-      // sessionCustomerId is supplied, so accessing req.user!.username was unnecessary
-      // and would crash if req.user was not populated (e.g. Bearer-token DB lookup failure).
       if (!req.customerId) {
         return res.status(401).json({ error: "No customer context — please log in again" });
       }
@@ -718,9 +715,15 @@ export function registerStaffRoutes(app: Express): void {
       const duplicateNames: string[] = [];
       let removed = 0;
 
+      // Get raw pool + schema name for FK-safe raw SQL deletion (avoids Drizzle
+      // safeDelete edge cases where error.message is undefined and gets rethrown)
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+
       for (const [, members] of groups) {
         if (members.length <= 1) continue;
-        // Sort so the oldest record (lowest id / earliest createdAt) is kept
+        // Sort so the oldest record (earliest createdAt) is kept
         const sorted = members.slice().sort((a, b) => {
           if (a.createdAt && b.createdAt) {
             return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -729,16 +732,33 @@ export function registerStaffRoutes(app: Express): void {
         });
         const [keep, ...toDelete] = sorted;
         duplicateNames.push(`${keep.firstName} ${keep.lastName}`);
+
         for (const dup of toDelete) {
-          await databaseService.deleteStaff(context, String(dup.id));
+          const dupId = String(dup.id);
+          // 1. Null out self-referential line_manager_id before deleting
+          await pool.query(`UPDATE "${schemaName}".staff SET line_manager_id = NULL WHERE line_manager_id = $1`, [dupId]).catch(() => {});
+          // 2. Null out host FK references in visitor/booking tables
+          for (const t of ['visitors', 'visitor_history', 'pre_bookings', 'contractor_visits']) {
+            await pool.query(`UPDATE "${schemaName}".${t} SET host_staff_id = NULL WHERE host_staff_id = $1`, [dupId]).catch(() => {});
+          }
+          await pool.query(`UPDATE "${schemaName}".room_bookings SET booked_by_staff_id = NULL WHERE booked_by_staff_id = $1`, [dupId]).catch(() => {});
+          // 3. Delete rows with direct FK to staff (non-CASCADE tables)
+          for (const t of ['staff_sessions', 'staff_attendance_history', 'room_booking_attendees']) {
+            await pool.query(`DELETE FROM "${schemaName}".${t} WHERE staff_id = $1`, [dupId]).catch(() => {});
+          }
+          // 4. Delete the staff record — PostgreSQL CASCADE handles HR tables automatically
+          //    (right_to_work, leave_requests, absence_records, staff_training_records,
+          //     staff_documents, appraisals, onboarding_checklists, leaver_checklists all
+          //     use ON DELETE CASCADE)
+          await pool.query(`DELETE FROM "${schemaName}".staff WHERE id = $1`, [dupId]);
           removed++;
         }
       }
 
       res.json({ success: true, removed, duplicateNames });
     } catch (error: any) {
-      logger.error("Failed to remove duplicate staff:", error?.message || error, error?.stack);
-      res.status(500).json({ error: "Failed to remove duplicates", detail: error?.message });
+      logger.error({ err: error?.message, code: error?.code, stack: error?.stack }, "Failed to remove duplicate staff");
+      res.status(500).json({ error: "Failed to remove duplicates", detail: error?.message ?? String(error) });
     }
   });
 

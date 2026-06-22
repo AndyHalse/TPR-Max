@@ -2671,7 +2671,7 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           await pool.query(`UPDATE "${schemaName}".staff SET line_manager_id = NULL WHERE id IN (${sP})`, staffIds);
         } catch (e) { logger.warn(`Clear sample: staff.line_manager_id clear — ${(e as any).message}`); }
 
-        for (const t of ['right_to_work','staff_dbs','leave_requests','absence_records','staff_training_records','staff_documents','appraisals','onboarding_checklists','leaver_checklists','staff_sessions']) {
+        for (const t of ['right_to_work','staff_dbs','leave_requests','absence_records','staff_training_records','staff_documents','appraisals','onboarding_checklists','leaver_checklists','staff_sessions','staff_attendance_history']) {
           await del(t, `WHERE staff_id IN (${sP})`, staffIds);
         }
         // room_bookings.booked_by_staff_id → staff.id (NO ACTION FK) — must be deleted
