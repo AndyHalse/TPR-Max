@@ -7,6 +7,7 @@ import { settingsColumnMigrations } from './settingsColumnMigration';
 import { comprehensiveSettingsMigrations } from './comprehensiveSettingsMigration';
 import { staffSessionsMigrations } from './staffSessionsMigration';
 import { missingTablesMigrations } from './missingTablesMigration';
+import { siteMigrations } from './siteMigrations';
 import { logger } from './utils/logger';
 
 /**
@@ -786,6 +787,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    ...siteMigrations,
   ];
 
   allMigrations.forEach(migration => {

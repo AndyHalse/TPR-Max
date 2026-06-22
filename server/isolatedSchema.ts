@@ -11,6 +11,40 @@ import { z } from "zod";
  * This provides true isolation at the database level.
  */
 
+// ── Enterprise Multi-Site ──────────────────────────────────────────────────────
+
+// Areas — optional grouping of sites for Area Manager scope
+export const areas = pgTable("areas", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAreaSchema = createInsertSchema(areas).omit({ id: true, createdAt: true });
+export type InsertArea = z.infer<typeof insertAreaSchema>;
+export type Area = typeof areas.$inferSelect;
+
+// Sites — physical locations within a customer account. Non-enterprise customers
+// have exactly one site (is_default = true) containing all their data.
+export const sites = pgTable("sites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  reference: text("reference").unique(), // e.g. "SITE-001"
+  address: text("address"),
+  postcode: text("postcode"),
+  region: text("region"),
+  areaId: varchar("area_id").references(() => areas.id),
+  status: text("status").notNull().default("active"), // active | onboarding | archived
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  archivedAt: timestamp("archived_at"),
+});
+
+export const insertSiteSchema = createInsertSchema(sites).omit({ id: true, createdAt: true });
+export type InsertSite = z.infer<typeof insertSiteSchema>;
+export type Site = typeof sites.$inferSelect;
+
 // Staff table - no customerId needed since each customer has own DB
 export const staff = pgTable("staff", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -55,6 +89,7 @@ export const staff = pgTable("staff", {
   loneWorkerSince: timestamp("lone_worker_since"),
   loneWorkerDeadline: timestamp("lone_worker_deadline"),
   loneWorkerEscalationLevel: integer("lone_worker_escalation_level").default(0),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -78,6 +113,7 @@ export const musterPoints = pgTable("muster_points", {
   name: text("name").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
   isActive: boolean("is_active").default(true).notNull(),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -126,6 +162,7 @@ export const safetyTokens = pgTable("safety_tokens", {
   usedAt: timestamp("used_at"),
   musterPoint: text("muster_point"), // Where they marked safe from
   expiresAt: timestamp("expires_at").notNull(), // Token expiration (e.g., 24 hours)
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
@@ -181,6 +218,7 @@ export const visitors = pgTable("visitors", {
   photoUrl: text("photo_url"),
   // Visit reason tracking
   visitReasonId: varchar("visit_reason_id"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -207,6 +245,7 @@ export const members = pgTable("members", {
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   qrCode: text("qr_code"),
   isActive: boolean("is_active").default(true).notNull(),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -235,6 +274,7 @@ export const visitorHistory = pgTable("visitor_history", {
   notes: text("notes"),
   // QR code for this visit
   qrCode: text("qr_code"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -257,6 +297,7 @@ export const staffAttendanceHistory = pgTable("staff_attendance_history", {
   durationMinutes: integer("duration_minutes"),
   // Notes for this session
   notes: text("notes"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -279,6 +320,7 @@ export const preBookings = pgTable("pre_bookings", {
   visitorId: varchar("visitor_id").references(() => visitors.id), // Link to visitor when checked in
   emailSent: boolean("email_sent").default(false),
   emailSentAt: timestamp("email_sent_at"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -290,6 +332,7 @@ export const departments = pgTable("departments", {
   description: text("description"),
   color: text("color").notNull().default("bg-blue-500"), // CSS color class for UI
   isActive: boolean("is_active").default(true).notNull(),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -646,6 +689,7 @@ export const evacuationZones = pgTable("evacuation_zones", {
   mapX: doublePrecision("map_x"),
   mapY: doublePrecision("map_y"),
   isActive: boolean("is_active").default(true).notNull(),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -694,6 +738,7 @@ export const meetingRooms = pgTable("meeting_rooms", {
   equipment: text("equipment").array().default([]), // ["projector", "whiteboard", "video_conference"]
   isActive: boolean("is_active").default(true).notNull(),
   hourlyRate: doublePrecision("hourly_rate").default(0), // Cost per hour
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -718,6 +763,7 @@ export const roomBookings = pgTable("room_bookings", {
   requiresCatering: boolean("requires_catering").notNull().default(false),
   cateringNotes: text("catering_notes"),
   specialRequirements: text("special_requirements"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -807,6 +853,7 @@ export const contractorCompanies = pgTable("contractor_companies", {
   smasAccredited: boolean("smas_accredited").default(false),
   otherAccreditations: text("other_accreditations"), // free-text for Acclaim, SSIP etc.
   pdProfessionalBody: text("pd_professional_body"), // e.g. RIBA, ARB, ICE, CIOB
+  siteId: varchar("site_id"),
 });
 
 // Contractor Workers
@@ -914,6 +961,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   archivedAt: timestamp("archived_at"),
   archivedBy: text("archived_by"),
   archiveReason: text("archive_reason"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -964,6 +1012,7 @@ export const contractorDocuments = pgTable("contractor_documents", {
   coverageAmount: text("coverage_amount"),
   isActive: boolean("is_active").default(true).notNull(),
   expiryAlertedAt: timestamp("expiry_alerted_at"), // Set when nightly expiry digest email sent; null = not yet alerted for this expiry. New uploads start null.
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -981,6 +1030,7 @@ export const complianceDocuments = pgTable("compliance_documents", {
   reminderDaysBefore: integer("reminder_days_before").default(30),
   documentCategory: text("document_category").notNull(), // legal, safety, training, identification
   priority: text("priority").default("medium"), // low, medium, high, critical
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1108,6 +1158,7 @@ export const workerCertifications = pgTable("worker_certifications", {
   status: text("status").notNull().default("valid"), // valid, expired, expiring, suspended
   documentUrl: text("document_url"),
   notes: text("notes"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1130,6 +1181,7 @@ export const ramsDocuments = pgTable("rams_documents", {
   alertDaysBefore: integer("alert_days_before").default(14),
   lastAlertSent: timestamp("last_alert_sent"),
   isActive: boolean("is_active").default(true).notNull(),
+  siteId: varchar("site_id"),
 });
 
 // CO2 Reporting System
@@ -1178,6 +1230,7 @@ export const inductionTokens = pgTable("induction_tokens", {
   inductionTopicsCovered: jsonb("induction_topics_covered"), // CDM 2015 compliance record — array of {id, label, covered}
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1281,6 +1334,7 @@ export const localLabourRecords = pgTable("local_labour_records", {
   trainingProvider: text("training_provider"),
   recordedAt: timestamp("recorded_at").defaultNow().notNull(),
   recordedBy: varchar("recorded_by").references(() => users.id),
+  siteId: varchar("site_id"),
 });
 
 // CO2 Emissions Tracking - Worker level emissions data
@@ -1404,6 +1458,7 @@ export const contractorVisits = pgTable("contractor_visits", {
   qrCode: text("qr_code").unique(),
   passUrl: text("pass_url"), // URL to generated pass
   notes: text("notes"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1426,6 +1481,7 @@ export const contractorPreBookings = pgTable("contractor_prebookings", {
   hostName: text("host_name"),
   documentsRequired: text("documents_required").array().default([]),
   documentsUploaded: text("documents_uploaded").array().default([]),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -2233,6 +2289,7 @@ export const incidentReports = pgTable("incident_reports", {
   generatedAt: timestamp("generated_at").defaultNow(),
   reportUrl: text("report_url"),
   deletedAt: timestamp("deleted_at"),
+  siteId: varchar("site_id"),
 });
 
 export type IncidentReport = typeof incidentReports.$inferSelect;
@@ -2256,6 +2313,7 @@ export const loneWorkerSessions = pgTable("lone_worker_sessions", {
   checkInsCompleted: integer("check_ins_completed").notNull().default(0),
   escalationsFired: integer("escalations_fired").notNull().default(0),
   endedBy: text("ended_by"),
+  siteId: varchar("site_id"),
 });
 
 export const loneWorkerTokens = pgTable("lone_worker_tokens", {
@@ -2319,6 +2377,7 @@ export const ppmAssets = pgTable("ppm_assets", {
   installDate: text("install_date"),     // ISO date string
   notes: text("notes"),
   status: text("status").notNull().default("active"), // active | decommissioned
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2391,6 +2450,7 @@ export const ppmWorkOrders = pgTable("ppm_work_orders", {
   missingCertAlertedAt: timestamp("missing_cert_alerted_at"), // Set when missing-cert alert sent; prevents daily re-send
   missingDocsAlertedAt: timestamp("missing_docs_alerted_at"), // Set when overdue+no-documents alert sent; prevents daily re-send
   arrivedAt: timestamp("arrived_at"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2462,6 +2522,7 @@ export const cdmProjects = pgTable("cdm_projects", {
   // General
   notes: text("notes"),
   f10AlertSentAt: timestamp("f10_alert_sent_at"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2488,6 +2549,7 @@ export const helpDeskTickets = pgTable("help_desk_tickets", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   resolvedAt: timestamp("resolved_at"),
+  siteId: varchar("site_id"),
 });
 
 export const insertHelpDeskTicketSchema = createInsertSchema(helpDeskTickets).omit({ id: true, ticketNumber: true, createdAt: true, updatedAt: true });
@@ -2529,6 +2591,7 @@ export const hsIncidents = pgTable("hs_incidents", {
   investigationNotes: text("investigation_notes"),
   // Photo evidence (induction walk-around reports or manual uploads)
   photoUrl: text("photo_url"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2564,6 +2627,7 @@ export const fireRiskAssessments = pgTable("fire_risk_assessments", {
   reminderSentAt: timestamp("reminder_sent_at"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   deletedBy: text("deleted_by"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2620,6 +2684,7 @@ export const complianceCertificates = pgTable("compliance_certificates", {
   expiryAlertedAt: timestamp("expiry_alerted_at"),
   expiryAlertPhase: text("expiry_alert_phase"), // 'expiring' | 'expired' | null — which alert phase was last sent
   deletedAt: timestamp("deleted_at"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2679,6 +2744,7 @@ export const permitToWork = pgTable("permit_to_work", {
   submittedByName: text("submitted_by_name"),
   createdById: varchar("created_by_id"),
   createdByName: text("created_by_name"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2797,6 +2863,7 @@ export const auditRecords = pgTable("audit_records", {
   completedBy: text("completed_by"),
   deletedAt: timestamp("deleted_at"),
   deletedBy: text("deleted_by"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2879,6 +2946,7 @@ export const raBuilderAssessments = pgTable("ra_builder_assessments", {
   typeMetadata: text("type_metadata").default("{}"),
   notes: text("notes"),
   linkedRamsDocumentId: varchar("linked_rams_document_id"),
+  siteId: varchar("site_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
