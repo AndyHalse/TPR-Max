@@ -360,11 +360,12 @@ export function registerContractorRoutes(app: Express): void {
   // Contractor Pre-booking endpoints
   app.get("/api/contractors/prebookings", requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
+      const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+        .where(scopedWhere(siteContext, isolatedSchema.contractorPreBookings));
       res.json(preBookings);
     } catch (error) {
+      if (error instanceof SiteContextError) return res.status(403).json({ error: (error as Error).message });
       logger.error("Error fetching contractor pre-bookings:", error);
       res.status(500).json({ error: "Failed to fetch contractor pre-bookings" });
     }
@@ -372,16 +373,17 @@ export function registerContractorRoutes(app: Express): void {
 
   app.get("/api/contractors/prebookings/upcoming", requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
       const now = new Date();
       const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings)
         .where(and(
           gte(isolatedSchema.contractorPreBookings.scheduledDate, now),
-          ne(isolatedSchema.contractorPreBookings.status, 'cancelled')
+          ne(isolatedSchema.contractorPreBookings.status, 'cancelled'),
+          scopedWhere(siteContext, isolatedSchema.contractorPreBookings)
         ));
       res.json(preBookings);
     } catch (error) {
+      if (error instanceof SiteContextError) return res.status(403).json({ error: (error as Error).message });
       logger.error("Error fetching upcoming contractor pre-bookings:", error);
       res.status(500).json({ error: "Failed to fetch upcoming contractor pre-bookings" });
     }
@@ -389,18 +391,19 @@ export function registerContractorRoutes(app: Express): void {
 
   app.get("/api/contractors/prebookings/today", requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
       const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings)
         .where(and(
           gte(isolatedSchema.contractorPreBookings.scheduledDate, startOfDay),
-          sql`${isolatedSchema.contractorPreBookings.scheduledDate} <= ${endOfDay}`
+          sql`${isolatedSchema.contractorPreBookings.scheduledDate} <= ${endOfDay}`,
+          scopedWhere(siteContext, isolatedSchema.contractorPreBookings)
         ));
       res.json(preBookings);
     } catch (error) {
+      if (error instanceof SiteContextError) return res.status(403).json({ error: (error as Error).message });
       logger.error("Error fetching today's contractor pre-bookings:", error);
       res.status(500).json({ error: "Failed to fetch today's contractor pre-bookings" });
     }
@@ -428,7 +431,7 @@ export function registerContractorRoutes(app: Express): void {
   app.post("/api/contractors/prebookings", requireAuth, async (req, res) => {
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteId, siteContext } = await getScopedDb(req);
       const parsedScheduledDate = new Date(req.body.scheduledDate);
       if (!req.body.scheduledDate || isNaN(parsedScheduledDate.getTime())) {
         return res.status(400).json({ error: "Pre-booking scheduled date is invalid." });
@@ -439,7 +442,9 @@ export function registerContractorRoutes(app: Express): void {
       };
       
       // Duplicate prevention: check for existing ACTIVE booking with same worker, company, date, and time
-      const existingBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
+      // Scoped to the active site so duplicates are only checked within the same site.
+      const existingBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+        .where(scopedWhere(siteContext, isolatedSchema.contractorPreBookings));
       const scheduledDateStr = preBookingData.scheduledDate.toDateString();
       logger.info(`Duplicate check: worker="${preBookingData.workerName}", time="${preBookingData.scheduledTime}", date="${scheduledDateStr}", checking ${existingBookings.length} existing bookings`);
       existingBookings.forEach((b: any) => {
@@ -466,7 +471,7 @@ export function registerContractorRoutes(app: Express): void {
       
       const qrCode = 'CPB-' + randomUUID().replace(/-/g, '').substring(0, 12);
       const [newPreBooking] = await customerDb.insert(isolatedSchema.contractorPreBookings)
-        .values({ ...preBookingData, qrCode })
+        .values(withSiteId(siteId, { ...preBookingData, qrCode }))
         .returning();
       
       // Auto-send pre-booking pass with QR code to contractor's email

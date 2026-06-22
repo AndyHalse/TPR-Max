@@ -1100,15 +1100,12 @@ export function registerVisitorRoutes(app: Express): void {
   // Pre-booking endpoints
   app.get("/api/prebookings", requireAuth, async (req, res) => {
     try {
-      if (!req.user?.username) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
-      
-      const preBookings = await customerDb.select().from(isolatedSchema.preBookings);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
+      const preBookings = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(scopedWhere(siteContext, isolatedSchema.preBookings));
       res.json(preBookings);
     } catch (error) {
+      if (error instanceof SiteContextError) return res.status(403).json({ error: (error as Error).message });
       logger.info("getAllPreBookings failed - returning empty array:", (error as any).message);
       res.json([]);
     }
@@ -1116,12 +1113,7 @@ export function registerVisitorRoutes(app: Express): void {
 
   app.get("/api/prebookings/upcoming", requireAuth, async (req, res) => {
     try {
-      if (!req.user?.username) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
-      
+      const { db: customerDb, siteContext } = await getScopedDb(req);
       const now = new Date();
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const preBookings = await customerDb.select().from(isolatedSchema.preBookings)
@@ -1129,11 +1121,13 @@ export function registerVisitorRoutes(app: Express): void {
           gte(isolatedSchema.preBookings.visitDate, startOfToday),
           ne(isolatedSchema.preBookings.status, 'cancelled'),
           ne(isolatedSchema.preBookings.status, 'completed'),
-          eq(isolatedSchema.preBookings.isCheckedIn, false)
+          eq(isolatedSchema.preBookings.isCheckedIn, false),
+          scopedWhere(siteContext, isolatedSchema.preBookings)
         ))
         .orderBy(isolatedSchema.preBookings.visitDate);
       res.json(preBookings);
     } catch (error) {
+      if (error instanceof SiteContextError) return res.status(403).json({ error: (error as Error).message });
       logger.info("getUpcomingPreBookings failed - returning empty array:", (error as any).message);
       res.json([]);
     }
@@ -1192,7 +1186,7 @@ export function registerVisitorRoutes(app: Express): void {
     try {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteId, siteContext } = await getScopedDb(req);
       
       const transformedData = {
         ...req.body,
@@ -1205,8 +1199,8 @@ export function registerVisitorRoutes(app: Express): void {
       // ── Duplicate prevention ──────────────────────────────────────────────
       // Reject if another active (non-cancelled, not yet checked-in) pre-booking
       // already exists for the same visitor on the same calendar day at the same
-      // time. Exclude already-checked-in bookings so a new slot can be created
-      // for the same person if they've already used a previous booking today.
+      // time. Scoped to the active site for enterprise so cross-site duplicates
+      // are not incorrectly flagged.
       const visitDayStr = preBookingData.visitDate.toDateString();
       const existingToday = await customerDb
         .select()
@@ -1216,7 +1210,8 @@ export function registerVisitorRoutes(app: Express): void {
             ne(isolatedSchema.preBookings.status, 'cancelled'),
             ne(isolatedSchema.preBookings.status, 'completed'),
             eq(isolatedSchema.preBookings.isCheckedIn, false),
-            isNull(isolatedSchema.preBookings.visitorId) // exclude any booking already used (visitor was linked then checked out)
+            isNull(isolatedSchema.preBookings.visitorId), // exclude any booking already used (visitor was linked then checked out)
+            scopedWhere(siteContext, isolatedSchema.preBookings)
           )
         );
 
@@ -1253,11 +1248,11 @@ export function registerVisitorRoutes(app: Express): void {
       // ─────────────────────────────────────────────────────────────────────
 
       const [preBooking] = await customerDb.insert(isolatedSchema.preBookings)
-        .values({
+        .values(withSiteId(siteId, {
           ...preBookingData,
           customerId: context.customerId,
           qrCode: 'PB-' + randomUUID().replace(/-/g, '').substring(0, 12),
-        }).returning();
+        })).returning();
       
       let hostStaff;
       try {

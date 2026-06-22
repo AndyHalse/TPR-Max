@@ -5,6 +5,7 @@ import { customerDbService } from '../customerDatabase';
 import { db } from '../db';
 import { eq, and, desc } from 'drizzle-orm';
 import * as isolatedSchema from '../isolatedSchema';
+import { getScopedDb, scopedWhere, SiteContextError, type SiteContext } from '../siteScope';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
@@ -74,16 +75,20 @@ async function ensureRamsCustomerIdColumns() {
 
 // ─── Helper: build structured compliance requirements from live customer data ─
 
-async function buildComplianceRequirements(customerId: string, custDb: any) {
+async function buildComplianceRequirements(customerId: string, custDb: any, siteContext: SiteContext) {
   const esc2 = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const [settingsRows, zoneRows, martynRows, staffRows, preBookingRows, incidentRows, drillEvacRows] = await Promise.all([
     custDb.select().from(isolatedSchema.companySettings).limit(1),
-    custDb.select({ id: isolatedSchema.evacuationZones.id }).from(isolatedSchema.evacuationZones).where(eq(isolatedSchema.evacuationZones.isActive, true)).limit(1),
+    custDb.select({ id: isolatedSchema.evacuationZones.id }).from(isolatedSchema.evacuationZones)
+      .where(and(eq(isolatedSchema.evacuationZones.isActive, true), scopedWhere(siteContext, isolatedSchema.evacuationZones))).limit(1),
     custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1),
-    custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff).where(and(eq(isolatedSchema.staff.isFireMarshal, true), eq(isolatedSchema.staff.isActive, true))).limit(1),
-    custDb.select({ id: isolatedSchema.preBookings.id }).from(isolatedSchema.preBookings).limit(1),
-    custDb.select({ id: isolatedSchema.incidentReports.id }).from(isolatedSchema.incidentReports).where(eq(isolatedSchema.incidentReports.customerId, customerId)).limit(1),
+    custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff)
+      .where(and(eq(isolatedSchema.staff.isFireMarshal, true), eq(isolatedSchema.staff.isActive, true), scopedWhere(siteContext, isolatedSchema.staff))).limit(1),
+    custDb.select({ id: isolatedSchema.preBookings.id }).from(isolatedSchema.preBookings)
+      .where(scopedWhere(siteContext, isolatedSchema.preBookings)).limit(1),
+    custDb.select({ id: isolatedSchema.incidentReports.id }).from(isolatedSchema.incidentReports)
+      .where(and(eq(isolatedSchema.incidentReports.customerId, customerId), scopedWhere(siteContext, isolatedSchema.incidentReports))).limit(1),
     db.select({ evacuationId: evacuations.evacuationId }).from(evacuations).where(and(eq(evacuations.customerId, customerId), eq(evacuations.status, "completed"), eq(evacuations.isDrill, true))).limit(1),
   ]);
 
@@ -424,8 +429,8 @@ export function registerRamsRoutes(app: Express): void {
   app.get("/api/compliance/summary", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const custDb = await customerDbService.getCustomerDatabase(customerId);
-      const { requirements, companyName, activeCount, totalCount, compliancePercent } = await buildComplianceRequirements(customerId, custDb);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const { requirements, companyName, activeCount, totalCount, compliancePercent } = await buildComplianceRequirements(customerId, custDb, siteContext);
 
       res.json({
         companyName,
@@ -450,8 +455,8 @@ export function registerRamsRoutes(app: Express): void {
   app.get("/api/compliance/report", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const custDb = await customerDbService.getCustomerDatabase(customerId);
-      const { requirements, companyName, activeCount, totalCount, compliancePercent, esc } = await buildComplianceRequirements(customerId, custDb);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const { requirements, companyName, activeCount, totalCount, compliancePercent, esc } = await buildComplianceRequirements(customerId, custDb, siteContext);
 
       const complianceColor = compliancePercent >= 80 ? "#16a34a" : compliancePercent >= 50 ? "#d97706" : "#dc2626";
       const complianceBg = compliancePercent >= 80 ? "#dcfce7" : compliancePercent >= 50 ? "#fef3c7" : "#fee2e2";

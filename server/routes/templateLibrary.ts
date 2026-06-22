@@ -6,6 +6,7 @@ import { pool } from '../db';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq } from 'drizzle-orm';
 import { templateLibrarySeeds } from '../data/templateLibrarySeeds';
+import { getScopedDb, withSiteId, SiteContextError } from '../siteScope';
 
 async function ensureLibraryTemplatesTable(): Promise<void> {
   await pool.query(`
@@ -129,7 +130,7 @@ export async function registerTemplateLibraryRoutes(app: Express): Promise<void>
         ? JSON.parse(template.content)
         : template.content;
 
-      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: custDb, siteId } = await getScopedDb(req);
 
       // All template types are imported as RA Builder assessments (the primary
       // document system in this platform) with an appropriate raType.
@@ -166,17 +167,17 @@ export async function registerTemplateLibraryRoutes(app: Express): Promise<void>
         notes += `Location: ${content.location || '[To be completed]'}\n`;
       }
 
-      // Insert the RA Builder assessment (draft)
+      // Insert the RA Builder assessment (draft) — stamp siteId for enterprise.
       const [newAssessment] = await custDb
         .insert(isolatedSchema.raBuilderAssessments)
-        .values({
+        .values(withSiteId(siteId, {
           title: `[DRAFT] ${template.title}`,
           raType,
           status: 'draft',
           taskDescription: notes,
           preparedBy: user.name || user.username || 'Imported',
           assessmentDate: new Date().toISOString().split('T')[0],
-        })
+        }))
         .returning();
 
       // For RAMS and RA templates — also create the hazard records

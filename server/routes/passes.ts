@@ -7,6 +7,7 @@ import { customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { getScopedDb, SiteContextError } from '../siteScope';
 
 /** Build a self-contained printable HTML page for a visitor or contractor pass. */
 async function buildPassPage(opts: {
@@ -324,9 +325,9 @@ export function registerPassRoutes(app: Express): void {
       if (!qrData) return res.status(400).json({ success: false, message: 'QR code data is required' });
 
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteId, siteContext } = await getScopedDb(req);
 
-      logger.info(`QR scan received: customer=${context.customerId}, qrData="${qrData}", length=${qrData.length}`);
+      logger.info(`QR scan received: customer=${context.customerId}, siteId=${siteId}, qrData="${qrData}", length=${qrData.length}`);
 
       // 1. Try visitor pre-booking — multiple lookup strategies for resilience
       let preBooking: any = null;
@@ -375,9 +376,15 @@ export function registerPassRoutes(app: Express): void {
             .where(eq(isolatedSchema.preBookings.qrCode, candidate.value)).limit(1);
         }
         if (found) {
-          logger.info(`QR scan: pre-booking found via ${candidate.mode}="${candidate.value}"`);
-          preBooking = found;
-          break;
+          // Enterprise: reject cross-site scans — the pre-booking must belong to the active site.
+          if (siteContext.isEnterprise && siteId && (found as any).siteId && (found as any).siteId !== siteId) {
+            logger.info(`QR scan: prebooking siteId=${(found as any).siteId} ≠ active site=${siteId} — cross-site scan rejected`);
+            found = undefined;
+          } else {
+            logger.info(`QR scan: pre-booking found via ${candidate.mode}="${candidate.value}"`);
+            preBooking = found;
+            break;
+          }
         }
       }
 
@@ -431,8 +438,13 @@ export function registerPassRoutes(app: Express): void {
       }
 
       // 2. Try contractor pre-booking
-      const [contractorPb] = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+      const [rawContractorPb] = await customerDb.select().from(isolatedSchema.contractorPreBookings)
         .where(eq(isolatedSchema.contractorPreBookings.qrCode, qrData)).limit(1);
+      // Enterprise: reject cross-site contractor prebooking scans.
+      const contractorPb = rawContractorPb && siteContext.isEnterprise && siteId &&
+        (rawContractorPb as any).siteId && (rawContractorPb as any).siteId !== siteId
+        ? null
+        : rawContractorPb;
       if (contractorPb) {
         if (contractorPb.status === 'completed') {
           return res.json({
