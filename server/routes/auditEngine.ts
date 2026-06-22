@@ -10,6 +10,7 @@ import { EmailService } from '../emailService';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, sql, desc, or, lt, isNull, gte, inArray, count } from 'drizzle-orm';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 // ── Audit feature gate ───────────────────────────────────────────────────────
 const requireAuditFeature = async (req: any, res: any, next: any) => {
@@ -676,21 +677,22 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.get('/api/audits/records', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteId, siteContext } = await getScopedDb(req);
       const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10));
       const pageSize = Math.min(200, Math.max(1, parseInt(String(req.query.pageSize ?? '50'), 10)));
       const offset = (page - 1) * pageSize;
+      const siteFilter = scopedWhere(siteContext, isolatedSchema.auditRecords);
       const [{ total }] = await custDb.select({ total: count() })
         .from(isolatedSchema.auditRecords)
-        .where(isNull(isolatedSchema.auditRecords.deletedAt));
+        .where(and(isNull(isolatedSchema.auditRecords.deletedAt), siteFilter));
       const records = await custDb.select().from(isolatedSchema.auditRecords)
-        .where(isNull(isolatedSchema.auditRecords.deletedAt))
+        .where(and(isNull(isolatedSchema.auditRecords.deletedAt), siteFilter))
         .orderBy(desc(isolatedSchema.auditRecords.createdAt))
         .limit(pageSize).offset(offset);
       res.json({ records, total: Number(total), page, pageSize });
-    } catch (error: unknown) {
-      logger.error('GET /api/audits/records', error);
+    } catch (err: unknown) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error('GET /api/audits/records', err);
       res.status(500).json({ error: 'Failed to fetch audit records' });
     }
   });
@@ -699,13 +701,14 @@ export function registerAuditEngineRoutes(app: Express): void {
     try {
       if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
       const parsed = isolatedSchema.insertAuditRecordSchema.parse(req.body);
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const [record] = await custDb.insert(isolatedSchema.auditRecords).values(parsed).returning();
+      const { db: custDb, siteId } = await getScopedDb(req);
+      const [record] = await custDb.insert(isolatedSchema.auditRecords)
+        .values(withSiteId(siteId, parsed)).returning();
       res.status(201).json(record);
-    } catch (error: unknown) {
-      logger.error('POST /api/audits/records', error);
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Failed to create audit record' });
+    } catch (err: unknown) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error('POST /api/audits/records', err);
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create audit record' });
     }
   });
 

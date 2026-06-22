@@ -11,6 +11,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, inArray, lt, lte, isNull, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { PTW_CHECKLISTS, PERMIT_TYPE_LABELS, PTW_COMPANY_DOC_LABELS } from '../utils/ptwChecklists';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const objectStorage = new ObjectStorageService();
@@ -105,8 +106,9 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── GET all permits ─────────────────────────────────────────────────────────
   app.get('/api/ptw', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const permits = await custDb.select().from(isolatedSchema.permitToWork)
+        .where(scopedWhere(siteContext, isolatedSchema.permitToWork))
         .orderBy(isolatedSchema.permitToWork.createdAt);
       const now = new Date();
       res.json(permits.reverse().map((p: any) => ({
@@ -122,7 +124,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── POST create permit ──────────────────────────────────────────────────────
   app.post('/api/ptw', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteId } = await getScopedDb(req);
 
       const { permitType, workDescription, workLocation, plannedStartDate, plannedStartTime, plannedEndDate, plannedEndTime, contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, staffId, staffName, linkedPpmWorkOrderId } = req.body;
 
@@ -135,7 +137,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
         return res.status(400).json({ error: 'End date/time must be after start date/time.' });
       }
 
-      const [permit] = await custDb.insert(isolatedSchema.permitToWork).values({
+      const [permit] = await custDb.insert(isolatedSchema.permitToWork).values(withSiteId(siteId, {
         permitNumber,
         permitType,
         workDescription,
@@ -156,7 +158,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
         createdById: req.user!.id,
         createdByName: `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username,
         status: 'draft',
-      }).returning();
+      })).returning();
 
       // Seed checklist items for this permit type
       const items = PTW_CHECKLISTS[permitType] || PTW_CHECKLISTS.general_high_risk;

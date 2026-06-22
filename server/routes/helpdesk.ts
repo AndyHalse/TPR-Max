@@ -5,6 +5,7 @@ import { customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 const HELPDESK_STATUSES = ["open", "in_progress", "pending", "resolved", "closed"] as const;
 
@@ -28,13 +29,14 @@ export function registerHelpdeskRoutes(app: Express): void {
 // GET /api/helpdesk/tickets — return all tickets, newest first
 app.get("/api/helpdesk/tickets", requireAuth, async (req, res) => {
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteId, siteContext } = await getScopedDb(req);
     const rows = await custDb.select().from(isolatedSchema.helpDeskTickets)
+      .where(scopedWhere(siteContext, isolatedSchema.helpDeskTickets))
       .orderBy(sql`${isolatedSchema.helpDeskTickets.createdAt} DESC`);
     res.json(rows);
-  } catch (error: unknown) {
-    logger.error("GET /api/helpdesk/tickets", error);
+  } catch (err: unknown) {
+    if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+    logger.error("GET /api/helpdesk/tickets", err);
     res.status(500).json({ error: "Failed to fetch help desk tickets" });
   }
 });
@@ -43,8 +45,7 @@ app.get("/api/helpdesk/tickets", requireAuth, async (req, res) => {
 app.post("/api/helpdesk/tickets", requireAuth, async (req, res) => {
   try {
     const parsed = isolatedSchema.insertHelpDeskTicketSchema.parse(req.body);
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteId } = await getScopedDb(req);
 
     // Base the next number on the highest existing HD-#### number, not the row count —
     // counting rows reuses numbers after a delete. Retry up to 5 times on the off-chance
@@ -60,7 +61,7 @@ app.post("/api/helpdesk/tickets", requireAuth, async (req, res) => {
       const ticketNumber = `HD-${String(nextNum).padStart(3, "0")}`;
       try {
         [row] = await custDb.insert(isolatedSchema.helpDeskTickets)
-          .values({ ...parsed, ticketNumber })
+          .values(withSiteId(siteId, { ...parsed, ticketNumber }))
           .returning();
         break;
       } catch (err: unknown) {

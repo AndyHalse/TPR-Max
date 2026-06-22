@@ -11,6 +11,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, isNull, ne } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { calculateCertificateStatus, calculateNextDueDate, getDaysUntilExpiry, getEffectiveDueDate, CERT_SEED_DATA } from '../utils/complianceCertUtils';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const objectStorage = new ObjectStorageService();
@@ -80,7 +81,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── GET types (dashboard endpoint) ─────────────────────────────────────────
   app.get('/api/compliance-certificates/types', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureTables(custDb, schemaName);
 
@@ -88,7 +89,11 @@ export function registerComplianceCertificateRoutes(app: Express): void {
         .orderBy(isolatedSchema.complianceCertificateTypes.displayName);
 
       const certs = await custDb.select().from(isolatedSchema.complianceCertificates)
-        .where(and(eq(isolatedSchema.complianceCertificates.isCurrent, true), isNull(isolatedSchema.complianceCertificates.deletedAt)));
+        .where(and(
+          eq(isolatedSchema.complianceCertificates.isCurrent, true),
+          isNull(isolatedSchema.complianceCertificates.deletedAt),
+          scopedWhere(siteContext, isolatedSchema.complianceCertificates),
+        ));
 
       const certsByType: Record<string, any> = {};
       for (const c of certs as any[]) {

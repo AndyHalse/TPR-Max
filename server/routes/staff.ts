@@ -19,6 +19,7 @@ import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 const staffAuthSchema = z.object({
   email: z.string().email(),
@@ -315,15 +316,15 @@ export function registerStaffRoutes(app: Express): void {
 
   app.get("/api/departments", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Use customer-isolated database service for getting departments
-      const departments = await databaseService.getAllDepartments(context);
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      const departments = await databaseService.getAllDepartments(context, filterSiteId);
       res.json(departments);
-    } catch (error) {
-      logger.error("Failed to fetch departments:", error);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Failed to fetch departments:", err);
       res.status(500).json({ error: "Failed to fetch departments" });
     }
   });
@@ -333,15 +334,13 @@ export function registerStaffRoutes(app: Express): void {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Add customerId to department data for proper customer isolation
+      const { siteId } = await getScopedDb(req);
       const departmentData = { ...req.body, customerId: context.customerId };
-      
-      // Use customer-isolated database service for creating department
-      const department = await databaseService.createDepartment(context, departmentData);
+      const department = await databaseService.createDepartment(context, departmentData, siteId);
       res.status(201).json(department);
-    } catch (error) {
-      logger.error("Failed to create department:", error);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Failed to create department:", err);
       res.status(500).json({ error: "Failed to create department" });
     }
   });
@@ -395,42 +394,44 @@ export function registerStaffRoutes(app: Express): void {
 
   app.get("/api/zones", requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const zones = await custDb
         .select()
         .from(isolatedSchema.evacuationZones)
+        .where(scopedWhere(siteContext, isolatedSchema.evacuationZones))
         .orderBy(isolatedSchema.evacuationZones.displayOrder);
       res.json(zones);
-    } catch (error) {
-      logger.error("Failed to fetch zones:", error);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Failed to fetch zones:", err);
       res.status(500).json({ error: "Failed to fetch zones" });
     }
   });
 
   app.post("/api/zones", requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const existingZones = await custDb.select().from(isolatedSchema.evacuationZones);
+      const { db: custDb, siteId, siteContext } = await getScopedDb(req);
+      const existingZones = await custDb.select().from(isolatedSchema.evacuationZones)
+        .where(scopedWhere(siteContext, isolatedSchema.evacuationZones));
       const { name, color, description, displayOrder, mapX, mapY } = req.body;
       if (!name) {
         return res.status(400).json({ error: "Zone name is required" });
       }
       const [zone] = await custDb
         .insert(isolatedSchema.evacuationZones)
-        .values({
+        .values(withSiteId(siteId, {
           name,
           color: color || '#3b82f6',
           description: description || null,
           displayOrder: displayOrder ?? existingZones.length,
           mapX: mapX ?? null,
           mapY: mapY ?? null,
-        })
+        }))
         .returning();
       res.status(201).json(zone);
-    } catch (error) {
-      logger.error("Failed to create zone:", error);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Failed to create zone:", err);
       res.status(500).json({ error: "Failed to create zone" });
     }
   });
@@ -522,13 +523,14 @@ export function registerStaffRoutes(app: Express): void {
 
   app.get("/api/staff", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const staff = await databaseService.getAllStaff(context);
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      const staff = await databaseService.getAllStaff(context, filterSiteId);
       res.json(staff);
-    } catch (error) {
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
       res.status(500).json({ error: "Failed to fetch staff" });
     }
   });
@@ -592,8 +594,8 @@ export function registerStaffRoutes(app: Express): void {
         logger.info(`AUTO-GENERATED Fire Marshal URL for ID ${staffData.id}: ${staffData.fireMarshalUrlId}`);
       }
       
-      // Use customer-isolated database service for creating staff
-      const staff = await databaseService.createStaff(context, staffData);
+      const { siteId } = await getScopedDb(req);
+      const staff = await databaseService.createStaff(context, staffData, siteId);
       res.json(staff);
     } catch (error) {
       if (error instanceof z.ZodError) {

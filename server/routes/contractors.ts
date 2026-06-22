@@ -67,6 +67,7 @@ import {
   isNotNull,
 } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 // ─── Module-scope helpers ────────────────────────────────────────────────────
 
@@ -730,18 +731,15 @@ export function registerContractorRoutes(app: Express): void {
   // Contractor Company endpoints
   app.get("/api/contractors", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Get all contractors using customer-isolated database service
-      const contractors = await databaseService.getAllContractorCompanies(context);
-      
-      // getAllContractorCompanies already returns workersCount, documentsStatus (with
-      // 'expiring' ≤30-day state), name, email, phone — return directly to avoid N+1.
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      const contractors = await databaseService.getAllContractorCompanies(context, filterSiteId);
       res.json(contractors);
-    } catch (error) {
-      logger.error("Error fetching contractors:", error);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Error fetching contractors:", err);
       res.status(500).json({ error: "Failed to fetch contractors" });
     }
   });
@@ -1136,35 +1134,24 @@ export function registerContractorRoutes(app: Express): void {
 
   app.post("/api/contractors", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const { siteId } = await getScopedDb(req);
       
-      // Add customerId to request body before validation
-      const requestDataWithCustomerId = {
-        ...req.body,
-        customerId: context.customerId
-      };
-      
-      // DEBUG: Log the request body to see what's actually being sent
-      
-      // Parse and validate contractor data
+      const requestDataWithCustomerId = { ...req.body, customerId: context.customerId };
       const contractorData = insertContractorCompanySchema.parse(requestDataWithCustomerId);
       
-      // Map shared schema format to isolated schema format
       const mappedContractorData = {
         ...contractorData,
-        companyName: contractorData.name, // Map name to companyName for isolated schema
-        contactEmail: contractorData.email, // Map email to contactEmail for isolated schema
-        contactPhone: contractorData.phone, // Map phone to contactPhone for isolated schema
+        companyName: contractorData.name,
+        contactEmail: contractorData.email,
+        contactPhone: contractorData.phone,
       };
-      // Remove the original fields since isolated schema uses different field names
       delete mappedContractorData.name;
       delete mappedContractorData.email;
       delete mappedContractorData.phone;
       
-      // Use customer-isolated database service
-      const contractor = await databaseService.createContractorCompany(context, mappedContractorData);
+      const contractor = await databaseService.createContractorCompany(context, mappedContractorData, siteId);
 
       // Audit trail — company created
       try {

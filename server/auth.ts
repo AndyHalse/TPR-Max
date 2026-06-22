@@ -404,6 +404,10 @@ declare module 'express-session' {
     // SSO / OIDC flow
     ssoCsrfToken?: string;
     ssoCodeVerifier?: string;
+    // Enterprise multi-site: active site for this session tab.
+    // Written by the site-switcher (prompt 05). Left unset until
+    // the user explicitly picks a site for their enterprise account.
+    activeSiteId?: string;
   }
 }
 
@@ -414,6 +418,8 @@ declare global {
       user?: User;
       customer?: Customer;
       customerId?: string;
+      /** Populated lazily by getScopedDb() / resolveSiteContext() on first call. */
+      siteContext?: import('./siteScope').SiteContext;
     }
   }
 }

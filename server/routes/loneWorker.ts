@@ -7,6 +7,7 @@ import { emailService } from '../emailService';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import * as isolatedSchema from '../isolatedSchema';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -150,12 +151,14 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
   // GET /api/lone-worker/active — list all active lone worker sessions
   app.get("/api/lone-worker/active", requireAuth, async (req, res) => {
     try {
-      const customerId = req.customerId!;
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
+      const siteFilter = scopedWhere(siteContext, isolatedSchema.loneWorkerSessions);
       const sessions = await customerDb
         .select()
         .from(isolatedSchema.loneWorkerSessions)
-        .where(sql`${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
+        .where(siteFilter
+          ? sql`${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated') AND ${siteFilter}`
+          : sql`${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
 
       const now = Date.now();
       const augmented = await Promise.all(sessions.map(async (s: any) => {

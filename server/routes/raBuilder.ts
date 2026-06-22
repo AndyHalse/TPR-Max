@@ -10,6 +10,7 @@ import { AiModelManager } from '../managers/AiModelManager';
 import { ResultUtils } from '../utils/result';
 import { db } from '../db';
 import { ramsDocuments as sharedRamsDocuments } from '@shared/schema';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 const requireRaBuilderFeature = async (req: any, res: any, next: any) => {
   try {
@@ -31,11 +32,11 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.get('/api/ra-builder/assessments', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteId, siteContext } = await getScopedDb(req);
       const rows = await custDb
         .select()
         .from(isolatedSchema.raBuilderAssessments)
+        .where(scopedWhere(siteContext, isolatedSchema.raBuilderAssessments))
         .orderBy(desc(isolatedSchema.raBuilderAssessments.updatedAt));
       // Fetch all hazards in one query and group by assessmentId so list cards
       // can show the hazard count and highest risk rating without an N+1 load.
@@ -57,17 +58,17 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.post('/api/ra-builder/assessments', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteId } = await getScopedDb(req);
       const parsed = isolatedSchema.insertRaBuilderAssessmentSchema.parse(req.body);
       const [row] = await custDb
         .insert(isolatedSchema.raBuilderAssessments)
-        .values({ ...parsed, typeMetadata: parsed.typeMetadata || '{}' })
+        .values(withSiteId(siteId, { ...parsed, typeMetadata: parsed.typeMetadata || '{}' }))
         .returning();
       res.status(201).json(row);
-    } catch (error) {
-      logger.error('POST /api/ra-builder/assessments', error);
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Failed to create assessment' });
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error('POST /api/ra-builder/assessments', err);
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to create assessment' });
     }
   });
 

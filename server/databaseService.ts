@@ -85,12 +85,13 @@ export class DatabaseService {
   /**
    * STAFF METHODS - Customer Isolated
    */
-  async getAllStaff(context: CustomerContext): Promise<Staff[]> {
+  async getAllStaff(context: CustomerContext, siteId?: string | null): Promise<Staff[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     return await db
       .select()
       .from(isolatedSchema.staff)
+      .where(siteId ? eq(isolatedSchema.staff.siteId, siteId) : undefined)
       .orderBy(asc(isolatedSchema.staff.lastName), asc(isolatedSchema.staff.firstName));
   }
 
@@ -123,7 +124,7 @@ export class DatabaseService {
     return staffResult[0];
   }
 
-  async createStaff(context: CustomerContext, insertStaff: InsertStaff): Promise<Staff> {
+  async createStaff(context: CustomerContext, insertStaff: InsertStaff, siteId?: string | null): Promise<Staff> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     // Hash password if provided
@@ -145,6 +146,7 @@ export class DatabaseService {
     const created = await db
       .insert(isolatedSchema.staff)
       .values({
+        ...(siteId ? { siteId } : {}),
         ...insertStaff,
         password: hashedPassword,
         fireMarshalUrlId,
@@ -395,13 +397,14 @@ export class DatabaseService {
    * Get unique visitors (deduplicated by email or name+company)
    * Returns only the most recent record for each unique person
    */
-  async getUniqueVisitors(context: CustomerContext): Promise<Visitor[]> {
+  async getUniqueVisitors(context: CustomerContext, siteId?: string | null): Promise<Visitor[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     // Get all visitors
     const allVisitors = await db
       .select()
       .from(isolatedSchema.visitors)
+      .where(siteId ? eq(isolatedSchema.visitors.siteId, siteId) : undefined)
       .orderBy(desc(isolatedSchema.visitors.checkedInAt));
     
     // Deduplicate by name + company (different people can share email addresses)
@@ -419,7 +422,7 @@ export class DatabaseService {
     return Array.from(uniqueVisitorsMap.values());
   }
 
-  async getTodaysVisitors(context: CustomerContext): Promise<Visitor[]> {
+  async getTodaysVisitors(context: CustomerContext, siteId?: string | null): Promise<Visitor[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const today = new Date();
@@ -432,22 +435,26 @@ export class DatabaseService {
       .from(isolatedSchema.visitors)
       .where(and(
         gte(isolatedSchema.visitors.checkedInAt, today),
-        lt(isolatedSchema.visitors.checkedInAt, tomorrow)
+        lt(isolatedSchema.visitors.checkedInAt, tomorrow),
+        siteId ? eq(isolatedSchema.visitors.siteId, siteId) : undefined,
       ))
       .orderBy(desc(isolatedSchema.visitors.checkedInAt));
   }
 
-  async getCurrentVisitors(context: CustomerContext): Promise<Visitor[]> {
+  async getCurrentVisitors(context: CustomerContext, siteId?: string | null): Promise<Visitor[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     return await db
       .select()
       .from(isolatedSchema.visitors)
-      .where(eq(isolatedSchema.visitors.isCheckedIn, true))
+      .where(and(
+        eq(isolatedSchema.visitors.isCheckedIn, true),
+        siteId ? eq(isolatedSchema.visitors.siteId, siteId) : undefined,
+      ))
       .orderBy(desc(isolatedSchema.visitors.checkedInAt));
   }
 
-  async createVisitor(context: CustomerContext, insertVisitor: InsertVisitor): Promise<Visitor> {
+  async createVisitor(context: CustomerContext, insertVisitor: InsertVisitor, siteId?: string | null): Promise<Visitor> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const qrCode = `VIS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -455,6 +462,7 @@ export class DatabaseService {
     const created = await db
       .insert(isolatedSchema.visitors)
       .values({
+        ...(siteId ? { siteId } : {}),
         ...insertVisitor,
         qrCode,
       })
@@ -707,14 +715,16 @@ export class DatabaseService {
   /**
    * DEPARTMENT METHODS - Customer Isolated
    */
-  async getAllDepartments(context: CustomerContext): Promise<Department[]> {
+  async getAllDepartments(context: CustomerContext, siteId?: string | null): Promise<Department[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // No customerId filter needed in isolated database - each customer has their own DB
     return await db
       .select()
       .from(isolatedSchema.departments)
-      .where(eq(isolatedSchema.departments.isActive, true));
+      .where(and(
+        eq(isolatedSchema.departments.isActive, true),
+        siteId ? eq(isolatedSchema.departments.siteId, siteId) : undefined,
+      ));
   }
 
   async getDepartmentNames(context: CustomerContext): Promise<string[]> {
@@ -808,12 +818,13 @@ export class DatabaseService {
     .sort((a, b) => a.staffName.localeCompare(b.staffName));
   }
 
-  async createDepartment(context: CustomerContext, insertDepartment: InsertDepartment): Promise<Department> {
+  async createDepartment(context: CustomerContext, insertDepartment: InsertDepartment, siteId?: string | null): Promise<Department> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const created = await db
       .insert(isolatedSchema.departments)
       .values({
+        ...(siteId ? { siteId } : {}),
         ...insertDepartment,
       })
       .returning();
@@ -1402,14 +1413,14 @@ export class DatabaseService {
     }
   }
 
-  async createContractorCompany(context: CustomerContext, insertCompany: any): Promise<any> {
+  async createContractorCompany(context: CustomerContext, insertCompany: any, siteId?: string | null): Promise<any> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const [newCompany] = await db
       .insert(isolatedSchema.contractorCompanies)
       .values({
+        ...(siteId ? { siteId } : {}),
         ...insertCompany,
-        // No customerId needed - isolated database
       })
       .returning();
     
@@ -1689,13 +1700,14 @@ export class DatabaseService {
     return updatedCompany;
   }
 
-  async getAllContractorCompanies(context: CustomerContext): Promise<any[]> {
+  async getAllContractorCompanies(context: CustomerContext, siteId?: string | null): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     // Get all contractor companies
     const companies = await db
       .select()
-      .from(isolatedSchema.contractorCompanies);
+      .from(isolatedSchema.contractorCompanies)
+      .where(siteId ? eq(isolatedSchema.contractorCompanies.siteId, siteId) : undefined);
 
     if (companies.length === 0) return [];
 

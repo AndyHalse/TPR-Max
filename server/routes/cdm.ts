@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import cron from 'node-cron';
 import { requireAuth } from '../auth';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
@@ -133,19 +134,22 @@ app.get("/api/cdm/projects", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { companyId } = req.query;
-    const db = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db, siteContext } = await getScopedDb(req);
+    const siteFilter = scopedWhere(siteContext, isolatedSchema.cdmProjects);
     let projects: any[];
     if (companyId) {
       projects = await db.select().from(isolatedSchema.cdmProjects)
-        .where(eq(isolatedSchema.cdmProjects.companyId, companyId as string))
+        .where(and(eq(isolatedSchema.cdmProjects.companyId, companyId as string), siteFilter))
         .orderBy(isolatedSchema.cdmProjects.createdAt);
     } else {
       projects = await db.select().from(isolatedSchema.cdmProjects)
+        .where(siteFilter)
         .orderBy(isolatedSchema.cdmProjects.createdAt);
     }
     res.json(projects);
-  } catch (error) {
-    logger.error("Error fetching CDM projects:", error);
+  } catch (err) {
+    if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+    logger.error("Error fetching CDM projects:", err);
     res.status(500).json({ error: "Failed to fetch CDM projects" });
   }
 });
@@ -639,9 +643,9 @@ app.get("/api/cdm/projects/:id", requireAuth, async (req, res) => {
 app.post("/api/cdm/projects", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
-    const db = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db, siteId } = await getScopedDb(req);
     const data = req.body;
-    const [project] = await db.insert(isolatedSchema.cdmProjects).values({
+    const [project] = await db.insert(isolatedSchema.cdmProjects).values(withSiteId(siteId, {
       companyId: data.companyId,
       title: data.title,
       description: data.description || null,
@@ -675,7 +679,7 @@ app.post("/api/cdm/projects", requireAuth, async (req, res) => {
       welfareDrinkingWater: data.welfareDrinkingWater || false,
       welfareChanging: data.welfareChanging || false,
       notes: data.notes || null,
-    }).returning();
+    })).returning();
     res.json(project);
   } catch (error) {
     logger.error("Error creating CDM project:", error);

@@ -3,6 +3,7 @@ import { randomUUID, randomBytes } from 'crypto';
 import path from 'path';
 import cron from 'node-cron';
 import { requireAuth } from '../auth';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { EmailService } from '../emailService';
@@ -117,12 +118,14 @@ app.use('/api/ppm', requireAuth, requirePPMFeature);
 // PPM Assets
 app.get("/api/ppm/assets", requireAuth, async (req, res) => {
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const rows = await custDb.select().from(isolatedSchema.ppmAssets).orderBy(isolatedSchema.ppmAssets.name);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    const rows = await custDb.select().from(isolatedSchema.ppmAssets)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssets))
+      .orderBy(isolatedSchema.ppmAssets.name);
     res.json(rows);
-  } catch (error: unknown) {
-    logger.error("GET /api/ppm/assets", error);
+  } catch (err: unknown) {
+    if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+    logger.error("GET /api/ppm/assets", err);
     res.status(500).json({ error: "Failed to fetch PPM assets" });
   }
 });
@@ -131,14 +134,14 @@ app.post("/api/ppm/assets", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const parsed = isolatedSchema.insertPpmAssetSchema.parse(req.body);
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [row] = await custDb.insert(isolatedSchema.ppmAssets).values(parsed).returning();
+    const { db: custDb, siteId } = await getScopedDb(req);
+    const [row] = await custDb.insert(isolatedSchema.ppmAssets).values(withSiteId(siteId, parsed)).returning();
     await logPpmAudit(custDb, "asset_created", req.user!.username, { assetId: row.id, name: (parsed as any).name });
     res.status(201).json(row);
-  } catch (error: unknown) {
-    logger.error("POST /api/ppm/assets", error);
-    res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM asset" });
+  } catch (err: unknown) {
+    if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+    logger.error("POST /api/ppm/assets", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to create PPM asset" });
   }
 });
 
@@ -424,15 +427,15 @@ app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
 app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
 
     // Optional year filter — match ISO date strings starting with "YYYY-"
     const yearParam = req.query.year ? parseInt(req.query.year as string, 10) : null;
     const yearCondition = yearParam ? like(isolatedSchema.ppmWorkOrders.dueDate, `${yearParam}-%`) : undefined;
+    const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
 
     const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
-      .where(yearCondition)
+      .where(and(yearCondition, siteFilter))
       .orderBy(isolatedSchema.ppmWorkOrders.createdAt);
 
     // Omit bearer token fields from list payload; use GET /api/ppm/work-orders/:id/token to get link
@@ -518,19 +521,19 @@ app.get("/api/ppm/work-orders/:id/token", requireAuth, async (req, res) => {
 app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteId } = await getScopedDb(req);
     const accessToken = randomBytes(24).toString("hex");
-    const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
+    const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
     const parsed = isolatedSchema.insertPpmWorkOrderSchema.parse({ ...req.body, accessToken, accessTokenExpiresAt });
     const gate = await assertContractorClearance(custDb, parsed.contractorCompanyId, parsed.contractorWorkerId, req.customerId);
     if (gate) return res.status(400).json(gate);
-    const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(parsed).returning();
+    const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(withSiteId(siteId, parsed)).returning();
     await logPpmAudit(custDb, "work_order_created", req.user!.username, { workOrderId: row.id, title: row.title });
     res.json(row);
-  } catch (error: unknown) {
-    logger.error("POST /api/ppm/work-orders", error);
-    res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM work order" });
+  } catch (err: unknown) {
+    if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+    logger.error("POST /api/ppm/work-orders", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to create PPM work order" });
   }
 });
 

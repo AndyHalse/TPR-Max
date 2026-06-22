@@ -13,6 +13,7 @@ import { logger } from '../utils/logger';
 import { ObjectStorageService, objectStorageClient, parseObjectPath as parseObjectStoragePath } from '../objectStorage';
 import { calculateRIDDORDeadline, getDaysUntilRIDDORDeadline, RIDDOR_CATEGORY_LABELS, type RIDDORCategory } from '../utils/riddorUtils';
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 const ensuredSchemas = new Set<string>();
 
@@ -127,13 +128,15 @@ export function registerHsIncidentRoutes(app: Express): void {
   // GET all H&S incidents
   app.get('/api/hs-incidents', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureHsIncidentsTable(custDb, schemaName);
       const incidents = await custDb.select().from(isolatedSchema.hsIncidents)
+        .where(scopedWhere(siteContext, isolatedSchema.hsIncidents))
         .orderBy(isolatedSchema.hsIncidents.incidentDate);
       res.json(incidents.reverse());
     } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
       logger.error('Error fetching H&S incidents:', err);
       res.status(500).json({ error: 'Failed to fetch incidents' });
     }
@@ -142,7 +145,7 @@ export function registerHsIncidentRoutes(app: Express): void {
   // POST create incident
   app.post('/api/hs-incidents', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteId } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureHsIncidentsTable(custDb, schemaName);
 
@@ -183,7 +186,7 @@ export function registerHsIncidentRoutes(app: Express): void {
         riddorDeadline = calculateRIDDORDeadline(riddorCategory as RIDDORCategory, incidentDate);
       }
 
-      const [created] = await custDb.insert(isolatedSchema.hsIncidents).values({
+      const [created] = await custDb.insert(isolatedSchema.hsIncidents).values(withSiteId(siteId, {
         title: body.title,
         description: body.description || null,
         incidentDate,
@@ -206,7 +209,7 @@ export function registerHsIncidentRoutes(app: Express): void {
         investigatedBy: !isBbs ? (body.investigatedBy || null) : null,
         investigationNotes: !isBbs ? (body.investigationNotes || null) : null,
         photoUrl: body.photoUrl || null,
-      }).returning();
+      })).returning();
 
       // Immediate fatality alert
       if (riddorCategory === 'fatality') {

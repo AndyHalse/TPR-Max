@@ -23,6 +23,7 @@ import { eq, and, desc, gte, ne, or, isNull, ilike } from 'drizzle-orm';
 import { randomUUID, randomBytes } from 'crypto';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 export function registerVisitorRoutes(app: Express): void {
 
@@ -110,25 +111,25 @@ export function registerVisitorRoutes(app: Express): void {
   // Visitor endpoints
   app.get("/api/visitors", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Use deduplicated unique visitors to prevent duplicate entries in "Previous Visitors" list
-      const visitors = await databaseService.getUniqueVisitors(context);
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      const visitors = await databaseService.getUniqueVisitors(context, filterSiteId);
       res.json(visitors);
-    } catch (error) {
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
       res.status(500).json({ error: "Failed to fetch visitors" });
     }
   });
 
   app.get("/api/visitors/current", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const visitors = await databaseService.getCurrentVisitors(context);
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      const visitors = await databaseService.getCurrentVisitors(context, filterSiteId);
       res.json(visitors);
     } catch (error) {
       logger.error("Failed to fetch current visitors:", error);
@@ -144,11 +145,11 @@ export function registerVisitorRoutes(app: Express): void {
 
   app.get("/api/visitors/today", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const todayVisitors = await databaseService.getTodaysVisitors(context);
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      const todayVisitors = await databaseService.getTodaysVisitors(context, filterSiteId);
       res.json(todayVisitors);
     } catch (error) {
       logger.error("Error fetching today visitors:", error);

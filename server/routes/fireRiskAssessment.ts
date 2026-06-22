@@ -8,6 +8,7 @@ import { EmailService } from '../emailService';
 import { eq, desc, isNull, and, sql } from 'drizzle-orm';
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 // ── Fix 6: HTML escape for email bodies ────────────────────────────────────
 function esc(s: any): string {
@@ -208,12 +209,12 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── GET all FRAs — Fix 2: exclude soft-deleted, Fix 9: no writes on read ─
   app.get('/api/fire-risk-assessments', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
 
       const fras = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-        .where(isNull(isolatedSchema.fireRiskAssessments.deletedAt))
+        .where(and(isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)))
         .orderBy(desc(isolatedSchema.fireRiskAssessments.assessmentDate));
 
       // Fix 9: compute status for display without persisting
@@ -340,7 +341,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── POST create FRA — Fix 1 role, Fix 7 validation ───────────────────────
   app.post('/api/fire-risk-assessments', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteId } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
 
@@ -368,7 +369,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         WHERE status != 'superseded' AND deleted_at IS NULL
       `));
 
-      const [created] = await custDb.insert(isolatedSchema.fireRiskAssessments).values({
+      const [created] = await custDb.insert(isolatedSchema.fireRiskAssessments).values(withSiteId(siteId, {
         title: body.title || 'Fire Risk Assessment',
         assessorName: body.assessorName,
         assessorCompany: body.assessorCompany || null,
@@ -377,7 +378,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         documentUrl: body.documentUrl || null,
         status,
         findingsSummary: body.findingsSummary || null,
-      }).returning();
+      })).returning();
 
       await writeFraAudit(custDb, schemaName, created.id, null, 'created', req.user!.username, { title: created.title, assessorName: created.assessorName });
       res.status(201).json(created);

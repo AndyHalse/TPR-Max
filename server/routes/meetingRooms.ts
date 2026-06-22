@@ -12,6 +12,7 @@ import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, ne, sql, inArray } from 'drizzle-orm';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 // ── Amenity helpers (Fix 3: map boolean fields ↔ equipment text array) ─────
 type AmenityBody = { hasProjector?: boolean; hasVideoConference?: boolean; hasWhiteboard?: boolean; hasTV?: boolean; hasAirCon?: boolean; hasCatering?: boolean };
@@ -61,15 +62,13 @@ export function registerMeetingRoomRoutes(app: Express): void {
   // Meeting Rooms Management
   app.get("/api/meeting-rooms", requireAuth, async (req, res) => {
     try {
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const roomsDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const rooms = await roomsDb.select().from(isolatedSchema.meetingRooms);
-      
+      const { db: roomsDb, siteContext } = await getScopedDb(req);
+      const rooms = await roomsDb.select().from(isolatedSchema.meetingRooms)
+        .where(scopedWhere(siteContext, isolatedSchema.meetingRooms));
       res.json(rooms.map(r => ({ ...r, ...equipmentToAmenities(r) })));
-    } catch (error) {
-      logger.error("Error fetching meeting rooms:", error);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Error fetching meeting rooms:", err);
       res.status(500).json({ error: "Failed to fetch meeting rooms" });
     }
   });
@@ -105,14 +104,12 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid room data" });
       }
       const { name, location, capacity, description, isActive, ...amenityFlags } = parsed.data;
-      const mrCreateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const mrCreateDb = await customerDbService.getCustomerDatabase(mrCreateContext.customerId);
-      // Fix 3: map amenity booleans → equipment array
-      const [room] = await mrCreateDb.insert(isolatedSchema.meetingRooms).values({
+      const { db: mrCreateDb, siteId } = await getScopedDb(req);
+      const [room] = await mrCreateDb.insert(isolatedSchema.meetingRooms).values(withSiteId(siteId, {
         name, location, capacity, description,
         isActive: isActive ?? true,
         equipment: amenitiesToEquipment(amenityFlags),
-      }).returning();
+      })).returning();
       res.json({ ...room, ...equipmentToAmenities(room) });
     } catch (error) {
       logger.error("Error creating meeting room:", error);
@@ -281,12 +278,10 @@ export function registerMeetingRoomRoutes(app: Express): void {
   // Room Bookings Management
   app.get("/api/room-bookings", requireAuth, async (req, res) => {
     try {
-      const customerId = req.customerId;
-      if (!customerId) {
+      const { db: bookingsDb, siteContext } = await getScopedDb(req);
+      if (!req.customerId) {
         return res.status(401).json({ error: "Please log in to view bookings" });
       }
-      
-      const bookingsDb = await customerDbService.getCustomerDatabase(customerId);
 
       // Fix 7: apply server-side date / room filters
       const { start_date, end_date, room_id } = req.query as Record<string, string | undefined>;
@@ -480,8 +475,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to create a booking" });
       }
       
-      const bookingContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const bookingDb = await customerDbService.getCustomerDatabase(bookingContext.customerId);
+      const { db: bookingDb, siteId: bookingSiteId } = await getScopedDb(req);
       
       let bookedByStaffId = bookingData.bookedByStaffId;
       if (!bookedByStaffId && req.user?.id) {
@@ -534,7 +528,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
           if (conflicts.length > 0) return null; // skip conflicting slot
 
           const [booking] = await tx.insert(isolatedSchema.roomBookings)
-            .values({
+            .values(withSiteId(bookingSiteId, {
               title: bookingData.title,
               description: bookingData.description,
               meetingRoomId: bookingData.roomId,
@@ -549,7 +543,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
               cateringNotes: bookingData.cateringNotes || null,
               specialRequirements: bookingData.technicalRequirements || null,
               isPrivate: false,
-            })
+            }))
             .returning();
 
           // Insert attendees inside same transaction
