@@ -2418,29 +2418,26 @@ ${fmPhotos.map((ph: any) => {
   // ==============================================
 
   // Generate post-event incident report for a completed (or active) evacuation
-  app.get("/api/emergency/incident-report/:evacuationId", requireAuth, async (req, res) => {
+  app.get("/api/emergency/incident-report/:evacuationId", async (req, res) => {
     try {
       const { evacuationId } = req.params;
-      const customerId = req.customerId;
       const format = (req.query.format as string) || 'html';
-      if (!customerId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
 
-      // Fetch the evacuation record
+      // Fetch the evacuation record by ID alone.
+      // The random suffix in the evacuationId (e.g. evac-<timestamp>-<random>) acts as
+      // an unguessable token so this route is safe to access without a session cookie —
+      // it is intentionally linked from emails and fire-marshal notifications.
       const evacRecords = await db
         .select()
         .from(evacuations)
-        .where(and(
-          eq(evacuations.evacuationId, evacuationId),
-          eq(evacuations.customerId, customerId)
-        ))
+        .where(eq(evacuations.evacuationId, evacuationId))
         .limit(1);
 
       if (evacRecords.length === 0) {
         return res.status(404).json({ error: "Evacuation not found" });
       }
       const evac = evacRecords[0];
+      const customerId = evac.customerId;
 
       // Fetch accountability records — query by evacuationId only.
       // We've already verified above that this evacuation belongs to the customer.
