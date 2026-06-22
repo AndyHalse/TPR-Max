@@ -192,7 +192,7 @@ function EnterpriseSettingsDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isEnterprise, setIsEnterprise] = useState(customer?.isEnterprise ?? false);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>(customer?.enterpriseGroupId ?? '');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(customer?.enterpriseGroupId ?? '__none__');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupSlug, setNewGroupSlug] = useState('');
@@ -201,7 +201,7 @@ function EnterpriseSettingsDialog({
   // Sync local state when the customer prop changes
   useEffect(() => {
     setIsEnterprise(customer?.isEnterprise ?? false);
-    setSelectedGroupId(customer?.enterpriseGroupId ?? '');
+    setSelectedGroupId(customer?.enterpriseGroupId ?? '__none__');
     setShowCreateGroup(false);
     setNewGroupName('');
     setNewGroupSlug('');
@@ -221,7 +221,7 @@ function EnterpriseSettingsDialog({
     mutationFn: async () => {
       const res = await apiRequest('PATCH', `/platform-admin/customers/${customer?.id}/enterprise`, {
         isEnterprise,
-        enterpriseGroupId: (isEnterprise && selectedGroupId) ? selectedGroupId : null,
+        enterpriseGroupId: (isEnterprise && selectedGroupId && selectedGroupId !== '__none__') ? selectedGroupId : null,
       });
       return res.json();
     },
@@ -302,7 +302,7 @@ function EnterpriseSettingsDialog({
                       <SelectValue placeholder="None (standalone enterprise)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None (standalone)</SelectItem>
+                      <SelectItem value="__none__">None (standalone)</SelectItem>
                       {groups.map(g => (
                         <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                       ))}
