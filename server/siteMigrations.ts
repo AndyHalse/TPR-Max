@@ -151,4 +151,32 @@ export const siteMigrations: Migration[] = [
       }
     },
   },
+  {
+    version: "20260622_066_site_id_ensure_all_tables",
+    description: "Re-run ADD COLUMN IF NOT EXISTS site_id on all SITE_SCOPED_TABLES to catch tables created after migration 065 ran.",
+    up: async (db: any) => {
+      for (const table of SITE_SCOPED_TABLES) {
+        try {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+        } catch (err: any) {
+          logger.warn(`⚠️ [066] add site_id → ${table}: ${err.message?.substring(0, 80)}`);
+        }
+      }
+      // Backfill any new NULLs with the default site
+      try {
+        const result = await db.execute(`SELECT id FROM sites WHERE is_default = true LIMIT 1`);
+        const defaultSiteId: string | undefined = result.rows?.[0]?.id;
+        if (defaultSiteId) {
+          for (const table of SITE_SCOPED_TABLES) {
+            try {
+              await db.execute(`UPDATE ${table} SET site_id = '${defaultSiteId}' WHERE site_id IS NULL`);
+            } catch {}
+          }
+          logger.info(`✅ [066] site_id backfill done → site ${defaultSiteId}`);
+        }
+      } catch (err: any) {
+        logger.warn(`⚠️ [066] backfill: ${err.message?.substring(0, 100)}`);
+      }
+    },
+  },
 ];

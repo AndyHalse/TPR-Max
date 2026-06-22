@@ -6,7 +6,7 @@ import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import WalkInVisitorForm from "@/components/WalkInVisitorForm";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
-import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle, MapPin, Search, ArrowLeft, Delete } from "lucide-react";
+import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle, MapPin, Search, ArrowLeft, Delete, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +99,56 @@ export default function KioskMode() {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
+
+  // Enterprise kiosk site binding
+  const { data: authUser } = useQuery<{
+    customerId?: string;
+    isEnterprise?: boolean;
+    activeSiteId?: string | null;
+  } | null>({
+    queryKey: ["/api/auth/me"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [kioskSite, setKioskSite] = useState<{ id: string; name: string; reference: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!authUser?.isEnterprise) return;
+
+    async function bindKioskSite() {
+      const url = new URL(window.location.href);
+      let siteId = url.searchParams.get("site");
+      const storageKey = `tprmax:kiosk_site_${authUser!.customerId}`;
+
+      if (!siteId) {
+        siteId = localStorage.getItem(storageKey);
+      }
+      if (!siteId) return;
+
+      try {
+        const valRes = await fetch(`/api/enterprise/kiosk-site?siteId=${encodeURIComponent(siteId)}`);
+        if (!valRes.ok) return;
+        const site = await valRes.json();
+
+        await fetch("/api/enterprise/active-site", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ siteId }),
+        });
+
+        if (authUser?.customerId) {
+          try { localStorage.setItem(storageKey, siteId); } catch {}
+        }
+
+        setKioskSite(site);
+        queryClient.invalidateQueries();
+      } catch {
+        // silently ignore — site binding is best-effort on kiosk
+      }
+    }
+
+    bindKioskSite();
+  }, [authUser?.isEnterprise, authUser?.customerId]);
 
   // Apply branding colors dynamically to kiosk mode
   useEffect(() => {
@@ -973,6 +1023,14 @@ export default function KioskMode() {
           Welcome to {settings?.companyName || 'TechCorp Ltd'}
         </h2>
         <p className="text-muted-foreground text-xs sm:text-base">Please select your check-in option below</p>
+        {kioskSite && (
+          <div className="flex items-center justify-center gap-1.5 mt-1">
+            <Building2 size={12} className="text-muted-foreground" />
+            <span className="text-xs text-muted-foreground font-medium">
+              {kioskSite.reference ? `${kioskSite.reference} – ` : ''}{kioskSite.name}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full sm:min-h-0">

@@ -90,6 +90,7 @@ import ContractorPortalResetPassword from "@/pages/contractor-portal/ContractorP
 import ContractorPortalDashboard from "@/pages/contractor-portal/ContractorPortalDashboard";
 import ContractorPortalDocuments from "@/pages/contractor-portal/ContractorPortalDocuments";
 import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalWorkers";
+import EnterpriseSites from "@/pages/EnterpriseSites";
 import ChatbotWidget from "@/components/ChatbotWidget";
 
 function Router() {
@@ -790,6 +791,11 @@ function Router() {
             <Route path="/hr/payroll">
               <ErrorBoundary>
                 <PayrollExport />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/enterprise/sites">
+              <ErrorBoundary>
+                <EnterpriseSites />
               </ErrorBoundary>
             </Route>
             <Route component={NotFound} />

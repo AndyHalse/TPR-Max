@@ -753,6 +753,22 @@ export function registerAuthRoutes(app: Express): void {
         `✅ User authenticated successfully: ${user.username} (ID: ${user.id}) from customer DB`
       );
 
+      // Resolve isEnterprise from management DB (cached on customer row)
+      let isEnterprise = false;
+      try {
+        const { customers: customersTable } = await import('@shared/schema');
+        const { db: managementDb } = await import('../db');
+        const { eq: eqFn } = await import('drizzle-orm');
+        const custRows = await managementDb
+          .select({ isEnterprise: customersTable.isEnterprise })
+          .from(customersTable)
+          .where(eqFn(customersTable.id, req.session.customerId!))
+          .limit(1);
+        isEnterprise = custRows[0]?.isEnterprise ?? false;
+      } catch {
+        // non-blocking — default false
+      }
+
       res.json({
         id: user.id,
         username: user.username,
@@ -764,6 +780,8 @@ export function registerAuthRoutes(app: Express): void {
         firstName: user.firstName ?? null,
         lastName: user.lastName ?? null,
         email: (user as any).email ?? null,
+        isEnterprise,
+        activeSiteId: (req.session as any)?.activeSiteId ?? null,
         sessionToken: signSessionToken(user.id, req.session.customerId),
       });
     } catch (error) {

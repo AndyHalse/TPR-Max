@@ -208,8 +208,20 @@ export function registerEmergencyRoutes(app: Express): void {
         return zoneId ? `Zone ${zoneId}` : 'Not specified';
       };
 
+      // ── Enterprise site filtering ─────────────────────────────────────────
+      const activeSiteId = (req.session as any)?.activeSiteId as string | undefined;
+      const matchesSite = (record: any) => {
+        if (!activeSiteId) return true;
+        const sid = record.siteId ?? record.site_id;
+        return !sid || sid === activeSiteId;
+      };
+      const siteFilteredStaff       = checkedInStaff.filter(matchesSite);
+      const siteFilteredVisitors    = currentVisitors.filter(matchesSite);
+      const siteFilteredContractors = checkedInContractors.filter(matchesSite);
+      const siteFilteredMembers     = checkedInMembers.filter(matchesSite);
+
       const musterList = [
-        ...checkedInStaff.map(staff => ({
+        ...siteFilteredStaff.map(staff => ({
           id: staff.id,
           name: `${staff.firstName} ${staff.lastName}`,
           type: 'staff' as const,
@@ -221,7 +233,7 @@ export function registerEmergencyRoutes(app: Express): void {
           needsEvacuationAssistance: (staff as any).needsEvacuationAssistance ?? false,
           hasEmail: !!staff.email,
         })),
-        ...currentVisitors.map(visitor => ({
+        ...siteFilteredVisitors.map(visitor => ({
           id: visitor.id,
           name: `${visitor.firstName} ${visitor.lastName}`,
           type: 'visitor' as const,
@@ -233,7 +245,7 @@ export function registerEmergencyRoutes(app: Express): void {
           needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false,
           hasEmail: !!visitor.email,
         })),
-        ...checkedInContractors.map(contractor => ({
+        ...siteFilteredContractors.map(contractor => ({
           id: contractor.id,
           name: `${contractor.firstName} ${contractor.lastName}`,
           type: 'contractor' as const,
@@ -245,7 +257,7 @@ export function registerEmergencyRoutes(app: Express): void {
           needsEvacuationAssistance: (contractor as any).needsEvacuationAssistance ?? false,
           hasEmail: !!(contractor as any).email,
         })),
-        ...checkedInMembers.map(member => ({
+        ...siteFilteredMembers.map(member => ({
           id: member.id,
           name: `${member.firstName} ${member.lastName}`,
           type: 'member' as const,

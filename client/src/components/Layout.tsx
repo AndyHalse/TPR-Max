@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase, ShieldCheck, ClipboardList, Activity, ClipboardCheck, FileEdit, BookOpen, Webhook, Globe } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
+import SiteSwitcher from "@/components/SiteSwitcher";
 import HelpButton from "@/components/HelpButton";
 import ReportProblemButton from "@/components/ReportProblemButton";
 import HelpPanel from "@/components/HelpPanel";
@@ -47,6 +48,8 @@ export default function Layout({ children }: LayoutProps) {
     defaultLandingPage?: string | null;
     navStyle?: string | null;
     customerId?: string;
+    isEnterprise?: boolean;
+    activeSiteId?: string | null;
   } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
@@ -252,6 +255,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const allNavItems = [
     { path: "/", icon: ChartLine, label: "Dashboard", featureKey: "featureDashboard", defaultOn: true },
+    { path: "/enterprise/sites", icon: Building2, label: "Sites", enterpriseOnly: true, defaultOn: true },
     { path: "/compliance-dashboard", icon: Activity, label: "Compliance Score", featureKey: "featureComplianceDashboard", defaultOn: true },
     { path: "/visitors", icon: User, label: "Visitors", featureKey: "featureVisitors", defaultOn: true },
     { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true, badge: contractorGapsCount > 0 ? contractorGapsCount : undefined, badgeTooltip: contractorGapsCount > 0 ? `${contractorGapsCount} compliance gap${contractorGapsCount !== 1 ? 's' : ''} — click to review` : undefined },
@@ -286,6 +290,8 @@ export default function Layout({ children }: LayoutProps) {
   const hasMenuRestrictions = Array.isArray(allowedItems) && allowedItems.length > 0;
 
   const navItems = allNavItems.filter(item => {
+    // Enterprise-only items are hidden for non-enterprise customers
+    if ((item as any).enterpriseOnly && !user?.isEnterprise) return false;
     if (hasMenuRestrictions && user?.role !== 'admin') {
       if (!allowedItems!.includes(item.path)) return false;
     }
@@ -412,6 +418,9 @@ export default function Layout({ children }: LayoutProps) {
 
                 {user && (
                   <div className="flex items-center space-x-1 sm:space-x-2">
+                    {user.isEnterprise && (
+                      <SiteSwitcher textStyle={navInvert ? { color: '#ffffff' } : {}} />
+                    )}
                     <Link href="/profile">
                       <TooltipProvider>
                         <Tooltip>
@@ -525,6 +534,11 @@ export default function Layout({ children }: LayoutProps) {
         )}
         {navStyle === "sidebar" && (
           <div className="max-w-7xl mx-auto">
+            {user?.isEnterprise && (
+              <div className="mb-4 flex items-center">
+                <SiteSwitcher />
+              </div>
+            )}
             {children}
           </div>
         )}
