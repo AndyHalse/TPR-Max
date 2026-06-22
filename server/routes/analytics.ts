@@ -13,8 +13,9 @@ import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { VoiceNotificationService } from '../voiceNotificationService';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere } from '../siteScope';
 
 export function registerAnalyticsRoutes(app: Express): void {
   // Stats endpoint
@@ -40,10 +41,11 @@ export function registerAnalyticsRoutes(app: Express): void {
           .limit(1);
         if (custSettings?.featureMembers === true) {
           featureMembers = true;
+          const { siteContext: analyticsSiteCtx } = await getScopedDb(req);
           const checkedInMembers = await custDb
             .select()
             .from(isolatedSchema.members)
-            .where(eq(isolatedSchema.members.isCheckedIn, true));
+            .where(and(eq(isolatedSchema.members.isCheckedIn, true), scopedWhere(analyticsSiteCtx, isolatedSchema.members)));
           membersOnSite = checkedInMembers.length;
         }
       } catch (e) {

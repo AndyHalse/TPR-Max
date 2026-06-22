@@ -6,6 +6,7 @@ import { customerDbService, CustomerDatabaseService } from '../customerDatabase'
 import * as isolatedSchema from '../isolatedSchema';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { withSiteId } from '../siteScope';
 import { DEFAULT_ONBOARDING_ITEMS } from './hrOnboarding';
 
 export async function registerImportRoutes(app: Express): Promise<void> {
@@ -232,8 +233,9 @@ app.post("/api/import/staff", requireAuth, csvUpload, async (req, res) => {
           throw new Error('Missing required fields: firstName, lastName, email, department, or employeeId');
         }
 
-        // Insert into database
-        await customerDb.insert(isolatedSchema.staff).values(staffData);
+        // Insert into database — stamp active siteId so imported staff are site-scoped
+        const importSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+        await customerDb.insert(isolatedSchema.staff).values(withSiteId(importSiteId, staffData));
         results.successful++;
       } catch (error) {
         results.failed++;
@@ -322,7 +324,8 @@ app.post("/api/import/visitors", requireAuth, csvUpload, async (req, res) => {
           throw new Error('Missing required fields: firstName or lastName');
         }
 
-        await customerDb.insert(isolatedSchema.visitors).values(visitorData);
+        const visitorImportSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+        await customerDb.insert(isolatedSchema.visitors).values(withSiteId(visitorImportSiteId, visitorData));
         results.successful++;
       } catch (error) {
         results.failed++;
@@ -422,7 +425,8 @@ app.post("/api/import/contractors", requireAuth, csvUpload, async (req, res) => 
           throw new Error('Missing required fields: firstName or lastName');
         }
 
-        await customerDb.insert(isolatedSchema.contractorWorkers).values(workerData);
+        const workerImportSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+        await customerDb.insert(isolatedSchema.contractorWorkers).values(withSiteId(workerImportSiteId, workerData));
         results.successful++;
       } catch (error) {
         results.failed++;
@@ -502,7 +506,8 @@ app.post("/api/import/members", requireAuth, csvUpload, async (req, res) => {
           throw new Error('Missing required fields: firstName or lastName');
         }
         const qrCode = `MEMBER-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-        await customerDb.insert(isolatedSchema.members).values({
+        const memberImportSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+        await customerDb.insert(isolatedSchema.members).values(withSiteId(memberImportSiteId, {
           firstName: record.firstName.trim(),
           lastName: record.lastName.trim(),
           email: record.email?.trim()?.toLowerCase() || null,
@@ -517,7 +522,7 @@ app.post("/api/import/members", requireAuth, csvUpload, async (req, res) => {
           qrCode,
           isCheckedIn: false,
           isActive: true
-        });
+        }));
         results.successful++;
       } catch (error) {
         results.failed++;

@@ -550,6 +550,16 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     });
 
+    // Ensure evacuations table has site_id for enterprise multi-site isolation (FIX-01)
+    try {
+      const { db: evacMgmtDb } = await import('./db');
+      const { sql: evacSqlTag } = await import('drizzle-orm');
+      await evacMgmtDb.execute(evacSqlTag`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+      logger.info('✅ Management DB: evacuations.site_id column ensured');
+    } catch (e: any) {
+      logger.info(`⚠️ Management DB evacuations site_id check: ${e.message?.substring(0, 80)}`);
+    }
+
     // Ensure management DB has platform_disabled_features column before route registration
     try {
       const { db: mgmtDb } = await import('./db');

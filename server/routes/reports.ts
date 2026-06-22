@@ -9,6 +9,7 @@ import { EmailService, emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, sql, desc, and, gte, lte } from 'drizzle-orm';
 import { db } from '../db';
+import { getScopedDb } from '../siteScope';
 
 export function registerReportRoutes(app: Express): void {
 
@@ -241,13 +242,17 @@ export function registerReportRoutes(app: Express): void {
     reportType: string,
     fromDate: Date,
     toDate: Date,
+    siteId: string | null = null,
   ): Promise<{ data: any; summaryCount: string; summaryNote: string }> {
     const custDb = await customerDbService.getCustomerDatabase(customerId);
     const inRange = (col: any) => and(gte(col, fromDate), lte(col, toDate));
+    const withSite = (col: any, rangeCol: any) => siteId
+      ? and(inRange(rangeCol), eq(col, siteId))
+      : inRange(rangeCol);
 
     if (reportType === 'health_safety') {
       const rows = await custDb.select().from(isolatedSchema.hsIncidents)
-        .where(inRange(isolatedSchema.hsIncidents.incidentDate));
+        .where(withSite(isolatedSchema.hsIncidents.siteId, isolatedSchema.hsIncidents.incidentDate));
       const incidents  = rows.filter(r => r.recordType === 'incident').length;
       const nearMisses = rows.filter(r => r.recordType === 'near_miss').length;
       const goodSpots  = rows.filter(r => r.recordType === 'good_spot').length;
@@ -263,7 +268,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'fire_risk') {
       const rows = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-        .where(inRange(isolatedSchema.fireRiskAssessments.assessmentDate));
+        .where(withSite(isolatedSchema.fireRiskAssessments.siteId, isolatedSchema.fireRiskAssessments.assessmentDate));
       const now = new Date();
       const overdue = rows.filter(r => r.nextReviewDate && new Date(r.nextReviewDate) < now).length;
       return {
@@ -275,7 +280,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'permit_to_work') {
       const rows = await custDb.select().from(isolatedSchema.permitToWork)
-        .where(inRange(isolatedSchema.permitToWork.createdAt));
+        .where(withSite(isolatedSchema.permitToWork.siteId, isolatedSchema.permitToWork.createdAt));
       const active = rows.filter(r => r.status === 'active' || r.status === 'authorised' || r.status === 'approved').length;
       const closed = rows.filter(r => r.status === 'closed').length;
       return {
@@ -287,7 +292,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'risk_assessments') {
       const rows = await custDb.select().from(isolatedSchema.raBuilderAssessments)
-        .where(inRange(isolatedSchema.raBuilderAssessments.assessmentDate));
+        .where(withSite(isolatedSchema.raBuilderAssessments.siteId, isolatedSchema.raBuilderAssessments.assessmentDate));
       const now = new Date();
       const dueReview = rows.filter(r => r.nextReviewDate && new Date(r.nextReviewDate) < now).length;
       const approved  = rows.filter(r => r.status === 'approved').length;
@@ -300,7 +305,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'ppm_compliance') {
       const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
-        .where(inRange(isolatedSchema.ppmWorkOrders.dueDate));
+        .where(withSite(isolatedSchema.ppmWorkOrders.siteId, isolatedSchema.ppmWorkOrders.dueDate));
       const now = new Date();
       const completed = rows.filter(r => r.status === 'completed' || !!(r as any).completedDate).length;
       const overdue   = rows.filter(r => r.status !== 'completed' && !(r as any).completedDate && r.dueDate && new Date(r.dueDate) < now).length;
@@ -314,7 +319,7 @@ export function registerReportRoutes(app: Express): void {
 
     // audit_inspection
     const rows = await custDb.select().from(isolatedSchema.auditRecords)
-      .where(inRange(isolatedSchema.auditRecords.conductedAt));
+      .where(withSite(isolatedSchema.auditRecords.siteId, isolatedSchema.auditRecords.conductedAt));
     const passed    = rows.filter(r => r.passed === true).length;
     const completed = rows.filter(r => r.status === 'completed').length;
     return {
@@ -404,7 +409,8 @@ export function registerReportRoutes(app: Express): void {
         avgDuration = `${withGaps.length} with gaps`;
         snapshotData = JSON.stringify({ type: 'compliance_gap', companies });
       } else if (MODULE_REPORT_TYPES.includes(reportType as any)) {
-        const built = await buildModuleReportData(context.customerId, reportType, fromDate, toDate);
+        const reportGenSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+        const built = await buildModuleReportData(context.customerId, reportType, fromDate, toDate, reportGenSiteId);
         totalVisitors = built.summaryCount;
         avgDuration   = built.summaryNote;
         snapshotData  = JSON.stringify(built.data);
@@ -509,7 +515,8 @@ export function registerReportRoutes(app: Express): void {
         if (report.data) {
           reportData = JSON.parse(report.data);
         } else {
-          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo);
+          const emailSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo, emailSiteId);
           reportData = rebuilt.data;
         }
       } else {
@@ -640,7 +647,8 @@ export function registerReportRoutes(app: Express): void {
         if (report.data) {
           reportData = JSON.parse(report.data);
         } else {
-          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo);
+          const downloadSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo, downloadSiteId);
           reportData = rebuilt.data;
         }
       } else {

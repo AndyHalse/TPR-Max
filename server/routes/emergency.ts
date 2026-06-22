@@ -21,6 +21,7 @@ import { eq, and, sql, desc, gte, lt, or, not, inArray, ne } from 'drizzle-orm';
 import { db, pool } from '../db';
 import { sendTeamsNotification } from '../utils/teamsNotifier';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
 // ─── Module-scope helper ────────────────────────────────────────────────────
 
@@ -132,6 +133,10 @@ export function registerEmergencyRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
+      // Resolve enterprise site scope — fail-closed for enterprise, transparent for single-site
+      const { siteContext } = await getScopedDb(req);
+      const strictSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      
       // Get all checked-in staff using customer-isolated database service
       const checkedInStaff = await databaseService.getCheckedInStaff(context);
       
@@ -152,7 +157,7 @@ export function registerEmergencyRoutes(app: Express): void {
           checkedInMembers = await custDb
             .select()
             .from(isolatedSchema.members)
-            .where(eq(isolatedSchema.members.isCheckedIn, true));
+            .where(and(eq(isolatedSchema.members.isCheckedIn, true), scopedWhere(siteContext, isolatedSchema.members)));
         }
       } catch (e) {
       }
@@ -168,7 +173,8 @@ export function registerEmergencyRoutes(app: Express): void {
           .from(evacuations)
           .where(and(
             eq(evacuations.customerId, customerId),
-            eq(evacuations.status, 'active')
+            eq(evacuations.status, 'active'),
+            strictSiteId ? eq(evacuations.siteId, strictSiteId) : undefined
           ))
           .orderBy(desc(evacuations.createdAt))
           .limit(1);
@@ -199,7 +205,10 @@ export function registerEmergencyRoutes(app: Express): void {
       let zoneNameMap = new Map<string, string>();
       try {
         const custDb = await customerDbService.getCustomerDatabase(customerId || context.customerId);
-        const zones = await custDb.select().from(isolatedSchema.evacuationZones);
+        const zones = await custDb
+          .select()
+          .from(isolatedSchema.evacuationZones)
+          .where(scopedWhere(siteContext, isolatedSchema.evacuationZones));
         zones.forEach((z: any) => zoneNameMap.set(z.id, z.name));
       } catch (e) { /* no zones configured */ }
 
@@ -208,12 +217,11 @@ export function registerEmergencyRoutes(app: Express): void {
         return zoneId ? `Zone ${zoneId}` : 'Not specified';
       };
 
-      // ── Enterprise site filtering ─────────────────────────────────────────
-      const activeSiteId = (req.session as any)?.activeSiteId as string | undefined;
+      // ── Enterprise site filtering — strict: records without siteId excluded for enterprise ──
       const matchesSite = (record: any) => {
-        if (!activeSiteId) return true;
+        if (!strictSiteId) return true;
         const sid = record.siteId ?? record.site_id;
-        return !sid || sid === activeSiteId;
+        return sid === strictSiteId;
       };
       const siteFilteredStaff       = checkedInStaff.filter(matchesSite);
       const siteFilteredVisitors    = currentVisitors.filter(matchesSite);
@@ -380,6 +388,10 @@ export function registerEmergencyRoutes(app: Express): void {
       }
       const context = { customerId: req.customerId };
       
+      // Resolve enterprise site scope for evacuation enrollment
+      const { siteContext: activationSiteContext, siteId: activationSiteId } = await getScopedDb(req);
+      const strictActivationSiteId = activationSiteContext.isEnterprise ? activationSiteContext.activeSiteId : null;
+      
       logger.info(`\n EMERGENCY ACTIVATION - PRE-FLIGHT VALIDATION`);
       logger.info(`============================================`);
       logger.info(`Customer ID: ${context.customerId}`);
@@ -408,10 +420,19 @@ export function registerEmergencyRoutes(app: Express): void {
       }
       logger.info(`Company settings loaded`);
       
-      // Get all people currently on site
-      const checkedInStaff = await databaseService.getCheckedInStaff(context);
-      const currentVisitors = await databaseService.getCurrentVisitors(context);
-      const checkedInContractors = await databaseService.getCheckedInContractors(context);
+      // Get all people currently on site — then filter to active site for enterprise
+      const allEvacStaff = await databaseService.getCheckedInStaff(context);
+      const allEvacVisitors = await databaseService.getCurrentVisitors(context);
+      const allEvacContractors = await databaseService.getCheckedInContractors(context);
+      
+      const evacSiteMatch = (record: any) => {
+        if (!strictActivationSiteId) return true;
+        const sid = record.siteId ?? record.site_id;
+        return sid === strictActivationSiteId;
+      };
+      const checkedInStaff = allEvacStaff.filter(evacSiteMatch);
+      const currentVisitors = allEvacVisitors.filter(evacSiteMatch);
+      const checkedInContractors = allEvacContractors.filter(evacSiteMatch);
       
       // Get checked-in members if feature is enabled
       let checkedInMembers: any[] = [];
@@ -421,7 +442,7 @@ export function registerEmergencyRoutes(app: Express): void {
           checkedInMembers = await custDb
             .select()
             .from(isolatedSchema.members)
-            .where(eq(isolatedSchema.members.isCheckedIn, true));
+            .where(and(eq(isolatedSchema.members.isCheckedIn, true), scopedWhere(activationSiteContext, isolatedSchema.members)));
         }
       } catch (e) {
         logger.info(`Members query failed during evacuation: ${e}`);
@@ -479,7 +500,7 @@ export function registerEmergencyRoutes(app: Express): void {
       const evacuationId = `evac-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const musterPoints = ['Main Car Park', 'Side Entrance', 'Rear Assembly'];
       
-      // Create evacuation record
+      // Create evacuation record — siteId binds this evacuation to the active site
       await db.insert(evacuations).values({
         customerId: context.customerId,
         evacuationId,
@@ -488,15 +509,18 @@ export function registerEmergencyRoutes(app: Express): void {
         isDrill: drillMode,
         totalPeopleOnSite: checkedInStaff.length + currentVisitors.length + checkedInContractors.length + checkedInMembers.length,
         totalAccountedFor: 0,
-        musterPoints
+        musterPoints,
+        ...(activationSiteId ? { siteId: activationSiteId } : {}),
       });
       
       // Load zone name map from customer isolated DB for accurate zone reporting
       const zoneNameMapForReport = new Map<string, string>();
       try {
         const custDbForZones = await customerDbService.getCustomerDatabase(context.customerId);
-        const zones = await custDbForZones.select({ id: isolatedSchema.evacuationZones.id, name: isolatedSchema.evacuationZones.name })
-          .from(isolatedSchema.evacuationZones);
+        const zones = await custDbForZones
+          .select({ id: isolatedSchema.evacuationZones.id, name: isolatedSchema.evacuationZones.name })
+          .from(isolatedSchema.evacuationZones)
+          .where(scopedWhere(activationSiteContext, isolatedSchema.evacuationZones));
         for (const zone of zones) {
           zoneNameMapForReport.set(zone.id, zone.name);
         }
@@ -1116,6 +1140,8 @@ export function registerEmergencyRoutes(app: Express): void {
         // Auto-create an emergency evacuation on-demand
         const newEvacuationId = `fire-marshal-${Date.now()}`;
         const customerDbConnection = customerId;
+        // Bind auto-evacuation to the fire marshal's site so it doesn't cross-site
+        const marshalSiteId = (validatedStaff as any).siteId || null;
         
         evacuation = [{
           evacuationId: newEvacuationId,
@@ -1128,29 +1154,38 @@ export function registerEmergencyRoutes(app: Express): void {
           totalAccountedFor: 0
         }];
         
-        // Insert the emergency evacuation record
-        await db.insert(evacuations).values(evacuation[0] as any);
+        // Insert the emergency evacuation record (bound to marshal's site)
+        await db.insert(evacuations).values({ ...evacuation[0], ...(marshalSiteId ? { siteId: marshalSiteId } : {}) } as any);
         
-        // Create accountability records for all on-site personnel
+        // Create accountability records for all on-site personnel (scoped to marshal's site)
         const customerDb = await customerDbService.getCustomerDatabase(customerDbConnection);
+        const standaloneStaffWhere = marshalSiteId
+          ? and(eq(isolatedSchema.staff.isCheckedIn, true), eq(isolatedSchema.staff.siteId, marshalSiteId))
+          : eq(isolatedSchema.staff.isCheckedIn, true);
+        const standaloneVisitorWhere = marshalSiteId
+          ? and(eq(isolatedSchema.visitors.isCheckedIn, true), eq(isolatedSchema.visitors.siteId, marshalSiteId))
+          : eq(isolatedSchema.visitors.isCheckedIn, true);
+        const standaloneWorkerWhere = marshalSiteId
+          ? and(eq(isolatedSchema.contractorWorkers.isCheckedIn, true), eq(isolatedSchema.contractorWorkers.siteId, marshalSiteId))
+          : eq(isolatedSchema.contractorWorkers.isCheckedIn, true);
         
         // Get checked-in staff
         const checkedInStaff = await customerDb
           .select()
           .from(isolatedSchema.staff)
-          .where(eq(isolatedSchema.staff.isCheckedIn, true));
+          .where(standaloneStaffWhere);
         
         // Get current visitors
         const currentVisitors = await customerDb
           .select()
           .from(isolatedSchema.visitors)
-          .where(eq(isolatedSchema.visitors.isCheckedIn, true));
+          .where(standaloneVisitorWhere);
         
         // Get checked-in contractors
         const checkedInContractors = await customerDb
           .select()
           .from(isolatedSchema.contractorWorkers)
-          .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true));
+          .where(standaloneWorkerWhere);
         
         // Create accountability records for all personnel
         const accountabilityRecords = [
@@ -2048,15 +2083,20 @@ export function registerEmergencyRoutes(app: Express): void {
       let visitorsCheckedOut = 0;
       let contractorsCheckedOut = 0;
 
-      // If check_out_all mode, check out ALL currently on-site personnel
+      // If check_out_all mode, check out on-site personnel — scoped to the completed evacuation's site
       if (checkOutMode === 'check_out_all') {
         const custDb = await customerDbService.getCustomerDatabase(customerId);
+        // Use the siteId stamped on the evacuation record (null for non-enterprise = all sites)
+        const completedEvacSiteId: string | null = latestEvacs[0]?.siteId ?? null;
+        const coaStaffWhere = and(eq(isolatedSchema.staff.isCheckedIn, true), completedEvacSiteId ? eq(isolatedSchema.staff.siteId, completedEvacSiteId) : undefined);
+        const coaVisitorWhere = and(eq(isolatedSchema.visitors.isCheckedIn, true), completedEvacSiteId ? eq(isolatedSchema.visitors.siteId, completedEvacSiteId) : undefined);
+        const coaWorkerWhere = and(eq(isolatedSchema.contractorWorkers.isCheckedIn, true), completedEvacSiteId ? eq(isolatedSchema.contractorWorkers.siteId, completedEvacSiteId) : undefined);
 
-        // Fetch all currently checked-in people from the isolated customer DB
+        // Fetch checked-in people from the isolated customer DB — site-filtered for enterprise
         const [onSiteStaff, onSiteVisitors, onSiteContractors] = await Promise.all([
-          custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff).where(eq(isolatedSchema.staff.isCheckedIn, true)),
-          custDb.select({ id: isolatedSchema.visitors.id }).from(isolatedSchema.visitors).where(eq(isolatedSchema.visitors.isCheckedIn, true)),
-          custDb.select({ id: isolatedSchema.contractorWorkers.id }).from(isolatedSchema.contractorWorkers).where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true)),
+          custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff).where(coaStaffWhere),
+          custDb.select({ id: isolatedSchema.visitors.id }).from(isolatedSchema.visitors).where(coaVisitorWhere),
+          custDb.select({ id: isolatedSchema.contractorWorkers.id }).from(isolatedSchema.contractorWorkers).where(coaWorkerWhere),
         ]);
 
         logger.info(`Checking out all on-site: ${onSiteStaff.length} staff, ${onSiteVisitors.length} visitors, ${onSiteContractors.length} contractors`);
@@ -3901,14 +3941,15 @@ ${evacuationPhotosData.length > 0 ? `
       }
 
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const musterPointSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
       
       const [newPoint] = await customerDb
         .insert(isolatedSchema.musterPoints)
-        .values({
+        .values(withSiteId(musterPointSiteId, {
           name,
           displayOrder: displayOrder || 0,
           isActive: true
-        })
+        }))
         .returning();
 
       res.json(newPoint);
@@ -4006,10 +4047,11 @@ ${evacuationPhotosData.length > 0 ? `
         { name: 'Side Entrance', displayOrder: 3, isActive: true },
       ];
       
+      const defaultMusterSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
       for (const point of defaultMusterPoints) {
         await customerDb
           .insert(isolatedSchema.musterPoints)
-          .values(point);
+          .values(withSiteId(defaultMusterSiteId, point));
       }
 
       res.json({ 
@@ -4174,24 +4216,36 @@ ${evacuationPhotosData.length > 0 ? `
       // Get customer database connection
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
-      // Get all checked-in staff directly from customer database
+      // Resolve site scope for muster reset — use session for admin, marshal's siteId for token
+      const resetSiteId: string | null = (req.session as any)?.activeSiteId ?? (validatedStaff as any)?.siteId ?? null;
+      
+      // Get all checked-in staff — filtered to active site for enterprise
       const checkedInStaff = await customerDb
         .select()
         .from(isolatedSchema.staff)
-        .where(eq(isolatedSchema.staff.isCheckedIn, true));
+        .where(and(
+          eq(isolatedSchema.staff.isCheckedIn, true),
+          resetSiteId ? eq(isolatedSchema.staff.siteId, resetSiteId) : undefined
+        ));
       
-      // Get all current visitors
+      // Get all current visitors — filtered to active site for enterprise
       const currentVisitors = await customerDb
         .select()
         .from(isolatedSchema.visitors)
-        .where(eq(isolatedSchema.visitors.isCheckedIn, true))
+        .where(and(
+          eq(isolatedSchema.visitors.isCheckedIn, true),
+          resetSiteId ? eq(isolatedSchema.visitors.siteId, resetSiteId) : undefined
+        ))
         .orderBy(desc(isolatedSchema.visitors.checkedInAt));
       
-      // Get all checked-in contractors
+      // Get all checked-in contractors — filtered to active site for enterprise
       const checkedInContractors = await customerDb
         .select()
         .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true))
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
+          resetSiteId ? eq(isolatedSchema.contractorWorkers.siteId, resetSiteId) : undefined
+        ))
         .orderBy(desc(isolatedSchema.contractorWorkers.checkedInAt));
       
       logger.info(`CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
@@ -4206,7 +4260,10 @@ ${evacuationPhotosData.length > 0 ? `
           checkedInMembers = await customerDb
             .select()
             .from(isolatedSchema.members)
-            .where(eq(isolatedSchema.members.isCheckedIn, true));
+            .where(and(
+              eq(isolatedSchema.members.isCheckedIn, true),
+              resetSiteId ? eq(isolatedSchema.members.siteId, resetSiteId) : undefined
+            ));
         }
       } catch (e) {
       }
@@ -4823,10 +4880,14 @@ ${evacuationPhotosData.length > 0 ? `
       }
       const { marshal, customerId } = marshalResult;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const marshalZoneSiteId = (marshal as any).siteId || null;
       const zones = await custDb
         .select()
         .from(isolatedSchema.evacuationZones)
-        .where(eq(isolatedSchema.evacuationZones.isActive, true))
+        .where(and(
+          eq(isolatedSchema.evacuationZones.isActive, true),
+          marshalZoneSiteId ? eq(isolatedSchema.evacuationZones.siteId, marshalZoneSiteId) : undefined
+        ))
         .orderBy(isolatedSchema.evacuationZones.displayOrder);
       const marshalZoneId = (marshal as any).zoneId || null;
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -4848,10 +4909,14 @@ ${evacuationPhotosData.length > 0 ? `
         return res.status(401).json({ error: "Invalid or expired emergency token" });
       }
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const tokenMarshalSiteId = (marshal as any).siteId || null;
       const zones = await custDb
         .select()
         .from(isolatedSchema.evacuationZones)
-        .where(eq(isolatedSchema.evacuationZones.isActive, true))
+        .where(and(
+          eq(isolatedSchema.evacuationZones.isActive, true),
+          tokenMarshalSiteId ? eq(isolatedSchema.evacuationZones.siteId, tokenMarshalSiteId) : undefined
+        ))
         .orderBy(isolatedSchema.evacuationZones.displayOrder);
       // Also return the marshal's assigned zone
       const marshalZoneId = (marshal as any).zoneId || null;
@@ -5065,12 +5130,12 @@ ${evacuationPhotosData.length > 0 ? `
     try {
       const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
-      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: membersCustDb, siteContext: membersSiteCtx } = await getScopedDb(req);
       
-      const allMembers = await customerDb
+      const allMembers = await membersCustDb
         .select()
         .from(isolatedSchema.members)
-        .where(eq(isolatedSchema.members.isActive, true))
+        .where(and(eq(isolatedSchema.members.isActive, true), scopedWhere(membersSiteCtx, isolatedSchema.members)))
         .orderBy(desc(isolatedSchema.members.createdAt));
       
       res.json(allMembers);
@@ -5084,7 +5149,7 @@ ${evacuationPhotosData.length > 0 ? `
     try {
       const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
-      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: memberInsertDb, siteId: memberSiteId } = await getScopedDb(req);
       
       const memberData = pickMemberFields(req.body);
       if (!memberData.firstName || !memberData.lastName) {
@@ -5092,12 +5157,12 @@ ${evacuationPhotosData.length > 0 ? `
       }
       const qrCode = `MEM-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      const [newMember] = await customerDb
+      const [newMember] = await memberInsertDb
         .insert(isolatedSchema.members)
-        .values({
+        .values(withSiteId(memberSiteId, {
           ...memberData,
           qrCode,
-        })
+        }))
         .returning();
       
       res.status(201).json(newMember);

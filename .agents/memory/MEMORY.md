@@ -16,3 +16,4 @@
 - [Contractor check-in & approval logic](contractor-checkin-approval.md) — 'attention_needed' must warn not block; reevaluateCompanyApproval must only fire on company-level docs; PATCH approve must sync worker fields.
 - [Platform Admin hardening patterns](platform-admin-hardening.md) — soft-delete/purge, super_admin tier, writeAudit helper, DatabaseProvisioningService singleton, VALID_ROLES (admin|user only).
 - [Enterprise compliance dashboard patterns](enterprise-compliance-ui.md) — score ring is SVG with stroke-dashoffset; noData when totalItems===0; expiries endpoint needs manual queryFn with ?days=N; ackMutation POSTs to /alerts/:id/acknowledge.
+- [Emergency site-scoping pattern](emergency-site-scoping.md) — evacuations table is in shared management DB (shared/schema.ts) and has siteId; people tables are in isolated customer DB; token-based FM routes derive siteId from validatedStaff.siteId not session.
