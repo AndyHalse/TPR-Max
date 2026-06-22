@@ -91,6 +91,7 @@ import ContractorPortalDashboard from "@/pages/contractor-portal/ContractorPorta
 import ContractorPortalDocuments from "@/pages/contractor-portal/ContractorPortalDocuments";
 import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalWorkers";
 import EnterpriseSites from "@/pages/EnterpriseSites";
+import EnterpriseAccess from "@/pages/EnterpriseAccess";
 import ChatbotWidget from "@/components/ChatbotWidget";
 
 function Router() {
@@ -796,6 +797,11 @@ function Router() {
             <Route path="/enterprise/sites">
               <ErrorBoundary>
                 <EnterpriseSites />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/enterprise/people">
+              <ErrorBoundary>
+                <EnterpriseAccess />
               </ErrorBoundary>
             </Route>
             <Route component={NotFound} />

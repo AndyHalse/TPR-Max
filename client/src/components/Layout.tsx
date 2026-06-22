@@ -50,6 +50,7 @@ export default function Layout({ children }: LayoutProps) {
     customerId?: string;
     isEnterprise?: boolean;
     activeSiteId?: string | null;
+    enterpriseRoles?: string[] | null;
   } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
@@ -256,6 +257,7 @@ export default function Layout({ children }: LayoutProps) {
   const allNavItems = [
     { path: "/", icon: ChartLine, label: "Dashboard", featureKey: "featureDashboard", defaultOn: true },
     { path: "/enterprise/sites", icon: Building2, label: "Sites", enterpriseOnly: true, defaultOn: true },
+    { path: "/enterprise/people", icon: Users, label: "People & Access", enterpriseOnly: true, requiresEnterpriseManageRole: true, defaultOn: true },
     { path: "/compliance-dashboard", icon: Activity, label: "Compliance Score", featureKey: "featureComplianceDashboard", defaultOn: true },
     { path: "/visitors", icon: User, label: "Visitors", featureKey: "featureVisitors", defaultOn: true },
     { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true, badge: contractorGapsCount > 0 ? contractorGapsCount : undefined, badgeTooltip: contractorGapsCount > 0 ? `${contractorGapsCount} compliance gap${contractorGapsCount !== 1 ? 's' : ''} — click to review` : undefined },
@@ -292,6 +294,11 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = allNavItems.filter(item => {
     // Enterprise-only items are hidden for non-enterprise customers
     if ((item as any).enterpriseOnly && !user?.isEnterprise) return false;
+    // Items that require an enterprise management role (enterprise_admin or area_manager)
+    if ((item as any).requiresEnterpriseManageRole) {
+      const eroles = user?.enterpriseRoles ?? [];
+      if (!eroles.includes("enterprise_admin") && !eroles.includes("area_manager")) return false;
+    }
     if (hasMenuRestrictions && user?.role !== 'admin') {
       if (!allowedItems!.includes(item.path)) return false;
     }

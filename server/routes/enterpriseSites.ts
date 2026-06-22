@@ -314,6 +314,30 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     }
   });
 
+  // ── List enterprise users (for grant picker) ───────────────────────────────
+  // Requires enterprise_admin or area_manager role; returns active users only.
+  app.get('/api/enterprise/users', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const rows = await custDb
+        .select({
+          id: isolatedSchema.users.id,
+          username: isolatedSchema.users.username,
+          firstName: isolatedSchema.users.firstName,
+          lastName: isolatedSchema.users.lastName,
+          email: (isolatedSchema.users as any).email,
+          role: isolatedSchema.users.role,
+        })
+        .from(isolatedSchema.users)
+        .orderBy(isolatedSchema.users.lastName, isolatedSchema.users.firstName);
+      return res.json(rows);
+    } catch (err) {
+      logger.error('[enterprise/users] GET error:', err);
+      return res.status(500).json({ error: 'Failed to load users' });
+    }
+  });
+
   // ── Role grants ─────────────────────────────────────────────────────────────
 
   const grantSchema = z.object({
