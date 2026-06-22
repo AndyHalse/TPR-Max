@@ -179,4 +179,52 @@ export const siteMigrations: Migration[] = [
       }
     },
   },
+
+  // ── 067 ────────────────────────────────────────────────────────────────────
+  {
+    version: '20260622_067_site_user_roles',
+    description: 'Create site_user_roles table for enterprise per-user site access grants; auto-grant enterprise_admin to existing admin users',
+    async up(db: any) {
+      // Create table
+      try {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS site_user_roles (
+            id         VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            user_id    VARCHAR NOT NULL,
+            role       TEXT    NOT NULL,
+            area_id    VARCHAR REFERENCES areas(id)  ON DELETE CASCADE,
+            site_id    VARCHAR REFERENCES sites(id)  ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `);
+      } catch (err: any) {
+        logger.warn(`⚠️ [067] create site_user_roles: ${err.message?.substring(0, 120)}`);
+      }
+
+      // Unique index using COALESCE so (user, role, NULL, NULL) is truly unique
+      try {
+        await db.execute(`
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_sur_unique
+            ON site_user_roles(user_id, role, COALESCE(area_id, ''), COALESCE(site_id, ''))
+        `);
+      } catch (err: any) {
+        logger.warn(`⚠️ [067] unique index: ${err.message?.substring(0, 120)}`);
+      }
+
+      // Bootstrap: grant enterprise_admin to every existing admin user so existing
+      // enterprise customers don't lose access when the fail-closed middleware activates.
+      try {
+        await db.execute(`
+          INSERT INTO site_user_roles (user_id, role)
+          SELECT id, 'enterprise_admin'
+          FROM   users
+          WHERE  role = 'admin'
+          ON CONFLICT DO NOTHING
+        `);
+        logger.info('✅ [067] site_user_roles ready; existing admins bootstrapped as enterprise_admin');
+      } catch (err: any) {
+        logger.warn(`⚠️ [067] bootstrap grants: ${err.message?.substring(0, 120)}`);
+      }
+    },
+  },
 ];

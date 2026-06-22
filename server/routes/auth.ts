@@ -769,6 +769,18 @@ export function registerAuthRoutes(app: Express): void {
         // non-blocking — default false
       }
 
+      // Resolve enterprise role grants for enterprise customers
+      let enterpriseRoles: string[] = [];
+      if (isEnterprise) {
+        try {
+          const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
+          const grants = await resolveEnterpriseGrants(user.id, req.session.customerId!);
+          enterpriseRoles = grants.roles;
+        } catch {
+          // non-blocking — default empty
+        }
+      }
+
       res.json({
         id: user.id,
         username: user.username,
@@ -781,6 +793,7 @@ export function registerAuthRoutes(app: Express): void {
         lastName: user.lastName ?? null,
         email: (user as any).email ?? null,
         isEnterprise,
+        enterpriseRoles,
         activeSiteId: (req.session as any)?.activeSiteId ?? null,
         sessionToken: signSessionToken(user.id, req.session.customerId),
       });

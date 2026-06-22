@@ -34,6 +34,7 @@ import { customerDbService } from './customerDatabase';
 import { db as managementDb } from './db';
 import { customers } from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
+import { resolveEnterpriseGrants } from './enterpriseRoles';
 import { logger } from './utils/logger';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,13 +110,16 @@ async function resolveSiteContext(req: Request): Promise<SiteContext> {
       );
     }
 
-    // All sites for this customer.
-    // Per-user site restrictions arrive in prompt 07 (role-based limits).
-    const custDb = await customerDbService.getCustomerDatabase(customerId);
-    const allSites = await custDb
-      .select({ id: isolatedSchema.sites.id })
-      .from(isolatedSchema.sites);
-    const allowedSiteIds = allSites.map((s: any) => s.id as string);
+    // Resolve per-user site allowlist from enterprise role grants.
+    // Fail closed: no grant → empty allowlist → 403 on any site-scoped query.
+    const userId = (req as any).user?.id;
+    let allowedSiteIds: string[] | 'all';
+    if (!userId) {
+      allowedSiteIds = [];
+    } else {
+      const grants = await resolveEnterpriseGrants(userId, customerId);
+      allowedSiteIds = grants.allowedSiteIds;
+    }
 
     return { isEnterprise: true, activeSiteId, allowedSiteIds };
   } catch (err) {

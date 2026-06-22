@@ -45,6 +45,21 @@ export const insertSiteSchema = createInsertSchema(sites).omit({ id: true, creat
 export type InsertSite = z.infer<typeof insertSiteSchema>;
 export type Site = typeof sites.$inferSelect;
 
+// Site User Roles — enterprise per-user role grants (additive: union of all grants)
+// role: 'enterprise_admin' | 'area_manager' | 'site_coordinator'
+// area_id set for area_manager; site_id set for site_coordinator; both null for enterprise_admin
+export const siteUserRoles = pgTable("site_user_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  role: text("role").notNull(),
+  areaId: varchar("area_id"),
+  siteId: varchar("site_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type SiteUserRole = typeof siteUserRoles.$inferSelect;
+export type InsertSiteUserRole = typeof siteUserRoles.$inferInsert;
+
 // Staff table - no customerId needed since each customer has own DB
 export const staff = pgTable("staff", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

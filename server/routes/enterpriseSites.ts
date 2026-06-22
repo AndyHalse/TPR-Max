@@ -1,10 +1,11 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireEnterpriseRole, resolveEnterpriseGrants } from '../enterpriseRoles';
 import { customerDbService } from '../customerDatabase';
 import { db as managementDb } from '../db';
 import { customers } from '@shared/schema';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, ne, and } from 'drizzle-orm';
+import { eq, ne, and, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 
@@ -81,13 +82,9 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     status: z.enum(['active', 'onboarding', 'archived']).default('active'),
   });
 
-  app.post('/api/enterprise/sites', requireAuth, async (req, res) => {
+  app.post('/api/enterprise/sites', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const user = (req as any).user;
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin role required' });
-      }
       const body = createSiteSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ error: body.error.issues });
 
@@ -138,13 +135,9 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     status: z.enum(['active', 'onboarding', 'archived']).optional(),
   });
 
-  app.patch('/api/enterprise/sites/:id', requireAuth, async (req, res) => {
+  app.patch('/api/enterprise/sites/:id', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const user = (req as any).user;
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin role required' });
-      }
       const body = updateSiteSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ error: body.error.issues });
 
@@ -208,13 +201,9 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     description: z.string().max(500).optional().nullable(),
   });
 
-  app.post('/api/enterprise/areas', requireAuth, async (req, res) => {
+  app.post('/api/enterprise/areas', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const user = (req as any).user;
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin role required' });
-      }
       const body = createAreaSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ error: body.error.issues });
 
@@ -231,13 +220,9 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   });
 
   // ── Update area ────────────────────────────────────────────────────────────
-  app.patch('/api/enterprise/areas/:id', requireAuth, async (req, res) => {
+  app.patch('/api/enterprise/areas/:id', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const user = (req as any).user;
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin role required' });
-      }
       const body = createAreaSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ error: body.error.issues });
 
@@ -326,6 +311,203 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     } catch (err) {
       logger.error('[enterprise/status] error:', err);
       return res.status(500).json({ error: 'Failed to get enterprise status' });
+    }
+  });
+
+  // ── Role grants ─────────────────────────────────────────────────────────────
+
+  const grantSchema = z.object({
+    userId: z.string().min(1),
+    role: z.enum(['enterprise_admin', 'area_manager', 'site_coordinator']),
+    areaId: z.string().nullable().optional(),
+    siteId: z.string().nullable().optional(),
+  });
+
+  // GET /api/enterprise/role-grants/my — current user's effective grants (no role gate)
+  app.get('/api/enterprise/role-grants/my', requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const customerId = req.customerId!;
+      if (!user?.id) return res.status(401).json({ error: 'Not authenticated' });
+      const grants = await resolveEnterpriseGrants(user.id, customerId);
+      return res.json(grants);
+    } catch (err) {
+      logger.error('[enterprise/role-grants/my] error:', err);
+      return res.status(500).json({ error: 'Failed to load grants' });
+    }
+  });
+
+  // GET /api/enterprise/role-grants — list all visible grants (enriched with user info)
+  app.get('/api/enterprise/role-grants', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const callerGrants = req.enterpriseGrants!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      let allGrants = await custDb
+        .select()
+        .from(isolatedSchema.siteUserRoles);
+
+      // area_manager: restrict to site_coordinator grants for their allowed sites only
+      if (!callerGrants.roles.includes('enterprise_admin') && Array.isArray(callerGrants.allowedSiteIds)) {
+        const allowedSet = new Set(callerGrants.allowedSiteIds);
+        allGrants = allGrants.filter(
+          g => g.role === 'site_coordinator' && g.siteId && allowedSet.has(g.siteId),
+        );
+      }
+
+      // Enrich with user info
+      const userIds = [...new Set(allGrants.map(g => g.userId))];
+      const userMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const userRows = await custDb
+          .select({
+            id: isolatedSchema.users.id,
+            username: isolatedSchema.users.username,
+            firstName: isolatedSchema.users.firstName,
+            lastName: isolatedSchema.users.lastName,
+            email: (isolatedSchema.users as any).email,
+          })
+          .from(isolatedSchema.users)
+          .where(inArray(isolatedSchema.users.id, userIds));
+        userRows.forEach(u => { userMap[u.id] = u; });
+      }
+
+      return res.json(allGrants.map(g => ({ ...g, user: userMap[g.userId] ?? null })));
+    } catch (err) {
+      logger.error('[enterprise/role-grants] GET error:', err);
+      return res.status(500).json({ error: 'Failed to load role grants' });
+    }
+  });
+
+  // POST /api/enterprise/role-grants — create a grant
+  app.post('/api/enterprise/role-grants', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const callerGrants = req.enterpriseGrants!;
+      const isAdmin = callerGrants.roles.includes('enterprise_admin');
+
+      const body = grantSchema.safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: body.error.issues });
+
+      const { userId, role, areaId, siteId } = body.data;
+
+      // Validate field requirements per role
+      if (role === 'area_manager' && !areaId) {
+        return res.status(400).json({ error: 'area_manager grants require areaId' });
+      }
+      if (role === 'site_coordinator' && !siteId) {
+        return res.status(400).json({ error: 'site_coordinator grants require siteId' });
+      }
+      if (role === 'enterprise_admin' && (areaId || siteId)) {
+        return res.status(400).json({ error: 'enterprise_admin grants must not include areaId or siteId' });
+      }
+
+      // Non-admins: may only grant site_coordinator for their allowed sites
+      if (!isAdmin) {
+        if (role !== 'site_coordinator') {
+          return res.status(403).json({ error: 'Area managers can only grant the site_coordinator role' });
+        }
+        if (
+          !siteId ||
+          !Array.isArray(callerGrants.allowedSiteIds) ||
+          !(callerGrants.allowedSiteIds as string[]).includes(siteId)
+        ) {
+          return res.status(403).json({ error: 'Site is outside your managed area' });
+        }
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Verify target user exists
+      const [targetUser] = await custDb
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, userId))
+        .limit(1);
+      if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const [created] = await custDb
+        .insert(isolatedSchema.siteUserRoles)
+        .values({ userId, role, areaId: areaId ?? null, siteId: siteId ?? null })
+        .onConflictDoNothing()
+        .returning();
+
+      const callerUser = (req as any).user;
+      logger.info(
+        `[enterprise/role-grants] GRANT: caller=${callerUser?.username} → userId=${userId} (${targetUser.username}) role=${role} areaId=${areaId ?? '-'} siteId=${siteId ?? '-'} customer=${customerId}`,
+      );
+
+      if (!created) {
+        return res.status(409).json({ error: 'Grant already exists' });
+      }
+      return res.status(201).json(created);
+    } catch (err) {
+      logger.error('[enterprise/role-grants] POST error:', err);
+      return res.status(500).json({ error: 'Failed to create role grant' });
+    }
+  });
+
+  // DELETE /api/enterprise/role-grants/:id — revoke a grant
+  app.delete('/api/enterprise/role-grants/:id', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const callerGrants = req.enterpriseGrants!;
+      const isAdmin = callerGrants.roles.includes('enterprise_admin');
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Load the grant to check scope + role
+      const [target] = await custDb
+        .select()
+        .from(isolatedSchema.siteUserRoles)
+        .where(eq(isolatedSchema.siteUserRoles.id, req.params.id))
+        .limit(1);
+
+      if (!target) return res.status(404).json({ error: 'Grant not found' });
+
+      // Non-admins: may only revoke site_coordinator grants within their area
+      if (!isAdmin) {
+        if (target.role !== 'site_coordinator') {
+          return res.status(403).json({ error: 'Area managers can only revoke site_coordinator grants' });
+        }
+        if (
+          !target.siteId ||
+          !Array.isArray(callerGrants.allowedSiteIds) ||
+          !(callerGrants.allowedSiteIds as string[]).includes(target.siteId)
+        ) {
+          return res.status(403).json({ error: 'Grant is outside your managed area' });
+        }
+      }
+
+      // Safety: cannot remove the last enterprise_admin grant
+      if (target.role === 'enterprise_admin') {
+        const adminGrants = await custDb
+          .select({ id: isolatedSchema.siteUserRoles.id })
+          .from(isolatedSchema.siteUserRoles)
+          .where(eq(isolatedSchema.siteUserRoles.role, 'enterprise_admin'));
+        if (adminGrants.length <= 1) {
+          return res.status(400).json({
+            error: 'Cannot revoke the last enterprise_admin grant — at least one must remain',
+          });
+        }
+      }
+
+      await custDb
+        .delete(isolatedSchema.siteUserRoles)
+        .where(eq(isolatedSchema.siteUserRoles.id, req.params.id));
+
+      const callerUser = (req as any).user;
+      logger.info(
+        `[enterprise/role-grants] REVOKE: caller=${callerUser?.username} → grantId=${req.params.id} role=${target.role} userId=${target.userId} customer=${customerId}`,
+      );
+
+      return res.status(204).end();
+    } catch (err) {
+      logger.error('[enterprise/role-grants] DELETE error:', err);
+      return res.status(500).json({ error: 'Failed to revoke role grant' });
     }
   });
 }
