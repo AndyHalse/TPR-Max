@@ -92,6 +92,7 @@ import ContractorPortalDocuments from "@/pages/contractor-portal/ContractorPorta
 import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalWorkers";
 import EnterpriseSites from "@/pages/EnterpriseSites";
 import EnterpriseAccess from "@/pages/EnterpriseAccess";
+import EnterpriseCompliance from "@/pages/EnterpriseCompliance";
 import ChatbotWidget from "@/components/ChatbotWidget";
 
 function Router() {
@@ -792,6 +793,11 @@ function Router() {
             <Route path="/hr/payroll">
               <ErrorBoundary>
                 <PayrollExport />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/enterprise">
+              <ErrorBoundary>
+                <EnterpriseCompliance />
               </ErrorBoundary>
             </Route>
             <Route path="/enterprise/sites">

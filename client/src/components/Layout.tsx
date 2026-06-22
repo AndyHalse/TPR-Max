@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase, ShieldCheck, ClipboardList, Activity, ClipboardCheck, FileEdit, BookOpen, Webhook, Globe } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase, ShieldCheck, ClipboardList, Activity, ClipboardCheck, FileEdit, BookOpen, Webhook, Globe, LayoutDashboard } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import SiteSwitcher from "@/components/SiteSwitcher";
@@ -256,6 +256,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const allNavItems = [
     { path: "/", icon: ChartLine, label: "Dashboard", featureKey: "featureDashboard", defaultOn: true },
+    { path: "/enterprise", icon: LayoutDashboard, label: "Compliance Overview", enterpriseOnly: true, defaultOn: true },
     { path: "/enterprise/sites", icon: Building2, label: "Sites", enterpriseOnly: true, defaultOn: true },
     { path: "/enterprise/people", icon: Users, label: "People & Access", enterpriseOnly: true, requiresEnterpriseManageRole: true, defaultOn: true },
     { path: "/compliance-dashboard", icon: Activity, label: "Compliance Score", featureKey: "featureComplianceDashboard", defaultOn: true },
