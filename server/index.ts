@@ -616,6 +616,32 @@ app.use((req, res, next) => {
       logger.info(`⚠️ Management DB audit/role migration: ${e.message?.substring(0, 120)}`);
     }
 
+    // Ensure enterprise_groups table and customer enterprise columns exist (Phase 0 — safe, additive)
+    try {
+      const { db: mgmtDbEnt } = await import('./db');
+      const { sql: sqlEnt } = await import('drizzle-orm');
+      await mgmtDbEnt.execute(sqlEnt`
+        CREATE TABLE IF NOT EXISTS enterprise_groups (
+          id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          name        TEXT    NOT NULL,
+          slug        TEXT    NOT NULL UNIQUE,
+          contact_email TEXT,
+          is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await mgmtDbEnt.execute(sqlEnt`
+        ALTER TABLE customers
+          ADD COLUMN IF NOT EXISTS is_enterprise      BOOLEAN NOT NULL DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS enterprise_group_id VARCHAR REFERENCES enterprise_groups(id),
+          ADD COLUMN IF NOT EXISTS enterprise_role     TEXT
+      `);
+      logger.info('✅ Management DB: enterprise_groups table and customer enterprise columns ensured');
+    } catch (e: any) {
+      logger.info(`⚠️ Management DB enterprise migration: ${e.message?.substring(0, 120)}`);
+    }
+
     // Register all routes AFTER server is already listening
     logger.info('Registering routes');
     await registerRoutes(app, server);

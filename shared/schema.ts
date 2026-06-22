@@ -5,6 +5,26 @@ import { z } from "zod";
 
 // CUSTOMER ISOLATION: Each customer gets their own database instance
 // This table tracks customer metadata for onboarding and management
+// Enterprise Groups — groups multiple customer accounts under one enterprise umbrella.
+// Additive-only: existing single-site customers are unaffected (is_enterprise defaults to false).
+export const enterpriseGroups = pgTable("enterprise_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  contactEmail: text("contact_email"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertEnterpriseGroupSchema = createInsertSchema(enterpriseGroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertEnterpriseGroup = typeof insertEnterpriseGroupSchema._type;
+export type EnterpriseGroup = typeof enterpriseGroups.$inferSelect;
+
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyName: text("company_name").notNull().unique(),
@@ -29,6 +49,10 @@ export const customers = pgTable("customers", {
   // Soft-delete support — set by platform admin; customer record remains recoverable until purged
   deletedAt: timestamp("deleted_at"),
   deletedBy: varchar("deleted_by"),
+  // Enterprise multi-site grouping — all nullable / safe defaults; no existing row is affected
+  isEnterprise: boolean("is_enterprise").notNull().default(false),
+  enterpriseGroupId: varchar("enterprise_group_id").references(() => enterpriseGroups.id),
+  enterpriseRole: text("enterprise_role"), // reserved — e.g. 'hq'; NULL for normal members
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
