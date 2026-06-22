@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { Plus, XCircle, Loader2, ShieldCheck, AlertTriangle, ShieldAlert, Upload, FileText } from "lucide-react";
+import { apiRequest, objectUrl } from "@/lib/queryClient";
+import { Plus, XCircle, Loader2, ShieldCheck, AlertTriangle, ShieldAlert, Upload, FileText, Eye, CheckCircle2, ClipboardCheck } from "lucide-react";
 
 const DBS_LEVELS: Record<string, string> = {
   basic: "Basic DBS Check",
@@ -77,7 +77,16 @@ function FileUploadField({ value, fileName, onUploaded, onClear }: {
     return (
       <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
         <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate flex-1">{fileName || "View file"}</a>
+        <span className="text-sm text-blue-700 truncate flex-1">{fileName || "Certificate attached"}</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="text-blue-600 hover:text-blue-800 h-6 px-2 text-xs flex-shrink-0"
+          onClick={() => window.open(objectUrl(value), '_blank')}
+        >
+          <Eye className="h-3 w-3 mr-1" />View
+        </Button>
         <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-600 h-6 px-2 text-xs flex-shrink-0" onClick={onClear}>Remove</Button>
       </div>
     );
@@ -108,6 +117,12 @@ const EMPTY_FORM = {
   documentName: "",
 };
 
+function formatDateTime(dt: string | null | undefined): string {
+  if (!dt) return "";
+  const d = new Date(dt);
+  return `${d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 export default function ContractorWorkerDbsTab({
   workerId,
   dbsRequired,
@@ -121,6 +136,8 @@ export default function ContractorWorkerDbsTab({
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [approveId, setApproveId] = useState<string | null>(null);
+  const [approverName, setApproverName] = useState("");
 
   const { data: records = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/contractors/workers", workerId, "dbs"],
@@ -149,6 +166,18 @@ export default function ContractorWorkerDbsTab({
       toast({ title: "DBS record removed" });
     },
     onError: () => toast({ title: "Error", description: "Failed to remove record", variant: "destructive" }),
+  });
+
+  const approve = useMutation({
+    mutationFn: ({ id, approvedBy }: { id: string; approvedBy: string }) =>
+      apiRequest("PATCH", `/api/contractor-dbs/${id}/approve`, { approvedBy }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/contractors/workers", workerId, "dbs"] });
+      setApproveId(null);
+      setApproverName("");
+      toast({ title: "DBS record approved", description: "Approval recorded for audit trail." });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to record approval", variant: "destructive" }),
   });
 
   const toggleRequired = useMutation({
@@ -207,31 +236,62 @@ export default function ContractorWorkerDbsTab({
           {records.map((r: any) => (
             <Card key={r.id} className={r.is_current ? "border-blue-200" : "opacity-60"}>
               <CardContent className="pt-3 pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-0.5">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    {/* Title row */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{DBS_LEVELS[r.dbs_level] || r.dbs_level}</span>
                       {r.is_current && <Badge className="bg-blue-100 text-blue-800 text-xs">Current</Badge>}
                       <StatusBadge status={r.status || "no_expiry"} />
                     </div>
+
+                    {/* Reference numbers */}
                     {r.certificate_number && (
-                      <div className="text-xs text-gray-500">Cert No: {r.certificate_number}</div>
+                      <div className="text-xs text-gray-500">Cert No: <span className="font-mono">{r.certificate_number}</span></div>
                     )}
                     {r.application_reference && (
-                      <div className="text-xs text-gray-500">App Ref: {r.application_reference}</div>
+                      <div className="text-xs text-gray-500">App Ref: <span className="font-mono">{r.application_reference}</span></div>
                     )}
+
+                    {/* Dates */}
                     <div className="text-xs text-gray-500">
                       {r.issue_date && <>Issued {new Date(r.issue_date).toLocaleDateString("en-GB")} · </>}
-                      Verified {new Date(r.verified_date).toLocaleDateString("en-GB")} by {r.verified_by}
+                      Verified {new Date(r.verified_date).toLocaleDateString("en-GB")} by <span className="font-medium text-gray-600">{r.verified_by}</span>
                       {r.policy_expiry_date && <> · Policy expiry {new Date(r.policy_expiry_date).toLocaleDateString("en-GB")}</>}
                     </div>
+
+                    {/* Document view link */}
                     {r.document_url && (
-                      <a href={r.document_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
-                        <FileText className="h-3 w-3" />{r.document_name || "View certificate"}
-                      </a>
+                      <button
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5"
+                        onClick={() => window.open(objectUrl(r.document_url), '_blank')}
+                      >
+                        <Eye className="h-3 w-3" />
+                        {r.document_name || "View certificate"}
+                      </button>
                     )}
-                    {r.notes && <div className="text-xs text-gray-400 italic mt-1">{r.notes}</div>}
+
+                    {/* Approval / audit trail */}
+                    {r.approved_by && r.approved_at ? (
+                      <div className="flex items-center gap-1.5 mt-1 px-2 py-1 bg-green-50 border border-green-100 rounded text-xs text-green-700">
+                        <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>Approved by <span className="font-medium">{r.approved_by}</span> on {formatDateTime(r.approved_at)}</span>
+                      </div>
+                    ) : r.is_current ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-1 h-6 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                        onClick={() => { setApproveId(r.id); setApproverName(""); }}
+                      >
+                        <ClipboardCheck className="h-3 w-3 mr-1" />
+                        Approve
+                      </Button>
+                    ) : null}
+
+                    {r.notes && <div className="text-xs text-gray-400 italic">{r.notes}</div>}
                   </div>
+
                   <Button
                     size="sm"
                     variant="ghost"
@@ -248,6 +308,7 @@ export default function ContractorWorkerDbsTab({
         </div>
       )}
 
+      {/* ── Add DBS Record dialog ──────────────────────────────────────────── */}
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setForm({ ...EMPTY_FORM }); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Add DBS Record</DialogTitle></DialogHeader>
@@ -330,6 +391,48 @@ export default function ContractorWorkerDbsTab({
             >
               {add.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Approve DBS Record dialog ──────────────────────────────────────── */}
+      <Dialog open={!!approveId} onOpenChange={v => { if (!v) { setApproveId(null); setApproverName(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-green-600" />
+              Approve DBS Record
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-gray-600">
+              Record who is approving this DBS certificate. The approver's name, date and time will be saved for audit purposes.
+            </p>
+            <div>
+              <Label>Approved by *</Label>
+              <Input
+                value={approverName}
+                onChange={e => setApproverName(e.target.value)}
+                placeholder="Full name of approving manager"
+                autoFocus
+                onKeyDown={e => {
+                  if (e.key === "Enter" && approverName.trim() && approveId) {
+                    approve.mutate({ id: approveId, approvedBy: approverName.trim() });
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setApproveId(null); setApproverName(""); }}>Cancel</Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={approve.isPending || !approverName.trim()}
+              onClick={() => approve.mutate({ id: approveId!, approvedBy: approverName.trim() })}
+            >
+              {approve.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Confirm Approval
             </Button>
           </DialogFooter>
         </DialogContent>

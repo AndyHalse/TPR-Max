@@ -165,6 +165,29 @@ export function registerContractorWorkerDbsRoutes(app: Express): void {
     }
   });
 
+  // PATCH /api/contractor-dbs/:id/approve — record manager approval for audit trail
+  app.patch('/api/contractor-dbs/:id/approve', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getDbsPool(req.customerId!);
+      const { approvedBy } = req.body;
+      if (!approvedBy || typeof approvedBy !== 'string') {
+        return res.status(400).json({ error: 'approvedBy is required' });
+      }
+      const result = await pool.query(
+        `UPDATE "${schemaName}".contractor_worker_dbs
+           SET approved_by = $1, approved_at = NOW(), updated_at = NOW()
+         WHERE id = $2 AND deleted_at IS NULL
+         RETURNING *`,
+        [approvedBy.trim(), req.params.id]
+      );
+      if (result.rows.length === 0) return res.status(404).json({ error: 'Record not found' });
+      res.json(result.rows[0]);
+    } catch (err: any) {
+      logger.error('Contractor DBS approve error:', err);
+      res.status(500).json({ error: 'Failed to approve DBS record' });
+    }
+  });
+
   // PATCH /api/contractors/workers/:workerId/dbs-required — toggle opt-in flag
   app.patch('/api/contractors/workers/:workerId/dbs-required', requireAuth, async (req, res) => {
     try {

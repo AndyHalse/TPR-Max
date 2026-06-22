@@ -992,6 +992,24 @@ const createCompanyNotesTableMigration: Migration = {
   }
 };
 
+const addContractorDbsApprovalColumnsMigration: Migration = {
+  version: '20260622_001_contractor_dbs_approval_columns',
+  description: 'Add approved_by and approved_at columns to contractor_worker_dbs for audit trail',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE contractor_worker_dbs ADD COLUMN IF NOT EXISTS approved_by TEXT`);
+      await db.execute(`ALTER TABLE contractor_worker_dbs ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`);
+      logger.info('✅ contractor_worker_dbs approval columns added');
+    } catch (error: any) {
+      if (error?.code === '42701' || error?.message?.includes('already exists')) {
+        logger.info('ℹ️ contractor_worker_dbs approval columns already exist, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -1009,4 +1027,5 @@ export const missingTablesMigrations = [
   fixWorkerCertOwnershipMigration,
   ensureLoneWorkerTablesMigration,
   createCompanyNotesTableMigration,
+  addContractorDbsApprovalColumnsMigration,
 ];
