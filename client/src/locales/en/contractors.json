@@ -47,7 +47,12 @@
     "finishSetup": "Finish setup",
     "noContractorsWithMissingDocs": "No contractors found with missing {{label}} documents{{search}}",
     "noCompaniesMatching": "No contractor companies found matching \"{{search}}\"",
-    "noCompaniesFound": "No contractor companies found"
+    "noCompaniesFound": "No contractor companies found",
+    "insuranceChip": "Insurance",
+    "publicLiabilityChip": "Public Liability",
+    "employersLiabilityChip": "Employers' Liability",
+    "healthSafetyChip": "Health & Safety",
+    "cisRegistrationChip": "CIS Registration"
   },
   "addCompanyDialog": {
     "title": "Add New Contractor Company",
@@ -357,7 +362,14 @@
     "ukLaw": "UK Law",
     "mostSites": "Most sites",
     "recommended": "Recommended",
-    "required": "Required"
+    "required": "Required",
+    "notstarted": "Not Started",
+    "compliant": "Compliant",
+    "missinglegaldocs": "Missing Legal Docs",
+    "incomplete": "Incomplete",
+    "approved": "Approved",
+    "suspended": "Suspended",
+    "noncompliant": "Non-Compliant"
   },
   "cdm": {
     "title": "CDM Project List",

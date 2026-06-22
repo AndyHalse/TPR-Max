@@ -70,6 +70,8 @@ export function useContractorManagement() {
   const { data: companies = [] } = useQuery<ExtendedContractorCompany[]>({
     queryKey: ["/api/contractors", customerId],
     enabled: !!currentUser,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
   });
 
   const { data: allCdmProjects = [] } = useQuery<CdmProject[]>({
@@ -83,6 +85,8 @@ export function useContractorManagement() {
   const { data: allWorkers = [], refetch: refetchWorkers } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors/workers/all", customerId],
     enabled: activeTab === "previous" && !!customerId,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
   });
 
   const { data: staffList = [] } = useQuery<any[]>({ queryKey: ["/api/staff"] });

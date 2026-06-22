@@ -555,6 +555,11 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           return res.status(400).json({ error: 'No file was uploaded.' });
         }
 
+        const ALLOWED_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
+        if (!ALLOWED_MIME.has(req.file.mimetype)) {
+          return res.status(415).json({ error: 'Unsupported file type. Please upload a PDF, image (JPEG/PNG/WebP), or Word document.' });
+        }
+
         const { documentType, documentName, expiryDate, issuedBy } =
           req.body as Record<string, string>;
         if (!documentType || !documentName) {
@@ -692,6 +697,45 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
       // actor = the portal user's email (recorded in audit notes as portal:<email>)
       const svcCtx: WorkerServiceContext = { db, customerId: pu.customerId, actor: pu.email };
       const worker = await svcCreateWorker(svcCtx, pu.contractorCompanyId, req.body, 'portal');
+
+      // Notify admin that a new worker has been added via the portal (non-fatal)
+      try {
+        const notifyEmail = process.env.CONTRACTOR_NOTIFY_EMAIL || process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu';
+        const emailSvc = new EmailService(pu.customerId);
+        const baseUrl = process.env.APP_URL || (process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.replit.app` : 'https://www.tpr-max.com');
+        const workerName = [worker.firstName, worker.lastName].filter(Boolean).join(' ');
+        let companyName = pu.contractorCompanyId;
+        try {
+          const [co] = await db
+            .select({ companyName: isolatedSchema.contractorCompanies.companyName })
+            .from(isolatedSchema.contractorCompanies)
+            .where(eq(isolatedSchema.contractorCompanies.id, pu.contractorCompanyId))
+            .limit(1);
+          if (co) companyName = co.companyName;
+        } catch (_) {}
+        await emailSvc.sendEmail({
+          to: notifyEmail,
+          subject: `👷 New worker added — ${workerName} (${companyName})`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <div style="background:#2460A9;padding:16px 24px;border-radius:8px 8px 0 0">
+                <p style="color:white;margin:0;font-size:18px;font-weight:bold">TPR — New Worker Added via Portal</p>
+              </div>
+              <div style="padding:20px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+                <p>A contractor company has added a new worker through the self-service portal.</p>
+                <table style="width:100%;border-collapse:collapse;margin:16px 0">
+                  <tr><td style="padding:6px 0;color:#64748b;width:140px">Worker</td><td style="padding:6px 0;font-weight:600">${workerName}</td></tr>
+                  <tr><td style="padding:6px 0;color:#64748b">Company</td><td style="padding:6px 0;font-weight:600">${companyName}</td></tr>
+                  <tr><td style="padding:6px 0;color:#64748b">Added by</td><td style="padding:6px 0">${pu.email}</td></tr>
+                </table>
+                <a href="${baseUrl}/contractor-portal-admin" style="display:inline-block;background:#2460A9;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">View in Portal Admin →</a>
+              </div>
+            </div>
+          `,
+          text: `New Worker Added via Portal\n\nWorker: ${workerName}\nCompany: ${companyName}\nAdded by: ${pu.email}\n\nView at: ${baseUrl}/contractor-portal-admin`,
+        });
+      } catch (_) { /* non-fatal — worker was created successfully */ }
+
       return res.status(201).json(worker);
     } catch (err: any) {
       if (err instanceof ServiceError) {
@@ -764,6 +808,11 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
 
         if (!worker) return res.status(403).json({ error: 'Worker not found or access denied.' });
         if (!req.file) return res.status(400).json({ error: 'No file was uploaded.' });
+
+        const ALLOWED_MIME_WORKER = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
+        if (!ALLOWED_MIME_WORKER.has(req.file.mimetype)) {
+          return res.status(415).json({ error: 'Unsupported file type. Please upload a PDF, image (JPEG/PNG/WebP), or Word document.' });
+        }
 
         const { documentType, documentName, expiryDate, issuedBy } =
           req.body as Record<string, string>;

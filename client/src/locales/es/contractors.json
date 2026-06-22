@@ -47,7 +47,12 @@
     "finishSetup": "Finalizar configuración",
     "noContractorsWithMissingDocs": "No se encontraron contratistas con falta de documentos de {{label}}{{search}}",
     "noCompaniesMatching": "No se encontraron empresas contratistas que coincidan con \"{{search}}\"",
-    "noCompaniesFound": "No se encontraron empresas contratistas"
+    "noCompaniesFound": "No se encontraron empresas contratistas",
+    "insuranceChip": "Seguro",
+    "publicLiabilityChip": "Responsabilidad Civil",
+    "employersLiabilityChip": "Responsabilidad del Empleador",
+    "healthSafetyChip": "Salud y Seguridad",
+    "cisRegistrationChip": "Registro CIS"
   },
   "addCompanyDialog": {
     "title": "Añadir nueva empresa contratista",
@@ -357,7 +362,14 @@
     "ukLaw": "Ley del RU",
     "mostSites": "La mayoría de obras",
     "recommended": "Recomendado",
-    "required": "Obligatorio"
+    "required": "Obligatorio",
+    "notstarted": "No iniciado",
+    "compliant": "Cumple",
+    "missinglegaldocs": "Documentos legales faltantes",
+    "incomplete": "Incompleto",
+    "approved": "Aprobado",
+    "suspended": "Suspendido",
+    "noncompliant": "No cumple"
   },
   "cdm": {
     "title": "Lista de proyectos CDM",
