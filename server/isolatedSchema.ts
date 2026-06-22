@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, uuid, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, uuid, jsonb, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -3005,4 +3005,38 @@ export const ppmAudit = pgTable("ppm_audit", {
   performedBy: text("performed_by"),
   details: jsonb("details"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+// ── Compliance Engine tables (Phase 3a) ───────────────────────────────────────
+
+export const complianceItems = pgTable("compliance_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  siteId: varchar("site_id").notNull(),
+  category: text("category").notNull(),      // insurance|rams|inductions|certificates|ppm|fire|rtw
+  sourceTable: text("source_table").notNull(),
+  sourceId: varchar("source_id").notNull(),
+  status: text("status").notNull(),           // current|expiring|lapsed|missing
+  severity: text("severity").notNull(),       // ok|warning|critical
+  expiresAt: date("expires_at"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const complianceSnapshots = pgTable("compliance_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  siteId: varchar("site_id"),                // NULL = estate-level
+  date: date("date").notNull(),
+  overallScore: integer("overall_score").notNull(),
+  categoryScores: jsonb("category_scores").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const complianceAlerts = pgTable("compliance_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  siteId: varchar("site_id").notNull(),
+  category: text("category").notNull(),
+  severity: text("severity").notNull(),       // warning|critical
+  title: text("title").notNull(),
+  detail: jsonb("detail").notNull().default({}),
+  status: text("status").notNull().default("open"), // open|acknowledged|resolved
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });

@@ -227,4 +227,83 @@ export const siteMigrations: Migration[] = [
       }
     },
   },
+
+  // ── Migration 068: compliance engine tables ──────────────────────────────────
+  {
+    version: '20260622_068_compliance_engine',
+    description: 'Creates compliance_items, compliance_snapshots, compliance_alerts tables for the scoring engine',
+    async up(db) {
+      // compliance_items — one row per tracked entity per site
+      try {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS compliance_items (
+            id           VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            site_id      VARCHAR NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            category     TEXT NOT NULL,
+            source_table TEXT NOT NULL,
+            source_id    VARCHAR NOT NULL,
+            status       TEXT NOT NULL,
+            severity     TEXT NOT NULL,
+            expires_at   DATE,
+            updated_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            UNIQUE (site_id, category, source_table, source_id)
+          )
+        `);
+      } catch (err: any) {
+        logger.warn(`⚠️ [068] compliance_items: ${err.message?.substring(0, 120)}`);
+      }
+
+      // compliance_snapshots — daily score history; site_id NULL = estate-wide
+      try {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS compliance_snapshots (
+            id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            site_id         VARCHAR,
+            date            DATE NOT NULL,
+            overall_score   INTEGER NOT NULL,
+            category_scores JSONB NOT NULL DEFAULT '{}',
+            created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+          )
+        `);
+        // COALESCE unique index so NULL site_id (estate row) is still unique per date
+        await db.execute(`
+          CREATE UNIQUE INDEX IF NOT EXISTS uidx_compliance_snapshots_site_date
+            ON compliance_snapshots (COALESCE(site_id, ''), date)
+        `);
+      } catch (err: any) {
+        logger.warn(`⚠️ [068] compliance_snapshots: ${err.message?.substring(0, 120)}`);
+      }
+
+      // compliance_alerts — open/acknowledged/resolved alert feed
+      try {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS compliance_alerts (
+            id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            site_id     VARCHAR NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            category    TEXT NOT NULL,
+            severity    TEXT NOT NULL,
+            title       TEXT NOT NULL,
+            detail      JSONB NOT NULL DEFAULT '{}',
+            status      TEXT NOT NULL DEFAULT 'open',
+            created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            resolved_at TIMESTAMP WITH TIME ZONE
+          )
+        `);
+      } catch (err: any) {
+        logger.warn(`⚠️ [068] compliance_alerts: ${err.message?.substring(0, 120)}`);
+      }
+
+      // Performance indexes
+      try {
+        await db.execute(`CREATE INDEX IF NOT EXISTS idx_ci_site     ON compliance_items(site_id)`);
+        await db.execute(`CREATE INDEX IF NOT EXISTS idx_ci_category ON compliance_items(category)`);
+        await db.execute(`CREATE INDEX IF NOT EXISTS idx_cs_date     ON compliance_snapshots(date)`);
+        await db.execute(`CREATE INDEX IF NOT EXISTS idx_ca_site     ON compliance_alerts(site_id)`);
+        await db.execute(`CREATE INDEX IF NOT EXISTS idx_ca_status   ON compliance_alerts(status)`);
+        logger.info('✅ [068] compliance engine tables ready');
+      } catch (err: any) {
+        logger.warn(`⚠️ [068] indexes: ${err.message?.substring(0, 120)}`);
+      }
+    },
+  },
 ];

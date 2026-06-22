@@ -53,6 +53,8 @@ import { registerContractorEquipmentRoutes } from './contractorEquipment';
 import { registerBugReportRoutes } from './bugReports';
 import { registerChatbotRoutes } from './chatbot';
 import { registerEnterpriseSiteRoutes } from './enterpriseSites';
+import { registerEnterpriseComplianceRoutes } from './enterpriseCompliance';
+import { initComplianceEngine } from '../complianceEngine';
 import { registerSeoRoutes } from '../seo';
 
 export async function registerSplitRoutes(
@@ -113,5 +115,7 @@ export async function registerSplitRoutes(
   registerBugReportRoutes(app);
   registerChatbotRoutes(app);
   registerEnterpriseSiteRoutes(app);
+  registerEnterpriseComplianceRoutes(app);
+  initComplianceEngine();
   await registerRemainingRoutes(app, server);
 }

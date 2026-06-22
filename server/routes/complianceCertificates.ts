@@ -12,6 +12,7 @@ import { eq, and, isNull, ne } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { calculateCertificateStatus, calculateNextDueDate, getDaysUntilExpiry, getEffectiveDueDate, CERT_SEED_DATA } from '../utils/complianceCertUtils';
 import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
+import { evaluateSiteBackground } from '../complianceEngine';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const objectStorage = new ObjectStorageService();
@@ -321,6 +322,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
         }).returning();
         return row;
       });
+      evaluateSiteBackground(req.customerId!, (created as any)?.siteId);
       res.status(201).json(created);
     } catch (err) {
       logger.error('POST /api/compliance-certificates', err);

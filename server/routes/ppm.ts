@@ -13,6 +13,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, sql, desc, or, not, ne, isNotNull, gt, gte, lt, lte, inArray, count, like } from 'drizzle-orm';
 import { ppmTokenCacheGet, ppmTokenCacheSet, ppmTokenCacheEvict, ppmPublicRateLimit } from '../routeState';
 import { getCompanyComplianceStatus, getWorkerClearanceStatus } from '../utils/contractorCompliance';
+import { evaluateSiteBackground } from '../complianceEngine';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -529,6 +530,7 @@ app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
     if (gate) return res.status(400).json(gate);
     const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(withSiteId(siteId, parsed)).returning();
     await logPpmAudit(custDb, "work_order_created", req.user!.username, { workOrderId: row.id, title: row.title });
+    evaluateSiteBackground(req.customerId!, row.siteId);
     res.json(row);
   } catch (err: unknown) {
     if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
@@ -601,6 +603,7 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     }
 
     await logPpmAudit(custDb, "work_order_updated", req.user!.username, { workOrderId: id, status: updates.status as string | undefined });
+    evaluateSiteBackground(context.customerId, row?.siteId);
     res.json(row);
   } catch (error: unknown) {
     logger.error("PUT /api/ppm/work-orders/:id", error);
