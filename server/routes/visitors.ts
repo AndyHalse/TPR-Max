@@ -543,10 +543,14 @@ export function registerVisitorRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
 
+      // For enterprise customers resolve the active siteId so the new profile is
+      // associated with the correct site from the moment of creation.
+      const { siteId } = await getScopedDb(req);
+
       const visitorData = insertVisitorSchema.parse({ ...req.body, customerId: context.customerId });
 
       const visitor = await databaseService.createVisitor(context, {
-        ...visitorData,
+        ...withSiteId(siteId, visitorData),
         isCheckedIn: false,
       });
 
