@@ -222,7 +222,12 @@ export default function Login() {
       }
     });
 
-    setLocation(data.user.defaultLandingPage || '/');
+    // Enterprise admins and area managers land on the estate dashboard unless
+    // a specific defaultLandingPage is set on their account.
+    const eroles: string[] = data.user.enterpriseRoles ?? [];
+    const isEnterpriseLeader =
+      eroles.includes('enterprise_admin') || eroles.includes('area_manager');
+    setLocation(data.user.defaultLandingPage || (isEnterpriseLeader ? '/enterprise' : '/'));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

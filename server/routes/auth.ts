@@ -179,10 +179,14 @@ export function registerAuthRoutes(app: Express): void {
 
           // Auto-set activeSiteId for site_coordinators with exactly one allowed site,
           // so they land directly in their site without seeing the switcher.
+          // Also capture enterpriseRoles so the login response includes them for
+          // the client-side landing page decision.
+          let loginEnterpriseRoles: string[] = [];
           if (customer.isEnterprise) {
             try {
               const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
               const grants = await resolveEnterpriseGrants(user.id, customer.id);
+              loginEnterpriseRoles = grants.roles;
               if (Array.isArray(grants.allowedSiteIds) && grants.allowedSiteIds.length === 1) {
                 req.session.activeSiteId = (grants.allowedSiteIds as string[])[0];
                 await new Promise<void>((res2, rej) =>
@@ -210,6 +214,8 @@ export function registerAuthRoutes(app: Express): void {
               allowedMenuItems: user.allowedMenuItems ?? null,
               defaultLandingPage: user.defaultLandingPage ?? null,
               navStyle: (user as any).navStyle ?? 'sidebar',
+              isEnterprise: customer.isEnterprise ?? false,
+              enterpriseRoles: loginEnterpriseRoles,
             },
             customer: {
               id: customer.id,
@@ -661,6 +667,63 @@ export function registerAuthRoutes(app: Express): void {
     });
   });
 
+  /**
+   * Shared helper: build the /api/auth/me response body from a resolved user
+   * record.  Both the Bearer-token path and the session-cookie path call this
+   * so the two paths can never return different shapes.
+   */
+  async function buildMeResponse(
+    user: {
+      id: string; username: string; role: string;
+      allowedMenuItems?: unknown; defaultLandingPage?: unknown;
+      firstName?: unknown; lastName?: unknown; email?: unknown; navStyle?: unknown;
+    },
+    customerId: string,
+    activeSiteId: string | null,
+  ) {
+    let isEnterprise = false;
+    try {
+      const { customers: customersTable } = await import('@shared/schema');
+      const { db: managementDb } = await import('../db');
+      const { eq: eqFn } = await import('drizzle-orm');
+      const custRows = await managementDb
+        .select({ isEnterprise: customersTable.isEnterprise })
+        .from(customersTable)
+        .where(eqFn(customersTable.id, customerId))
+        .limit(1);
+      isEnterprise = custRows[0]?.isEnterprise ?? false;
+    } catch (err) {
+      logger.warn('[auth/me] Management DB enterprise lookup failed — defaulting isEnterprise=false:', err);
+    }
+
+    let enterpriseRoles: string[] = [];
+    if (isEnterprise) {
+      try {
+        const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
+        const grants = await resolveEnterpriseGrants(user.id, customerId);
+        enterpriseRoles = grants.roles;
+      } catch (err) {
+        logger.warn('[auth/me] resolveEnterpriseGrants failed — defaulting to []:', err);
+      }
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      customerId,
+      role: user.role,
+      allowedMenuItems: user.allowedMenuItems ?? null,
+      defaultLandingPage: user.defaultLandingPage ?? null,
+      navStyle: (user as any).navStyle ?? 'sidebar',
+      firstName: user.firstName ?? null,
+      lastName: user.lastName ?? null,
+      email: (user as any).email ?? null,
+      isEnterprise,
+      enterpriseRoles,
+      activeSiteId,
+    };
+  }
+
   app.get('/api/auth/me', async (req, res) => {
     // ── Bearer token path (per-tab session isolation) ─────────────────────
     // When a per-tab JWT is present, validate it and use its payload directly.
@@ -699,19 +762,9 @@ export function registerAuthRoutes(app: Express): void {
           return res.status(401).json({ error: 'User not found' });
         }
         logger.info(`✅ /api/auth/me authenticated via Bearer token: ${user.username}`);
-        return res.json({
-          id: user.id,
-          username: user.username,
-          customerId,
-          role: user.role,
-          allowedMenuItems: user.allowedMenuItems ?? null,
-          defaultLandingPage: user.defaultLandingPage ?? null,
-          navStyle: (user as any).navStyle ?? 'sidebar',
-          firstName: user.firstName ?? null,
-          lastName: user.lastName ?? null,
-          email: (user as any).email ?? null,
-          sessionToken: signSessionToken(user.id, customerId),
-        });
+        const activeSiteIdBearer = (req.session as any)?.activeSiteId ?? null;
+        const meResponse = await buildMeResponse(user, customerId, activeSiteIdBearer);
+        return res.json({ ...meResponse, sessionToken: signSessionToken(user.id, customerId) });
       } catch (err) {
         logger.info('🚨 /api/auth/me: Invalid Bearer token:', err);
         return res.status(401).json({ error: 'Session token invalid or expired' });
@@ -773,50 +826,12 @@ export function registerAuthRoutes(app: Express): void {
         `✅ User authenticated successfully: ${user.username} (ID: ${user.id}) from customer DB`
       );
 
-      // Resolve isEnterprise from management DB (cached on customer row)
-      let isEnterprise = false;
-      try {
-        const { customers: customersTable } = await import('@shared/schema');
-        const { db: managementDb } = await import('../db');
-        const { eq: eqFn } = await import('drizzle-orm');
-        const custRows = await managementDb
-          .select({ isEnterprise: customersTable.isEnterprise })
-          .from(customersTable)
-          .where(eqFn(customersTable.id, req.session.customerId!))
-          .limit(1);
-        isEnterprise = custRows[0]?.isEnterprise ?? false;
-      } catch {
-        // non-blocking — default false
-      }
-
-      // Resolve enterprise role grants for enterprise customers
-      let enterpriseRoles: string[] = [];
-      if (isEnterprise) {
-        try {
-          const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
-          const grants = await resolveEnterpriseGrants(user.id, req.session.customerId!);
-          enterpriseRoles = grants.roles;
-        } catch {
-          // non-blocking — default empty
-        }
-      }
-
-      res.json({
-        id: user.id,
-        username: user.username,
-        customerId: req.session.customerId,
-        role: user.role,
-        allowedMenuItems: user.allowedMenuItems ?? null,
-        defaultLandingPage: user.defaultLandingPage ?? null,
-        navStyle: (user as any).navStyle ?? 'sidebar',
-        firstName: user.firstName ?? null,
-        lastName: user.lastName ?? null,
-        email: (user as any).email ?? null,
-        isEnterprise,
-        enterpriseRoles,
-        activeSiteId: (req.session as any)?.activeSiteId ?? null,
-        sessionToken: signSessionToken(user.id, req.session.customerId),
-      });
+      const meResponse = await buildMeResponse(
+        user,
+        req.session.customerId!,
+        (req.session as any)?.activeSiteId ?? null,
+      );
+      res.json({ ...meResponse, sessionToken: signSessionToken(user.id, req.session.customerId) });
     } catch (error) {
       logger.error('Error in /api/auth/me:', error);
       return res.status(401).json({ error: 'Authentication failed' });
