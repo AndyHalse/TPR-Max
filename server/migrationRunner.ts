@@ -788,6 +788,30 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
       }
     },
     ...siteMigrations,
+    // Migration 059 — Phase 4a: enterprise config push-down
+    // Add scope + site_id to visit_reasons and induction_settings so enterprise admins
+    // can define group standards (scope='enterprise') that sites inherit, with optional
+    // per-site overrides (scope='site', site_id=<uuid>).
+    {
+      version: '20260623_059_enterprise_standards_scope',
+      description: 'Add scope and site_id to visit_reasons and induction_settings for enterprise config push-down (Phase 4a)',
+      async up(db: any) {
+        const cols = [
+          `ALTER TABLE visit_reasons ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'site'`,
+          `ALTER TABLE visit_reasons ADD COLUMN IF NOT EXISTS site_id VARCHAR`,
+          `ALTER TABLE induction_settings ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'site'`,
+          `ALTER TABLE induction_settings ADD COLUMN IF NOT EXISTS site_id VARCHAR`,
+        ];
+        for (const sql of cols) {
+          try {
+            await db.execute(sql);
+          } catch (err: any) {
+            logger.info(`⚠️ [059] enterprise standards scope: ${err.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ [059] Enterprise standards scope columns ensured on visit_reasons and induction_settings');
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

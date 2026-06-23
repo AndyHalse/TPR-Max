@@ -1,21 +1,66 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
+import { getScopedDb } from '../siteScope';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, asc } from 'drizzle-orm';
+import { eq, and, asc, isNull } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+
+/** Resolve effective visit reasons for a request.
+ *
+ * Resolution order (enterprise customers):
+ *   1. scope='site' + siteId=activeSiteId  → site has its own override set
+ *   2. scope='enterprise'                   → enterprise defaults pushed by head office
+ *   3. scope='site' + siteId IS NULL        → legacy records created before Phase 4a
+ *
+ * Non-enterprise customers: direct query (unchanged behaviour).
+ */
+async function resolveVisitReasons(req: any, includeInactive = false) {
+  const { db: custDb, siteContext } = await getScopedDb(req);
+  const activeFilter = includeInactive ? [] : [eq(isolatedSchema.visitReasons.isActive, true)];
+  const orderBy = [asc(isolatedSchema.visitReasons.sortOrder), asc(isolatedSchema.visitReasons.createdAt)];
+
+  if (siteContext.isEnterprise && siteContext.activeSiteId) {
+    const activeSiteId = siteContext.activeSiteId;
+
+    // 1. Site-specific override
+    const siteOverrides = await custDb
+      .select()
+      .from(isolatedSchema.visitReasons)
+      .where(and(
+        ...activeFilter,
+        eq(isolatedSchema.visitReasons.scope, 'site'),
+        eq(isolatedSchema.visitReasons.siteId, activeSiteId),
+      ))
+      .orderBy(...orderBy);
+    if (siteOverrides.length > 0) return { reasons: siteOverrides, source: 'site_override' as const };
+
+    // 2. Enterprise defaults
+    const enterpriseDefaults = await custDb
+      .select()
+      .from(isolatedSchema.visitReasons)
+      .where(and(...activeFilter, eq(isolatedSchema.visitReasons.scope, 'enterprise')))
+      .orderBy(...orderBy);
+    if (enterpriseDefaults.length > 0) return { reasons: enterpriseDefaults, source: 'enterprise_default' as const };
+  }
+
+  // 3. Legacy / non-enterprise: all active records (unchanged)
+  const custDb2 = await customerDbService.getCustomerDatabase(req.customerId!);
+  const all = await custDb2
+    .select()
+    .from(isolatedSchema.visitReasons)
+    .where(includeInactive ? undefined : eq(isolatedSchema.visitReasons.isActive, true))
+    .orderBy(...orderBy);
+  return { reasons: all, source: 'legacy' as const };
+}
 
 export function registerVisitReasonRoutes(app: Express): void {
 
   // GET /api/visit-reasons — active reasons ordered by sort_order (kiosk + admin)
+  // Enterprise-aware: resolves site override → enterprise default → legacy
   app.get('/api/visit-reasons', requireAuth, async (req: any, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
-      const reasons = await custDb
-        .select()
-        .from(isolatedSchema.visitReasons)
-        .where(eq(isolatedSchema.visitReasons.isActive, true))
-        .orderBy(asc(isolatedSchema.visitReasons.sortOrder), asc(isolatedSchema.visitReasons.createdAt));
+      const { reasons } = await resolveVisitReasons(req, false);
       return res.json(reasons);
     } catch (err: any) {
       logger.error('GET /api/visit-reasons error:', err);
@@ -24,13 +69,10 @@ export function registerVisitReasonRoutes(app: Express): void {
   });
 
   // GET /api/visit-reasons/all — all reasons including inactive (admin)
+  // Enterprise-aware: resolves site override → enterprise default → legacy
   app.get('/api/visit-reasons/all', requireAuth, async (req: any, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
-      const reasons = await custDb
-        .select()
-        .from(isolatedSchema.visitReasons)
-        .orderBy(asc(isolatedSchema.visitReasons.sortOrder), asc(isolatedSchema.visitReasons.createdAt));
+      const { reasons } = await resolveVisitReasons(req, true);
       return res.json(reasons);
     } catch (err: any) {
       logger.error('GET /api/visit-reasons/all error:', err);

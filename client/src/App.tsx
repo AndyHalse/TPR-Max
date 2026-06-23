@@ -93,6 +93,7 @@ import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalW
 import EnterpriseSites from "@/pages/EnterpriseSites";
 import EnterpriseAccess from "@/pages/EnterpriseAccess";
 import EnterpriseCompliance from "@/pages/EnterpriseCompliance";
+import EnterpriseStandards from "@/pages/EnterpriseStandards";
 import ChatbotWidget from "@/components/ChatbotWidget";
 
 function Router() {
@@ -808,6 +809,11 @@ function Router() {
             <Route path="/enterprise/people">
               <ErrorBoundary>
                 <EnterpriseAccess />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/enterprise/standards">
+              <ErrorBoundary>
+                <EnterpriseStandards />
               </ErrorBoundary>
             </Route>
             <Route component={NotFound} />

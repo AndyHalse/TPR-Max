@@ -259,6 +259,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/enterprise", icon: LayoutDashboard, label: "Compliance Overview", enterpriseOnly: true, defaultOn: true },
     { path: "/enterprise/sites", icon: Building2, label: "Sites", enterpriseOnly: true, defaultOn: true },
     { path: "/enterprise/people", icon: Users, label: "People & Access", enterpriseOnly: true, requiresEnterpriseManageRole: true, defaultOn: true },
+    { path: "/enterprise/standards", icon: BookOpen, label: "Group Standards", enterpriseOnly: true, requiresEnterpriseManageRole: true, defaultOn: true },
     { path: "/compliance-dashboard", icon: Activity, label: "Compliance Score", featureKey: "featureComplianceDashboard", defaultOn: true },
     { path: "/visitors", icon: User, label: "Visitors", featureKey: "featureVisitors", defaultOn: true },
     { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true, badge: contractorGapsCount > 0 ? contractorGapsCount : undefined, badgeTooltip: contractorGapsCount > 0 ? `${contractorGapsCount} compliance gap${contractorGapsCount !== 1 ? 's' : ''} — click to review` : undefined },

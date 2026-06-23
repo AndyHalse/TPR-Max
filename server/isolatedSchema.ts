@@ -1289,6 +1289,8 @@ export const inductionSettings = pgTable("induction_settings", {
   questionsGenerated: boolean("questions_generated").default(false), // Whether AI questions have been saved
   customVideoUrl: text("custom_video_url"),   // Object-storage path for customer-uploaded video (null = use AI-generated)
   failureFeedbackLevel: text("failure_feedback_level").default("questions_topics"), // 'score_only' | 'questions_topics' | 'topics_rewatch'
+  scope: text("scope").notNull().default("site"),   // 'enterprise' = group default; 'site' = per-site override
+  siteId: varchar("site_id"),                        // null for enterprise defaults; site UUID for per-site overrides
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -2812,6 +2814,8 @@ export const visitReasons = pgTable("visit_reasons", {
   isActive: boolean("is_active").default(true),
   sortOrder: integer("sort_order").default(0),
   appliesTo: text("applies_to").default("both"),
+  scope: text("scope").notNull().default("site"),   // 'enterprise' = group default; 'site' = per-site override
+  siteId: varchar("site_id"),                        // null for enterprise defaults; site UUID for per-site overrides
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
