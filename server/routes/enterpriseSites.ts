@@ -78,11 +78,34 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   app.get('/api/enterprise/sites', requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
+      const user = (req as any).user;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
-      const allSites = await custDb
+
+      // Resolve grants so non-admin users only see (and can enumerate) their
+      // authorised sites. enterprise_admin sees all sites.
+      const grants = user?.id
+        ? await resolveEnterpriseGrants(user.id, customerId)
+        : { allowedSiteIds: [] as string[] };
+
+      let query = custDb
         .select()
         .from(isolatedSchema.sites)
         .orderBy(isolatedSchema.sites.isDefault, isolatedSchema.sites.name);
+
+      if (grants.allowedSiteIds !== 'all') {
+        const allowed = grants.allowedSiteIds as string[];
+        if (allowed.length === 0) {
+          return res.json([]);
+        }
+        const rows = await custDb
+          .select()
+          .from(isolatedSchema.sites)
+          .where(inArray(isolatedSchema.sites.id, allowed))
+          .orderBy(isolatedSchema.sites.isDefault, isolatedSchema.sites.name);
+        return res.json(rows);
+      }
+
+      const allSites = await query;
       return res.json(allSites);
     } catch (err) {
       logger.error('[enterprise/sites] GET sites error:', err);
@@ -415,6 +438,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   app.post('/api/enterprise/active-site', requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
+      const user = (req as any).user;
       const { siteId } = req.body as { siteId: string | null };
 
       if (siteId !== null) {
@@ -422,6 +446,19 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         const valid = await validateSiteOwnership(customerId, siteId);
         if (!valid) {
           return res.status(404).json({ error: 'Site not found for this account' });
+        }
+
+        // Validate the caller's enterprise grants include this site.
+        // enterprise_admin gets 'all'; area_manager and site_coordinator are
+        // restricted to their granted sites only.
+        if (!user?.id) {
+          return res.status(401).json({ error: 'Not authenticated' });
+        }
+        const grants = await resolveEnterpriseGrants(user.id, customerId);
+        if (grants.allowedSiteIds !== 'all') {
+          if (!grants.allowedSiteIds.includes(siteId)) {
+            return res.status(403).json({ error: 'You are not authorised to access this site' });
+          }
         }
       }
 

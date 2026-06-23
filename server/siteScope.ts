@@ -121,6 +121,18 @@ async function resolveSiteContext(req: Request): Promise<SiteContext> {
       allowedSiteIds = grants.allowedSiteIds;
     }
 
+    // Security: verify the session's active site is within the user's grant.
+    // This catches stale sessions after grant revocation and any tampering that
+    // somehow bypassed the POST /api/enterprise/active-site check.
+    if (allowedSiteIds !== 'all' && !allowedSiteIds.includes(activeSiteId)) {
+      // Clear the invalid site from the session so it does not keep triggering
+      // this error on every request after a grant change.
+      (req.session as any).activeSiteId = undefined;
+      throw new SiteContextError(
+        'Active site is outside your authorised site grants. Please select a permitted site.',
+      );
+    }
+
     return { isEnterprise: true, activeSiteId, allowedSiteIds };
   } catch (err) {
     if (err instanceof SiteContextError) throw err;
@@ -181,7 +193,17 @@ export function scopedWhere(
 ): SQL | undefined {
   if (!ctx.isEnterprise || ctx.allowedSiteIds === 'all') return undefined;
 
-  if (ctx.activeSiteId) return eq(table.siteId, ctx.activeSiteId);
+  if (ctx.activeSiteId) {
+    // Security: verify the session's active site is within the user's grant.
+    // If it has been tampered or the grant was revoked, fail closed.
+    if (
+      Array.isArray(ctx.allowedSiteIds) &&
+      !ctx.allowedSiteIds.includes(ctx.activeSiteId)
+    ) {
+      return sql`false`;
+    }
+    return eq(table.siteId, ctx.activeSiteId);
+  }
 
   if (Array.isArray(ctx.allowedSiteIds) && ctx.allowedSiteIds.length > 0) {
     return inArray(table.siteId, ctx.allowedSiteIds);
