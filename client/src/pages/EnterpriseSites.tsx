@@ -64,6 +64,7 @@ interface Site {
   areaId: string | null;
   status: string;
   isDefault: boolean;
+  loginSlug: string | null;
   createdAt: string;
   archivedAt: string | null;
 }
@@ -613,9 +614,40 @@ function SiteCard({
           )}
         </button>
 
+        {/* Staff login name (per-site login) */}
+        {site.loginSlug && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 space-y-1.5 border border-blue-100 dark:border-blue-900/40">
+            <p className="text-[11px] font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">Staff Login Name</p>
+            <p className="text-xs text-slate-700 dark:text-slate-300">
+              Staff type <span className="font-mono font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 rounded">{site.loginSlug}</span> in the company field
+            </p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1.5 w-full border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                    onClick={() => {
+                      navigator.clipboard.writeText(site.loginSlug!).then(() => {
+                        toast({ title: "Login name copied", description: "Share this with staff so they can log in directly to this site." });
+                      });
+                    }}
+                  >
+                    <Copy size={12} />
+                    Copy login name
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Copy the staff login name for this site</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
+
         {/* Kiosk URL section */}
         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 space-y-2">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Kiosk URL</p>
+          <p className="text-[10px] text-muted-foreground -mt-0.5">For visitor/contractor sign-in screens</p>
           <p className="text-xs font-mono text-slate-600 dark:text-slate-400 break-all line-clamp-2">{kioskUrl}</p>
           <div className="flex gap-2">
             <TooltipProvider>

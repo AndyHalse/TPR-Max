@@ -53,6 +53,8 @@ export const customers = pgTable("customers", {
   isEnterprise: boolean("is_enterprise").notNull().default(false),
   enterpriseGroupId: varchar("enterprise_group_id").references(() => enterpriseGroups.id),
   enterpriseRole: text("enterprise_role"), // reserved — e.g. 'hq'; NULL for normal members
+  // Enterprise site-management behaviour: 'central' (HQ manages all) | 'independent' (each site self-manages)
+  siteManagementStyle: text("site_management_style").notNull().default("central"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -61,6 +63,23 @@ export const customers = pgTable("customers", {
   slugIdx: index("customers_slug_idx").on(table.slug),
   isActiveIdx: index("customers_is_active_idx").on(table.isActive),
 }));
+
+// Site Login Names — management-DB lookup table for per-site login identity.
+// When a user types a site name (e.g. "CPI Books Suffolk") instead of the company name,
+// this table resolves it to the right customer and site, allowing scoped login.
+export const siteLoginNames = pgTable("site_login_names", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  // siteId is text (not a FK) — it lives in the customer's isolated DB, not the management DB.
+  siteId: text("site_id").notNull(),
+  // loginName must be globally unique (case-insensitive comparison enforced in code).
+  // Stored verbatim; comparison always uses LOWER().
+  loginName: text("login_name").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SiteLoginName = typeof siteLoginNames.$inferSelect;
+export type InsertSiteLoginName = typeof siteLoginNames.$inferInsert;
 
 // Stripe Webhook Events - Critical for billing idempotency and replay safety
 export const stripeWebhookEvents = pgTable("stripe_webhook_events", {

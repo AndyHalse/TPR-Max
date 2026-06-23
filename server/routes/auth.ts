@@ -55,6 +55,7 @@ export function registerAuthRoutes(app: Express): void {
     expiresAt: Date;
     lastSentAt: Date; // for resend cooldown
     failureCount: number; // per-token brute-force counter
+    autoActiveSiteId?: string; // set when user logs in via a site login name
   }
   const pendingCustomerOtps = new Map<string, PendingCustomerOtp>();
   // Reverse-lookup: userId → active pendingToken (for resend cooldown)
@@ -87,7 +88,8 @@ export function registerAuthRoutes(app: Express): void {
     res: any,
     user: any,
     customer: any,
-    username: string
+    username: string,
+    autoActiveSiteId?: string,
   ): Promise<void> {
     return new Promise((resolve) => {
       const savedPlatformAdminId = req.session.platformAdminId;
@@ -177,12 +179,30 @@ export function registerAuthRoutes(app: Express): void {
             logger.error('⚠️ Failed to fetch settings during login:', settingsError);
           }
 
-          // Auto-set activeSiteId for site_coordinators with exactly one allowed site,
-          // so they land directly in their site without seeing the switcher.
-          // Also capture enterpriseRoles so the login response includes them for
-          // the client-side landing page decision.
+          // Auto-set activeSiteId:
+          //   (a) if user logged in via a site login name — use that site (already verified)
+          //   (b) otherwise for site_coordinators with exactly one allowed site — auto-scope
+          // Also capture enterpriseRoles so the client-side landing page decision is correct.
           let loginEnterpriseRoles: string[] = [];
-          if (customer.isEnterprise) {
+
+          // Handle autoActiveSiteId from site-login-name path first (fast path, already verified)
+          if (autoActiveSiteId) {
+            try {
+              req.session.activeSiteId = autoActiveSiteId;
+              await new Promise<void>((res2, rej) =>
+                req.session.save((e: any) => (e ? rej(e) : res2())),
+              );
+              logger.info(`[auth] activeSiteId=${autoActiveSiteId} for ${username} via site login name`);
+              // Still resolve grants for the enterpriseRoles field in the login response
+              if (customer.isEnterprise) {
+                const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
+                const grants = await resolveEnterpriseGrants(user.id, customer.id);
+                loginEnterpriseRoles = grants.roles;
+              }
+            } catch (e) {
+              logger.warn('[auth] Site-login-name session save failed (non-fatal):', e);
+            }
+          } else if (customer.isEnterprise) {
             try {
               const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
               const grants = await resolveEnterpriseGrants(user.id, customer.id);
@@ -399,7 +419,7 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(401).json({ error: 'Invalid company name, username, or password' });
       }
 
-      const { user, customer } = authResult;
+      const { user, customer, autoActiveSiteId } = authResult;
 
       // Block standard login when the company requires SSO-only
       try {
@@ -466,6 +486,7 @@ export function registerAuthRoutes(app: Express): void {
         expiresAt,
         lastSentAt,
         failureCount: 0,
+        autoActiveSiteId,
       });
       otpByUserId.set(userId, pendingToken);
 
@@ -616,7 +637,7 @@ export function registerAuthRoutes(app: Express): void {
         slug: pending.slug,
       };
 
-      await createCustomerSession(req, res, user, customer, pending.username);
+      await createCustomerSession(req, res, user, customer, pending.username, pending.autoActiveSiteId);
     } catch (error) {
       logger.error('2FA verification error:', error);
       res.status(500).json({ error: 'Verification failed' });

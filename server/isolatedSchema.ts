@@ -37,6 +37,9 @@ export const sites = pgTable("sites", {
   areaId: varchar("area_id").references(() => areas.id),
   status: text("status").notNull().default("active"), // active | onboarding | archived
   isDefault: boolean("is_default").notNull().default(false),
+  // loginSlug: the name users type in the Company field to log in directly to this site.
+  // Must be globally unique across all customers (managed via site_login_names in management DB).
+  loginSlug: text("login_slug"),
   createdAt: timestamp("created_at").defaultNow(),
   archivedAt: timestamp("archived_at"),
 });
@@ -54,6 +57,8 @@ export const siteUserRoles = pgTable("site_user_roles", {
   role: text("role").notNull(),
   areaId: varchar("area_id"),
   siteId: varchar("site_id"),
+  // canManageSiteUsers: site_coordinators with this flag can add/remove users at their own site
+  canManageSiteUsers: boolean("can_manage_site_users").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

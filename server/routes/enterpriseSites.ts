@@ -3,9 +3,9 @@ import { requireAuth } from '../auth';
 import { requireEnterpriseRole, resolveEnterpriseGrants } from '../enterpriseRoles';
 import { customerDbService } from '../customerDatabase';
 import { db as managementDb } from '../db';
-import { customers } from '@shared/schema';
+import { customers, siteLoginNames } from '@shared/schema';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, ne, and, inArray } from 'drizzle-orm';
+import { eq, ne, and, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcryptjs';
@@ -19,6 +19,41 @@ async function getIsEnterprise(customerId: string): Promise<boolean> {
     .where(eq(customers.id, customerId))
     .limit(1);
   return rows[0]?.isEnterprise ?? false;
+}
+
+/**
+ * Register a site's login name in the management DB (site_login_names table).
+ * Tries the site name first; if globally taken, namespaces with the company name.
+ * Returns the registered login name, or null if all candidates were already taken.
+ */
+async function registerSiteLoginName(
+  customerId: string,
+  siteId: string,
+  siteName: string,
+): Promise<string | null> {
+  const custRows = await managementDb
+    .select({ companyName: customers.companyName })
+    .from(customers)
+    .where(eq(customers.id, customerId))
+    .limit(1);
+  const companyName = custRows[0]?.companyName ?? customerId;
+
+  const candidates = [
+    siteName.trim(),
+    `${companyName}: ${siteName.trim()}`,
+    `${companyName} — ${siteName.trim()}`,
+  ];
+
+  for (const loginName of candidates) {
+    try {
+      await managementDb.insert(siteLoginNames).values({ customerId, siteId, loginName });
+      return loginName;
+    } catch (err: any) {
+      if (err?.code === '23505') continue; // unique constraint — try next candidate
+      throw err;
+    }
+  }
+  return null; // all candidates conflicted (extremely rare)
 }
 
 async function validateSiteOwnership(
@@ -114,6 +149,22 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         })
         .returning();
 
+      // Register a global site login name so users can log in by typing the site name.
+      try {
+        const loginSlug = await registerSiteLoginName(customerId, created.id, body.data.name);
+        if (loginSlug) {
+          const [withSlug] = await custDb
+            .update(isolatedSchema.sites)
+            .set({ loginSlug })
+            .where(eq(isolatedSchema.sites.id, created.id))
+            .returning();
+          logger.info(`[enterprise/sites] Created site ${created.id} with login slug "${loginSlug}"`);
+          return res.status(201).json(withSlug);
+        }
+      } catch (slugErr) {
+        logger.warn(`[enterprise/sites] Login slug registration failed for ${created.id} (non-fatal):`, slugErr);
+      }
+
       logger.info(`[enterprise/sites] Created site ${created.id} for customer ${customerId}`);
       return res.status(201).json(created);
     } catch (err: any) {
@@ -122,6 +173,66 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       }
       logger.error('[enterprise/sites] POST site error:', err);
       return res.status(500).json({ error: 'Failed to create site' });
+    }
+  });
+
+  // ── Update site login slug ──────────────────────────────────────────────────
+  // Allows enterprise admins to rename the login slug for a site.
+  // Atomically removes the old site_login_names entry and registers a new one.
+  app.patch('/api/enterprise/sites/:id/login-slug', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const siteId = req.params.id;
+
+      const bodySchema = z.object({ loginSlug: z.string().min(1).max(200).trim() });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const [existing] = await custDb
+        .select({ id: isolatedSchema.sites.id, loginSlug: isolatedSchema.sites.loginSlug })
+        .from(isolatedSchema.sites)
+        .where(eq(isolatedSchema.sites.id, siteId))
+        .limit(1);
+      if (!existing) return res.status(404).json({ error: 'Site not found' });
+
+      const newSlug = parsed.data.loginSlug;
+
+      // Check global uniqueness first
+      const conflict = await managementDb
+        .select({ id: siteLoginNames.id })
+        .from(siteLoginNames)
+        .where(sql`LOWER(${siteLoginNames.loginName}) = LOWER(${newSlug})`)
+        .limit(1);
+      if (conflict[0]) {
+        return res.status(409).json({ error: 'That login name is already in use by another site' });
+      }
+
+      // Remove old entry if it existed
+      if (existing.loginSlug) {
+        await managementDb
+          .delete(siteLoginNames)
+          .where(eq(siteLoginNames.loginName, existing.loginSlug));
+      }
+
+      // Insert new entry
+      await managementDb.insert(siteLoginNames).values({ customerId, siteId, loginName: newSlug });
+
+      // Update site record
+      const [updated] = await custDb
+        .update(isolatedSchema.sites)
+        .set({ loginSlug: newSlug })
+        .where(eq(isolatedSchema.sites.id, siteId))
+        .returning();
+
+      logger.info(`[enterprise/sites] Updated login slug for site ${siteId}: "${newSlug}"`);
+      return res.json(updated);
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        return res.status(409).json({ error: 'That login name is already in use' });
+      }
+      logger.error('[enterprise/sites] PATCH login-slug error:', err);
+      return res.status(500).json({ error: 'Failed to update login slug' });
     }
   });
 

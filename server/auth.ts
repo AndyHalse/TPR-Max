@@ -444,7 +444,7 @@ export class AuthService {
    * 3-Field Authentication: Company Name + Username + Password
    * This provides proper SaaS customer isolation by routing to the correct customer database
    */
-  static async authenticateUser(companyName: string, username: string, password: string): Promise<{ user: User; customer: Customer } | null> {
+  static async authenticateUser(companyName: string, username: string, password: string): Promise<{ user: User; customer: Customer; autoActiveSiteId?: string } | null> {
     try {
       companyName = companyName.trim();
       username = username.trim();
@@ -491,26 +491,96 @@ export class AuthService {
       
       // Step 1: Lookup customer by company name (case-insensitive)
       const customer = await this.lookupCustomerByCompanyName(companyName);
-      if (!customer) {
-        logger.info(`❌ Company not found: "${companyName}"`);
+      if (customer) {
+        logger.info(`✅ Found customer: ${customer.companyName} (ID: ${customer.id})`);
+
+        // Step 2: Get customer's isolated database connection
+        const customerDbService = CustomerDatabaseService.getInstance();
+        const customerDb = await customerDbService.getCustomerDatabase(customer.id);
+
+        // Step 3: Authenticate user in customer's database
+        const user = await this.authenticateUserInCustomerDatabase(customerDb, username, password);
+        if (!user) {
+          logger.info(`❌ User authentication failed in customer database: "${username}"`);
+          return null;
+        }
+
+        logger.info(`✅ User authenticated successfully: ${username} for ${customer.companyName}`);
+        return { user, customer };
+      }
+
+      // Step 1b: Company name not found — try site login name lookup.
+      // Allows users to type their site name (e.g. "CPI Books Suffolk") instead of
+      // the parent company name, landing scoped to that site after login.
+      logger.info(`❌ Company not found: "${companyName}" — trying site login name lookup`);
+      try {
+        const { db: mgmtDb } = await import('./db');
+        const { siteLoginNames } = await import('@shared/schema');
+        const { sql: sqlTag } = await import('drizzle-orm');
+        const siteMatches = await mgmtDb
+          .select()
+          .from(siteLoginNames)
+          .where(sqlTag`LOWER(${siteLoginNames.loginName}) = LOWER(${companyName})`)
+          .limit(1);
+
+        if (!siteMatches[0]) {
+          logger.info(`❌ No site login name match for: "${companyName}"`);
+          return null;
+        }
+
+        const { customerId, siteId } = siteMatches[0];
+        logger.info(`[auth] Site login name matched: "${companyName}" → customer=${customerId} site=${siteId}`);
+
+        // Load the parent customer
+        const { customers } = await import('@shared/schema');
+        const { eq } = await import('drizzle-orm');
+        const custRows = await mgmtDb
+          .select()
+          .from(customers)
+          .where(eq(customers.id, customerId))
+          .limit(1);
+
+        const siteCustomer = custRows[0];
+        if (!siteCustomer || !siteCustomer.isActive) {
+          logger.warn(`[auth] Site login: parent customer ${customerId} not found or inactive`);
+          return null;
+        }
+
+        // Authenticate user in customer's isolated DB
+        const customerDbService = CustomerDatabaseService.getInstance();
+        const customerDb = await customerDbService.getCustomerDatabase(customerId);
+        const user = await this.authenticateUserInCustomerDatabase(customerDb, username, password);
+        if (!user) {
+          logger.info(`[auth] Site login: user authentication failed for "${username}"`);
+          return null;
+        }
+
+        // Security: verify user actually has access to the resolved site.
+        // Fail-closed — if grants cannot be resolved, deny login.
+        try {
+          const { resolveEnterpriseGrants } = await import('./enterpriseRoles');
+          const grants = await resolveEnterpriseGrants(user.id, customerId);
+          const allowed =
+            grants.allowedSiteIds === 'all' ||
+            (Array.isArray(grants.allowedSiteIds) &&
+              (grants.allowedSiteIds as string[]).includes(siteId));
+          if (!allowed) {
+            logger.warn(
+              `[auth] Site login denied: user ${username} has no grant for site ${siteId} at customer ${customerId}`,
+            );
+            return null;
+          }
+        } catch (grantsErr) {
+          logger.error(`[auth] Site login: failed to resolve enterprise grants — denying login:`, grantsErr);
+          return null;
+        }
+
+        logger.info(`✅ Site login successful: ${username} at customer ${siteCustomer.companyName}, site=${siteId}`);
+        return { user, customer: siteCustomer, autoActiveSiteId: siteId };
+      } catch (siteLoginErr) {
+        logger.error(`[auth] Site login name lookup error:`, siteLoginErr);
         return null;
       }
-      
-      logger.info(`✅ Found customer: ${customer.companyName} (ID: ${customer.id})`);
-      
-      // Step 2: Get customer's isolated database connection
-      const customerDbService = CustomerDatabaseService.getInstance();
-      const customerDb = await customerDbService.getCustomerDatabase(customer.id);
-      
-      // Step 3: Authenticate user in customer's database
-      const user = await this.authenticateUserInCustomerDatabase(customerDb, username, password);
-      if (!user) {
-        logger.info(`❌ User authentication failed in customer database: "${username}"`);
-        return null;
-      }
-      
-      logger.info(`✅ User authenticated successfully: ${username} for ${customer.companyName}`);
-      return { user, customer };
       
     } catch (error) {
       logger.error('🚨 3-Field authentication error:', error);

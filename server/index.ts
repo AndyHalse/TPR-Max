@@ -138,6 +138,22 @@ async function runStartupMigrations(): Promise<void> {
                ADD COLUMN IF NOT EXISTS enterprise_group_id VARCHAR REFERENCES enterprise_groups(id),
                ADD COLUMN IF NOT EXISTS enterprise_role     TEXT`,
     },
+    {
+      label: "customers site_management_style column",
+      stmt: `ALTER TABLE customers
+               ADD COLUMN IF NOT EXISTS site_management_style TEXT NOT NULL DEFAULT 'central'`,
+    },
+    {
+      label: "site_login_names table",
+      stmt: `CREATE TABLE IF NOT EXISTS site_login_names (
+               id          VARCHAR     PRIMARY KEY DEFAULT gen_random_uuid(),
+               customer_id VARCHAR     NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+               site_id     TEXT        NOT NULL,
+               login_name  TEXT        NOT NULL,
+               created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+               CONSTRAINT site_login_names_login_name_unique UNIQUE (login_name)
+             )`,
+    },
   ];
 
   for (const { label, stmt } of migrations) {

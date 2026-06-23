@@ -39,6 +39,7 @@ interface Customer {
   isEnterprise: boolean;
   enterpriseGroupId: string | null;
   enterpriseRole: string | null;
+  siteManagementStyle: string; // 'central' | 'independent'
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -193,6 +194,7 @@ function EnterpriseSettingsDialog({
   const queryClient = useQueryClient();
   const [isEnterprise, setIsEnterprise] = useState(customer?.isEnterprise ?? false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>(customer?.enterpriseGroupId ?? '__none__');
+  const [siteManagementStyle, setSiteManagementStyle] = useState<string>(customer?.siteManagementStyle ?? 'central');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupSlug, setNewGroupSlug] = useState('');
@@ -202,6 +204,7 @@ function EnterpriseSettingsDialog({
   useEffect(() => {
     setIsEnterprise(customer?.isEnterprise ?? false);
     setSelectedGroupId(customer?.enterpriseGroupId ?? '__none__');
+    setSiteManagementStyle(customer?.siteManagementStyle ?? 'central');
     setShowCreateGroup(false);
     setNewGroupName('');
     setNewGroupSlug('');
@@ -223,13 +226,20 @@ function EnterpriseSettingsDialog({
         isEnterprise,
         enterpriseGroupId: (isEnterprise && selectedGroupId && selectedGroupId !== '__none__') ? selectedGroupId : null,
       });
-      return res.json();
+      const data = await res.json();
+      // Also save site management style when enterprise is enabled
+      if (isEnterprise) {
+        await apiRequest('PATCH', `/platform-admin/customers/${customer?.id}/site-management-style`, {
+          siteManagementStyle,
+        });
+      }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/platform-admin/customers'] });
       onSuccess();
       onOpenChange(false);
-      toast({ title: 'Saved', description: `${customer?.companyName} enterprise status updated.` });
+      toast({ title: 'Saved', description: `${customer?.companyName} enterprise settings updated.` });
     },
     onError: (e: any) => {
       toast({ title: 'Failed to save', description: e.message, variant: 'destructive' });
@@ -291,6 +301,39 @@ function EnterpriseSettingsDialog({
             </div>
             <Switch checked={isEnterprise} onCheckedChange={setIsEnterprise} disabled={!isSuperAdmin} />
           </div>
+
+          {isEnterprise && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <Label className="font-medium">Site management style</Label>
+              <p className="text-xs text-gray-500">Controls whether sites are managed centrally by HQ or independently by each site admin.</p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => isSuperAdmin && setSiteManagementStyle('central')}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm text-left transition-colors ${
+                    siteManagementStyle === 'central'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  } ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <div className="font-medium">Central</div>
+                  <div className="text-xs opacity-70">HQ manages all sites and users</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => isSuperAdmin && setSiteManagementStyle('independent')}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm text-left transition-colors ${
+                    siteManagementStyle === 'independent'
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  } ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <div className="font-medium">Independent</div>
+                  <div className="text-xs opacity-70">Each site manages its own users</div>
+                </button>
+              </div>
+            </div>
+          )}
 
           {isEnterprise && (
             <div className="space-y-2">

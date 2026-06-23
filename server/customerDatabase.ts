@@ -1218,6 +1218,16 @@ export class CustomerDatabaseService {
     }
     // ─── END RA BUILDER TABLES ────────────────────────────────────────────────
 
+    // ─── ENTERPRISE SITE COLUMNS ──────────────────────────────────────────────
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS login_slug TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".site_user_roles ADD COLUMN IF NOT EXISTS can_manage_site_users BOOLEAN NOT NULL DEFAULT FALSE`);
+      logger.info(`✅ Enterprise site columns ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Enterprise site columns migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    // ─── END ENTERPRISE SITE COLUMNS ──────────────────────────────────────────
+
     // Ensure site induction + AI/video + QR + CLUe columns on company_settings
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS site_address TEXT`);

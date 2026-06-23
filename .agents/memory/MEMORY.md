@@ -19,3 +19,4 @@
 - [Emergency site-scoping pattern](emergency-site-scoping.md) — evacuations table is in shared management DB (shared/schema.ts) and has siteId; people tables are in isolated customer DB; token-based FM routes derive siteId from validatedStaff.siteId not session.
 - [Enterprise site-isolation audit pattern](enterprise-site-isolation-audit.md) — grep pattern for finding un-scoped routes; inductionTokens from @shared/schema is a known false positive (uses customerId not siteId).
 - [HTTP site-isolation test patterns](site-isolation-test-patterns.md) — enterprise_admin bypasses scopedWhere; use site_coordinator grants in tests.
+- [Site login names pattern](site-login-names.md) — management DB site_login_names table for per-site login; autoActiveSiteId flows through PendingCustomerOtp → createCustomerSession; registerSiteLoginName helper tries site name first then namespaces.

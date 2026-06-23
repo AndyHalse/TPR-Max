@@ -895,6 +895,42 @@ export function registerPlatformAdminRoutes(app: Express): void {
   });
 
   /**
+   * Set site management style (central | independent) for an enterprise customer.
+   * Super admin only — audited.
+   */
+  app.patch('/platform-admin/customers/:customerId/site-management-style', requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+    try {
+      const styleSchema = z.object({
+        siteManagementStyle: z.enum(['central', 'independent']),
+      });
+      const { siteManagementStyle } = styleSchema.parse(req.body);
+      const { customerId } = req.params;
+
+      const [updated] = await db.update(sharedSchema.customers)
+        .set({ siteManagementStyle, updatedAt: sql`NOW()` })
+        .where(eq(sharedSchema.customers.id, customerId))
+        .returning();
+
+      if (!updated) return res.status(404).json({ success: false, error: 'Customer not found' });
+
+      const adminId = req.session.platformAdminId!;
+      const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
+      await writeAudit({
+        adminId, adminUsername: adminRow?.username ?? 'unknown',
+        action: 'customer.site_management_style_update',
+        targetType: 'customer', targetId: customerId, targetLabel: updated.companyName,
+        details: { siteManagementStyle },
+      });
+
+      return res.json({ success: true, customer: updated });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ success: false, error: 'Invalid request data' });
+      logger.error('Error updating site management style:', err);
+      return res.status(500).json({ success: false, error: 'Failed to update site management style' });
+    }
+  });
+
+  /**
    * Get enterprise stats (site count + latest estate compliance score) for a single customer.
    */
   app.get('/platform-admin/customers/:customerId/enterprise-stats', requirePlatformAdmin, async (req, res) => {
