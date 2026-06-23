@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
-npm install
+npm install --prefer-offline
 npm run db:push -- --force
