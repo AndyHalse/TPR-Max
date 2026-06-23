@@ -50,6 +50,15 @@ const CATEGORY_LINKS: Record<string, string> = {
 
 const ORDERED_CATS = ["insurance", "rams", "inductions", "certificates", "ppm", "fire", "rtw"];
 
+const SOURCE_TABLE_LABELS: Record<string, string> = {
+  contractor_documents: "Contractor document",
+  rams_documents: "RAMS document",
+  contractor_workers: "Worker record",
+  compliance_certificates: "Compliance cert",
+  ppm_work_orders: "PPM work order",
+  fire_risk_assessments: "Fire Risk Assessment",
+};
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface SummaryData {
@@ -98,6 +107,17 @@ interface ExpiryRow {
   severity: string;
 }
 
+interface GroupedExpiry {
+  key: string;
+  category: string;
+  sourceTable: string;
+  siteId: string;
+  siteName: string;
+  count: number;
+  earliestExpiresAt: string | null;
+  worstStatus: "lapsed" | "expiring";
+}
+
 interface TrendPoint {
   date: string;
   score: number;
@@ -107,6 +127,50 @@ interface TrendData {
   days: number;
   estateTrend: TrendPoint[];
   siteTrend: { siteId: string; siteName: string; date: string; score: number }[];
+}
+
+// ── Alert detail helpers ────────────────────────────────────────────────────────
+
+function deriveAlertDetail(category: string, severity: string, detail: Record<string, unknown>): string {
+  const n = (detail?.count as number) ?? 1;
+  const pl = n === 1;
+  const map: Record<string, Record<string, string>> = {
+    insurance: {
+      critical: pl ? "Insurance document has expired or is missing" : `${n} insurance documents have expired or are missing`,
+      warning:  pl ? "Insurance document expires within 30 days" : `${n} insurance documents expire within 30 days`,
+    },
+    rams: {
+      critical: pl ? "RAMS document has expired" : `${n} RAMS documents have expired`,
+      warning:  pl ? "RAMS document expires within 30 days" : `${n} RAMS documents expire soon`,
+    },
+    inductions: {
+      critical: pl ? "Worker on site has no valid site induction" : `${n} workers on site are missing valid inductions`,
+      warning:  pl ? "Worker induction expires within 30 days" : `${n} worker inductions expire within 30 days`,
+    },
+    certificates: {
+      critical: pl ? "Compliance certificate has expired" : `${n} compliance certificates have expired`,
+      warning:  pl ? "Compliance certificate expires within 30 days" : `${n} compliance certificates expire soon`,
+    },
+    ppm: {
+      critical: pl ? "PPM work order is overdue — planned maintenance not completed" : `${n} PPM work orders are overdue`,
+      warning:  pl ? "PPM work order is due within 30 days" : `${n} PPM work orders are due within 30 days`,
+    },
+    fire: {
+      critical: "Fire risk assessment has expired or is missing",
+      warning:  "Fire risk assessment expires within 30 days",
+    },
+    rtw: {
+      critical: pl ? "Right to Work document has expired or is missing" : `${n} Right to Work documents have expired or are missing`,
+      warning:  pl ? "Right to Work document expires within 30 days" : `${n} Right to Work documents expire soon`,
+    },
+  };
+  return map[category]?.[severity] ?? `${n} ${CATEGORY_LABELS[category] ?? category} item${n !== 1 ? "s" : ""} need attention`;
+}
+
+function alertStatusChip(category: string, severity: string): { label: string; bg: string; text: string } {
+  if (severity === "critical" && category === "ppm") return { label: "OVERDUE", bg: "#fee2e2", text: "#b91c1c" };
+  if (severity === "critical")                       return { label: "EXPIRED", bg: "#fee2e2", text: "#b91c1c" };
+  return { label: "EXPIRING", bg: "#fef3c7", text: "#92400e" };
 }
 
 // ── Colour helpers ─────────────────────────────────────────────────────────────
@@ -303,40 +367,53 @@ function AlertFeedRow({
 }) {
   const isCritical = alert.severity === "critical";
   const link = CATEGORY_LINKS[alert.category] ?? "/";
+  const chip = alertStatusChip(alert.category, alert.severity);
+  const detailText = deriveAlertDetail(alert.category, alert.severity, alert.detail);
+  const severityAccent = isCritical ? "#e84040" : "#e8a000";
 
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+    <div className={`flex items-start gap-3 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0 ${alert.status === "acknowledged" ? "opacity-60" : ""}`}>
       <div className="mt-0.5 shrink-0">
-        <AlertTriangle
-          className="w-4 h-4"
-          style={{ color: isCritical ? "#e84040" : "#e8a000" }}
-        />
+        <AlertTriangle className="w-4 h-4" style={{ color: severityAccent }} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-2 mb-0.5">
+        {/* Row 1: chips + location */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-1">
           <span
-            className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold text-white"
-            style={{ backgroundColor: isCritical ? "#e84040" : "#e8a000" }}
+            className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
+            style={{ backgroundColor: chip.bg, color: chip.text }}
           >
-            {isCritical ? "CRITICAL" : "WARNING"}
+            {chip.label}
           </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
-            {alert.siteName} · {CATEGORY_LABELS[alert.category] ?? alert.category}
+          <span
+            className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-white"
+            style={{ backgroundColor: severityAccent }}
+          >
+            {CATEGORY_LABELS[alert.category] ?? alert.category}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+            {alert.siteName}
           </span>
         </div>
-        <p className="text-sm text-slate-700 dark:text-slate-200 leading-snug">{alert.title}</p>
+        {/* Row 2: plain-English detail */}
+        <p className="text-sm text-slate-700 dark:text-slate-200 leading-snug">{detailText}</p>
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <Link href={link}>
-          <Button variant="ghost" size="icon" className="h-7 w-7">
-            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-          </Button>
-        </Link>
+      <div className="flex items-center gap-1 shrink-0 ml-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link href={link}>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </Button>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent>Open {CATEGORY_LABELS[alert.category] ?? alert.category} module</TooltipContent>
+        </Tooltip>
         {alert.status === "open" && (
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-xs px-2"
+            className="h-7 text-xs px-2 border-slate-200"
             onClick={() => onAcknowledge(alert.id)}
             disabled={isPending}
           >
@@ -345,7 +422,7 @@ function AlertFeedRow({
           </Button>
         )}
         {alert.status === "acknowledged" && (
-          <span className="text-xs text-slate-400 italic">Ack'd</span>
+          <span className="text-[11px] text-slate-400 italic whitespace-nowrap">Ack'd</span>
         )}
       </div>
     </div>
@@ -426,6 +503,43 @@ export default function EnterpriseCompliance() {
     () => (alerts ?? []).filter((a) => a.status === "open" || a.status === "acknowledged"),
     [alerts],
   );
+
+  const groupedExpiries = useMemo<GroupedExpiry[]>(() => {
+    if (!expiries) return [];
+    const map = new Map<string, GroupedExpiry>();
+    for (const row of expiries) {
+      const key = `${row.category}:${row.siteId}:${row.sourceTable}`;
+      const existing = map.get(key);
+      const isWorse = (s: string) => s === "lapsed";
+      if (existing) {
+        existing.count++;
+        if (row.expiresAt && (!existing.earliestExpiresAt || row.expiresAt < existing.earliestExpiresAt)) {
+          existing.earliestExpiresAt = row.expiresAt;
+        }
+        if (isWorse(row.status) && !isWorse(existing.worstStatus)) {
+          existing.worstStatus = "lapsed";
+        }
+      } else {
+        map.set(key, {
+          key,
+          category: row.category,
+          sourceTable: row.sourceTable,
+          siteId: row.siteId,
+          siteName: row.siteName,
+          count: 1,
+          earliestExpiresAt: row.expiresAt,
+          worstStatus: (row.status === "lapsed" ? "lapsed" : "expiring") as "lapsed" | "expiring",
+        });
+      }
+    }
+    // Sort: lapsed first, then by earliest expiry date
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.worstStatus !== b.worstStatus) return a.worstStatus === "lapsed" ? -1 : 1;
+      if (!a.earliestExpiresAt) return 1;
+      if (!b.earliestExpiresAt) return -1;
+      return a.earliestExpiresAt < b.earliestExpiresAt ? -1 : 1;
+    });
+  }, [expiries]);
 
   // ── Acknowledge mutation ─────────────────────────────────────────────────────
 
@@ -682,47 +796,81 @@ export default function EnterpriseCompliance() {
             </CardContent>
           </Card>
 
-          {/* Upcoming expiries */}
+          {/* Upcoming expiries — grouped */}
           <Card className="lg:col-span-2">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-base font-semibold text-slate-700 dark:text-slate-200">
                 Upcoming Expiries
                 <span className="ml-1.5 text-xs font-normal text-slate-400">(next 30 days)</span>
               </CardTitle>
+              {!expiriesLoading && groupedExpiries.length > 0 && (
+                <Badge variant="outline" className="text-xs shrink-0">
+                  {groupedExpiries.length} type{groupedExpiries.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
             </CardHeader>
             <CardContent className="pt-0">
               {expiriesLoading ? (
                 <div className="space-y-2">
-                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
-              ) : !expiries || expiries.length === 0 ? (
+              ) : groupedExpiries.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-slate-400">
                   <CheckCircle2 className="w-8 h-8 text-green-400" />
                   <p className="text-sm text-green-600 dark:text-green-400">Nothing expiring</p>
                 </div>
               ) : (
-                <div className="max-h-96 overflow-y-auto space-y-0 -mx-2 px-2">
-                  {expiries.slice(0, 25).map((item) => (
-                    <Link
-                      key={item.id}
-                      href={CATEGORY_LINKS[item.category] ?? "/"}
-                      className="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 -mx-2 px-2 rounded transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
-                          {CATEGORY_LABELS[item.category] ?? item.category}
-                        </p>
-                        <p className="text-xs text-slate-400 truncate">{item.siteName}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-xs text-slate-500">{toGBDate(item.expiresAt)}</span>
-                        <ExpiryChip expiresAt={item.expiresAt} status={item.status} />
-                      </div>
-                    </Link>
-                  ))}
-                  {expiries.length > 25 && (
+                <div className="max-h-96 overflow-y-auto -mx-2 px-2">
+                  {groupedExpiries.slice(0, 20).map((grp) => {
+                    const days = daysUntil(grp.earliestExpiresAt);
+                    const isExpired = grp.worstStatus === "lapsed" || (days !== null && days < 0);
+                    const typeLabel = SOURCE_TABLE_LABELS[grp.sourceTable] ?? grp.sourceTable;
+                    const catLabel = CATEGORY_LABELS[grp.category] ?? grp.category;
+                    const drillLink = CATEGORY_LINKS[grp.category] ?? "/";
+
+                    return (
+                      <Link
+                        key={grp.key}
+                        href={drillLink}
+                        className="flex items-start justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 -mx-2 px-2 rounded transition-colors group"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                              {catLabel}
+                            </p>
+                            {grp.count > 1 && (
+                              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                ×{grp.count}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                            {typeLabel} · {grp.siteName}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="text-[11px] text-slate-500">{toGBDate(grp.earliestExpiresAt)}</span>
+                          {isExpired ? (
+                            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">
+                              EXPIRED
+                            </span>
+                          ) : days !== null ? (
+                            <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                              days <= 7
+                                ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                                : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                            }`}>
+                              {days === 0 ? "TODAY" : `${days}d`}
+                            </span>
+                          ) : null}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  {groupedExpiries.length > 20 && (
                     <p className="text-xs text-slate-400 text-center py-2">
-                      +{expiries.length - 25} more
+                      +{groupedExpiries.length - 20} more group{groupedExpiries.length - 20 !== 1 ? "s" : ""}
                     </p>
                   )}
                 </div>
@@ -826,11 +974,16 @@ export default function EnterpriseCompliance() {
                             </div>
                           </td>
                           <td className="py-2.5 px-2">
-                            <Link href={`/enterprise/sites`}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7">
-                                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                              </Button>
-                            </Link>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Link href={`/enterprise/sites`}>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                                  </Button>
+                                </Link>
+                              </TooltipTrigger>
+                              <TooltipContent>View {site.siteName}</TooltipContent>
+                            </Tooltip>
                           </td>
                         </tr>
                       );
