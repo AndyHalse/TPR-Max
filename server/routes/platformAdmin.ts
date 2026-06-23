@@ -833,7 +833,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
   /**
    * Create a new enterprise group. Super admin only.
    */
-  app.post('/platform-admin/enterprise-groups', requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+  app.post('/platform-admin/enterprise-groups', requirePlatformAdmin, async (req, res) => {
     try {
       const schema = z.object({
         name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
@@ -856,7 +856,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
   /**
    * Set or clear the enterprise flag on a customer. Audited.
    */
-  app.patch('/platform-admin/customers/:customerId/enterprise', requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+  app.patch('/platform-admin/customers/:customerId/enterprise', requirePlatformAdmin, async (req, res) => {
     try {
       const schema = z.object({
         isEnterprise: z.boolean(),
@@ -898,7 +898,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
    * Set site management style (central | independent) for an enterprise customer.
    * Super admin only — audited.
    */
-  app.patch('/platform-admin/customers/:customerId/site-management-style', requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
+  app.patch('/platform-admin/customers/:customerId/site-management-style', requirePlatformAdmin, async (req, res) => {
     try {
       const styleSchema = z.object({
         siteManagementStyle: z.enum(['central', 'independent']),

@@ -299,7 +299,7 @@ function EnterpriseSettingsDialog({
               <Label className="font-medium">Enterprise customer</Label>
               <p className="text-xs text-gray-500 mt-0.5">Enables multi-site management, compliance dashboard, and estate reporting.</p>
             </div>
-            <Switch checked={isEnterprise} onCheckedChange={setIsEnterprise} disabled={!isSuperAdmin} />
+            <Switch checked={isEnterprise} onCheckedChange={setIsEnterprise} />
           </div>
 
           {isEnterprise && (
@@ -309,24 +309,24 @@ function EnterpriseSettingsDialog({
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={() => isSuperAdmin && setSiteManagementStyle('central')}
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm text-left transition-colors ${
+                  onClick={() => setSiteManagementStyle('central')}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm text-left transition-colors cursor-pointer ${
                     siteManagementStyle === 'central'
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  } ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  }`}
                 >
                   <div className="font-medium">Central</div>
                   <div className="text-xs opacity-70">HQ manages all sites and users</div>
                 </button>
                 <button
                   type="button"
-                  onClick={() => isSuperAdmin && setSiteManagementStyle('independent')}
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm text-left transition-colors ${
+                  onClick={() => setSiteManagementStyle('independent')}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm text-left transition-colors cursor-pointer ${
                     siteManagementStyle === 'independent'
                       ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  } ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  }`}
                 >
                   <div className="font-medium">Independent</div>
                   <div className="text-xs opacity-70">Each site manages its own users</div>
@@ -351,11 +351,9 @@ function EnterpriseSettingsDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  {isSuperAdmin && (
-                    <Button variant="outline" size="icon" title="Create new group" onClick={() => setShowCreateGroup(true)}>
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  )}
+                  <Button variant="outline" size="icon" title="Create new group" onClick={() => setShowCreateGroup(true)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
               ) : (
                 <div className="rounded-lg border p-3 space-y-2 bg-slate-50 dark:bg-slate-900">
@@ -1371,18 +1369,16 @@ export default function PlatformAdminDashboard() {
                         <Edit className="w-3 h-3 mr-1" />
                         Edit
                       </Button>
-                      {isSuperAdmin && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEnterpriseCustomer(customer)}
-                          data-testid={`button-enterprise-${customer.id}`}
-                          className={customer.isEnterprise ? "text-purple-700 border-purple-300" : ""}
-                        >
-                          <Layers className="w-3 h-3 mr-1" />
-                          Enterprise
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEnterpriseCustomer(customer)}
+                        data-testid={`button-enterprise-${customer.id}`}
+                        className={customer.isEnterprise ? "text-purple-700 border-purple-300" : ""}
+                      >
+                        <Layers className="w-3 h-3 mr-1" />
+                        Enterprise
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
