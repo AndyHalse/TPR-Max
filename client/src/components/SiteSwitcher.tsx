@@ -89,6 +89,8 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
             className={`p-2 rounded-lg hover:bg-white/10 transition-colors relative ${className}`}
             style={textStyle}
             title={displayName}
+            disabled={isPending}
+            aria-disabled={isPending}
           >
             {isPending ? <Loader2 size={18} className="animate-spin" /> : <Building2 size={18} />}
           </button>
@@ -99,7 +101,8 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
           {activeSites.map((site) => (
             <DropdownMenuItem
               key={site.id}
-              onClick={() => setActiveSiteMutation.mutate(site.id)}
+              onClick={() => !isPending && setActiveSiteMutation.mutate(site.id)}
+              disabled={isPending}
               className="flex items-center gap-2"
             >
               <Building2 size={14} className="text-muted-foreground flex-shrink-0" />
@@ -144,7 +147,8 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
         {activeSites.map((site) => (
           <DropdownMenuItem
             key={site.id}
-            onClick={() => setActiveSiteMutation.mutate(site.id)}
+            onClick={() => !isPending && setActiveSiteMutation.mutate(site.id)}
+            disabled={isPending}
             className="flex items-center gap-2"
           >
             <Building2 size={14} className="text-muted-foreground flex-shrink-0" />

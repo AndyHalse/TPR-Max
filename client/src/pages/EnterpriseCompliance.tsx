@@ -386,7 +386,7 @@ export default function EnterpriseCompliance() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: trend } = useQuery<TrendData>({
+  const { data: trend, isError: trendError } = useQuery<TrendData>({
     queryKey: ["/api/enterprise/compliance/trend", { days: 30 }],
     queryFn: () =>
       fetch("/api/enterprise/compliance/trend?days=30", { credentials: "include" }).then((r) => r.json()),
@@ -394,7 +394,7 @@ export default function EnterpriseCompliance() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: contractors } = useQuery<unknown[]>({
+  const { data: contractors, isError: contractorsError } = useQuery<unknown[]>({
     queryKey: ["/api/contractors"],
     staleTime: 120_000,
   });
@@ -416,7 +416,11 @@ export default function EnterpriseCompliance() {
     [summary],
   );
 
-  const activeContractors = Array.isArray(contractors) ? contractors.length : 0;
+  const activeContractors: string | number = contractorsError
+    ? "—"
+    : Array.isArray(contractors)
+    ? contractors.length
+    : 0;
 
   const openAlerts = useMemo(
     () => (alerts ?? []).filter((a) => a.status === "open" || a.status === "acknowledged"),
@@ -546,7 +550,12 @@ export default function EnterpriseCompliance() {
               )}
 
               {/* Trend delta */}
-              {trendDelta !== null && !noData && (
+              {trendError ? (
+                <p className="text-xs text-amber-500 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Trend data unavailable
+                </p>
+              ) : trendDelta !== null && !noData ? (
                 <div className="flex items-center gap-1 text-sm">
                   {trendDelta > 0 ? (
                     <TrendingUp className="w-4 h-4 text-green-500" />
@@ -563,7 +572,7 @@ export default function EnterpriseCompliance() {
                   </span>
                   <span className="text-slate-400">vs 30 days ago</span>
                 </div>
-              )}
+              ) : null}
 
               {noData && (
                 <p className="text-xs text-slate-400 text-center max-w-[180px]">

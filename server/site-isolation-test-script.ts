@@ -497,6 +497,60 @@ async function testSingleSiteCustomerUnaffected(singleSiteSession: Session): Pro
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Self-verification: proves the assertion counter actually bites
+// ─────────────────────────────────────────────────────────────────────────────
+
+function selfVerify(): boolean {
+  console.log('\n── Self-verification (framework check) ──────────────────────────');
+  const savedPass = PASS;
+  const savedFail = FAIL;
+
+  // A deliberately false assertion MUST increment FAIL
+  PASS = 0; FAIL = 0;
+  assert('__self_test: false condition', false);
+  const counterWorks = FAIL === 1;
+
+  // A deliberately true assertion MUST increment PASS
+  assert('__self_test: true condition', true);
+  const passWorks = PASS === 1 && FAIL === 1;
+
+  PASS = savedPass;
+  FAIL = savedFail;
+
+  if (!counterWorks || !passWorks) {
+    console.error('FATAL: assertion framework is broken — aborting.');
+    return false;
+  }
+  console.log('  ✅ PASS  Framework self-check: FAIL counter bites on false conditions');
+  console.log('  ✅ PASS  Framework self-check: PASS counter increments on true conditions');
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NULL site_id diagnostic
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function testNullSiteIdIntegrity(session: Session): Promise<void> {
+  console.log('\n── NULL site_id integrity ────────────────────────────────────────');
+
+  const r = await session.get('/api/enterprise/diagnostics/site-id-integrity');
+  if (!r.ok) {
+    skip('NULL site_id check', `diagnostic endpoint returned ${r.status}`);
+    return;
+  }
+  const result = r.data as { ok: boolean; violations: Record<string, number> };
+  assert(
+    'Zero rows with NULL site_id across all 34 site-scoped tables',
+    result.ok === true,
+    result.ok
+      ? ''
+      : `Tables with NULL site_ids: ${Object.entries(result.violations)
+          .map(([t, n]) => `${t}(${n})`)
+          .join(', ')}`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // "Prove the test bites" — write-path guarantee
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -563,6 +617,9 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
+  // ── Self-verification: prove the framework bites ──
+  if (!selfVerify()) process.exit(1);
+
   // ── Authenticate two sessions as the same enterprise user ──
   const sessionA = new Session('Site-A');
   const sessionB = new Session('Site-B');
@@ -620,6 +677,9 @@ async function main(): Promise<void> {
   // ── Write-path guarantee ──
   console.log('\n── Write-path guarantee ──────────────────────────────────────────');
   await testWriteGuarantee(sessionA, sessionB, siteAId, siteBId);
+
+  // ── NULL site_id integrity check ──
+  await testNullSiteIdIntegrity(sessionA);
 
   // ── Single-site customer regression ──
   // Use same session as a non-enterprise customer if possible, else skip

@@ -415,7 +415,7 @@ export default function EnterpriseSites() {
                 key={site.id}
                 site={site}
                 areas={areas}
-                onEdit={(s) => { setEditingSite(s); setShowForm(true); }}
+                onEdit={() => {}}
                 onArchive={() => {}}
               />
             ))}

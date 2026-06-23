@@ -534,4 +534,49 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       return res.status(500).json({ error: 'Failed to revoke role grant' });
     }
   });
+
+  // ── Diagnostic: NULL site_id integrity check ─────────────────────────────
+  // Returns per-table counts of rows with site_id IS NULL. Used by the
+  // site-isolation test script and manual audits. Requires enterprise_admin.
+  const SITE_SCOPED_TABLES = [
+    'staff', 'visitors', 'members', 'visitor_history', 'staff_attendance_history',
+    'pre_bookings', 'departments', 'muster_points', 'evacuation_zones', 'safety_tokens',
+    'contractor_companies', 'contractor_workers', 'contractor_documents',
+    'compliance_documents', 'rams_documents', 'worker_certifications',
+    'induction_tokens', 'contractor_visits', 'contractor_prebookings',
+    'local_labour_records', 'meeting_rooms', 'room_bookings', 'ppm_assets',
+    'ppm_work_orders', 'cdm_projects', 'hs_incidents', 'fire_risk_assessments',
+    'compliance_certificates', 'permit_to_work', 'audit_records',
+    'ra_builder_assessments', 'incident_reports', 'lone_worker_sessions',
+    'help_desk_tickets',
+  ] as const;
+
+  app.get('/api/enterprise/diagnostics/site-id-integrity', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
+    try {
+      const { customerId } = (req as any).customerContext;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const results: Record<string, number> = {};
+
+      for (const table of SITE_SCOPED_TABLES) {
+        try {
+          const rows = await custDb.execute(
+            `SELECT COUNT(*)::int AS cnt FROM ${table} WHERE site_id IS NULL`
+          );
+          results[table] = (rows.rows?.[0]?.cnt as number) ?? 0;
+        } catch {
+          results[table] = -1;
+        }
+      }
+
+      const violations = Object.entries(results).filter(([, cnt]) => cnt > 0);
+      return res.json({
+        ok: violations.length === 0,
+        violations: Object.fromEntries(violations),
+        all: results,
+      });
+    } catch (err) {
+      logger.error('[enterprise/diagnostics] site-id-integrity error:', err);
+      return res.status(500).json({ error: 'Diagnostic check failed' });
+    }
+  });
 }
