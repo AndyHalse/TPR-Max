@@ -364,7 +364,7 @@ function CompanyRow({ company, sites }: { company: Company; sites: Site[] }) {
 export default function EnterpriseContractorPool() {
   const [search, setSearch] = useState("");
 
-  const { data: companies = [], isLoading } = useQuery<Company[]>({
+  const { data: companies = [], isLoading, isError: poolError } = useQuery<Company[]>({
     queryKey: ["/api/enterprise/contractor-pool"],
   });
 
@@ -379,6 +379,22 @@ export default function EnterpriseContractorPool() {
   const totalWorkers = companies.reduce((s, c) => s + c.workerCount, 0);
   const totalCleared = companies.reduce((s, c) => s + c.clearedCount, 0);
   const attentionCount = companies.filter(c => c.overallCompliance !== 'compliant').length;
+
+  if (poolError) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-64">
+        <Card className="p-8 max-w-sm text-center space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+            <ShieldCheck size={24} className="text-amber-400" />
+          </div>
+          <h2 className="font-semibold">Couldn't load contractor pool</h2>
+          <p className="text-sm text-muted-foreground">
+            You may not have enterprise access for this customer, or the request failed. Try refreshing or contact your administrator.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>

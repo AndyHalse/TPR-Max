@@ -1045,7 +1045,7 @@ export default function EnterpriseReports() {
     queryKey: ['/api/enterprise/contractor-pool/sites'],
   });
 
-  const { data: history = [], isLoading: histLoading } = useQuery<ReportRecord[]>({
+  const { data: history = [], isLoading: histLoading, isError: histError } = useQuery<ReportRecord[]>({
     queryKey: ['/api/enterprise/reports'],
     refetchInterval: 5000,
   });
@@ -1065,8 +1065,11 @@ export default function EnterpriseReports() {
   const expiryDays = meta.requiresPeriod ? period : '30';
   const { data: expiries, isLoading: expiriesLoading } = useQuery<ExpiryRow[]>({
     queryKey: ['/api/enterprise/compliance/expiries', { days: expiryDays }],
-    queryFn: () =>
-      fetch(`/api/enterprise/compliance/expiries?days=${expiryDays}`, { credentials: 'include' }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/enterprise/compliance/expiries?days=${expiryDays}`, { credentials: 'include' });
+      if (!r.ok) throw new Error("Failed to load expiries");
+      return r.json();
+    },
     staleTime: STALE,
     refetchOnWindowFocus: true,
   });
@@ -1113,6 +1116,22 @@ export default function EnterpriseReports() {
     () => (siteRows ?? []).slice().sort((a, b) => a.score - b.score),
     [siteRows],
   );
+
+  if (histError) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-64">
+        <Card className="p-8 max-w-sm text-center space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+            <ShieldCheck size={24} className="text-amber-400" />
+          </div>
+          <h2 className="font-semibold">Couldn't load reports</h2>
+          <p className="text-sm text-muted-foreground">
+            You may not have enterprise access for this customer, or the request failed. Try refreshing or contact your administrator.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5">

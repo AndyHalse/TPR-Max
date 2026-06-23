@@ -688,7 +688,7 @@ export default function EnterpriseAccess() {
   const [addOpen, setAddOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<Grant | null>(null);
 
-  const { data: myGrants, isLoading: myGrantsLoading } = useQuery<MyGrants>({
+  const { data: myGrants, isLoading: myGrantsLoading, isError: myGrantsError } = useQuery<MyGrants>({
     queryKey: ["/api/enterprise/role-grants/my"],
     staleTime: 60 * 1000,
   });
@@ -757,6 +757,22 @@ export default function EnterpriseAccess() {
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-14 rounded-xl bg-muted animate-pulse" />
         ))}
+      </div>
+    );
+  }
+
+  if (myGrantsError) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-64">
+        <div className="p-8 max-w-sm text-center space-y-3 border rounded-xl bg-card">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+            <ShieldCheck size={24} className="text-amber-400" />
+          </div>
+          <h2 className="font-semibold">Couldn't load access settings</h2>
+          <p className="text-sm text-muted-foreground">
+            You may not have enterprise access for this customer, or the request failed. Try refreshing or contact your administrator.
+          </p>
+        </div>
       </div>
     );
   }

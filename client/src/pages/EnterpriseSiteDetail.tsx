@@ -207,7 +207,7 @@ export default function EnterpriseSiteDetail() {
   const siteId = params.id ?? "";
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  const { data: site, isLoading: siteLoading } = useQuery<SiteInfo>({
+  const { data: site, isLoading: siteLoading, isError: siteError } = useQuery<SiteInfo>({
     queryKey: [`/api/enterprise/sites/${siteId}`],
     enabled: !!siteId,
     staleTime: 60_000,
@@ -272,6 +272,22 @@ export default function EnterpriseSiteDetail() {
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (siteError) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-64">
+        <div className="p-8 max-w-sm text-center space-y-3 border rounded-xl bg-card">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+            <ShieldCheck size={24} className="text-amber-400" />
+          </div>
+          <h2 className="font-semibold">Couldn't load site details</h2>
+          <p className="text-sm text-muted-foreground">
+            You may not have enterprise access for this customer, or the request failed. Try refreshing or contact your administrator.
+          </p>
+        </div>
       </div>
     );
   }

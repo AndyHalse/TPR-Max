@@ -437,7 +437,7 @@ export default function EnterpriseCompliance() {
 
   const STALE = 60_000; // 60 s — matches server cache TTL
 
-  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useQuery<SummaryData>({
+  const { data: summary, isLoading: summaryLoading, isError: summaryError, refetch: refetchSummary } = useQuery<SummaryData>({
     queryKey: ["/api/enterprise/compliance/summary"],
     staleTime: STALE,
     refetchOnWindowFocus: true,
@@ -457,16 +457,22 @@ export default function EnterpriseCompliance() {
 
   const { data: expiries, isLoading: expiriesLoading } = useQuery<ExpiryRow[]>({
     queryKey: ["/api/enterprise/compliance/expiries", { days: 30 }],
-    queryFn: () =>
-      fetch("/api/enterprise/compliance/expiries?days=30", { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/enterprise/compliance/expiries?days=30", { credentials: "include" });
+      if (!r.ok) throw new Error("Failed to load expiries");
+      return r.json();
+    },
     staleTime: STALE,
     refetchOnWindowFocus: true,
   });
 
   const { data: trend, isError: trendError } = useQuery<TrendData>({
     queryKey: ["/api/enterprise/compliance/trend", { days: 30 }],
-    queryFn: () =>
-      fetch("/api/enterprise/compliance/trend?days=30", { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/enterprise/compliance/trend?days=30", { credentials: "include" });
+      if (!r.ok) throw new Error("Failed to load trend");
+      return r.json();
+    },
     staleTime: STALE,
     refetchOnWindowFocus: true,
   });
@@ -578,6 +584,23 @@ export default function EnterpriseCompliance() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  if (summaryError) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-64">
+        <Card className="p-8 max-w-sm text-center space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+            <ShieldCheck size={24} className="text-amber-400" />
+          </div>
+          <h2 className="font-semibold">Couldn't load compliance data</h2>
+          <p className="text-sm text-muted-foreground">
+            You may not have enterprise access for this customer, or the request failed. Try refreshing or contact your administrator.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => refetchSummary()}>Try again</Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>

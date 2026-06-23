@@ -987,7 +987,7 @@ export default function EnterpriseSites() {
   const [areaFilter, setAreaFilter] = useState("all");
   const [page, setPage] = useState(1);
 
-  const { data: sites = [], isLoading } = useQuery<Site[]>({
+  const { data: sites = [], isLoading, isError: sitesError } = useQuery<Site[]>({
     queryKey: ["/api/enterprise/sites"],
     staleTime: 30_000,
   });
@@ -1026,6 +1026,22 @@ export default function EnterpriseSites() {
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
+
+  if (sitesError) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-64">
+        <Card className="p-8 max-w-sm text-center space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+            <ShieldCheck size={24} className="text-amber-400" />
+          </div>
+          <h2 className="font-semibold">Couldn't load sites</h2>
+          <p className="text-sm text-muted-foreground">
+            You may not have enterprise access for this customer, or the request failed. Try refreshing or contact your administrator.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   const activeSites   = sites.filter((s) => s.status !== "archived");
   const archivedSites = sites.filter((s) => s.status === "archived");
