@@ -34,8 +34,9 @@ import {
   type WorkerServiceContext,
 } from '../services/workerService';
 import { z } from 'zod';
-import { eq, and, sql, desc, or, not, ne, isNotNull } from 'drizzle-orm';
+import { eq, and, sql, desc, or, not, ne, isNotNull, inArray } from 'drizzle-orm';
 import { db } from '../db';
+import { getScopedDb } from '../siteScope';
 
 // ─── Module-scope helpers ────────────────────────────────────────────────────
 
@@ -1186,6 +1187,10 @@ export function registerInductionRoutes(app: Express): void {
     try {
       const customerId = req.customerId;
       if (!customerId) return res.status(403).json({ error: 'No customer context' });
+
+      // Include FK fields so we can post-filter by site for enterprise customers
+      const { db: custDb, siteContext } = await getScopedDb(req);
+
       const rows = await db
         .select({
           id: inductionTokens.id,
@@ -1200,12 +1205,50 @@ export function registerInductionRoutes(app: Express): void {
           emailSentAt: inductionTokens.emailSentAt,
           expiresAt: inductionTokens.expiresAt,
           createdAt: inductionTokens.createdAt,
+          workerId: inductionTokens.workerId,
+          visitorId: inductionTokens.visitorId,
+          staffId: inductionTokens.staffId,
         })
         .from(inductionTokens)
         .where(eq(inductionTokens.customerId, customerId))
         .orderBy(desc(inductionTokens.createdAt))
         .limit(100);
-      res.json(rows);
+
+      // Enterprise multi-site isolation: filter tokens to the active site only.
+      // Tokens are stored in the management DB without a siteId column, so we
+      // resolve each token's site by looking up the referenced person record in
+      // the isolated customer DB (which carries siteId via siteMigrations).
+      if (siteContext.isEnterprise && siteContext.activeSiteId) {
+        const activeSiteId = siteContext.activeSiteId;
+
+        const visitorIds = rows.filter(r => r.personType === 'visitor' && r.visitorId).map(r => r.visitorId!);
+        const staffIds   = rows.filter(r => r.personType === 'staff'   && r.staffId).map(r => r.staffId!);
+
+        const [siteVisitors, siteStaff] = await Promise.all([
+          visitorIds.length
+            ? custDb.select({ id: isolatedSchema.visitors.id }).from(isolatedSchema.visitors)
+                .where(and(inArray(isolatedSchema.visitors.id, visitorIds), eq(isolatedSchema.visitors.siteId, activeSiteId)))
+            : Promise.resolve([] as { id: string }[]),
+          staffIds.length
+            ? custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff)
+                .where(and(inArray(isolatedSchema.staff.id, staffIds), eq(isolatedSchema.staff.siteId, activeSiteId)))
+            : Promise.resolve([] as { id: string }[]),
+        ]);
+
+        const allowedVisitorIds = new Set(siteVisitors.map(v => v.id));
+        const allowedStaffIds   = new Set(siteStaff.map(s => s.id));
+
+        const filtered = rows.filter(r => {
+          if (r.personType === 'visitor') return r.visitorId ? allowedVisitorIds.has(r.visitorId) : false;
+          if (r.personType === 'staff')   return r.staffId   ? allowedStaffIds.has(r.staffId)     : false;
+          // Contractor tokens: always included — contractors are scoped at company level elsewhere
+          return true;
+        });
+
+        return res.json(filtered.map(({ workerId: _w, visitorId: _vi, staffId: _st, ...rest }) => rest));
+      }
+
+      res.json(rows.map(({ workerId: _w, visitorId: _vi, staffId: _st, ...rest }) => rest));
     } catch (error) {
       logger.error('Error listing admin induction tokens:', error);
       res.status(500).json({ error: 'Failed to load tokens' });

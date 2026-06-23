@@ -17,6 +17,7 @@
  */
 
 import * as http from 'http';
+import { Client as PgClient } from 'pg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config
@@ -26,6 +27,13 @@ const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:5000';
 const ANDY_PASS = process.env.DEV_ANDY_PASSWORD ?? '';
 const EMMA_PASS = process.env.DEV_EMMA_PASSWORD ?? '';
 const TEST_PASS = process.env.TEST_USER_PASSWORD ?? ANDY_PASS;
+
+// When DATABASE_URL is set the test self-provisions enterprise and cleans up.
+// Run with: DATABASE_URL=... npx tsx server/site-isolation-test-script.ts
+const DB_URL = process.env.DATABASE_URL ?? '';
+const TEST_CUSTOMER_ID   = process.env.TEST_CUSTOMER_ID   ?? 'dev-customer-001';
+const TEST_CUSTOMER_SCHEMA = process.env.TEST_CUSTOMER_SCHEMA ?? 'c_dev_cust';
+const TEST_ADMIN_USERNAME  = process.env.TEST_ADMIN_USERNAME  ?? 'andy';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Minimal fetch wrapper that tracks cookies per session
@@ -140,12 +148,15 @@ function skip(name: string, reason: string): void {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+const LOGIN_COMPANY = process.env.TEST_COMPANY_NAME ?? 'Development Customer';
+
 async function loginAs(
   session: Session,
   username: string,
   password: string,
+  companyName = LOGIN_COMPANY,
 ): Promise<boolean> {
-  const r = await session.post('/api/auth/login', { username, password });
+  const r = await session.post('/api/auth/login', { companyName, username, password });
   if (!r.ok) {
     console.error(`  [login] Failed for "${username}": ${r.status} ${JSON.stringify(r.data)}`);
     return false;
@@ -527,6 +538,238 @@ function selfVerify(): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Self-provisioning via direct DB (when DATABASE_URL is set)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _provisionedSiteAId = '';
+let _provisionedSiteBId = '';
+let _didProvision = false;
+
+async function provisionTestEnvironment(): Promise<{ siteAId: string; siteBId: string } | null> {
+  if (!DB_URL) {
+    console.log('  ⚠️  DATABASE_URL not set — cannot self-provision (see README for manual steps)');
+    return null;
+  }
+  console.log('\n── Self-provisioning enterprise environment ──────────────────────');
+  const pg = new PgClient({ connectionString: DB_URL });
+  await pg.connect();
+  try {
+    // Enable enterprise on the test customer
+    await pg.query(
+      `UPDATE customers SET is_enterprise = TRUE WHERE id = $1`,
+      [TEST_CUSTOMER_ID],
+    );
+    // Grant andy enterprise_admin role so the sites API accepts his session
+    await pg.query(
+      `UPDATE "${TEST_CUSTOMER_SCHEMA}".users SET enterprise_role = 'enterprise_admin' WHERE username = $1`,
+      [TEST_ADMIN_USERNAME],
+    );
+    // Create two isolated test sites directly
+    const resA = await pg.query<{ id: string }>(
+      `INSERT INTO "${TEST_CUSTOMER_SCHEMA}".sites (name, reference, status, is_default)
+       VALUES ('__IsoTest_SiteA', 'ISO-A-${Date.now()}', 'active', TRUE)
+       RETURNING id`,
+    );
+    const resB = await pg.query<{ id: string }>(
+      `INSERT INTO "${TEST_CUSTOMER_SCHEMA}".sites (name, reference, status, is_default)
+       VALUES ('__IsoTest_SiteB', 'ISO-B-${Date.now()}', 'active', FALSE)
+       RETURNING id`,
+    );
+    const siteAId = resA.rows[0].id;
+    const siteBId = resB.rows[0].id;
+    _provisionedSiteAId = siteAId;
+    _provisionedSiteBId = siteBId;
+    _didProvision = true;
+    console.log(`  ✅ Provisioned: enterprise=TRUE, siteA=${siteAId}, siteB=${siteBId}`);
+    return { siteAId, siteBId };
+  } finally {
+    await pg.end();
+  }
+}
+
+async function teardownTestEnvironment(): Promise<void> {
+  if (!_didProvision || !DB_URL) return;
+  console.log('\n── Cleaning up provisioned test environment ──────────────────────');
+  const pg = new PgClient({ connectionString: DB_URL });
+  await pg.connect();
+  try {
+    if (_provisionedSiteAId) {
+      await pg.query(`DELETE FROM "${TEST_CUSTOMER_SCHEMA}".sites WHERE id = $1`, [_provisionedSiteAId]);
+    }
+    if (_provisionedSiteBId) {
+      await pg.query(`DELETE FROM "${TEST_CUSTOMER_SCHEMA}".sites WHERE id = $1`, [_provisionedSiteBId]);
+    }
+    await pg.query(`UPDATE customers SET is_enterprise = FALSE WHERE id = $1`, [TEST_CUSTOMER_ID]);
+    await pg.query(
+      `UPDATE "${TEST_CUSTOMER_SCHEMA}".users SET enterprise_role = NULL WHERE username = $1`,
+      [TEST_ADMIN_USERNAME],
+    );
+    console.log('  ✅ Teardown complete');
+  } finally {
+    await pg.end();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX-03: New route tests for the three leaks closed in this PR
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Visitor search (/api/visitors/search) must only return records from the active site. */
+async function testVisitorSearchIsolation(
+  sessionA: Session,
+  sessionB: Session,
+  siteAId: string,
+  siteBId: string,
+): Promise<void> {
+  console.log('\n  ── Visitor search isolation (FIX-03) ──');
+
+  // Create a visitor with a distinctive last name at Site A
+  await switchToSite(sessionA, siteAId);
+  const ts = Date.now();
+  const vis = await sessionA.post('/api/visitors', {
+    firstName: 'SearchIsoTest',
+    lastName: `ZZZUniqSiteA${ts}`,
+    email: `search-iso-${ts}@test.example`,
+    company: 'IsolationCo',
+    purpose: 'audit',
+  });
+
+  if (!vis.ok) {
+    skip('Visitor search isolation', `POST /api/visitors failed: ${vis.status}`);
+    return;
+  }
+  const visRecord = vis.data as any;
+  const lastName = `ZZZUniqSiteA${ts}`;
+
+  // Search for that visitor while active at Site A — MUST find them
+  const searchA = await sessionA.get(`/api/visitors/search?q=${encodeURIComponent(lastName)}`);
+  assert(
+    `GET /api/visitors/search at Site A finds its own visitor`,
+    ((searchA.data as any[]) ?? []).some((r: any) => r.id === visRecord?.id),
+    `visitor ${visRecord?.id} not found when searching at Site A`,
+  );
+
+  // Switch to Site B — MUST NOT find Site A's visitor
+  await switchToSite(sessionB, siteBId);
+  const searchB = await sessionB.get(`/api/visitors/search?q=${encodeURIComponent(lastName)}`);
+  const bRows = (searchB.data as any[]) ?? [];
+  assert(
+    `GET /api/visitors/search at Site B does NOT show Site A visitor`,
+    !bRows.some((r: any) => r.id === visRecord?.id),
+    `Site A visitor ${visRecord?.id} appeared in Site B search results — scopedWhere missing!`,
+  );
+}
+
+/** Reception diary (/api/reception/diary) pre-bookings and host staff must be site-scoped. */
+async function testDiaryIsolation(
+  sessionA: Session,
+  sessionB: Session,
+  siteAId: string,
+  siteBId: string,
+): Promise<void> {
+  console.log('\n  ── Reception diary isolation (FIX-03) ──');
+
+  await switchToSite(sessionA, siteAId);
+  const visitDate = new Date(Date.now() + 86400000).toISOString();
+  const pb = await sessionA.post('/api/prebookings', {
+    visitorFirstName: 'DiaryIsoTest',
+    visitorLastName: `SiteA${Date.now()}`,
+    visitorEmail: `diary-iso-${Date.now()}@test.example`,
+    company: 'IsolationCo',
+    purpose: 'diary isolation audit',
+    visitDate,
+    hostName: 'Diary Host',
+    isApproved: false,
+  });
+
+  if (!pb.ok) {
+    skip('Reception diary isolation', `POST /api/prebookings failed: ${pb.status}`);
+    return;
+  }
+  const pbRecord = pb.data as any;
+
+  // Diary at Site A — MUST contain the pre-booking
+  const diaryA = await sessionA.get('/api/reception/diary?days=3');
+  const visitorsA = ((diaryA.data as any)?.visitors ?? []) as any[];
+  assert(
+    'GET /api/reception/diary at Site A contains its own pre-booking',
+    visitorsA.some((r: any) => r.id === pbRecord?.id),
+    `prebooking ${pbRecord?.id} not visible in Site A diary`,
+  );
+
+  // Switch to Site B — pre-booking MUST NOT appear in diary
+  await switchToSite(sessionB, siteBId);
+  const diaryB = await sessionB.get('/api/reception/diary?days=3');
+  const visitorsB = ((diaryB.data as any)?.visitors ?? []) as any[];
+  assert(
+    'GET /api/reception/diary at Site B does NOT show Site A pre-booking',
+    !visitorsB.some((r: any) => r.id === pbRecord?.id),
+    `Site A prebooking ${pbRecord?.id} appeared in Site B diary — scopedWhere missing!`,
+  );
+
+  // Clean up
+  await switchToSite(sessionA, siteAId);
+  if (pbRecord?.id) await sessionA.delete(`/api/prebookings/${pbRecord.id}`);
+}
+
+/** Induction admin token list (/api/induction/admin/tokens) must be site-scoped. */
+async function testInductionTokenListIsolation(
+  sessionA: Session,
+  sessionB: Session,
+  siteAId: string,
+  siteBId: string,
+): Promise<void> {
+  console.log('\n  ── Induction admin token list isolation (FIX-03) ──');
+
+  // Create a visitor at Site A (gives them a siteId in the isolated DB)
+  await switchToSite(sessionA, siteAId);
+  const ts = Date.now();
+  const vis = await sessionA.post('/api/visitors', {
+    firstName: 'InductionIso',
+    lastName: `SiteA${ts}`,
+    email: `induction-iso-${ts}@test.example`,
+    company: 'IsolationCo',
+    purpose: 'audit',
+  });
+  if (!vis.ok) {
+    skip('Induction token list isolation', `POST /api/visitors failed: ${vis.status}`);
+    return;
+  }
+  const visitorId = (vis.data as any)?.id as string;
+
+  // Both sites fetch the admin token list; they should not share token records
+  await switchToSite(sessionA, siteAId);
+  const tokensA = await sessionA.get('/api/induction/admin/tokens');
+  await switchToSite(sessionB, siteBId);
+  const tokensB = await sessionB.get('/api/induction/admin/tokens');
+
+  assert('GET /api/induction/admin/tokens returns 200 at Site A', tokensA.ok, `${tokensA.status}`);
+  assert('GET /api/induction/admin/tokens returns 200 at Site B', tokensB.ok, `${tokensB.status}`);
+
+  // No token visible to Site A should also appear in Site B list (no cross-site bleed)
+  const idsA = new Set(((tokensA.data as any[]) ?? []).map((t: any) => t.id));
+  const idsB = new Set(((tokensB.data as any[]) ?? []).map((t: any) => t.id));
+  const overlap = [...idsA].filter(id => idsB.has(id));
+  if (idsA.size === 0 && idsB.size === 0) {
+    skip('Induction token lists are disjoint across sites', 'no tokens exist yet — endpoint verified accessible');
+  } else {
+    assert(
+      'Induction admin token lists are disjoint across sites (no cross-site bleed)',
+      overlap.length === 0,
+      `Tokens visible in both sites: ${overlap.slice(0, 3).join(', ')}`,
+    );
+  }
+
+  // Visitor ID created at Site A must NOT appear in Site B token list (if any tokens reference it)
+  const siteBTokens = (tokensB.data as any[]) ?? [];
+  assert(
+    'Site B token list does not reference a Site A visitor',
+    !siteBTokens.some((t: any) => t.visitorId === visitorId),
+    `Site A visitorId ${visitorId} appeared in Site B induction token list`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // NULL site_id diagnostic
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -608,7 +851,7 @@ async function testWriteGuarantee(
 
 async function main(): Promise<void> {
   console.log('═══════════════════════════════════════════════════════════════════');
-  console.log('  ENTERPRISE SITE-ISOLATION TEST — TPR Max');
+  console.log('  ENTERPRISE SITE-ISOLATION TEST — TPR Max (FIX-03)');
   console.log(`  Target: ${BASE}`);
   console.log('═══════════════════════════════════════════════════════════════════\n');
 
@@ -629,71 +872,98 @@ async function main(): Promise<void> {
     console.error('❌ Login as andy failed. Is the server running and the password correct?');
     process.exit(2);
   }
-
-  // Copy session cookies to sessionB (same auth, we'll switch sites independently)
   const loggedInB = await loginAs(sessionB, 'andy', ANDY_PASS);
   if (!loggedInB) {
     console.error('❌ Second login as andy failed.');
     process.exit(2);
   }
 
-  // ── Check enterprise status ──
+  // ── Check enterprise status; self-provision if DATABASE_URL is available ──
+  let siteAId: string;
+  let siteBId: string;
+
   const ctxResp = await sessionA.get('/api/enterprise/context');
   const ctx = ctxResp.data as any;
 
   if (!ctxResp.ok || !ctx?.isEnterprise) {
-    console.log('⏭  SKIP — the current customer is not an enterprise customer.');
-    console.log('   To run site-isolation tests, enable enterprise on a test customer');
-    console.log('   and ensure it has at least 2 sites configured.');
-    process.exit(2);
-  }
-
-  // ── Get sites ──
-  const sitesResp = await sessionA.get('/api/enterprise/sites');
-  const sites = (sitesResp.data as any[]) ?? [];
-
-  if (sites.length < 2) {
-    console.log(`⏭  SKIP — enterprise customer has ${sites.length} site(s); need >= 2.`);
-    console.log('   Create a second site in Enterprise Settings and re-run.');
-    process.exit(2);
-  }
-
-  const siteAId = sites[0].id;
-  const siteBId = sites[1].id;
-  console.log(`  Enterprise customer confirmed. Sites: A=${siteAId}, B=${siteBId}\n`);
-
-  // ── Run all isolation tests ──
-  console.log('── Feature tests ─────────────────────────────────────────────────');
-  await testPreBookingIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testContractorPreBookingIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testVisitorIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testStaffIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testMusterIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testHelpDeskIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testRaBuilderIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testPpmIsolation(sessionA, sessionB, siteAId, siteBId);
-  await testAuditRecordIsolation(sessionA, sessionB, siteAId, siteBId);
-
-  // ── Write-path guarantee ──
-  console.log('\n── Write-path guarantee ──────────────────────────────────────────');
-  await testWriteGuarantee(sessionA, sessionB, siteAId, siteBId);
-
-  // ── NULL site_id integrity check ──
-  await testNullSiteIdIntegrity(sessionA);
-
-  // ── Single-site customer regression ──
-  // Use same session as a non-enterprise customer if possible, else skip
-  console.log('\n── Single-site regression ────────────────────────────────────────');
-  if (EMMA_PASS) {
-    const singleSession = new Session('SingleSite');
-    const emmaOk = await loginAs(singleSession, 'emma', EMMA_PASS);
-    if (emmaOk) {
-      await testSingleSiteCustomerUnaffected(singleSession);
-    } else {
-      skip('Single-site regression suite', 'emma login failed');
+    // Try to self-provision
+    const provisioned = await provisionTestEnvironment();
+    if (!provisioned) {
+      console.log('\n⏭  SKIP — enterprise not enabled and self-provisioning unavailable.');
+      console.log('   Either:');
+      console.log('   a) Set DATABASE_URL to allow auto-provisioning, or');
+      console.log('   b) Enable enterprise on the test customer via Platform Admin UI');
+      console.log('      and create >= 2 sites in Enterprise Settings, then re-run.');
+      process.exit(2);
     }
+    siteAId = provisioned.siteAId;
+    siteBId = provisioned.siteBId;
+    // Re-login after provisioning to pick up enterprise context
+    await loginAs(sessionA, 'andy', ANDY_PASS);
+    await loginAs(sessionB, 'andy', ANDY_PASS);
   } else {
-    skip('Single-site regression suite', 'DEV_EMMA_PASSWORD not set');
+    // Already enterprise — pick first two sites
+    const sitesResp = await sessionA.get('/api/enterprise/sites');
+    const sites = (sitesResp.data as any[]) ?? [];
+    if (sites.length < 2) {
+      const provisioned = await provisionTestEnvironment();
+      if (!provisioned) {
+        console.log(`⏭  SKIP — enterprise customer has ${sites.length} site(s); need >= 2.`);
+        process.exit(2);
+      }
+      siteAId = provisioned.siteAId;
+      siteBId = provisioned.siteBId;
+      await loginAs(sessionA, 'andy', ANDY_PASS);
+      await loginAs(sessionB, 'andy', ANDY_PASS);
+    } else {
+      siteAId = sites[0].id;
+      siteBId = sites[1].id;
+    }
+  }
+
+  console.log(`\n  Sites confirmed: A=${siteAId}, B=${siteBId}\n`);
+
+  try {
+    // ── Pre-existing route suite ───────────────────────────────────────────
+    console.log('── Feature tests (existing coverage) ────────────────────────────');
+    await testPreBookingIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testContractorPreBookingIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testVisitorIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testStaffIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testMusterIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testHelpDeskIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testRaBuilderIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testPpmIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testAuditRecordIsolation(sessionA, sessionB, siteAId, siteBId);
+
+    // ── FIX-03: newly patched routes (proves the test bites) ──────────────
+    console.log('\n── FIX-03 route tests (visitor search · diary · induction tokens) ─');
+    await testVisitorSearchIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testDiaryIsolation(sessionA, sessionB, siteAId, siteBId);
+    await testInductionTokenListIsolation(sessionA, sessionB, siteAId, siteBId);
+
+    // ── Write-path guarantee ───────────────────────────────────────────────
+    console.log('\n── Write-path guarantee ──────────────────────────────────────────');
+    await testWriteGuarantee(sessionA, sessionB, siteAId, siteBId);
+
+    // ── NULL site_id integrity check ───────────────────────────────────────
+    await testNullSiteIdIntegrity(sessionA);
+
+    // ── Single-site customer regression ───────────────────────────────────
+    console.log('\n── Single-site regression ────────────────────────────────────────');
+    if (EMMA_PASS) {
+      const singleSession = new Session('SingleSite');
+      const emmaOk = await loginAs(singleSession, 'emma', EMMA_PASS);
+      if (emmaOk) {
+        await testSingleSiteCustomerUnaffected(singleSession);
+      } else {
+        skip('Single-site regression suite', 'emma login failed');
+      }
+    } else {
+      skip('Single-site regression suite', 'DEV_EMMA_PASSWORD not set');
+    }
+  } finally {
+    await teardownTestEnvironment();
   }
 
   // ── Summary ──

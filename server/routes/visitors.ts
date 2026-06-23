@@ -1141,14 +1141,15 @@ export function registerVisitorRoutes(app: Express): void {
         return res.json([]);
       }
 
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: searchSiteCtx } = await getScopedDb(req);
 
       const results = await customerDb
         .select()
         .from(isolatedSchema.visitors)
-        .where(ilike(isolatedSchema.visitors.lastName, `%${q.trim()}%`))
+        .where(and(
+          ilike(isolatedSchema.visitors.lastName, `%${q.trim()}%`),
+          scopedWhere(searchSiteCtx, isolatedSchema.visitors)
+        ))
         .orderBy(desc(isolatedSchema.visitors.checkedInAt))
         .limit(50);
 
@@ -1524,7 +1525,7 @@ export function registerVisitorRoutes(app: Express): void {
       }
 
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: manualCiSiteCtx } = await getScopedDb(req);
 
       const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
         .where(eq(isolatedSchema.preBookings.id, preBookingId)).limit(1);
@@ -1554,7 +1555,8 @@ export function registerVisitorRoutes(app: Express): void {
         .where(and(
           eq(isolatedSchema.visitors.isCheckedIn, true),
           eq(isolatedSchema.visitors.firstName, firstName),
-          eq(isolatedSchema.visitors.lastName, lastName)
+          eq(isolatedSchema.visitors.lastName, lastName),
+          scopedWhere(manualCiSiteCtx, isolatedSchema.visitors)
         )).limit(1);
       const existingVisitor = existingVisitors[0];
       
@@ -2230,8 +2232,6 @@ This is an automated notification from your visitor management system.`;
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
-      
       const { date, days = 7 } = req.query;
       const targetDate = date ? new Date(date as string) : new Date();
       targetDate.setHours(0, 0, 0, 0);
@@ -2241,22 +2241,24 @@ This is an automated notification from your visitor management system.`;
       endDate.setDate(targetDate.getDate() + daysAhead);
       endDate.setHours(23, 59, 59, 999);
       
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: diarySiteCtx } = await getScopedDb(req);
       
       const allStoredPreBookings = await customerDb.select().from(isolatedSchema.preBookings)
         .where(and(
           ne(isolatedSchema.preBookings.status, 'cancelled'),
           ne(isolatedSchema.preBookings.status, 'completed'),
-          eq(isolatedSchema.preBookings.isCheckedIn, false)
+          eq(isolatedSchema.preBookings.isCheckedIn, false),
+          scopedWhere(diarySiteCtx, isolatedSchema.preBookings)
         ));
       const visitorPreBookings = allStoredPreBookings.filter((pb: any) => {
         const visitDate = new Date(pb.visitDate);
         return visitDate >= targetDate && visitDate <= endDate;
       });
       
-      logger.info(`Diary query: customer=${context.customerId}, targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
+      logger.info(`Diary query: customer=${req.customerId}, targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
       
-      const allStaff = await customerDb.select().from(isolatedSchema.staff);
+      const allStaff = await customerDb.select().from(isolatedSchema.staff)
+        .where(scopedWhere(diarySiteCtx, isolatedSchema.staff));
       const staffMap = new Map(allStaff.map((s: any) => [s.id, s]));
       
       const enrichedVisitors = visitorPreBookings.map((pb: any) => {
