@@ -221,6 +221,9 @@ export function registerReportRoutes(app: Express): void {
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -334,6 +337,9 @@ export function registerReportRoutes(app: Express): void {
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
       const { reportType, dateFrom, dateTo } = req.body;
@@ -442,12 +448,14 @@ export function registerReportRoutes(app: Express): void {
       const { id } = req.params;
       const { recipients } = req.body;
       
-      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
-        return res.status(400).json({ error: "Valid recipients are required" });
-      }
-      
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
+      }
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ error: "Valid recipients are required" });
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
@@ -546,6 +554,9 @@ export function registerReportRoutes(app: Express): void {
       
       if (!req.user?.username) {
         return res.status(401).send("<h1>Unauthorized</h1><p>Please log in to view this report.</p>");
+      }
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).send("<h1>Forbidden</h1><p>Admin access required to view reports.</p>");
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
@@ -716,6 +727,9 @@ export function registerReportRoutes(app: Express): void {
 
   app.post("/api/test-email", requireAuth, async (req, res) => {
     try {
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
       const { email } = req.body;
       
       if (!email) {
@@ -828,6 +842,9 @@ export function registerReportRoutes(app: Express): void {
   // Send manual visitor report endpoint
   app.post("/api/reports/send", requireAuth, async (req, res) => {
     try {
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
       const { email } = req.body;
       
       if (!email) {
