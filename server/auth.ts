@@ -559,7 +559,7 @@ export class AuthService {
         // Fail-closed — if grants cannot be resolved, deny login.
         try {
           const { resolveEnterpriseGrants } = await import('./enterpriseRoles');
-          const grants = await resolveEnterpriseGrants(user.id, customerId);
+          const grants = await resolveEnterpriseGrants(user.id, customerId, user.role);
           const allowed =
             grants.allowedSiteIds === 'all' ||
             (Array.isArray(grants.allowedSiteIds) &&

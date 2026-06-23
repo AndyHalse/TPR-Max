@@ -113,11 +113,12 @@ async function resolveSiteContext(req: Request): Promise<SiteContext> {
     // Resolve per-user site allowlist from enterprise role grants.
     // Fail closed: no grant → empty allowlist → 403 on any site-scoped query.
     const userId = (req as any).user?.id;
+    const userRole = (req as any).user?.role;
     let allowedSiteIds: string[] | 'all';
     if (!userId) {
       allowedSiteIds = [];
     } else {
-      const grants = await resolveEnterpriseGrants(userId, customerId);
+      const grants = await resolveEnterpriseGrants(userId, customerId, userRole);
       allowedSiteIds = grants.allowedSiteIds;
     }
 

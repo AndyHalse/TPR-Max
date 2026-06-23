@@ -23,6 +23,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import { eq, inArray } from 'drizzle-orm';
 import { customerDbService } from './customerDatabase';
+import { db as managementDb } from './db';
+import { customers } from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
 import { logger } from './utils/logger';
 
@@ -76,9 +78,26 @@ export async function resolveEnterpriseGrants(
   customerId: string,
   userRole?: string,
 ): Promise<ResolvedGrants> {
-  // Platform admins always have full enterprise_admin scope — no DB query needed.
+  // Platform admins automatically have enterprise_admin scope — but ONLY for
+  // enterprise customers.  A non-enterprise customer's admin should not receive
+  // any enterprise role (they would still 403 on requireEnterpriseRole, but
+  // it is cleaner to resolve correctly rather than relying on that gate).
   if (userRole === 'admin') {
-    return { roles: ['enterprise_admin'], allowedSiteIds: 'all', canManageSiteIds: [] };
+    try {
+      const custRows = await managementDb
+        .select({ isEnterprise: customers.isEnterprise })
+        .from(customers)
+        .where(eq(customers.id, customerId))
+        .limit(1);
+      if (custRows[0]?.isEnterprise) {
+        return { roles: ['enterprise_admin'], allowedSiteIds: 'all', canManageSiteIds: [] };
+      }
+      // Not an enterprise customer — fall through to the grants-based resolution,
+      // which will return empty (non-enterprise customers have no site_user_roles).
+    } catch (err) {
+      logger.error('[enterpriseRoles] isEnterprise check failed — failing closed:', err);
+      return { roles: [], allowedSiteIds: [], canManageSiteIds: [] };
+    }
   }
 
   try {

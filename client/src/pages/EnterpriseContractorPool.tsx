@@ -364,7 +364,7 @@ function CompanyRow({ company, sites }: { company: Company; sites: Site[] }) {
 export default function EnterpriseContractorPool() {
   const [search, setSearch] = useState("");
 
-  const { data: companies = [], isLoading, isError: poolError } = useQuery<Company[]>({
+  const { data: companies = [], isLoading, isError: poolError, error: poolErrorObj, refetch: refetchPool } = useQuery<Company[]>({
     queryKey: ["/api/enterprise/contractor-pool"],
   });
 
@@ -381,16 +381,22 @@ export default function EnterpriseContractorPool() {
   const attentionCount = companies.filter(c => c.overallCompliance !== 'compliant').length;
 
   if (poolError) {
+    const is403 = (poolErrorObj as any)?.status === 403;
     return (
       <div className="p-6 flex items-center justify-center min-h-64">
         <Card className="p-8 max-w-sm text-center space-y-3">
           <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
             <ShieldCheck size={24} className="text-amber-400" />
           </div>
-          <h2 className="font-semibold">Couldn't load contractor pool</h2>
+          <h2 className="font-semibold">{is403 ? "Access restricted" : "Couldn't load contractor pool"}</h2>
           <p className="text-sm text-muted-foreground">
-            You may not have enterprise access for this customer, or the request failed. Try refreshing or contact your administrator.
+            {is403
+              ? "You don't have enterprise access for this customer. Ask an Enterprise Admin to grant you a role."
+              : "The request failed — please try again or contact your administrator."}
           </p>
+          {!is403 && (
+            <Button variant="outline" size="sm" onClick={() => refetchPool()}>Try again</Button>
+          )}
         </Card>
       </div>
     );

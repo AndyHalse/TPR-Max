@@ -70,6 +70,20 @@ async function validateSiteOwnership(
   return rows.length > 0;
 }
 
+// ── Request-scoped grant resolver ────────────────────────────────────────────
+// Single helper so every route reads the same three values (userId, customerId,
+// role) from the request and can never pass the wrong/partial arguments to
+// resolveEnterpriseGrants.  All four call sites in this file MUST use this.
+
+async function resolveGrantsForReq(req: import('express').Request) {
+  const user = (req as any).user;
+  return resolveEnterpriseGrants(
+    user?.id ?? '',
+    req.customerId!,
+    user?.role,
+  );
+}
+
 // ── Route registration ───────────────────────────────────────────────────────
 
 export function registerEnterpriseSiteRoutes(app: Express): void {
@@ -84,7 +98,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       // Resolve grants so non-admin users only see (and can enumerate) their
       // authorised sites. enterprise_admin sees all sites.
       const grants = user?.id
-        ? await resolveEnterpriseGrants(user.id, customerId)
+        ? await resolveGrantsForReq(req)
         : { allowedSiteIds: [] as string[] };
 
       let query = custDb
@@ -120,7 +134,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       const siteId = req.params.id;
 
       // Scope check: area_manager and site_coordinator may only view their allowed sites
-      const grants = await resolveEnterpriseGrants(req);
+      const grants = await resolveGrantsForReq(req);
       if (!grants.roles.includes('enterprise_admin')) {
         const allowed = Array.isArray(grants.allowedSiteIds) ? grants.allowedSiteIds : [];
         if (!allowed.includes(siteId)) {
@@ -454,7 +468,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         if (!user?.id) {
           return res.status(401).json({ error: 'Not authenticated' });
         }
-        const grants = await resolveEnterpriseGrants(user.id, customerId);
+        const grants = await resolveGrantsForReq(req);
         if (grants.allowedSiteIds !== 'all') {
           if (!grants.allowedSiteIds.includes(siteId)) {
             return res.status(403).json({ error: 'You are not authorised to access this site' });
@@ -561,7 +575,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       const user = (req as any).user;
       const customerId = req.customerId!;
       if (!user?.id) return res.status(401).json({ error: 'Not authenticated' });
-      const grants = await resolveEnterpriseGrants(user.id, customerId);
+      const grants = await resolveGrantsForReq(req);
       return res.json(grants);
     } catch (err) {
       logger.error('[enterprise/role-grants/my] error:', err);
