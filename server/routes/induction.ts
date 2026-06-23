@@ -2708,6 +2708,9 @@ export function registerInductionRoutes(app: Express): void {
       if (!customerId || !req.user?.username) {
         return res.status(401).json({ error: "Please log in to test connection" });
       }
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: "Admin access required to manage integrations" });
+      }
       
       const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -2747,6 +2750,9 @@ export function registerInductionRoutes(app: Express): void {
       const customerId = req.customerId;
       if (!customerId || !req.user?.username) {
         return res.status(401).json({ error: "Please log in to sync data" });
+      }
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: "Admin access required to manage integrations" });
       }
       
       const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
@@ -3224,6 +3230,30 @@ export function registerInductionRoutes(app: Express): void {
     try {
       if (!customerId) return res.status(400).json({ error: "Missing customerId" });
 
+      // Shared-secret validation: look up the configured secret for this customer.
+      // The secret must be passed as ?secret=<token> in the webhook URL.
+      // If no secret is configured the request is rejected — admins must generate one first.
+      try {
+        const webhookDb = await customerDbService.getCustomerDatabase(customerId);
+        const [settingsRow] = await webhookDb
+          .select({ biostarWebhookSecret: isolatedSchema.companySettings.biostarWebhookSecret })
+          .from(isolatedSchema.companySettings)
+          .limit(1);
+        const storedSecret = settingsRow?.biostarWebhookSecret;
+        const incomingSecret = req.query.secret as string | undefined;
+        if (!storedSecret) {
+          logger.warn(`🚫 BioStar Webhook rejected for ${customerId}: no webhook secret configured`);
+          return res.status(403).json({ ok: false, error: 'Webhook not configured — generate a secret in Settings first' });
+        }
+        if (!incomingSecret || incomingSecret !== storedSecret) {
+          logger.warn(`🚫 BioStar Webhook rejected for ${customerId}: invalid secret`);
+          return res.status(403).json({ ok: false, error: 'Invalid webhook secret' });
+        }
+      } catch (secretErr: any) {
+        logger.warn(`🚫 BioStar Webhook secret check failed for ${customerId}:`, secretErr.message);
+        return res.status(403).json({ ok: false, error: 'Could not verify webhook secret' });
+      }
+
       // Extract userId, deviceId, and eventTypeCode from BioStar's various payload formats
       const userId = String(
         payload?.user_id?.id ?? payload?.user_id ?? payload?.userId ?? ''
@@ -3356,14 +3386,35 @@ export function registerInductionRoutes(app: Express): void {
     }
   });
 
-  // Also expose the webhook URL in diagnostics
+  // Also expose the webhook URL in diagnostics (admin only — includes the shared secret)
   app.get("/api/biostar/webhook-url", requireAuth, async (req, res) => {
+    if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
     const customerId = req.customerId!;
-    // Build the public-facing URL: use HOST header or a configured base URL
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-    const webhookUrl = `${proto}://${host}/api/biostar/webhook/${customerId}`;
-    res.json({ webhookUrl, customerId });
+
+    // Auto-generate a secret if one doesn't exist yet
+    try {
+      const webhookDb = await customerDbService.getCustomerDatabase(customerId);
+      let [settingsRow] = await webhookDb
+        .select({ biostarWebhookSecret: isolatedSchema.companySettings.biostarWebhookSecret })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      let secret = settingsRow?.biostarWebhookSecret;
+      if (!secret) {
+        secret = crypto.randomBytes(24).toString('hex');
+        await webhookDb.update(isolatedSchema.companySettings)
+          .set({ biostarWebhookSecret: secret } as any);
+        logger.info(`🔑 BioStar webhook secret auto-generated for customer ${customerId}`);
+      }
+      const webhookUrl = `${proto}://${host}/api/biostar/webhook/${customerId}?secret=${secret}`;
+      res.json({ webhookUrl, customerId, secret });
+    } catch (err: any) {
+      logger.error('Failed to fetch/generate BioStar webhook secret:', err.message);
+      res.status(500).json({ error: 'Failed to generate webhook URL' });
+    }
   });
 
   /**

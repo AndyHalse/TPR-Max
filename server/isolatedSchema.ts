@@ -471,6 +471,7 @@ export const companySettings = pgTable("company_settings", {
   biostarDatabaseId: text("biostar_database_id").default("1"), // Default database ID
   biostarSyncInterval: text("biostar_sync_interval").default("300"), // Sync every 5 minutes (300 seconds)
   biostarLastSync: timestamp("biostar_last_sync"), // Last successful sync timestamp
+  biostarWebhookSecret: text("biostar_webhook_secret"), // Shared secret for webhook auth (null = not yet configured)
   // Biometric reader device settings
   biometricDevices: text("biometric_devices").array().default([]), // Array of configured device IDs
   readerSettings: text("reader_settings").default("{}"), // JSON string for device-specific settings

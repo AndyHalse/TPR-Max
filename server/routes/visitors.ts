@@ -1948,6 +1948,9 @@ This is an automated notification from your visitor management system.`;
   // ============================================================
 
   app.post("/api/paxton/test-connection", requireAuth, async (req, res) => {
+    if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: "Admin access required to manage integrations" });
+    }
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -1972,6 +1975,9 @@ This is an automated notification from your visitor management system.`;
   });
 
   app.get("/api/paxton/doors", requireAuth, async (req, res) => {
+    if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: "Admin access required to manage integrations" });
+    }
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -1997,6 +2003,9 @@ This is an automated notification from your visitor management system.`;
   });
 
   app.get("/api/paxton/access-levels", requireAuth, async (req, res) => {
+    if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: "Admin access required to manage integrations" });
+    }
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -2022,6 +2031,9 @@ This is an automated notification from your visitor management system.`;
   });
 
   app.post("/api/paxton/open-door", requireAuth, async (req, res) => {
+    if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: "Admin access required to manage integrations" });
+    }
     try {
       const { doorId, duration = 5 } = req.body;
       if (!doorId) return res.status(400).json({ error: "Door ID is required" });
@@ -2050,6 +2062,9 @@ This is an automated notification from your visitor management system.`;
   });
 
   app.post("/api/paxton/sync-staff", requireAuth, async (req, res) => {
+    if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: "Admin access required to manage integrations" });
+    }
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -2089,6 +2104,9 @@ This is an automated notification from your visitor management system.`;
   });
 
   app.get("/api/paxton/events", requireAuth, async (req, res) => {
+    if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: "Admin access required to manage integrations" });
+    }
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);

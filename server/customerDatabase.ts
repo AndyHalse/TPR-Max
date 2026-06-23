@@ -1361,6 +1361,7 @@ export class CustomerDatabaseService {
         )
       `);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_onboarding_audit ADD COLUMN IF NOT EXISTS worker_id TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS biostar_webhook_secret TEXT`);
       logger.info(`✅ Contractor portal migration ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Contractor portal migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
