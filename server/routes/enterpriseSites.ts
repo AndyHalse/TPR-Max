@@ -8,6 +8,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, ne, and, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
+import bcrypt from 'bcryptjs';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -532,6 +533,172 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     } catch (err) {
       logger.error('[enterprise/role-grants] DELETE error:', err);
       return res.status(500).json({ error: 'Failed to revoke role grant' });
+    }
+  });
+
+  // ── Create enterprise user + role grant in one step ─────────────────────
+  // Creates a login for this customer AND grants an enterprise role.
+  // Mirrors the platform-admin user creation path (bcrypt, same schema).
+  // If username already exists → 409 { existingUserId } so the caller can offer
+  // to grant the role to the existing account instead.
+  const createEnterpriseUserSchema = z.object({
+    username: z.string().min(1).max(50),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    email: z.string().email('Invalid email').optional().nullable(),
+    firstName: z.string().max(100).optional().nullable(),
+    lastName: z.string().max(100).optional().nullable(),
+    role: z.enum(['enterprise_admin', 'area_manager', 'site_coordinator']),
+    areaId: z.string().optional().nullable(),
+    siteId: z.string().optional().nullable(),
+  });
+
+  app.post('/api/enterprise/users', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const callerGrants = req.enterpriseGrants!;
+      const isAdmin = callerGrants.roles.includes('enterprise_admin');
+      const callerUser = (req as any).user;
+
+      const body = createEnterpriseUserSchema.safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: body.error.issues[0]?.message ?? 'Validation failed' });
+
+      const { username, password, email, firstName, lastName, role, areaId, siteId } = body.data;
+
+      // Role field requirements
+      if (role === 'area_manager' && !areaId) {
+        return res.status(400).json({ error: 'area_manager role requires areaId' });
+      }
+      if (role === 'site_coordinator' && !siteId) {
+        return res.status(400).json({ error: 'site_coordinator role requires siteId' });
+      }
+      if (role === 'enterprise_admin' && (areaId || siteId)) {
+        return res.status(400).json({ error: 'enterprise_admin grants must not include areaId or siteId' });
+      }
+
+      // Non-admin scope check
+      if (!isAdmin) {
+        if (role !== 'site_coordinator') {
+          return res.status(403).json({ error: 'Area managers can only grant the site_coordinator role' });
+        }
+        if (!siteId || !Array.isArray(callerGrants.allowedSiteIds) || !(callerGrants.allowedSiteIds as string[]).includes(siteId)) {
+          return res.status(403).json({ error: 'Site is outside your managed area' });
+        }
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Check username uniqueness
+      const [existing] = await custDb
+        .select({ id: isolatedSchema.users.id })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.username, username))
+        .limit(1);
+
+      if (existing) {
+        return res.status(409).json({
+          error: 'That username is already in use. You can grant a role to the existing account instead.',
+          existingUserId: existing.id,
+        });
+      }
+
+      // Create user (same path as platform-admin Manage Users)
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const [newUser] = await custDb
+        .insert(isolatedSchema.users)
+        .values({
+          username,
+          password: hashedPassword,
+          email: email?.trim() || null,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          role: 'user',
+        })
+        .returning({
+          id: isolatedSchema.users.id,
+          username: isolatedSchema.users.username,
+          email: (isolatedSchema.users as any).email,
+          firstName: isolatedSchema.users.firstName,
+          lastName: isolatedSchema.users.lastName,
+        });
+
+      // Create role grant
+      const [grant] = await custDb
+        .insert(isolatedSchema.siteUserRoles)
+        .values({ userId: newUser.id, role, areaId: areaId ?? null, siteId: siteId ?? null })
+        .returning();
+
+      logger.info(
+        `[enterprise/users] CREATE: caller=${callerUser?.username} → newUser=${username} role=${role} areaId=${areaId ?? '-'} siteId=${siteId ?? '-'} customer=${customerId}`,
+      );
+
+      return res.status(201).json({ user: newUser, grant });
+    } catch (err: any) {
+      if (err?.code === '23505' && err?.constraint?.includes('username')) {
+        return res.status(409).json({ error: 'That username is already in use.' });
+      }
+      logger.error('[enterprise/users] POST error:', err);
+      return res.status(500).json({ error: 'Failed to create user' });
+    }
+  });
+
+  // ── List users who can access a specific site ────────────────────────────
+  // Returns site_coordinators for that site + area_managers for its area
+  // + enterprise_admins, each enriched with user info and an isInherited flag.
+  app.get('/api/enterprise/sites/:id/users', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const siteId = req.params.id;
+      const callerGrants = req.enterpriseGrants!;
+      const isAdmin = callerGrants.roles.includes('enterprise_admin');
+
+      if (!isAdmin) {
+        const allowed = Array.isArray(callerGrants.allowedSiteIds) &&
+          (callerGrants.allowedSiteIds as string[]).includes(siteId);
+        if (!allowed) return res.status(403).json({ error: 'Site is outside your managed area' });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const [site] = await custDb
+        .select({ areaId: isolatedSchema.sites.areaId })
+        .from(isolatedSchema.sites)
+        .where(eq(isolatedSchema.sites.id, siteId))
+        .limit(1);
+      if (!site) return res.status(404).json({ error: 'Site not found' });
+
+      const allGrants = await custDb.select().from(isolatedSchema.siteUserRoles);
+
+      const relevant = allGrants.filter(g => {
+        if (g.role === 'enterprise_admin') return true;
+        if (g.role === 'area_manager' && site.areaId && g.areaId === site.areaId) return true;
+        if (g.role === 'site_coordinator' && g.siteId === siteId) return true;
+        return false;
+      });
+
+      const userIds = [...new Set(relevant.map(g => g.userId))];
+      const userMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const userRows = await custDb
+          .select({
+            id: isolatedSchema.users.id,
+            username: isolatedSchema.users.username,
+            firstName: isolatedSchema.users.firstName,
+            lastName: isolatedSchema.users.lastName,
+            email: (isolatedSchema.users as any).email,
+          })
+          .from(isolatedSchema.users)
+          .where(inArray(isolatedSchema.users.id, userIds));
+        userRows.forEach(u => { userMap[u.id] = u; });
+      }
+
+      return res.json(relevant.map(g => ({
+        ...g,
+        user: userMap[g.userId] ?? null,
+        isInherited: g.role !== 'site_coordinator',
+      })));
+    } catch (err) {
+      logger.error('[enterprise/sites/:id/users] GET error:', err);
+      return res.status(500).json({ error: 'Failed to load site users' });
     }
   });
 

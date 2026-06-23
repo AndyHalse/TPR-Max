@@ -177,6 +177,26 @@ export function registerAuthRoutes(app: Express): void {
             logger.error('⚠️ Failed to fetch settings during login:', settingsError);
           }
 
+          // Auto-set activeSiteId for site_coordinators with exactly one allowed site,
+          // so they land directly in their site without seeing the switcher.
+          if (customer.isEnterprise) {
+            try {
+              const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
+              const grants = await resolveEnterpriseGrants(user.id, customer.id);
+              if (Array.isArray(grants.allowedSiteIds) && grants.allowedSiteIds.length === 1) {
+                req.session.activeSiteId = (grants.allowedSiteIds as string[])[0];
+                await new Promise<void>((res2, rej) =>
+                  req.session.save((e: any) => (e ? rej(e) : res2())),
+                );
+                logger.info(
+                  `[auth] Auto-set activeSiteId=${(grants.allowedSiteIds as string[])[0]} for single-site user ${username}`,
+                );
+              }
+            } catch (autoSiteErr) {
+              logger.warn('[auth] Auto-site assignment failed (non-fatal):', autoSiteErr);
+            }
+          }
+
           const logoToken = generateLogoToken(customer.id);
           const sessionToken = signSessionToken(user.id, customer.id);
 
