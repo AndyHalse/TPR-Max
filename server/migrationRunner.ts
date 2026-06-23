@@ -870,6 +870,42 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260623_062_scheduled_reports',
+      description: 'Add scheduled_reports table for Phase 5b automated report delivery',
+      async up(db: any) {
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS scheduled_reports (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+              report_type TEXT NOT NULL,
+              report_title TEXT NOT NULL,
+              scope TEXT NOT NULL DEFAULT 'estate',
+              scope_id VARCHAR,
+              parameters JSONB NOT NULL DEFAULT '{}',
+              recipients JSONB NOT NULL DEFAULT '[]',
+              frequency TEXT NOT NULL,
+              run_at_hour INTEGER NOT NULL DEFAULT 8,
+              run_at_minute INTEGER NOT NULL DEFAULT 0,
+              day_of_week INTEGER,
+              day_of_month INTEGER,
+              enabled BOOLEAN NOT NULL DEFAULT true,
+              is_default BOOLEAN NOT NULL DEFAULT false,
+              last_run_at TIMESTAMP,
+              last_run_status TEXT,
+              last_run_error TEXT,
+              created_by VARCHAR,
+              created_by_name TEXT,
+              created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+          `);
+          logger.info('✅ [062] scheduled_reports table created');
+        } catch (err: any) {
+          logger.info(`⚠️ [062] scheduled_reports: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

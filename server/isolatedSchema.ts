@@ -3060,6 +3060,31 @@ export const complianceAlerts = pgTable("compliance_alerts", {
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
 
+// Scheduled report definitions — one row per schedule
+export const scheduledReports = pgTable("scheduled_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportType: text("report_type").notNull(),
+  reportTitle: text("report_title").notNull(),
+  scope: text("scope").notNull().default("estate"), // estate|area|site
+  scopeId: varchar("scope_id"),
+  parameters: jsonb("parameters").notNull().default({}),
+  recipients: jsonb("recipients").notNull().default([]), // string[]
+  frequency: text("frequency").notNull(), // daily|weekly|monthly
+  runAtHour: integer("run_at_hour").notNull().default(8),
+  runAtMinute: integer("run_at_minute").notNull().default(0),
+  dayOfWeek: integer("day_of_week"),   // 1=Mon..7=Sun (weekly only)
+  dayOfMonth: integer("day_of_month"), // 1-31 (monthly only)
+  enabled: boolean("enabled").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
+  lastRunAt: timestamp("last_run_at"),
+  lastRunStatus: text("last_run_status"), // sent|failed|skipped
+  lastRunError: text("last_run_error"),
+  createdBy: varchar("created_by"),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Enterprise report history — one row per generated PDF
 export const enterpriseReports = pgTable("enterprise_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

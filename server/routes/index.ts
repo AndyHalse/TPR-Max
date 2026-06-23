@@ -57,6 +57,8 @@ import { registerEnterpriseComplianceRoutes } from './enterpriseCompliance';
 import { registerEnterpriseStandardsRoutes } from './enterpriseStandards';
 import { registerEnterpriseContractorPoolRoutes } from './enterpriseContractorPool';
 import { registerEnterpriseReportRoutes } from './enterpriseReports';
+import { registerEnterpriseScheduledReportRoutes } from './enterpriseScheduledReports';
+import { startEnterpriseScheduleRunner } from '../enterpriseScheduleRunner';
 import { initComplianceEngine } from '../complianceEngine';
 import { registerSeoRoutes } from '../seo';
 
@@ -122,6 +124,8 @@ export async function registerSplitRoutes(
   registerEnterpriseStandardsRoutes(app);
   registerEnterpriseContractorPoolRoutes(app);
   registerEnterpriseReportRoutes(app);
+  registerEnterpriseScheduledReportRoutes(app);
+  startEnterpriseScheduleRunner();
   initComplianceEngine();
   await registerRemainingRoutes(app, server);
 }
