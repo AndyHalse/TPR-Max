@@ -67,6 +67,9 @@ async function ensureRamsCustomerIdColumns() {
     await db.execute(`ALTER TABLE rams_documents        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''` as any);
     await db.execute(`ALTER TABLE rams_acknowledgements ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''` as any);
     await db.execute(`ALTER TABLE rams_audit_log        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''` as any);
+    // Enterprise multi-site isolation — nullable so old records remain accessible
+    // from non-enterprise contexts; enterprise routes filter strictly by this column.
+    await db.execute(`ALTER TABLE rams_documents ADD COLUMN IF NOT EXISTS site_id TEXT` as any);
     logger.info('✅ RAMS customer_id columns ensured in shared schema');
   } catch (err: any) {
     logger.error('❌ Failed to ensure RAMS customer_id columns:', err);
@@ -581,6 +584,12 @@ export function registerRamsRoutes(app: Express): void {
   // ============================================================
 
   // GET /api/rams — list all RAMS documents (optionally filter by companyId or status)
+  //
+  // Enterprise multi-site isolation:
+  //   When the session has an active site (is_enterprise customer), the query is
+  //   further restricted to records whose site_id matches that active site.
+  //   Documents created before site isolation was introduced (site_id IS NULL)
+  //   are hidden in the enterprise context — fail-closed is the safe default.
   app.get("/api/rams", requireAuth, async (req, res) => {
     try {
       const customerId = (req as any).customerId as string | undefined;
@@ -588,12 +597,23 @@ export function registerRamsRoutes(app: Express): void {
 
       const { companyId, status } = req.query as Record<string, string>;
 
+      // Resolve site context for enterprise isolation (SiteContextError = non-enterprise or no active site)
+      let activeSiteId: string | null = null;
+      try {
+        const { siteId, siteContext } = await getScopedDb(req);
+        if (siteContext.isEnterprise && siteId) activeSiteId = siteId;
+      } catch {
+        // Non-enterprise or no active site — no site filter applied
+      }
+
       const conditions: any[] = [
         eq(ramsDocuments.customerId, customerId),
         eq(ramsDocuments.isActive, true),
       ];
       if (companyId) conditions.push(eq(ramsDocuments.companyId, companyId));
       if (status) conditions.push(eq(ramsDocuments.status, status));
+      // PROVE-IT-BITES TARGET: removing this line makes the RAMS isolation test go RED.
+      if (activeSiteId) conditions.push(eq(ramsDocuments.siteId, activeSiteId));
 
       const docs = await db.select().from(ramsDocuments)
         .where(and(...conditions))
@@ -616,6 +636,10 @@ export function registerRamsRoutes(app: Express): void {
   });
 
   // POST /api/rams — upload a new RAMS document
+  //
+  // Enterprise multi-site isolation:
+  //   The active site from the session is stamped onto each new RAMS document so
+  //   that the GET filter above can correctly scope it to the creating site.
   app.post("/api/rams", requireAuth, async (req, res) => {
     try {
       const customerId = (req as any).customerId as string | undefined;
@@ -625,11 +649,21 @@ export function registerRamsRoutes(app: Express): void {
       const parsed = insertRamsDocumentSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid RAMS data", details: parsed.error.flatten() });
 
+      // Stamp the active site so the GET filter can scope the document correctly
+      let ramsSiteId: string | null = null;
+      try {
+        const { siteId, siteContext } = await getScopedDb(req);
+        if (siteContext.isEnterprise && siteId) ramsSiteId = siteId;
+      } catch {
+        // Non-enterprise — leave siteId null
+      }
+
       const [created] = await db.insert(ramsDocuments).values({
         ...parsed.data,
         customerId,
         uploadedBy: userId,
         status: "pending_review",
+        siteId: ramsSiteId ?? undefined,
       }).returning();
 
       await writeRamsAudit(created.id, created.companyId || null, "uploaded", userId, userName || "System",

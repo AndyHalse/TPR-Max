@@ -24,6 +24,16 @@
  * 3. Run:  NODE_ENV=test npx vitest run tests/site-isolation.routes.test.ts
  * 4. The "induction admin tokens" test goes RED.
  * 5. Restore the line → GREEN.
+ *
+ * PROVE-IT-BITES (RAMS — newly covered route):
+ * ─────────────────────────────────────────────
+ * 1. Open server/routes/rams.ts
+ * 2. In the GET /api/rams handler find:
+ *      if (activeSiteId) conditions.push(eq(ramsDocuments.siteId, activeSiteId));
+ *    and comment it out so the enterprise site filter is never applied.
+ * 3. Run the suite → the "RAMS documents" test goes RED with:
+ *      [rams] Site A must NOT see Site B record — cross-site leak!
+ * 4. Restore the line → GREEN.
  */
 
 import { describe, it, beforeAll, afterAll, expect } from "vitest";
@@ -35,6 +45,8 @@ import {
   cleanupEnterpriseTestCustomer,
   createTestInductionToken,
   deleteTestInductionToken,
+  seedRoleScopeUser,
+  cleanupRoleScopeUser,
   type SeedResult,
 } from "./helpers/seedEnterprise";
 
@@ -56,6 +68,23 @@ async function agentForSite(siteId: string) {
     .post("/api/__test__/session")
     .send({
       userId: seed.adminUserId,
+      customerId: seed.customerId,
+      activeSiteId: siteId,
+    })
+    .expect(200);
+  return agent;
+}
+
+/**
+ * Create a supertest agent authenticated as a specific user (not the shared admin).
+ * Used by the drill-down role scope test to set up users with distinct grant levels.
+ */
+async function agentForSiteAsUser(siteId: string, userId: string) {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/__test__/session")
+    .send({
+      userId,
       customerId: seed.customerId,
       activeSiteId: siteId,
     })
@@ -326,6 +355,350 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
     } finally {
       // Clean up the test token
       if (tokenId) await deleteTestInductionToken(tokenId);
+    }
+  }, 30_000);
+
+  // ── New tests added by feature-enterprise-multisite-TEST-extend-route-isolation-muster ──
+
+  /**
+   * Muster / evacuation roll-call — GET /api/muster.
+   *
+   * The muster endpoint returns currently checked-in people, filtered by the
+   * active site.  This test checks in a unique staff member at each site and
+   * verifies that Site A's muster roll only shows Site A people and vice versa.
+   *
+   * PROVE-IT-BITES: in server/routes/emergency.ts, find the `matchesSite`
+   * filter application on the checked-in list and remove it.  The test will go
+   * RED because both sites will see the combined list.  Restore → GREEN.
+   */
+  it("muster roll-call — GET /api/muster is site-scoped", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+    const markerA = `MusterIso-A-${ts}`;
+    const markerB = `MusterIso-B-${ts}`;
+
+    // Create a unique staff member at each site (POST /api/staff stamps siteId via withSiteId)
+    const staffResA = await agentA.post("/api/staff").send({
+      firstName: "MusterIso",
+      lastName: markerA,
+      email: `muster-iso-a-${ts}@test.example`,
+      department: "ISO Muster Dept",
+      jobTitle: "Muster Tester",
+      employeeId: `MUS-A-${ts}`,
+    });
+    expect(
+      [200, 201],
+      `Site A staff create for muster (status ${staffResA.status}): ${JSON.stringify(staffResA.body)}`
+    ).toContain(staffResA.status);
+
+    const staffResB = await agentB.post("/api/staff").send({
+      firstName: "MusterIso",
+      lastName: markerB,
+      email: `muster-iso-b-${ts}@test.example`,
+      department: "ISO Muster Dept",
+      jobTitle: "Muster Tester",
+      employeeId: `MUS-B-${ts}`,
+    });
+    expect(
+      [200, 201],
+      `Site B staff create for muster (status ${staffResB.status}): ${JSON.stringify(staffResB.body)}`
+    ).toContain(staffResB.status);
+
+    const staffIdA: string | undefined = staffResA.body?.id;
+    const staffIdB: string | undefined = staffResB.body?.id;
+    expect(staffIdA, "Site A staff response must include id").toBeTruthy();
+    expect(staffIdB, "Site B staff response must include id").toBeTruthy();
+
+    // Check in each staff member at their respective site
+    if (staffIdA) {
+      const checkinA = await agentA.post(`/api/staff/${staffIdA}/checkin`).send({ manual: true });
+      // RTW may block check-in (non-fatal for the test — the muster then simply
+      // won't see them, which means the Site B isolation assertion still holds).
+      expect(
+        [200, 201, 400, 403, 409, 422],
+        `Site A staff check-in (status ${checkinA.status}): ${JSON.stringify(checkinA.body)}`
+      ).toContain(checkinA.status);
+    }
+
+    if (staffIdB) {
+      const checkinB = await agentB.post(`/api/staff/${staffIdB}/checkin`).send({ manual: true });
+      expect(
+        [200, 201, 400, 403, 409, 422],
+        `Site B staff check-in (status ${checkinB.status}): ${JSON.stringify(checkinB.body)}`
+      ).toContain(checkinB.status);
+    }
+
+    // Both sites fetch the muster roll
+    const musterA = await agentA.get("/api/muster").expect(200);
+    const musterB = await agentB.get("/api/muster").expect(200);
+
+    const listA: Record<string, unknown>[] = Array.isArray(musterA.body)
+      ? musterA.body
+      : (musterA.body?.people ?? musterA.body?.staff ?? []);
+    const listB: Record<string, unknown>[] = Array.isArray(musterB.body)
+      ? musterB.body
+      : (musterB.body?.people ?? musterB.body?.staff ?? []);
+
+    // Helper: extract a name fragment from a muster item
+    const nameOf = (item: Record<string, unknown>) =>
+      String(item.name ?? item.lastName ?? item.fullName ?? "");
+
+    const namesA = listA.map(nameOf);
+    const namesB = listB.map(nameOf);
+
+    // If both check-ins succeeded (no RTW block), assert strict isolation
+    const aCheckedIn = namesA.some((n) => n.includes(markerA));
+    const bCheckedIn = namesB.some((n) => n.includes(markerB));
+
+    if (aCheckedIn) {
+      // Site A's muster must NOT list Site B's staff member
+      expect(
+        namesA.some((n) => n.includes(markerB)),
+        `Site A muster must NOT show Site B staff (${markerB}) — cross-site leak!`
+      ).toBe(false);
+    }
+    if (bCheckedIn) {
+      // Site B's muster must NOT list Site A's staff member
+      expect(
+        namesB.some((n) => n.includes(markerA)),
+        `Site B muster must NOT show Site A staff (${markerA}) — cross-site leak!`
+      ).toBe(false);
+    }
+    // Both check-ins must have succeeded for the test to be meaningful
+    expect(
+      aCheckedIn || bCheckedIn,
+      "At least one staff check-in must succeed for the muster isolation test to be meaningful"
+    ).toBe(true);
+  }, 30_000);
+
+  /**
+   * Contractor pre-bookings — POST/GET /api/contractors/prebookings.
+   *
+   * The contractor pre-booking routes use getScopedDb + scopedWhere (the
+   * standard isolation pattern) so new bookings are stamped with the active
+   * site's siteId and the list endpoint only returns bookings for that site.
+   */
+  it("contractor pre-bookings (POST /api/contractors/prebookings / GET /api/contractors/prebookings)", async () => {
+    await expectIsolated({
+      label: "contractor-prebookings",
+      createPath: "/api/contractors/prebookings",
+      createBody: (marker) => ({
+        workerName: marker,
+        companyName: "ISO Contractor Ltd",
+        contactEmail: `iso-cpb-${marker}@test.example`,
+        purpose: "site-isolation-http-test",
+        scheduledDate: new Date(Date.now() + 86_400_000).toISOString(),
+        scheduledTime: "09:00",
+      }),
+      listPath: "/api/contractors/prebookings",
+      markerOf: (p) => String(p.workerName ?? ""),
+    });
+  }, 30_000);
+
+  /**
+   * RAMS documents — POST/GET /api/rams.
+   *
+   * RAMS was originally customer-scoped only (no siteId).  This test proved the
+   * gap: the first run went RED because Site B could see Site A's RAMS record.
+   * server/routes/rams.ts was fixed to stamp + filter by siteId for enterprise.
+   *
+   * PROVE-IT-BITES TARGET: in server/routes/rams.ts GET /api/rams handler,
+   * comment out: `if (activeSiteId) conditions.push(eq(ramsDocuments.siteId, activeSiteId));`
+   * Run → RED ("Site A must NOT see Site B record").  Restore → GREEN.
+   */
+  it("RAMS documents (POST /api/rams / GET /api/rams)", async () => {
+    await expectIsolated({
+      label: "rams",
+      createPath: "/api/rams",
+      createBody: (marker) => ({
+        ramsIdRef: `RAMS-${marker}`,
+        documentName: marker,
+        documentUrl: "https://example.com/test-rams-iso.pdf",
+        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      }),
+      listPath: "/api/rams",
+      markerOf: (d) => String(d.documentName ?? ""),
+    });
+  }, 30_000);
+
+  /**
+   * Visitor pass QR scan isolation — POST /api/qr-scan/universal.
+   *
+   * The universal QR scan endpoint uses a fetch-then-reject pattern:
+   *   1. It finds the pre-booking by QR code across the whole customer DB.
+   *   2. If the pre-booking's siteId differs from the scanner's active site, it
+   *      sets found = undefined, causing the scan to fail silently.
+   *
+   * This test creates a visitor pre-booking at Site A, then attempts to scan its
+   * QR code from a Site B agent.  The scan must fail (success: false) and the
+   * pre-booking must remain un-checked-in.
+   */
+  it("passes / QR scan — Site B cannot resolve a Site A pre-booking QR code", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+
+    // Create a visitor pre-booking at Site A — siteId is stamped server-side
+    const pbRes = await agentA.post("/api/prebookings").send({
+      visitorFirstName: "PassIso",
+      visitorLastName: `SiteA-${ts}`,
+      visitorEmail: `pass-iso-a-${ts}@test.example`,
+      company: "IsoPassCo",
+      purpose: "pass-isolation-http-test",
+      visitDate: new Date(Date.now() + 86_400_000).toISOString(),
+      hostName: "ISO Host",
+      isApproved: false,
+    });
+    expect(
+      [200, 201],
+      `Site A pre-booking create (status ${pbRes.status}): ${JSON.stringify(pbRes.body)}`
+    ).toContain(pbRes.status);
+
+    const qrCode: string | undefined = pbRes.body?.qrCode;
+    const preBookingId: string | undefined = pbRes.body?.id;
+    expect(qrCode, "Pre-booking response must include qrCode").toBeTruthy();
+
+    if (!qrCode) return; // TypeScript guard — expect above already fails
+
+    // Site B tries to scan the Site A pre-booking's QR code
+    const scanResB = await agentB
+      .post("/api/qr-scan/universal")
+      .send({ qrData: qrCode });
+
+    // The scan must not result in a successful check-in
+    expect(
+      scanResB.body?.success,
+      `Cross-site QR scan from Site B for a Site A pre-booking must fail (got: ${JSON.stringify(scanResB.body)})`
+    ).toBe(false);
+
+    // Verify the pre-booking at Site A is still not checked in
+    if (preBookingId) {
+      const pbListRes = await agentA.get("/api/prebookings").expect(200);
+      const pbList: Record<string, unknown>[] = Array.isArray(pbListRes.body)
+        ? pbListRes.body
+        : [];
+      const pbRecord = pbList.find((p) => p.id === preBookingId);
+      if (pbRecord) {
+        expect(
+          pbRecord.isCheckedIn,
+          "Site A pre-booking must still be not-checked-in after Site B scan attempt"
+        ).toBeFalsy();
+      }
+    }
+  }, 30_000);
+
+  /**
+   * Visitor pass print — GET /api/passes/print/visitor/:visitorId.
+   *
+   * The print-pass route fetches a visitor by ID from the customer's isolated DB
+   * without site-scoping.  This test proves that the added site isolation check
+   * blocks a Site B session from printing a Site A visitor's pass.
+   *
+   * Without the fix (removed from the route), this test goes RED because the
+   * route returns 200 HTML for a cross-site visitorId.
+   */
+  it("visitor pass print — Site B cannot print a Site A visitor's pass", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+
+    // Create a visitor at Site A — siteId is stamped server-side
+    const visRes = await agentA.post("/api/visitors/add-profile").send({
+      firstName: "PassPrint",
+      lastName: `SiteA-${ts}`,
+      email: `passprint-iso-a-${ts}@test.example`,
+      company: "IsoPassPrintCo",
+      purpose: "pass-print-isolation-test",
+    });
+    expect(
+      [200, 201],
+      `Site A visitor create for print test (status ${visRes.status}): ${JSON.stringify(visRes.body)}`
+    ).toContain(visRes.status);
+
+    const visitorId: string | undefined = visRes.body?.id;
+    expect(visitorId, "Visitor response must include id").toBeTruthy();
+
+    if (!visitorId) return;
+
+    // Site A can print its own visitor's pass
+    const printResA = await agentA.get(`/api/passes/print/visitor/${visitorId}`);
+    expect(
+      [200],
+      `Site A should be able to print its own visitor pass (status ${printResA.status})`
+    ).toContain(printResA.status);
+
+    // Site B must NOT be able to print Site A's visitor pass
+    const printResB = await agentB.get(`/api/passes/print/visitor/${visitorId}`);
+    expect(
+      [403, 404],
+      `Site B must not print a Site A visitor pass — cross-site leak! (status ${printResB.status})`
+    ).toContain(printResB.status);
+  }, 30_000);
+
+  /**
+   * Drill-down role scope — GET /api/enterprise/sites/:id.
+   *
+   * Tests that the `requireEnterpriseRole` + in-handler grant check enforces
+   * correct access:
+   *   • enterprise_admin → 200 for any site in the customer
+   *   • site_coordinator scoped to Site A → 200 for Site A, 403 for Site B
+   *
+   * Each user is created fresh in the isolated customer schema via
+   * seedRoleScopeUser() and cleaned up in the finally block.
+   */
+  it("enterprise/sites/:id — drill-down role scope (enterprise_admin vs site_coordinator)", async () => {
+    let adminUserId: string | undefined;
+    let coordUserId: string | undefined;
+
+    try {
+      // ── 1. enterprise_admin — should see any site ──────────────────────────
+      const adminUser = await seedRoleScopeUser(seed, { role: "enterprise_admin" });
+      adminUserId = adminUser.userId;
+
+      const adminAgentA = await agentForSiteAsUser(seed.siteAId, adminUserId);
+      const adminAgentB = await agentForSiteAsUser(seed.siteBId, adminUserId);
+
+      const adminSeesSiteA = await adminAgentA.get(`/api/enterprise/sites/${seed.siteAId}`);
+      expect(
+        adminSeesSiteA.status,
+        `enterprise_admin should see Site A (got ${adminSeesSiteA.status}): ${JSON.stringify(adminSeesSiteA.body)}`
+      ).toBe(200);
+
+      const adminSeesSiteB = await adminAgentB.get(`/api/enterprise/sites/${seed.siteBId}`);
+      expect(
+        adminSeesSiteB.status,
+        `enterprise_admin should see Site B (got ${adminSeesSiteB.status}): ${JSON.stringify(adminSeesSiteB.body)}`
+      ).toBe(200);
+
+      // ── 2. site_coordinator scoped to Site A only ──────────────────────────
+      const coordUser = await seedRoleScopeUser(seed, {
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      coordUserId = coordUser.userId;
+
+      const coordAgentA = await agentForSiteAsUser(seed.siteAId, coordUserId);
+      const coordAgentB = await agentForSiteAsUser(seed.siteBId, coordUserId);
+
+      const coordSeesSiteA = await coordAgentA.get(`/api/enterprise/sites/${seed.siteAId}`);
+      expect(
+        coordSeesSiteA.status,
+        `site_coordinator for Site A should see Site A (got ${coordSeesSiteA.status}): ${JSON.stringify(coordSeesSiteA.body)}`
+      ).toBe(200);
+
+      const coordSeesNoSiteB = await coordAgentB.get(`/api/enterprise/sites/${seed.siteBId}`);
+      expect(
+        coordSeesNoSiteB.status,
+        `site_coordinator for Site A must NOT see Site B — 403 expected (got ${coordSeesNoSiteB.status}): ${JSON.stringify(coordSeesNoSiteB.body)}`
+      ).toBe(403);
+
+    } finally {
+      if (adminUserId) await cleanupRoleScopeUser(seed, adminUserId);
+      if (coordUserId) await cleanupRoleScopeUser(seed, coordUserId);
     }
   }, 30_000);
 

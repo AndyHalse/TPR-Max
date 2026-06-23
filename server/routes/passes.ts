@@ -125,6 +125,21 @@ export function registerPassRoutes(app: Express): void {
       const visitor = await databaseService.getVisitorById(context, visitorId);
       if (!visitor) return res.status(404).send('<h1>Visitor not found</h1>');
 
+      // Enterprise multi-site isolation: a visitor pass may only be printed from
+      // the site where the visitor is checked in.  This prevents a Site B session
+      // from retrieving pass data for a visitor created under Site A.
+      try {
+        const { siteId, siteContext } = await getScopedDb(req);
+        if (siteContext.isEnterprise && siteId) {
+          const visitorSiteId = (visitor as any).siteId as string | null | undefined;
+          if (visitorSiteId && visitorSiteId !== siteId) {
+            return res.status(404).send('<h1>Visitor not found</h1>');
+          }
+        }
+      } catch {
+        // Non-enterprise or SiteContextError — no site filter
+      }
+
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       const logoUrl = settings?.logoUrl ? `${baseUrl}${settings.logoUrl}` : null;

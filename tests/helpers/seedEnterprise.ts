@@ -33,6 +33,10 @@ export interface InductionTokenResult {
   tokenId: string;
 }
 
+export interface RoleScopeUser {
+  userId: string;
+}
+
 // ── Internal helper ───────────────────────────────────────────────────────────
 function getDbUrl(): string {
   const url = process.env.DATABASE_URL;
@@ -197,6 +201,77 @@ export async function deleteTestInductionToken(tokenId: string): Promise<void> {
   await pg.connect();
   try {
     await pg.query(`DELETE FROM induction_tokens WHERE id = $1`, [tokenId]);
+  } finally {
+    await pg.end();
+  }
+}
+
+// ── Role-scope helpers (used by the drill-down role scope test) ───────────────
+
+/**
+ * Create a fresh test user in the customer's isolated schema and grant them a
+ * specific enterprise role.  Used by the drill-down role scope test to set up
+ * users with distinct grant levels without disturbing the shared admin user.
+ *
+ * Supported role configurations:
+ *   - enterprise_admin (siteId ignored — global)
+ *   - site_coordinator (siteId required — scoped to one site)
+ *
+ * Returns the new user's ID for use in /api/__test__/session calls.
+ */
+export async function seedRoleScopeUser(
+  seed: SeedResult,
+  options: {
+    role: "enterprise_admin" | "site_coordinator";
+    siteId?: string;
+  },
+): Promise<RoleScopeUser> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const userId = randomUUID();
+    const ts = Date.now();
+
+    // Insert minimal test user — password column is nullable, role defaults to 'user'
+    await pg.query(
+      `INSERT INTO "${seed.customerSchema}".users
+         (id, username, email, role, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, 'user', TRUE, NOW(), NOW())`,
+      [userId, `iso-role-${ts}`, `iso-role-${ts}@test.example`]
+    );
+
+    // Insert the enterprise role grant
+    await pg.query(
+      `INSERT INTO "${seed.customerSchema}".site_user_roles
+         (id, user_id, role, site_id)
+       VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [userId, options.role, options.siteId ?? null]
+    );
+
+    return { userId };
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Remove a test user and all their role grants created by seedRoleScopeUser.
+ */
+export async function cleanupRoleScopeUser(
+  seed: SeedResult,
+  userId: string,
+): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `DELETE FROM "${seed.customerSchema}".site_user_roles WHERE user_id = $1`,
+      [userId]
+    );
+    await pg.query(
+      `DELETE FROM "${seed.customerSchema}".users WHERE id = $1`,
+      [userId]
+    );
   } finally {
     await pg.end();
   }

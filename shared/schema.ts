@@ -1644,6 +1644,8 @@ export const ramsDocuments = pgTable("rams_documents", {
   workCategory: text("work_category"), // excavation, electrical, roofing, confined_space, working_at_height, general
   // Access control
   requiredBeforeAccess: boolean("required_before_access").default(true).notNull(),
+  // Enterprise multi-site isolation (added via runtime migration in server/routes/rams.ts)
+  siteId: varchar("site_id"),
 });
 
 // RAMS Worker Acknowledgements — workers digitally confirm they have read RAMS

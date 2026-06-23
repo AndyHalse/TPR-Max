@@ -192,11 +192,17 @@ export function scopedWhere(
   ctx: SiteContext,
   table: { siteId: any },
 ): SQL | undefined {
-  if (!ctx.isEnterprise || ctx.allowedSiteIds === 'all') return undefined;
+  if (!ctx.isEnterprise) return undefined;
 
   if (ctx.activeSiteId) {
-    // Security: verify the session's active site is within the user's grant.
-    // If it has been tampered or the grant was revoked, fail closed.
+    // When an active site is selected in the session, always scope to it —
+    // even for enterprise_admin users.  An admin operating in "Site A context"
+    // should only see Site A data, consistent with how GET /api/visitors and
+    // GET /api/staff filter using activeSiteId directly.
+    //
+    // Defense-in-depth for scoped roles: if allowedSiteIds is an explicit list
+    // (site_coordinator / area_manager), verify activeSiteId is in the grant.
+    // Enterprise-admin has allowedSiteIds='all' and bypasses this array check.
     if (
       Array.isArray(ctx.allowedSiteIds) &&
       !ctx.allowedSiteIds.includes(ctx.activeSiteId)
@@ -205,6 +211,9 @@ export function scopedWhere(
     }
     return eq(table.siteId, ctx.activeSiteId);
   }
+
+  // No active site selected — apply grant-based list filter.
+  if (ctx.allowedSiteIds === 'all') return undefined;
 
   if (Array.isArray(ctx.allowedSiteIds) && ctx.allowedSiteIds.length > 0) {
     return inArray(table.siteId, ctx.allowedSiteIds);
