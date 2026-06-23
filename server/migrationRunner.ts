@@ -812,6 +812,35 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         logger.info('✅ [059] Enterprise standards scope columns ensured on visit_reasons and induction_settings');
       }
     },
+    {
+      version: '20260623_060_contractor_site_clearances',
+      description: 'Add contractor_site_clearances table for per-site induction/clearance tracking (Phase 4b shared pool)',
+      async up(db: any) {
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS contractor_site_clearances (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+              worker_id VARCHAR NOT NULL REFERENCES contractor_workers(id) ON DELETE CASCADE,
+              company_id VARCHAR NOT NULL REFERENCES contractor_companies(id) ON DELETE CASCADE,
+              site_id VARCHAR NOT NULL,
+              status TEXT NOT NULL DEFAULT 'pending',
+              inducted_at TIMESTAMP,
+              expiry_date TIMESTAMP,
+              cleared_by VARCHAR REFERENCES users(id),
+              notes TEXT,
+              created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+          `);
+          await db.execute(
+            `CREATE UNIQUE INDEX IF NOT EXISTS csc_worker_site_idx ON contractor_site_clearances(worker_id, site_id)`
+          );
+          logger.info('✅ [060] contractor_site_clearances table created');
+        } catch (err: any) {
+          logger.info(`⚠️ [060] contractor_site_clearances: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

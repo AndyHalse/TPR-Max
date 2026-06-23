@@ -738,9 +738,10 @@ export function registerContractorRoutes(app: Express): void {
     try {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const { siteContext } = await getScopedDb(req);
-      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
-      const contractors = await databaseService.getAllContractorCompanies(context, filterSiteId);
+      await getScopedDb(req); // validates session / enterprise site context
+      // For enterprise customers, contractor companies are estate-wide (not site-scoped).
+      // Non-enterprise: null = no extra filter (single-site, already isolated by schema).
+      const contractors = await databaseService.getAllContractorCompanies(context, null);
       res.json(contractors);
     } catch (err) {
       if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
@@ -1141,7 +1142,10 @@ export function registerContractorRoutes(app: Express): void {
     try {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const { siteId } = await getScopedDb(req);
+      const { siteId, siteContext } = await getScopedDb(req);
+      // For enterprise, companies are estate-wide (site_id = null).
+      // For non-enterprise, stamp the default site id as before.
+      const effectiveSiteId = siteContext.isEnterprise ? null : siteId;
       
       const requestDataWithCustomerId = { ...req.body, customerId: context.customerId };
       const contractorData = insertContractorCompanySchema.parse(requestDataWithCustomerId);
@@ -1156,7 +1160,7 @@ export function registerContractorRoutes(app: Express): void {
       delete mappedContractorData.email;
       delete mappedContractorData.phone;
       
-      const contractor = await databaseService.createContractorCompany(context, mappedContractorData, siteId);
+      const contractor = await databaseService.createContractorCompany(context, mappedContractorData, effectiveSiteId);
 
       // Audit trail — company created
       try {

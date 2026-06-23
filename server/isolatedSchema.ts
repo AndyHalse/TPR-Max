@@ -981,6 +981,21 @@ export const contractorWorkers = pgTable("contractor_workers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Per-site contractor clearances — enterprise multi-site: one worker can be inducted at multiple sites
+export const contractorSiteClearances = pgTable("contractor_site_clearances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  siteId: varchar("site_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending | inducted | expired | waived
+  inductedAt: timestamp("inducted_at"),
+  expiryDate: timestamp("expiry_date"),
+  clearedBy: varchar("cleared_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Worker Notes - Audit trail for worker changes
 export const workerNotes = pgTable("worker_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
