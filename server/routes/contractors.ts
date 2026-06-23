@@ -2608,6 +2608,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         }).returning();
       }
 
+      // Mark the upload token as used so the link cannot be reused
+      await db.update(contractorDocumentRequests)
+        .set({ status: 'completed' })
+        .where(eq(contractorDocumentRequests.token, token));
+
       // Audit trail
       try {
         await custDb.insert(isolatedSchema.companyNotes).values({
@@ -2907,6 +2912,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           isActive: true,
         }).returning();
       }
+
+      // Mark the upload token as used so the link cannot be reused
+      await db.update(contractorWorkerDocumentRequests)
+        .set({ status: 'completed' })
+        .where(eq(contractorWorkerDocumentRequests.token, token));
 
       // Audit trail
       try {

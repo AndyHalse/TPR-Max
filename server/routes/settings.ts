@@ -781,6 +781,24 @@ export function registerSettingsRoutes(
             if (pathCustomerId && pathCustomerId !== payload.customerId) {
               return res.status(403).json({ error: 'Not permitted.' });
             }
+            // Enforce company-level isolation: the requested file must belong to
+            // the portal user's own contractor company, not just the same customer.
+            try {
+              const portalDb = await customerDbService.getCustomerDatabase(payload.customerId);
+              const ownershipCheck = await portalDb.execute(
+                sql`SELECT 1 FROM contractor_documents
+                    WHERE document_url = ${req.path}
+                      AND company_id = ${payload.contractorCompanyId}
+                    LIMIT 1`
+              );
+              if (!ownershipCheck.rows.length) {
+                logger.warn(`[OBJECTS] Portal company isolation blocked: ${req.path} not owned by company ${payload.contractorCompanyId}`);
+                return res.status(403).json({ error: 'Not permitted.' });
+              }
+            } catch (ownershipErr: any) {
+              logger.error('[OBJECTS] Portal ownership check failed:', ownershipErr?.message);
+              return res.status(500).json({ error: 'Access check failed.' });
+            }
           }
         } else {
           return res.status(401).json({ error: 'Authentication required to access this file.' });
