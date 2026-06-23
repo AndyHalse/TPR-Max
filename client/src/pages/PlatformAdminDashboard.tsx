@@ -289,7 +289,7 @@ function EnterpriseSettingsDialog({
               <Label className="font-medium">Enterprise customer</Label>
               <p className="text-xs text-gray-500 mt-0.5">Enables multi-site management, compliance dashboard, and estate reporting.</p>
             </div>
-            <Switch checked={isEnterprise} onCheckedChange={setIsEnterprise} />
+            <Switch checked={isEnterprise} onCheckedChange={setIsEnterprise} disabled={!isSuperAdmin} />
           </div>
 
           {isEnterprise && (
@@ -1328,16 +1328,18 @@ export default function PlatformAdminDashboard() {
                         <Edit className="w-3 h-3 mr-1" />
                         Edit
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEnterpriseCustomer(customer)}
-                        data-testid={`button-enterprise-${customer.id}`}
-                        className={customer.isEnterprise ? "text-purple-700 border-purple-300" : ""}
-                      >
-                        <Layers className="w-3 h-3 mr-1" />
-                        Enterprise
-                      </Button>
+                      {isSuperAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEnterpriseCustomer(customer)}
+                          data-testid={`button-enterprise-${customer.id}`}
+                          className={customer.isEnterprise ? "text-purple-700 border-purple-300" : ""}
+                        >
+                          <Layers className="w-3 h-3 mr-1" />
+                          Enterprise
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"

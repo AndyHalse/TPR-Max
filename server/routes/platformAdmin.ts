@@ -856,7 +856,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
   /**
    * Set or clear the enterprise flag on a customer. Audited.
    */
-  app.patch('/platform-admin/customers/:customerId/enterprise', requirePlatformAdmin, async (req, res) => {
+  app.patch('/platform-admin/customers/:customerId/enterprise', requirePlatformAdmin, requireSuperAdmin, async (req, res) => {
     try {
       const schema = z.object({
         isEnterprise: z.boolean(),
