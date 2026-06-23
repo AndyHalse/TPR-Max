@@ -976,7 +976,7 @@ export default function EnterpriseCompliance() {
                           <td className="py-2.5 px-2">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Link href={`/enterprise/sites`}>
+                                <Link href={`/enterprise/sites/${site.siteId}`}>
                                   <Button variant="ghost" size="icon" className="h-7 w-7">
                                     <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                                   </Button>

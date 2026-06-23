@@ -284,8 +284,9 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
     }
   });
 
-  // ── GET /api/enterprise/compliance/expiries?days=30 ───────────────────────
+  // ── GET /api/enterprise/compliance/expiries?days=30&siteId=X ────────────
   // Items expiring within N days, sorted by date ascending.
+  // Optional ?siteId= to scope to a single site (caller must be entitled to it).
   app.get('/api/enterprise/compliance/expiries', requireAuth, ROLE_GATE, async (req, res) => {
     try {
       const customerId = req.customerId!;
@@ -293,6 +294,7 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
       const days = Math.min(Math.max(parseInt(req.query.days as string) || 30, 1), 365);
+      const filterSiteId = req.query.siteId as string | undefined;
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() + days);
       const cutoffStr = cutoff.toISOString().split('T')[0];
@@ -305,6 +307,13 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
       } else {
         siteIds = allowed;
       }
+
+      // Scope to a single site if requested
+      if (filterSiteId) {
+        if (!siteIds.includes(filterSiteId)) return res.json([]); // not in caller's scope
+        siteIds = [filterSiteId];
+      }
+
       if (siteIds.length === 0) return res.json([]);
 
       // Items with expiresAt between today and cutoff (expiring or lapsed)
@@ -334,6 +343,87 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
     } catch (err) {
       logger.error('[compliance/expiries] error:', err);
       return res.status(500).json({ error: 'Failed to load expiries' });
+    }
+  });
+
+  // ── GET /api/enterprise/compliance/sites/:id ─────────────────────────────
+  // Per-site detail: score, category scores, alert counts, item counts.
+  // Fail-closed: returns 403 if caller is not entitled to this site.
+  app.get('/api/enterprise/compliance/sites/:id', requireAuth, ROLE_GATE, async (req, res) => {
+    try {
+      const siteId = req.params.id;
+      const customerId = req.customerId!;
+      const allowed = await callerScope(req);
+
+      // Scope check
+      if (allowed !== 'all' && !allowed.includes(siteId)) {
+        return res.status(403).json({ error: 'Site is outside your managed scope' });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const nameMap = await loadSiteNames(custDb, [siteId]);
+
+      const { siteScores } = await computeLiveScores(custDb, [siteId]);
+      const siteScore = siteScores.find((s: any) => s.siteId === siteId);
+
+      const alerts = await custDb
+        .select({ severity: iso.complianceAlerts.severity })
+        .from(iso.complianceAlerts)
+        .where(and(eq(iso.complianceAlerts.siteId, siteId), eq(iso.complianceAlerts.status, 'open')));
+
+      const items = await custDb
+        .select({ status: iso.complianceItems.status })
+        .from(iso.complianceItems)
+        .where(eq(iso.complianceItems.siteId, siteId));
+
+      return res.json({
+        siteId,
+        siteName: nameMap.get(siteId) ?? siteId,
+        score: siteScore?.score ?? 100,
+        categoryScores: siteScore?.categoryScores ?? {},
+        openCriticals: alerts.filter((a: any) => a.severity === 'critical').length,
+        openWarnings:  alerts.filter((a: any) => a.severity === 'warning').length,
+        totalItems:    items.length,
+        lapsedItems:   items.filter((i: any) => i.status === 'lapsed').length,
+        expiringItems: items.filter((i: any) => i.status === 'expiring').length,
+      });
+    } catch (err) {
+      logger.error('[compliance/sites/:id] error:', err);
+      return res.status(500).json({ error: 'Failed to load site compliance detail' });
+    }
+  });
+
+  // ── GET /api/enterprise/compliance/items?siteId=X&category=X ─────────────
+  // Raw compliance items for a site (for drill-down tabs).
+  // siteId is required; category is optional filter.
+  app.get('/api/enterprise/compliance/items', requireAuth, ROLE_GATE, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const allowed = await callerScope(req);
+      const { siteId, category } = req.query as Record<string, string>;
+
+      if (!siteId) return res.status(400).json({ error: 'siteId is required' });
+
+      // Scope check
+      if (allowed !== 'all' && !allowed.includes(siteId)) {
+        return res.json([]); // fail closed
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const conditions: any[] = [eq(iso.complianceItems.siteId, siteId)];
+      if (category) conditions.push(eq(iso.complianceItems.category, category));
+
+      const rows = await custDb
+        .select()
+        .from(iso.complianceItems)
+        .where(and(...conditions))
+        .orderBy(iso.complianceItems.expiresAt);
+
+      return res.json(rows);
+    } catch (err) {
+      logger.error('[compliance/items] error:', err);
+      return res.status(500).json({ error: 'Failed to load compliance items' });
     }
   });
 

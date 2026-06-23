@@ -91,6 +91,7 @@ import ContractorPortalDashboard from "@/pages/contractor-portal/ContractorPorta
 import ContractorPortalDocuments from "@/pages/contractor-portal/ContractorPortalDocuments";
 import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalWorkers";
 import EnterpriseSites from "@/pages/EnterpriseSites";
+import EnterpriseSiteDetail from "@/pages/EnterpriseSiteDetail";
 import EnterpriseAccess from "@/pages/EnterpriseAccess";
 import EnterpriseCompliance from "@/pages/EnterpriseCompliance";
 import EnterpriseStandards from "@/pages/EnterpriseStandards";
@@ -801,6 +802,11 @@ function Router() {
             <Route path="/enterprise">
               <ErrorBoundary>
                 <EnterpriseCompliance />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/enterprise/sites/:id">
+              <ErrorBoundary>
+                <EnterpriseSiteDetail />
               </ErrorBoundary>
             </Route>
             <Route path="/enterprise/sites">
