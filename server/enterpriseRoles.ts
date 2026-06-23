@@ -67,11 +67,20 @@ declare global {
  *
  * Grants are additive — union of all grants forms the effective scope.
  * Called by both requireEnterpriseRole() and siteScope.ts.
+ *
+ * @param userRole  The user's platform role (e.g. 'admin', 'hr_admin').
+ *                  Users with role='admin' are automatically enterprise_admin.
  */
 export async function resolveEnterpriseGrants(
   userId: string,
   customerId: string,
+  userRole?: string,
 ): Promise<ResolvedGrants> {
+  // Platform admins always have full enterprise_admin scope — no DB query needed.
+  if (userRole === 'admin') {
+    return { roles: ['enterprise_admin'], allowedSiteIds: 'all', canManageSiteIds: [] };
+  }
+
   try {
     const custDb = await customerDbService.getCustomerDatabase(customerId);
 
@@ -145,7 +154,7 @@ export function requireEnterpriseRole(...allowedRoles: EnterpriseRole[]) {
         return;
       }
 
-      const grants = await resolveEnterpriseGrants(user.id, customerId);
+      const grants = await resolveEnterpriseGrants(user.id, customerId, user.role);
 
       const hasRole = grants.roles.some(r => allowedRoles.includes(r));
       if (!hasRole) {

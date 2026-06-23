@@ -1367,6 +1367,63 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ Contractor portal migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Enterprise scheduled reports table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".scheduled_reports (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          report_type TEXT NOT NULL,
+          report_title TEXT NOT NULL,
+          scope TEXT NOT NULL DEFAULT 'estate',
+          scope_id VARCHAR,
+          parameters JSONB NOT NULL DEFAULT '{}',
+          recipients JSONB NOT NULL DEFAULT '[]',
+          frequency TEXT NOT NULL,
+          run_at_hour INTEGER NOT NULL DEFAULT 8,
+          run_at_minute INTEGER NOT NULL DEFAULT 0,
+          day_of_week INTEGER,
+          day_of_month INTEGER,
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          is_default BOOLEAN NOT NULL DEFAULT FALSE,
+          last_run_at TIMESTAMP,
+          last_run_status TEXT,
+          last_run_error TEXT,
+          created_by VARCHAR,
+          created_by_name TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      logger.info(`✅ Scheduled reports table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Scheduled reports migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Enterprise reports history table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".enterprise_reports (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          report_type TEXT NOT NULL,
+          report_title TEXT NOT NULL,
+          scope TEXT NOT NULL DEFAULT 'estate',
+          scope_id VARCHAR,
+          parameters JSONB NOT NULL DEFAULT '{}',
+          generated_by VARCHAR,
+          generated_by_name TEXT,
+          status TEXT NOT NULL DEFAULT 'generating',
+          storage_path TEXT,
+          file_size_bytes INTEGER,
+          error_message TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          completed_at TIMESTAMP
+        )
+      `);
+      logger.info(`✅ Enterprise reports table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Enterprise reports migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);

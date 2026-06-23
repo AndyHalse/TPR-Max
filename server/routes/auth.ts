@@ -196,7 +196,7 @@ export function registerAuthRoutes(app: Express): void {
               // Still resolve grants for the enterpriseRoles field in the login response
               if (customer.isEnterprise) {
                 const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
-                const grants = await resolveEnterpriseGrants(user.id, customer.id);
+                const grants = await resolveEnterpriseGrants(user.id, customer.id, user.role);
                 loginEnterpriseRoles = grants.roles;
               }
             } catch (e) {
@@ -205,7 +205,7 @@ export function registerAuthRoutes(app: Express): void {
           } else if (customer.isEnterprise) {
             try {
               const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
-              const grants = await resolveEnterpriseGrants(user.id, customer.id);
+              const grants = await resolveEnterpriseGrants(user.id, customer.id, user.role);
               loginEnterpriseRoles = grants.roles;
               if (Array.isArray(grants.allowedSiteIds) && grants.allowedSiteIds.length === 1) {
                 req.session.activeSiteId = (grants.allowedSiteIds as string[])[0];
@@ -721,7 +721,7 @@ export function registerAuthRoutes(app: Express): void {
     if (isEnterprise) {
       try {
         const { resolveEnterpriseGrants } = await import('../enterpriseRoles');
-        const grants = await resolveEnterpriseGrants(user.id, customerId);
+        const grants = await resolveEnterpriseGrants(user.id, customerId, user.role);
         enterpriseRoles = grants.roles;
       } catch (err) {
         logger.warn('[auth/me] resolveEnterpriseGrants failed — defaulting to []:', err);
