@@ -55,6 +55,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldX,
+  HardHat,
 } from "lucide-react";
 import GlassCard from "@/components/GlassCard";
 
@@ -118,6 +119,8 @@ interface ComplianceSiteData {
   categoryScores: Record<string, number>;
   openCriticals: number;
   openWarnings: number;
+  contractorCount: number;
+  onSiteCount: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -641,21 +644,32 @@ function SiteCard({
             )}
           </div>
 
-          {/* Open issues count */}
-          {openIssues !== null && openIssues > 0 && (
-            <div className="flex items-center gap-1.5 text-xs">
-              <AlertTriangle size={11} className="text-red-500 flex-shrink-0" />
-              <span className="text-red-600 dark:text-red-400 font-medium">
-                {compliance!.openCriticals > 0 && `${compliance!.openCriticals} critical`}
-                {compliance!.openCriticals > 0 && compliance!.openWarnings > 0 && " · "}
-                {compliance!.openWarnings > 0 && `${compliance!.openWarnings} warning${compliance!.openWarnings !== 1 ? "s" : ""}`}
+            {/* Footer stat row: Contractors · On site · Open issues */}
+          {compliance && (
+            <div className="flex items-center gap-3 text-xs pt-0.5">
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                <HardHat size={11} className="text-slate-400" />
+                <span className="font-medium text-slate-700 dark:text-slate-200">{compliance.contractorCount}</span>
+                <span>contractors</span>
               </span>
-            </div>
-          )}
-          {openIssues === 0 && compliance && (
-            <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-              <CheckCircle2 size={11} />
-              No open issues
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                <Users size={11} className="text-slate-400" />
+                <span className="font-medium text-slate-700 dark:text-slate-200">{compliance.onSiteCount}</span>
+                <span>on site</span>
+              </span>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              {openIssues !== null && openIssues > 0 ? (
+                <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
+                  <AlertTriangle size={11} className="flex-shrink-0" />
+                  {openIssues} issue{openIssues !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                  <CheckCircle2 size={11} />
+                  All clear
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -905,6 +919,7 @@ export default function EnterpriseSites() {
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("all");
+  const [areaFilter, setAreaFilter] = useState("all");
   const [page, setPage] = useState(1);
 
   const { data: sites = [], isLoading } = useQuery<Site[]>({
@@ -990,9 +1005,11 @@ export default function EnterpriseSites() {
       }
       // Region filter
       if (regionFilter !== "all" && site.region !== regionFilter) return false;
+      // Area filter
+      if (areaFilter !== "all" && site.areaId !== areaFilter) return false;
       return true;
     });
-  }, [activeSites, filterTab, search, regionFilter, complianceMap]);
+  }, [activeSites, filterTab, search, regionFilter, areaFilter, complianceMap]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSites  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -1001,6 +1018,7 @@ export default function EnterpriseSites() {
   const handleFilter = (tab: FilterTab) => { setFilterTab(tab); setPage(1); };
   const handleSearch = (v: string)       => { setSearch(v); setPage(1); };
   const handleRegion = (v: string)       => { setRegionFilter(v); setPage(1); };
+  const handleArea   = (v: string)       => { setAreaFilter(v); setPage(1); };
 
   return (
     <TooltipProvider>
@@ -1071,6 +1089,19 @@ export default function EnterpriseSites() {
               <SelectContent>
                 <SelectItem value="all">All regions</SelectItem>
                 {regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Area filter */}
+          {areas.length > 0 && (
+            <Select value={areaFilter} onValueChange={handleArea}>
+              <SelectTrigger className="h-9 text-sm w-44">
+                <SelectValue placeholder="All areas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All areas</SelectItem>
+                {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
               </SelectContent>
             </Select>
           )}

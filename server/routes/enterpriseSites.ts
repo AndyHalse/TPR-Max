@@ -90,14 +90,25 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   });
 
   // ── Get single site ────────────────────────────────────────────────────────
-  app.get('/api/enterprise/sites/:id', requireAuth, async (req, res) => {
+  app.get('/api/enterprise/sites/:id', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager', 'site_coordinator'), async (req, res) => {
     try {
       const customerId = req.customerId!;
+      const siteId = req.params.id;
+
+      // Scope check: area_manager and site_coordinator may only view their allowed sites
+      const grants = await resolveEnterpriseGrants(req);
+      if (!grants.roles.includes('enterprise_admin')) {
+        const allowed = Array.isArray(grants.allowedSiteIds) ? grants.allowedSiteIds : [];
+        if (!allowed.includes(siteId)) {
+          return res.status(403).json({ error: 'Site is outside your managed scope' });
+        }
+      }
+
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const rows = await custDb
         .select()
         .from(isolatedSchema.sites)
-        .where(eq(isolatedSchema.sites.id, req.params.id))
+        .where(eq(isolatedSchema.sites.id, siteId))
         .limit(1);
       if (!rows[0]) return res.status(404).json({ error: 'Site not found' });
       return res.json(rows[0]);

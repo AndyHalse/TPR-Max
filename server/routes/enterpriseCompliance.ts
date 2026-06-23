@@ -144,7 +144,8 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
   });
 
   // ── GET /api/enterprise/compliance/sites ──────────────────────────────────
-  // Per-site breakdown table: score, category scores, open alert counts.
+  // Per-site breakdown table: score, category scores, open alert counts,
+  // contractor count, and on-site headcount.
   app.get('/api/enterprise/compliance/sites', requireAuth, ROLE_GATE, async (req, res) => {
     try {
       const customerId = req.customerId!;
@@ -157,16 +158,54 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
 
       // Open alert counts per site
       let alertMap = new Map<string, { critical: number; warning: number }>();
+      // Contractor counts per site (distinct companies with clearances)
+      let contractorMap = new Map<string, number>();
+      // On-site headcount per site (staff + visitors currently checked in)
+      let onSiteMap = new Map<string, number>();
+
       if (siteIds.length > 0) {
-        const alerts = await custDb
-          .select({ siteId: iso.complianceAlerts.siteId, severity: iso.complianceAlerts.severity })
-          .from(iso.complianceAlerts)
-          .where(and(inArray(iso.complianceAlerts.siteId, siteIds), eq(iso.complianceAlerts.status, 'open')));
+        const [alerts, clearances, checkedInStaff, checkedInVisitors] = await Promise.all([
+          custDb
+            .select({ siteId: iso.complianceAlerts.siteId, severity: iso.complianceAlerts.severity })
+            .from(iso.complianceAlerts)
+            .where(and(inArray(iso.complianceAlerts.siteId, siteIds), eq(iso.complianceAlerts.status, 'open'))),
+          custDb
+            .select({ siteId: iso.contractorSiteClearances.siteId, companyId: iso.contractorSiteClearances.companyId })
+            .from(iso.contractorSiteClearances)
+            .where(inArray(iso.contractorSiteClearances.siteId, siteIds)),
+          custDb
+            .select({ siteId: iso.staff.siteId })
+            .from(iso.staff)
+            .where(and(inArray(iso.staff.siteId, siteIds), eq(iso.staff.isCheckedIn, true))),
+          custDb
+            .select({ siteId: iso.visitors.siteId })
+            .from(iso.visitors)
+            .where(and(inArray(iso.visitors.siteId, siteIds), eq(iso.visitors.isCheckedIn, true))),
+        ]);
+
         for (const a of alerts) {
           const cur = alertMap.get(a.siteId) ?? { critical: 0, warning: 0 };
           if (a.severity === 'critical') cur.critical++;
           else if (a.severity === 'warning') cur.warning++;
           alertMap.set(a.siteId, cur);
+        }
+
+        // Count distinct contractor companies per site
+        const contractorBySite = new Map<string, Set<string>>();
+        for (const c of clearances) {
+          if (!c.siteId) continue;
+          const set = contractorBySite.get(c.siteId) ?? new Set();
+          set.add(c.companyId);
+          contractorBySite.set(c.siteId, set);
+        }
+        for (const [sid, companies] of contractorBySite) {
+          contractorMap.set(sid, companies.size);
+        }
+
+        // Sum on-site people per site
+        for (const row of [...checkedInStaff, ...checkedInVisitors]) {
+          if (!row.siteId) continue;
+          onSiteMap.set(row.siteId, (onSiteMap.get(row.siteId) ?? 0) + 1);
         }
       }
 
@@ -175,8 +214,10 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
         siteName: nameMap.get(s.siteId) ?? s.siteId,
         score: s.score,
         categoryScores: s.categoryScores,
-        openCriticals: alertMap.get(s.siteId)?.critical ?? 0,
-        openWarnings:  alertMap.get(s.siteId)?.warning ?? 0,
+        openCriticals:    alertMap.get(s.siteId)?.critical ?? 0,
+        openWarnings:     alertMap.get(s.siteId)?.warning ?? 0,
+        contractorCount:  contractorMap.get(s.siteId) ?? 0,
+        onSiteCount:      onSiteMap.get(s.siteId) ?? 0,
       })).sort((a, b) => a.score - b.score); // worst sites first
 
       return res.json(result);
