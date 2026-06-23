@@ -9,6 +9,7 @@ import { eq, ne, and, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -161,6 +162,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         .returning();
 
       // Register a global site login name so users can log in by typing the site name.
+      let finalSite: typeof created = created;
       try {
         const loginSlug = await registerSiteLoginName(customerId, created.id, body.data.name);
         if (loginSlug) {
@@ -169,15 +171,61 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
             .set({ loginSlug })
             .where(eq(isolatedSchema.sites.id, created.id))
             .returning();
+          finalSite = withSlug ?? created;
           logger.info(`[enterprise/sites] Created site ${created.id} with login slug "${loginSlug}"`);
-          return res.status(201).json(withSlug);
         }
       } catch (slugErr) {
         logger.warn(`[enterprise/sites] Login slug registration failed for ${created.id} (non-fatal):`, slugErr);
       }
 
-      logger.info(`[enterprise/sites] Created site ${created.id} for customer ${customerId}`);
-      return res.status(201).json(created);
+      // Independent management style: auto-provision a site-admin coordinator so
+      // the new site can self-manage its users from day one.
+      let siteAdminCredentials: { username: string; tempPassword: string } | undefined;
+      try {
+        const [custRow] = await managementDb
+          .select({ siteManagementStyle: customers.siteManagementStyle })
+          .from(customers)
+          .where(eq(customers.id, customerId))
+          .limit(1);
+
+        if (custRow?.siteManagementStyle === 'independent') {
+          const tempPassword = randomBytes(8).toString('hex'); // 16 printable hex chars
+          const hashedPw = await bcrypt.hash(tempPassword, 10);
+          const siteRef = (finalSite.reference || finalSite.id)
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+          const username = `site-admin-${siteRef}`.slice(0, 50);
+
+          // Create the user account
+          const [newUser] = await custDb
+            .insert(isolatedSchema.users)
+            .values({ username, password: hashedPw, role: 'user', isActive: true })
+            .returning({ id: isolatedSchema.users.id, username: isolatedSchema.users.username });
+
+          // Grant site_coordinator with user-management power for this site
+          await custDb
+            .insert(isolatedSchema.siteUserRoles)
+            .values({
+              userId: newUser.id,
+              role: 'site_coordinator',
+              siteId: finalSite.id,
+              areaId: null,
+              canManageSiteUsers: true,
+            });
+
+          siteAdminCredentials = { username: newUser.username, tempPassword };
+          logger.info(
+            `[enterprise/sites] Auto-provisioned site admin "${newUser.username}" for site ${finalSite.id} (independent style)`,
+          );
+        }
+      } catch (provErr) {
+        logger.warn(`[enterprise/sites] Independent site-admin provisioning failed (non-fatal):`, provErr);
+      }
+
+      logger.info(`[enterprise/sites] Created site ${finalSite.id} for customer ${customerId}`);
+      return res.status(201).json(siteAdminCredentials ? { ...finalSite, siteAdminCredentials } : finalSite);
     } catch (err: any) {
       if (err?.code === '23505') {
         return res.status(409).json({ error: 'Site reference already exists' });
@@ -528,11 +576,21 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   });
 
   // POST /api/enterprise/role-grants — create a grant
-  app.post('/api/enterprise/role-grants', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+  // enterprise_admin / area_manager have full create access (existing).
+  // site_coordinator with canManageSiteUsers=true may also grant site_coordinator roles,
+  // but only for sites in their canManageSiteIds list (fail-closed).
+  app.post('/api/enterprise/role-grants', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager', 'site_coordinator'), async (req, res) => {
     try {
       const customerId = req.customerId!;
       const callerGrants = req.enterpriseGrants!;
       const isAdmin = callerGrants.roles.includes('enterprise_admin');
+      const isAreaManager = !isAdmin && callerGrants.roles.includes('area_manager');
+      const isSiteAdminOnly = !isAdmin && !isAreaManager && callerGrants.roles.includes('site_coordinator');
+
+      // Block site_coordinator callers that don't have canManageSiteUsers power at all
+      if (isSiteAdminOnly && callerGrants.canManageSiteIds.length === 0) {
+        return res.status(403).json({ error: 'Insufficient enterprise role' });
+      }
 
       const body = grantSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ error: body.error.issues });
@@ -550,8 +608,18 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         return res.status(400).json({ error: 'enterprise_admin grants must not include areaId or siteId' });
       }
 
-      // Non-admins: may only grant site_coordinator for their allowed sites
-      if (!isAdmin) {
+      // site_coordinator with canManageSiteUsers: may only grant site_coordinator for their own canManage sites
+      if (isSiteAdminOnly) {
+        if (role !== 'site_coordinator') {
+          return res.status(403).json({ error: 'Site admins can only grant the site_coordinator role' });
+        }
+        if (!siteId || !callerGrants.canManageSiteIds.includes(siteId)) {
+          return res.status(403).json({ error: 'Site is outside your user-management scope' });
+        }
+      }
+
+      // Non-admin, non-site-admin: area_manager scope check
+      if (!isAdmin && !isSiteAdminOnly) {
         if (role !== 'site_coordinator') {
           return res.status(403).json({ error: 'Area managers can only grant the site_coordinator role' });
         }
@@ -598,11 +666,19 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   });
 
   // DELETE /api/enterprise/role-grants/:id — revoke a grant
-  app.delete('/api/enterprise/role-grants/:id', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+  // Also allowed by site_coordinator with canManageSiteUsers for grants within their canManage sites.
+  app.delete('/api/enterprise/role-grants/:id', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager', 'site_coordinator'), async (req, res) => {
     try {
       const customerId = req.customerId!;
       const callerGrants = req.enterpriseGrants!;
       const isAdmin = callerGrants.roles.includes('enterprise_admin');
+      const isAreaManager = !isAdmin && callerGrants.roles.includes('area_manager');
+      const isSiteAdminOnly = !isAdmin && !isAreaManager && callerGrants.roles.includes('site_coordinator');
+
+      // Block site_coordinator callers that have no canManageSiteUsers power
+      if (isSiteAdminOnly && callerGrants.canManageSiteIds.length === 0) {
+        return res.status(403).json({ error: 'Insufficient enterprise role' });
+      }
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
@@ -615,8 +691,18 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
 
       if (!target) return res.status(404).json({ error: 'Grant not found' });
 
-      // Non-admins: may only revoke site_coordinator grants within their area
-      if (!isAdmin) {
+      // site_coordinator with canManageSiteUsers: may only revoke site_coordinator grants for their canManage sites
+      if (isSiteAdminOnly) {
+        if (target.role !== 'site_coordinator') {
+          return res.status(403).json({ error: 'Site admins can only revoke site_coordinator grants' });
+        }
+        if (!target.siteId || !callerGrants.canManageSiteIds.includes(target.siteId)) {
+          return res.status(403).json({ error: 'Grant is outside your user-management scope' });
+        }
+      }
+
+      // Non-admin, non-site-admin: area_manager checks
+      if (!isAdmin && !isSiteAdminOnly) {
         if (target.role !== 'site_coordinator') {
           return res.status(403).json({ error: 'Area managers can only revoke site_coordinator grants' });
         }
@@ -674,12 +760,20 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     siteId: z.string().optional().nullable(),
   });
 
-  app.post('/api/enterprise/users', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+  // Also accessible to site_coordinator with canManageSiteUsers=true (for their own site).
+  app.post('/api/enterprise/users', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager', 'site_coordinator'), async (req, res) => {
     try {
       const customerId = req.customerId!;
       const callerGrants = req.enterpriseGrants!;
       const isAdmin = callerGrants.roles.includes('enterprise_admin');
+      const isAreaManager = !isAdmin && callerGrants.roles.includes('area_manager');
+      const isSiteAdminOnly = !isAdmin && !isAreaManager && callerGrants.roles.includes('site_coordinator');
       const callerUser = (req as any).user;
+
+      // Block site_coordinator callers that have no canManageSiteUsers power
+      if (isSiteAdminOnly && callerGrants.canManageSiteIds.length === 0) {
+        return res.status(403).json({ error: 'Insufficient enterprise role' });
+      }
 
       const body = createEnterpriseUserSchema.safeParse(req.body);
       if (!body.success) return res.status(400).json({ error: body.error.issues[0]?.message ?? 'Validation failed' });
@@ -697,8 +791,18 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         return res.status(400).json({ error: 'enterprise_admin grants must not include areaId or siteId' });
       }
 
-      // Non-admin scope check
-      if (!isAdmin) {
+      // site_coordinator with canManageSiteUsers: may only create site_coordinator users for their canManage sites
+      if (isSiteAdminOnly) {
+        if (role !== 'site_coordinator') {
+          return res.status(403).json({ error: 'Site admins can only create site_coordinator users' });
+        }
+        if (!siteId || !callerGrants.canManageSiteIds.includes(siteId)) {
+          return res.status(403).json({ error: 'Site is outside your user-management scope' });
+        }
+      }
+
+      // Non-admin, non-site-admin scope check (area_manager)
+      if (!isAdmin && !isSiteAdminOnly) {
         if (role !== 'site_coordinator') {
           return res.status(403).json({ error: 'Area managers can only grant the site_coordinator role' });
         }
@@ -766,7 +870,8 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   // ── List users who can access a specific site ────────────────────────────
   // Returns site_coordinators for that site + area_managers for its area
   // + enterprise_admins, each enriched with user info and an isInherited flag.
-  app.get('/api/enterprise/sites/:id/users', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager'), async (req, res) => {
+  // Also accessible to site_coordinator with canManageSiteUsers=true for their own site.
+  app.get('/api/enterprise/sites/:id/users', requireAuth, requireEnterpriseRole('enterprise_admin', 'area_manager', 'site_coordinator'), async (req, res) => {
     try {
       const customerId = req.customerId!;
       const siteId = req.params.id;
@@ -774,9 +879,12 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       const isAdmin = callerGrants.roles.includes('enterprise_admin');
 
       if (!isAdmin) {
-        const allowed = Array.isArray(callerGrants.allowedSiteIds) &&
+        const inAllowedSites = Array.isArray(callerGrants.allowedSiteIds) &&
           (callerGrants.allowedSiteIds as string[]).includes(siteId);
-        if (!allowed) return res.status(403).json({ error: 'Site is outside your managed area' });
+        const inCanManageSites = callerGrants.canManageSiteIds.includes(siteId);
+        if (!inAllowedSites && !inCanManageSites) {
+          return res.status(403).json({ error: 'Site is outside your managed scope' });
+        }
       }
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);

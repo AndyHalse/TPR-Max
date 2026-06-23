@@ -38,6 +38,12 @@ export interface ResolvedGrants {
    * array  → explicit site-id allowlist (empty = no access).
    */
   allowedSiteIds: string[] | 'all';
+  /**
+   * Site IDs where this user has explicit user-management power
+   * (site_coordinator with canManageSiteUsers=true).
+   * enterprise_admin gets [] because their full access is expressed via allowedSiteIds='all'.
+   */
+  canManageSiteIds: string[];
 }
 
 // Extend Express Request so downstream handlers can read grants without re-querying.
@@ -80,9 +86,9 @@ export async function resolveEnterpriseGrants(
 
     const roles = [...new Set(grants.map(g => g.role as EnterpriseRole))];
 
-    // enterprise_admin → unrestricted
+    // enterprise_admin → unrestricted; canManageSiteIds unused (they use allowedSiteIds='all')
     if (roles.includes('enterprise_admin')) {
-      return { roles, allowedSiteIds: 'all' };
+      return { roles, allowedSiteIds: 'all', canManageSiteIds: [] };
     }
 
     const allowedSet = new Set<string>();
@@ -103,11 +109,16 @@ export async function resolveEnterpriseGrants(
       .filter(g => g.role === 'site_coordinator' && g.siteId)
       .forEach(g => allowedSet.add(g.siteId!));
 
-    return { roles, allowedSiteIds: [...allowedSet] };
+    // canManageSiteIds: site_coordinator grants that have explicit user-management power
+    const canManageSiteIds = grants
+      .filter(g => g.role === 'site_coordinator' && g.canManageSiteUsers && g.siteId)
+      .map(g => g.siteId!);
+
+    return { roles, allowedSiteIds: [...allowedSet], canManageSiteIds };
   } catch (err) {
     logger.error('[enterpriseRoles] resolveEnterpriseGrants error:', err);
     // Fail closed on error.
-    return { roles: [], allowedSiteIds: [] };
+    return { roles: [], allowedSiteIds: [], canManageSiteIds: [] };
   }
 }
 

@@ -85,6 +85,8 @@ interface Area {
 interface MyGrants {
   roles: string[];
   allowedSiteIds: string[] | "all";
+  /** Site IDs where this user has explicit user-management power (site_coordinator with canManageSiteUsers). */
+  canManageSiteIds?: string[];
 }
 
 interface SiteUser {
@@ -183,6 +185,8 @@ function canManageSite(site: Site, myGrants: MyGrants | undefined): boolean {
     if (myGrants.allowedSiteIds === "all") return true;
     return (myGrants.allowedSiteIds as string[]).includes(site.id);
   }
+  // site_coordinator with explicit user-management power for this site
+  if (myGrants.canManageSiteIds?.includes(site.id)) return true;
   return false;
 }
 
@@ -708,23 +712,30 @@ function SiteCard({
                 )}
               </button>
 
-              {/* Login slug */}
+              {/* Staff login — normal login page, site name as Company Name */}
               {site.loginSlug && (
                 <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2.5 space-y-1.5 border border-blue-100 dark:border-blue-900/40">
-                  <p className="text-[10px] font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">Staff Login Name</p>
-                  <p className="text-xs text-slate-700 dark:text-slate-300">
-                    Staff type <span className="font-mono font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 rounded">{site.loginSlug}</span>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[10px] font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">Staff Login</p>
+                  </div>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                    Staff go to the normal sign-in page and type{" "}
+                    <span className="font-mono font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 rounded">{site.loginSlug}</span>{" "}
+                    as the Company Name.
                   </p>
                   <Button size="sm" variant="outline" className="h-6 text-xs gap-1 w-full border-blue-200 dark:border-blue-800"
-                    onClick={() => navigator.clipboard.writeText(site.loginSlug!).then(() => toast({ title: "Login name copied" }))}>
+                    onClick={() => navigator.clipboard.writeText(site.loginSlug!).then(() => toast({ title: "Login name copied", description: "Share this name with staff who need access to this site." }))}>
                     <Copy size={11} /> Copy login name
                   </Button>
                 </div>
               )}
 
-              {/* Kiosk URL */}
+              {/* Sign-in terminal (kiosk) — public tablet at the entrance door */}
               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 space-y-1.5">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Kiosk URL</p>
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Sign-in Terminal (Kiosk)</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">For the tablet at the entrance door — visitors &amp; contractors sign in here</p>
+                </div>
                 <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400 break-all line-clamp-2">{kioskUrl}</p>
                 <div className="flex gap-1.5">
                   <Button size="sm" variant="outline" className="h-6 text-xs gap-1 flex-1" onClick={copyKioskUrl}>
@@ -795,6 +806,9 @@ function SiteFormDialog({
   const [areaId, setAreaId]       = useState(site?.areaId ?? "none");
   const [status, setStatus]       = useState<string>(site?.status ?? "active");
 
+  // Shown once after creation when independent management style auto-provisioned a site admin
+  const [provisionedCreds, setProvisionedCreds] = useState<{ username: string; tempPassword: string } | null>(null);
+
   const mutation = useMutation({
     mutationFn: async (body: Record<string, any>) => {
       const res = isEdit
@@ -803,11 +817,16 @@ function SiteFormDialog({
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to save site"); }
       return res.json();
     },
-    onSuccess: () => {
-      toast({ title: isEdit ? "Site updated" : "Site created" });
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/enterprise/sites"] });
       onSaved();
       onOpenChange(false);
+      if (data?.siteAdminCredentials) {
+        // Show a credentials reveal dialog instead of closing silently
+        setProvisionedCreds(data.siteAdminCredentials);
+      } else {
+        toast({ title: isEdit ? "Site updated" : "Site created" });
+      }
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -826,6 +845,7 @@ function SiteFormDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -889,6 +909,51 @@ function SiteFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Credentials reveal — shown once when independent management style auto-provisions a site admin */}
+    <Dialog open={!!provisionedCreds} onOpenChange={(v) => !v && setProvisionedCreds(null)}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus size={16} className="text-emerald-600" />
+            Site admin account created
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            Because this customer uses <strong>independent</strong> site management, a site-admin login has been auto-provisioned.
+            Share these one-time credentials with the site manager — they can change their password after first login.
+          </p>
+          <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Username</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-xs font-semibold">{provisionedCreds?.username}</span>
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => navigator.clipboard.writeText(provisionedCreds?.username ?? '').then(() => toast({ title: "Username copied" }))}>
+                  <Copy size={12} />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Temporary password</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-xs font-semibold tracking-wider">{provisionedCreds?.tempPassword}</span>
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => navigator.clipboard.writeText(provisionedCreds?.tempPassword ?? '').then(() => toast({ title: "Password copied" }))}>
+                  <Copy size={12} />
+                </button>
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+            ⚠ This password is shown once only. Copy it now before closing.
+          </p>
+        </div>
+        <div className="flex justify-end pt-1">
+          <Button size="sm" onClick={() => setProvisionedCreds(null)}>Done</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }
 
