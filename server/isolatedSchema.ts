@@ -3059,3 +3059,21 @@ export const complianceAlerts = pgTable("compliance_alerts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
+
+// Enterprise report history — one row per generated PDF
+export const enterpriseReports = pgTable("enterprise_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportType: text("report_type").notNull(), // portfolio_compliance_snapshot|single_site_report|contractor_compliance_report|expiry_forecast|ppm_performance|evacuation_muster_log|audit_trail_export
+  reportTitle: text("report_title").notNull(),
+  scope: text("scope").notNull().default("estate"), // estate|area|site
+  scopeId: varchar("scope_id"),                     // null=estate, areaId, or siteId
+  parameters: jsonb("parameters").notNull().default({}),
+  generatedBy: varchar("generated_by"),
+  generatedByName: text("generated_by_name"),
+  status: text("status").notNull().default("generating"), // generating|ready|failed
+  storagePath: text("storage_path"),                // full GCS path for download
+  fileSizeBytes: integer("file_size_bytes"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});

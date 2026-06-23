@@ -841,6 +841,35 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260623_061_enterprise_reports',
+      description: 'Add enterprise_reports table for Phase 5a PDF portfolio reports',
+      async up(db: any) {
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS enterprise_reports (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+              report_type TEXT NOT NULL,
+              report_title TEXT NOT NULL,
+              scope TEXT NOT NULL DEFAULT 'estate',
+              scope_id VARCHAR,
+              parameters JSONB NOT NULL DEFAULT '{}',
+              generated_by VARCHAR,
+              generated_by_name TEXT,
+              status TEXT NOT NULL DEFAULT 'generating',
+              storage_path TEXT,
+              file_size_bytes INTEGER,
+              error_message TEXT,
+              created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+              completed_at TIMESTAMP
+            )
+          `);
+          logger.info('✅ [061] enterprise_reports table created');
+        } catch (err: any) {
+          logger.info(`⚠️ [061] enterprise_reports: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {
