@@ -3,8 +3,9 @@ import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import * as schema from '../isolatedSchema';
-import { eq, ne } from 'drizzle-orm';
+import { eq, ne, and } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { getScopedDb, scopedWhere, SiteContextError } from '../siteScope';
 
 // Module-level dashboard cache: 90-second TTL, keyed by customerId
 const _dashboardCache = new Map<string, { data: any; expiresAt: number }>();
@@ -42,8 +43,33 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
 
+      // Resolve enterprise site context so the dashboard only shows data for the
+      // active site (matching how every other site-scoped route works).
+      let siteContext: Awaited<ReturnType<typeof getScopedDb>>['siteContext'] = {
+        isEnterprise: false, activeSiteId: null, allowedSiteIds: 'all',
+      };
+      try {
+        const { siteContext: ctx } = await getScopedDb(req);
+        siteContext = ctx;
+      } catch (err: any) {
+        if (err instanceof SiteContextError) {
+          return res.status(403).json({ error: err.message });
+        }
+        logger.warn('Failed to resolve site context for compliance dashboard (non-fatal):', err?.message);
+      }
+      const enterpriseSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+
+      // Helper: append a site_id filter param to a parameterized SQL query.
+      // When enterpriseSiteId is null (non-enterprise) this is a no-op.
+      function addSiteParam(baseParams: any[], alias?: string): { clause: string; params: any[] } {
+        if (!enterpriseSiteId) return { clause: '', params: baseParams };
+        const col = alias ? `${alias}.site_id` : 'site_id';
+        return { clause: ` AND ${col} = $${baseParams.length + 1}`, params: [...baseParams, enterpriseSiteId] };
+      }
+
       // Fix 4 — cache check (bypass with ?refresh=1)
-      const cacheKey = req.customerId!;
+      // Include active site in cache key so enterprise users switching sites get fresh data.
+      const cacheKey = enterpriseSiteId ? `${req.customerId!}_${enterpriseSiteId}` : req.customerId!;
       if (req.query.refresh !== '1') {
         const cached = _dashboardCache.get(cacheKey);
         if (cached && cached.expiresAt > Date.now()) {
@@ -98,6 +124,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       let companies: any[] = [];
 
       try {
+        const { clause: ccSite, params: ccSiteP } = addSiteParam([]);
         const companiesResult = await pool.query(
           `SELECT id, company_name, is_active,
                   public_liability_expiry_date, employers_liability_expiry_date,
@@ -105,7 +132,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                   chas_expiry_date, chas_certified,
                   safe_contractor_expiry_date, safe_contractor_certified
            FROM "${schemaName}".contractor_companies
-           WHERE is_active = TRUE`
+           WHERE is_active = TRUE${ccSite}`,
+          ccSiteP
         );
         companies = companiesResult.rows;
       } catch (e: any) {
@@ -117,7 +145,10 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             plExpiry: schema.contractorCompanies.publicLiabilityExpiryDate,
             elExpiry: schema.contractorCompanies.employersLiabilityExpiryDate,
             isActive: schema.contractorCompanies.isActive,
-          }).from(schema.contractorCompanies).where(eq(schema.contractorCompanies.isActive, true));
+          }).from(schema.contractorCompanies).where(and(
+            eq(schema.contractorCompanies.isActive, true),
+            scopedWhere(siteContext, schema.contractorCompanies),
+          ));
           companies = drizzleCompanies.map(c => ({
             id: c.id,
             company_name: c.companyName,
@@ -136,11 +167,13 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // Fix 4 — pre-fetch all company IDs with pending insurance docs (eliminates N+1)
       const pendingInsuranceCompanyIds = new Set<string>();
       try {
+        const { clause: piSite, params: piSiteP } = addSiteParam([]);
         const pendingInsResult = await pool.query(
           `SELECT DISTINCT company_id FROM "${schemaName}".contractor_documents
            WHERE document_type IN ('publicLiability','employersLiability')
              AND status = 'pending'
-             AND is_active = TRUE`
+             AND is_active = TRUE${piSite}`,
+          piSiteP
         );
         for (const row of pendingInsResult.rows) {
           if (row.company_id) pendingInsuranceCompanyIds.add(row.company_id);
@@ -223,7 +256,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // LIVE from expiryDate (matching Contractor Insurance / Compliance Certificates),
       // and treat the stored status only as a backstop for manual overrides.
       const rams = await custDb.select().from(schema.ramsDocuments)
-        .where(eq(schema.ramsDocuments.isActive, true));
+        .where(and(eq(schema.ramsDocuments.isActive, true), scopedWhere(siteContext, schema.ramsDocuments)));
 
       let ramsTotal = rams.length, ramsValid = 0, ramsExpiring = 0, ramsExpired = 0;
 
@@ -274,9 +307,10 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── Active worker IDs (hoisted — reused across contractor worker sections) ──
       let activeWorkerIds = new Set<string>();
       try {
+        const { clause: cvSite, params: cvSiteP } = addSiteParam([ago12Months.toISOString()]);
         const recentVisitsResult = await pool.query(
-          `SELECT DISTINCT worker_id FROM "${schemaName}".contractor_visits WHERE checked_in_at >= $1`,
-          [ago12Months.toISOString()]
+          `SELECT DISTINCT worker_id FROM "${schemaName}".contractor_visits WHERE checked_in_at >= $1${cvSite}`,
+          cvSiteP
         );
         activeWorkerIds = new Set<string>(recentVisitsResult.rows.map((r: any) => r.worker_id).filter(Boolean));
       } catch (e: any) {
@@ -298,11 +332,13 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       } catch (_) { /* non-fatal, keep default */ }
 
       try {
+        const { clause: indSite, params: indSiteP } = addSiteParam([]);
         const workersResult = await pool.query(
           `SELECT id, first_name, last_name, company_id,
                   site_induction_completed, site_induction_expiry_date, site_induction_required
            FROM "${schemaName}".contractor_workers
-           WHERE is_active = TRUE`
+           WHERE is_active = TRUE${indSite}`,
+          indSiteP
         );
         const activeWorkers = workersResult.rows.filter((w: any) => activeWorkerIds.has(w.id));
         indTotal = activeWorkers.length;
@@ -354,12 +390,14 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 4. Worker Right to Work ───────────────────────────────────────────────
       let workerRtwTotal = 0, workerRtwCompliant = 0;
       try {
+        const { clause: rtwSite, params: rtwSiteP } = addSiteParam([], 'cw');
         const workerRtwResult = await pool.query(
           `SELECT cw.id, cw.first_name, cw.last_name, cw.company_id,
                   cw.right_to_work_status, cw.right_to_work_expiry_date
            FROM "${schemaName}".contractor_workers cw
            WHERE cw.is_active = TRUE
-             AND (cw.right_to_work_status IS NOT NULL OR cw.right_to_work_expiry_date IS NOT NULL)`
+             AND (cw.right_to_work_status IS NOT NULL OR cw.right_to_work_expiry_date IS NOT NULL)${rtwSite}`,
+          rtwSiteP
         );
         const activeRtwWorkers = workerRtwResult.rows.filter((w: any) => activeWorkerIds.has(w.id));
         workerRtwTotal = activeRtwWorkers.length;
@@ -415,12 +453,14 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 5. Worker DBS ─────────────────────────────────────────────────────────
       let workerDbsTotal = 0, workerDbsCompliant = 0;
       try {
+        const { clause: dbsSite, params: dbsSiteP } = addSiteParam([], 'cw');
         const dbsResult = await pool.query(
           `SELECT d.id, d.policy_expiry_date, d.worker_id,
                   cw.first_name, cw.last_name, cw.company_id
            FROM "${schemaName}".contractor_worker_dbs d
            JOIN "${schemaName}".contractor_workers cw ON cw.id = d.worker_id
-           WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND cw.is_active = TRUE`
+           WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND cw.is_active = TRUE${dbsSite}`,
+          dbsSiteP
         );
 
         for (const row of dbsResult.rows) {
@@ -463,6 +503,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         }
 
         // Flag active workers with dbs_required = TRUE who have no current DBS record
+        const { clause: dbsReqSite, params: dbsReqSiteP } = addSiteParam([], 'cw');
         const dbsRequiredResult = await pool.query(
           `SELECT cw.id, cw.first_name, cw.last_name, cw.company_id
            FROM "${schemaName}".contractor_workers cw
@@ -470,7 +511,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
              AND NOT EXISTS (
                SELECT 1 FROM "${schemaName}".contractor_worker_dbs d
                WHERE d.worker_id = cw.id AND d.is_current = TRUE AND d.deleted_at IS NULL
-             )`
+             )${dbsReqSite}`,
+          dbsReqSiteP
         );
         for (const row of dbsRequiredResult.rows) {
           if (!activeWorkerIds.has(row.id)) continue;
@@ -501,6 +543,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // Only approved docs count as compliant; pending = warning; rejected = warning.
       let workerCertTotal = 0, workerCertCompliant = 0;
       try {
+        const { clause: wcertSite, params: wcertSiteP } = addSiteParam([], 'cw');
         const workerCertResult = await pool.query(
           `SELECT cd.id, cd.expiry_date, cd.document_name, cd.status, cd.document_type,
                   cw.id AS worker_id, cw.first_name, cw.last_name, cw.company_id
@@ -509,7 +552,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
            WHERE cd.worker_id IS NOT NULL
              AND cd.is_active = TRUE
              AND cw.is_active = TRUE
-             AND cd.document_type <> 'right_to_work'`
+             AND cd.document_type <> 'right_to_work'${wcertSite}`,
+          wcertSiteP
         );
 
         for (const row of workerCertResult.rows) {
@@ -671,11 +715,13 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 8. Staff Right to Work ────────────────────────────────────────────────
       let rtwTracked = 0, rtwCompliant = 0, rtwExpiring = 0, rtwExpired = 0;
       try {
+        const { clause: srtwSite, params: srtwSiteP } = addSiteParam([], 's');
         const rtwResult = await pool.query(
           `SELECT rtw.staff_id, rtw.expiry_date, s.first_name, s.last_name, s.department
            FROM "${schemaName}".right_to_work rtw
            JOIN "${schemaName}".staff s ON s.id = rtw.staff_id
-           WHERE rtw.is_current = TRUE AND rtw.expiry_date IS NOT NULL AND s.is_active = TRUE`
+           WHERE rtw.is_current = TRUE AND rtw.expiry_date IS NOT NULL AND s.is_active = TRUE${srtwSite}`,
+          srtwSiteP
         );
         rtwTracked = rtwResult.rows.length;
         for (const row of rtwResult.rows) {
@@ -712,11 +758,13 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 9. Staff DBS ──────────────────────────────────────────────────────────
       let staffDbsTotal = 0, staffDbsCompliant = 0;
       try {
+        const { clause: sdbsSite, params: sdbsSiteP } = addSiteParam([], 's');
         const staffDbsResult = await pool.query(
           `SELECT d.id AS dbs_id, d.policy_expiry_date, s.id AS staff_id, s.first_name, s.last_name
            FROM "${schemaName}".staff_dbs d
            JOIN "${schemaName}".staff s ON s.id = d.staff_id
-           WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND s.is_active = TRUE`
+           WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND s.is_active = TRUE${sdbsSite}`,
+          sdbsSiteP
         );
         staffDbsTotal = staffDbsResult.rows.length;
         for (const row of staffDbsResult.rows) {
@@ -751,6 +799,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 10. Staff Training ────────────────────────────────────────────────────
       let staffTrainingTotal = 0, staffTrainingCompliant = 0;
       try {
+        const { clause: strSite, params: strSiteP } = addSiteParam([], 's');
         const staffTrainingResult = await pool.query(
           `SELECT tr.id, tr.expiry_date, tr.course_name AS training_name,
                   s.id AS staff_id, s.first_name, s.last_name
@@ -760,7 +809,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
              AND tr.is_mandatory = TRUE
              AND s.is_active = TRUE
              AND (s.employment_status IS NULL OR s.employment_status NOT IN ('leaver','archived'))
-             AND tr.expiry_date IS NOT NULL`
+             AND tr.expiry_date IS NOT NULL${strSite}`,
+          strSiteP
         );
         staffTrainingTotal = staffTrainingResult.rows.length;
         for (const row of staffTrainingResult.rows) {
@@ -796,12 +846,14 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 11. Compliance Certificates ───────────────────────────────────────────
       let certsTotal = 0, certsCompliant = 0, certsExpiring = 0, certsExpired = 0;
       try {
+        const { clause: cctSite, params: cctSiteP } = addSiteParam([], 'cc');
         const certRows = await pool.query(
           `SELECT ct.id, ct.display_name, cc.expiry_date, cc.status
            FROM "${schemaName}".compliance_certificate_types ct
            LEFT JOIN "${schemaName}".compliance_certificates cc
-             ON cc.certificate_type_id = ct.id AND cc.is_current = true AND cc.deleted_at IS NULL
-           WHERE ct.is_active = true`
+             ON cc.certificate_type_id = ct.id AND cc.is_current = true AND cc.deleted_at IS NULL${cctSite}
+           WHERE ct.is_active = true`,
+          cctSiteP
         );
         for (const row of certRows.rows) {
           if (!row.expiry_date && !row.status) continue;
@@ -837,12 +889,13 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 12. Permits to Work ───────────────────────────────────────────────────
       let permitsTotal = 0, permitsCompliant = 0, permitsExpired = 0, permitsPending = 0;
       try {
+        const { clause: ptwSite, params: ptwSiteP } = addSiteParam([ago12Months.toISOString()]);
         const permitsResult = await pool.query(
           `SELECT id, work_description, status, permit_valid_until, permit_number
            FROM "${schemaName}".permit_to_work
-           WHERE status NOT IN ('completed', 'rejected', 'draft')
-           AND created_at >= $1`,
-          [ago12Months.toISOString()]
+           WHERE status NOT IN ('completed', 'rejected', 'draft', 'cancelled')
+           AND created_at >= $1${ptwSite}`,
+          ptwSiteP
         );
         for (const row of permitsResult.rows) {
           permitsTotal++;
@@ -886,7 +939,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           status: schema.raBuilderAssessments.status,
           nextReviewDate: schema.raBuilderAssessments.nextReviewDate,
         }).from(schema.raBuilderAssessments)
-          .where(ne(schema.raBuilderAssessments.status, 'archived'));
+          .where(and(ne(schema.raBuilderAssessments.status, 'archived'), scopedWhere(siteContext, schema.raBuilderAssessments)));
 
         for (const ra of raRows) {
           raTotal++;
@@ -926,7 +979,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           status: schema.auditRecords.status,
           scheduledDate: schema.auditRecords.scheduledDate,
           passed: schema.auditRecords.passed,
-        }).from(schema.auditRecords);
+        }).from(schema.auditRecords)
+          .where(scopedWhere(siteContext, schema.auditRecords));
 
         for (const audit of auditRows) {
           if (audit.status === 'completed') {
@@ -964,10 +1018,15 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
         // Extended: open corrective actions with overdue due dates
         try {
+          const caSiteP: any[] = enterpriseSiteId ? [enterpriseSiteId] : [];
+          const siteAuditFilter = enterpriseSiteId
+            ? ` AND audit_id IN (SELECT id FROM "${schemaName}".audit_records WHERE site_id = $1)`
+            : '';
           const correctiveResult = await pool.query(
             `SELECT id, description, due_date
              FROM "${schemaName}".audit_corrective_actions
-             WHERE status = 'open' AND due_date < NOW()`
+             WHERE status = 'open' AND due_date < NOW()${siteAuditFilter}`,
+            caSiteP
           );
           for (const row of correctiveResult.rows) {
             const days = daysUntil(row.due_date);
@@ -998,7 +1057,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           status: schema.ppmWorkOrders.status,
           dueDate: schema.ppmWorkOrders.dueDate,
         }).from(schema.ppmWorkOrders)
-          .where(ne(schema.ppmWorkOrders.status, 'completed'));
+          .where(and(ne(schema.ppmWorkOrders.status, 'completed'), scopedWhere(siteContext, schema.ppmWorkOrders)));
 
         ppmTotal = ppmOrders.length;
 
@@ -1036,7 +1095,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 16. Fire Risk Assessments ─────────────────────────────────────────────
       let fraTotal = 0, fraCurrent = 0, fraReviewDue = 0, fraOverdue = 0;
       try {
-        const fras = await custDb.select().from(schema.fireRiskAssessments);
+        const fras = await custDb.select().from(schema.fireRiskAssessments)
+          .where(scopedWhere(siteContext, schema.fireRiskAssessments));
         fraTotal = fras.length;
         for (const fra of fras) {
           if (fra.status === 'overdue') {
@@ -1069,10 +1129,12 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       // ── 17. Document Approvals ────────────────────────────────────────────────
       let docApprovalsCount = 0;
       try {
+        const { clause: daSite, params: daSiteP } = addSiteParam([]);
         const docApprovalsResult = await pool.query(
           `SELECT COUNT(*)::int AS n
            FROM "${schemaName}".contractor_documents
-           WHERE status = 'pending' AND is_active = TRUE`
+           WHERE status = 'pending' AND is_active = TRUE${daSite}`,
+          daSiteP
         );
         docApprovalsCount = Number(docApprovalsResult.rows[0]?.n || 0);
         if (docApprovalsCount > 0) {
