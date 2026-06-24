@@ -606,6 +606,28 @@ export default function PermitToWork() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Archive permit confirmation */}
+      <AlertDialog open={!!archiveConfirm} onOpenChange={open => !open && setArchiveConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this permit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permit <strong>{archiveConfirm?.number}</strong> will be archived and will no longer appear as an active issue on the Compliance Intelligence Dashboard. You can still view it in the History tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiveMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={archiveMutation.isPending}
+              onClick={() => archiveConfirm && archiveMutation.mutate(archiveConfirm.id)}
+            >
+              {archiveMutation.isPending ? 'Archiving…' : 'Archive Permit'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -886,28 +908,6 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Archive permit confirmation */}
-      <AlertDialog open={!!archiveConfirm} onOpenChange={open => !open && setArchiveConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archive this permit?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Permit <strong>{archiveConfirm?.number}</strong> will be archived and will no longer appear as an active issue on the Compliance Intelligence Dashboard. You can still view it in the History tab.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={archiveMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-              disabled={archiveMutation.isPending}
-              onClick={() => archiveConfirm && archiveMutation.mutate(archiveConfirm.id)}
-            >
-              {archiveMutation.isPending ? 'Archiving…' : 'Archive Permit'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
