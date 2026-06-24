@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -809,11 +810,25 @@ export default function ComplianceDashboard() {
   const [showAllWarnings, setShowAllWarnings] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  const { data, isLoading, dataUpdatedAt, refetch, isFetching, error } = useQuery<DashboardData>({
+  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
+  const { data, isLoading, dataUpdatedAt, isFetching, error } = useQuery<DashboardData>({
     queryKey: ["/api/compliance-dashboard"],
     refetchInterval: 5 * 60 * 1000,
     retry: (count, err: any) => err?.status !== 403 && count < 3,
   });
+
+  async function handleRefresh() {
+    setIsForceRefreshing(true);
+    try {
+      const res = await fetch("/api/compliance-dashboard?refresh=1", { credentials: "include" });
+      if (res.ok) {
+        const fresh = await res.json();
+        queryClient.setQueryData(["/api/compliance-dashboard"], fresh);
+      }
+    } finally {
+      setIsForceRefreshing(false);
+    }
+  }
 
   async function handleDownloadPDF() {
     if (!data) return;
@@ -901,8 +916,8 @@ export default function ComplianceDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching || isForceRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${isFetching || isForceRefreshing ? "animate-spin" : ""}`} />
             Refresh
           </Button>
           <Button
