@@ -4,6 +4,7 @@ import path from 'path';
 import cron from 'node-cron';
 import { requireAuth } from '../auth';
 import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
+import type { SiteContext } from '../siteScope';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { EmailService } from '../emailService';
@@ -87,6 +88,24 @@ async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> 
   } catch (err) {
     logger.warn('[PPM] Column migration warning (non-fatal):', err);
   }
+}
+
+/**
+ * Verify that a work order exists and belongs to the caller's allowed site(s).
+ * Returns the row's id+siteId on success, null when not found or out of scope.
+ * Documents have no siteId — always gate through this helper before touching them.
+ */
+async function fetchWoInScope(
+  custDb: any,
+  woId: string,
+  siteContext: SiteContext,
+): Promise<{ id: string; siteId: string | null } | null> {
+  const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
+  const [wo] = await custDb
+    .select({ id: isolatedSchema.ppmWorkOrders.id, siteId: isolatedSchema.ppmWorkOrders.siteId })
+    .from(isolatedSchema.ppmWorkOrders)
+    .where(and(eq(isolatedSchema.ppmWorkOrders.id, woId), siteFilter));
+  return wo ?? null;
 }
 
 // ── Known demo identifiers (used to catch pre-is_demo legacy rows) ───────────
@@ -211,13 +230,16 @@ app.put("/api/ppm/assets/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const parsed = isolatedSchema.insertPpmAssetSchema.partial().parse(req.body);
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [row] = await custDb.update(isolatedSchema.ppmAssets).set(parsed).where(eq(isolatedSchema.ppmAssets.id, id)).returning();
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [row] = await custDb.update(isolatedSchema.ppmAssets).set(parsed)
+      .where(and(eq(isolatedSchema.ppmAssets.id, id), scopedWhere(siteContext, isolatedSchema.ppmAssets)))
+      .returning();
     if (!row) return res.status(404).json({ error: "Asset not found" });
     await logPpmAudit(custDb, "asset_updated", req.user!.username, { assetId: id });
     res.json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("PUT /api/ppm/assets/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM asset" });
   }
@@ -227,12 +249,16 @@ app.delete("/api/ppm/assets/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    await custDb.delete(isolatedSchema.ppmAssets).where(eq(isolatedSchema.ppmAssets.id, id));
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [deleted] = await custDb.delete(isolatedSchema.ppmAssets)
+      .where(and(eq(isolatedSchema.ppmAssets.id, id), scopedWhere(siteContext, isolatedSchema.ppmAssets)))
+      .returning({ id: isolatedSchema.ppmAssets.id });
+    if (!deleted) return res.status(404).json({ error: "Asset not found" });
     await logPpmAudit(custDb, "asset_deleted", req.user!.username, { assetId: id });
     res.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/ppm/assets/:id", error);
     res.status(500).json({ error: "Failed to delete PPM asset" });
   }
@@ -242,20 +268,22 @@ app.delete("/api/ppm/assets/:id", requireAuth, async (req, res) => {
 app.post("/api/ppm/assets/:id/duplicate", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [original] = await custDb.select().from(isolatedSchema.ppmAssets).where(eq(isolatedSchema.ppmAssets.id, id));
+    const { db: custDb, siteId, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [original] = await custDb.select().from(isolatedSchema.ppmAssets)
+      .where(and(eq(isolatedSchema.ppmAssets.id, id), scopedWhere(siteContext, isolatedSchema.ppmAssets)));
     if (!original) return res.status(404).json({ error: "Asset not found" });
     const { id: _id, createdAt: _createdAt, assetRef: _assetRef, serialNumber: _serialNumber, ...rest } = original;
-    const [copy] = await custDb.insert(isolatedSchema.ppmAssets).values({
+    const [copy] = await custDb.insert(isolatedSchema.ppmAssets).values(withSiteId(siteId, {
       ...rest,
       name: `Copy of ${original.name}`,
       assetRef: null,
       serialNumber: null,
       status: "active",
-    }).returning();
+    })).returning();
     res.status(201).json(copy);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("POST /api/ppm/assets/:id/duplicate", error);
     res.status(500).json({ error: "Failed to duplicate asset" });
   }
@@ -297,12 +325,15 @@ app.put("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const parsed = isolatedSchema.insertPpmAssetGroupSchema.partial().parse(req.body);
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [row] = await custDb.update(isolatedSchema.ppmAssetGroups).set(parsed).where(eq(isolatedSchema.ppmAssetGroups.id, id)).returning();
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [row] = await custDb.update(isolatedSchema.ppmAssetGroups).set(parsed)
+      .where(and(eq(isolatedSchema.ppmAssetGroups.id, id), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)))
+      .returning();
     if (!row) return res.status(404).json({ error: "Asset group not found" });
     res.json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("PUT /api/ppm/asset-groups/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update asset group" });
   }
@@ -312,13 +343,17 @@ app.delete("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
     // Detach all assets from the group before deleting (FK is set null on delete, but do it explicitly)
     await custDb.update(isolatedSchema.ppmAssets).set({ groupId: null }).where(eq(isolatedSchema.ppmAssets.groupId, id));
-    await custDb.delete(isolatedSchema.ppmAssetGroups).where(eq(isolatedSchema.ppmAssetGroups.id, id));
+    const [deleted] = await custDb.delete(isolatedSchema.ppmAssetGroups)
+      .where(and(eq(isolatedSchema.ppmAssetGroups.id, id), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)))
+      .returning({ id: isolatedSchema.ppmAssetGroups.id });
+    if (!deleted) return res.status(404).json({ error: "Asset group not found" });
     res.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/ppm/asset-groups/:id", error);
     res.status(500).json({ error: "Failed to delete asset group" });
   }
@@ -431,13 +466,16 @@ app.put("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
       body.nextDueDate = calcNextDueDate(body.startDate, body.frequency, body.customDays);
     }
     const parsed = isolatedSchema.insertPpmScheduleSchema.partial().parse(body);
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [row] = await custDb.update(isolatedSchema.ppmSchedules).set(parsed).where(eq(isolatedSchema.ppmSchedules.id, id)).returning();
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [row] = await custDb.update(isolatedSchema.ppmSchedules).set(parsed)
+      .where(and(eq(isolatedSchema.ppmSchedules.id, id), scopedWhere(siteContext, isolatedSchema.ppmSchedules)))
+      .returning();
     if (!row) return res.status(404).json({ error: "Schedule not found" });
     await logPpmAudit(custDb, "schedule_updated", req.user!.username, { scheduleId: id });
     res.json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("PUT /api/ppm/schedules/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM schedule" });
   }
@@ -447,12 +485,16 @@ app.delete("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    await custDb.delete(isolatedSchema.ppmSchedules).where(eq(isolatedSchema.ppmSchedules.id, id));
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [deleted] = await custDb.delete(isolatedSchema.ppmSchedules)
+      .where(and(eq(isolatedSchema.ppmSchedules.id, id), scopedWhere(siteContext, isolatedSchema.ppmSchedules)))
+      .returning({ id: isolatedSchema.ppmSchedules.id });
+    if (!deleted) return res.status(404).json({ error: "Schedule not found" });
     await logPpmAudit(custDb, "schedule_deleted", req.user!.username, { scheduleId: id });
     res.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/ppm/schedules/:id", error);
     res.status(500).json({ error: "Failed to delete PPM schedule" });
   }
@@ -465,11 +507,18 @@ app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
   try {
     if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
     if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const docs = await custDb.select({
-      expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
-    }).from(isolatedSchema.ppmWorkOrderDocuments);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    // Documents have no siteId — scope via parent work orders
+    const scopedWoRows = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders));
+    const scopedWoIds = scopedWoRows.map(w => w.id);
+    const docs = scopedWoIds.length > 0
+      ? await custDb.select({ expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate })
+          .from(isolatedSchema.ppmWorkOrderDocuments)
+          .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, scopedWoIds))
+      : [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const in30Days = new Date(today);
@@ -565,12 +614,12 @@ app.get("/api/ppm/work-orders/:id/token", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const [wo] = await custDb.select({
       accessToken: isolatedSchema.ppmWorkOrders.accessToken,
       accessTokenExpiresAt: isolatedSchema.ppmWorkOrders.accessTokenExpiresAt,
-    }).from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+    }).from(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
     if (!wo) return res.status(404).json({ error: "Work order not found" });
     const baseUrl = process.env.REPLIT_DOMAINS
       ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
@@ -612,16 +661,17 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const updates: Record<string, unknown> = { ...req.body };
     delete updates.id;
     delete updates.createdAt;
     delete updates.accessToken;
+    const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
     if ("contractorCompanyId" in updates || "contractorWorkerId" in updates) {
       // Load existing row and merge so partial updates can't bypass the gate
       // (e.g. caller sets only contractorCompanyId while the row already has a worker, or vice versa).
-      const [existing] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      const [existing] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+        .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), siteFilter));
       if (!existing) return res.status(404).json({ error: "Work order not found" });
       const effectiveCompanyId = "contractorCompanyId" in updates
         ? (updates.contractorCompanyId as string | null | undefined)
@@ -644,7 +694,9 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     if (updates.status === "scheduled") {
       updates.arrivedAt = null;
     }
-    const [row] = await custDb.update(isolatedSchema.ppmWorkOrders).set(updates).where(eq(isolatedSchema.ppmWorkOrders.id, id)).returning();
+    const [row] = await custDb.update(isolatedSchema.ppmWorkOrders).set(updates)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), siteFilter))
+      .returning();
 
     // Advance the linked schedule's nextDueDate when a work order is marked completed
     if (updates.status === "completed" && row?.scheduleId) {
@@ -671,9 +723,10 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     }
 
     await logPpmAudit(custDb, "work_order_updated", req.user!.username, { workOrderId: id, status: updates.status as string | undefined });
-    evaluateSiteBackground(context.customerId, row?.siteId);
+    evaluateSiteBackground(req.customerId!, row?.siteId);
     res.json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("PUT /api/ppm/work-orders/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM work order" });
   }
@@ -684,10 +737,10 @@ app.delete("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const [existing] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id, status: isolatedSchema.ppmWorkOrders.status, title: isolatedSchema.ppmWorkOrders.title })
-      .from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
     if (!existing) return res.status(404).json({ error: "Work order not found" });
     if (existing.status === "completed") {
       return res.status(400).json({ error: "Completed work orders cannot be deleted. Change the status first if this record is in error." });
@@ -696,6 +749,7 @@ app.delete("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     await logPpmAudit(custDb, "work_order_deleted", req.user!.username, { workOrderId: id, title: existing.title ?? undefined });
     res.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/ppm/work-orders/:id", error);
     res.status(500).json({ error: "Failed to delete PPM work order" });
   }
@@ -706,9 +760,9 @@ app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => 
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [original] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+    const { db: custDb, siteId, siteContext } = await getScopedDb(req);
+    const [original] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
     if (!original) return res.status(404).json({ error: "Work order not found" });
     const accessToken = randomBytes(24).toString("hex");
     const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
@@ -720,7 +774,7 @@ app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => 
     const carryWorker = dupGate ? null : original.contractorWorkerId;
     const carryWorkerName = dupGate ? null : original.contractorWorkerName;
     const carryEmail = dupGate ? null : original.assignedEmail;
-    const [copy] = await custDb.insert(isolatedSchema.ppmWorkOrders).values({
+    const [copy] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(withSiteId(siteId, {
       scheduleId: original.scheduleId,
       assetId: original.assetId,
       title: `${original.title} (Copy)`,
@@ -736,10 +790,11 @@ app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => 
       requiresCertificate: original.requiresCertificate,
       accessToken,
       accessTokenExpiresAt,
-    }).returning();
+    })).returning();
     await logPpmAudit(custDb, "work_order_duplicated", req.user!.username, { workOrderId: copy.id, sourceId: id });
     res.json(copy);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("POST /api/ppm/work-orders/:id/duplicate", error);
     res.status(500).json({ error: "Failed to duplicate work order" });
   }
@@ -751,10 +806,10 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail } = req.body;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
 
-    const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+    const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
     if (!wo) return res.status(404).json({ error: "Work order not found" });
 
     // Validate contractor IDs against the contractors tables to prevent inconsistent assignment metadata
@@ -802,7 +857,7 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
           : (process.env.PUBLIC_URL || process.env.BASE_URL || "http://localhost:5000");
         const workOrderUrl = `${baseUrl}/ppm/work-order/${newAccessToken}`;
         const recipientName = contractorWorkerName || contractorCompanyName || "Contractor";
-        const emailSvc = new EmailService(context.customerId);
+        const emailSvc = new EmailService(req.customerId!);
         await emailSvc.sendEmail({
           to: assignedEmail,
           subject: `PPM Work Order Assigned: ${wo.title}`,
@@ -854,13 +909,15 @@ app.get("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    const wo = await fetchWoInScope(custDb, id, siteContext);
+    if (!wo) return res.status(404).json({ error: "Work order not found" });
     const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
       .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id))
       .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
     res.json(docs);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("GET /api/ppm/work-orders/:id/documents", error);
     res.status(500).json({ error: "Failed to fetch documents" });
   }
@@ -877,8 +934,9 @@ app.post("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => 
     if (typeof fileUrl !== "string" || !fileUrl.startsWith("/objects/")) {
       return res.status(400).json({ error: "Invalid file URL — must be an object storage path" });
     }
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    const woInScope = await fetchWoInScope(custDb, id, siteContext);
+    if (!woInScope) return res.status(404).json({ error: "Work order not found" });
     // No document count cap on admin uploads — admins may attach additional documents beyond what contractors upload
     const resolvedFileType = fileType || "other";
     // If a replacement document with a new expiry date is being uploaded for the same file type,
@@ -919,8 +977,10 @@ app.delete("/api/ppm/work-orders/:id/documents/:docId", requireAuth, async (req,
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id, docId } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    // Verify work order exists and is in caller's allowed site(s)
+    const woCheck = await fetchWoInScope(custDb, id, siteContext);
+    if (!woCheck) return res.status(404).json({ error: "Work order not found" });
     // Verify docId belongs to this work order to prevent accidental cross-WO deletes
     const [doc] = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
       .from(isolatedSchema.ppmWorkOrderDocuments)
@@ -967,8 +1027,10 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id, docId } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    // Verify work order exists and is in caller's allowed site(s)
+    const woCheck = await fetchWoInScope(custDb, id, siteContext);
+    if (!woCheck) return res.status(404).json({ error: "Work order not found" });
 
     // Fetch the document and verify it belongs to this work order
     const [doc] = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
@@ -1011,7 +1073,7 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
       return res.status(400).json({ error: "Document is not within the expiry alert window (must be expired or expiring within 30 days)" });
     }
 
-    const emailSvc = new EmailService(context.customerId);
+    const emailSvc = new EmailService(req.customerId!);
     const subject = isExpired
       ? `PPM Alert: Expired Document — ${doc.fileName}`
       : `PPM Alert: Document Expiring Soon — ${doc.fileName}`;
@@ -1126,8 +1188,7 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
 app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
 
     const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
     const settings = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
@@ -1141,17 +1202,26 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
     const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const in30DaysStr = in30Days.toISOString().split("T")[0];
 
+    // Documents have no siteId — scope via parent work orders
+    const scopedWoRows = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders));
+    const scopedWoIds = scopedWoRows.map(w => w.id);
+
     // Fetch all PPM work order documents that are expired or expiring within 30 days
-    const expiringDocs = await custDb.select({
-      id: isolatedSchema.ppmWorkOrderDocuments.id,
-      fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
-      expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
-      workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
-    }).from(isolatedSchema.ppmWorkOrderDocuments)
-      .where(and(
-        sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
-        sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
-      ));
+    const expiringDocs = scopedWoIds.length > 0
+      ? await custDb.select({
+          id: isolatedSchema.ppmWorkOrderDocuments.id,
+          fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
+          expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
+          workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
+        }).from(isolatedSchema.ppmWorkOrderDocuments)
+          .where(and(
+            inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, scopedWoIds),
+            sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
+            sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
+          ))
+      : [];
 
     if (expiringDocs.length === 0) {
       return res.status(400).json({ error: "No expiring or expired PPM documents found within the 30-day alert window" });
@@ -1192,7 +1262,7 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
       ? `PPM Alert: ${expired.length} Expired Document${expired.length > 1 ? "s" : ""}${soonExpiring.length > 0 ? ` & ${soonExpiring.length} Expiring Soon` : ""}`
       : `PPM Alert: ${soonExpiring.length} Document${soonExpiring.length > 1 ? "s" : ""} Expiring Soon`;
 
-    const emailSvc = new EmailService(context.customerId);
+    const emailSvc = new EmailService(req.customerId!);
 
     // ── Admin consolidated digest ───────────────────────────────────────────
     const adminSent = await emailSvc.sendEmail({
@@ -1305,12 +1375,13 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
 app.get("/api/ppm/work-orders/export-all", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const { status, dateFrom, dateTo } = req.query as { status?: string; dateFrom?: string; dateTo?: string };
 
-    // Build filter conditions
+    // Build filter conditions — site filter first so enterprise isolation is always applied
+    const siteWoFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
     const conditions: SQL<unknown>[] = [];
+    if (siteWoFilter) conditions.push(siteWoFilter);
     if (status && status !== "all") conditions.push(eq(isolatedSchema.ppmWorkOrders.status, status));
     if (dateFrom) conditions.push(gte(isolatedSchema.ppmWorkOrders.dueDate, dateFrom));
     if (dateTo) conditions.push(lte(isolatedSchema.ppmWorkOrders.dueDate, dateTo));
@@ -1319,9 +1390,10 @@ app.get("/api/ppm/work-orders/export-all", requireAuth, async (req, res) => {
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(isolatedSchema.ppmWorkOrders.dueDate);
 
-    // Fetch all assets and build a lookup
+    // Fetch assets scoped to caller's allowed site(s)
     const allAssets = await custDb.select({ id: isolatedSchema.ppmAssets.id, name: isolatedSchema.ppmAssets.name })
-      .from(isolatedSchema.ppmAssets);
+      .from(isolatedSchema.ppmAssets)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssets));
     const assetMap: Record<string, string> = {};
     for (const a of allAssets) assetMap[a.id] = a.name;
 
@@ -1463,8 +1535,7 @@ ${wos.length === 0 ? `<p style="color:#6b7280;font-size:14px;text-align:center;p
 app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     // Fetch company settings
     const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
     const settings = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
@@ -1478,18 +1549,27 @@ app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) =
     const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const in30DaysStr = in30Days.toISOString().split("T")[0];
 
+    // Documents have no siteId — scope via parent work orders
+    const scopedWoRows = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders));
+    const scopedWoIds = scopedWoRows.map(w => w.id);
+
     // Fetch ALL expired or expiring-soon documents (regardless of expiryAlertedAt — this is a manual bulk resend)
-    const expiringDocs = await custDb.select({
-      id: isolatedSchema.ppmWorkOrderDocuments.id,
-      fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
-      fileType: isolatedSchema.ppmWorkOrderDocuments.fileType,
-      expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
-      workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
-    }).from(isolatedSchema.ppmWorkOrderDocuments)
-      .where(and(
-        sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
-        sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
-      ));
+    const expiringDocs = scopedWoIds.length > 0
+      ? await custDb.select({
+          id: isolatedSchema.ppmWorkOrderDocuments.id,
+          fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
+          fileType: isolatedSchema.ppmWorkOrderDocuments.fileType,
+          expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
+          workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
+        }).from(isolatedSchema.ppmWorkOrderDocuments)
+          .where(and(
+            inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, scopedWoIds),
+            sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
+            sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
+          ))
+      : [];
 
     if (expiringDocs.length === 0) {
       return res.json({ success: true, count: 0, message: "No expired or expiring documents found" });
@@ -1526,7 +1606,7 @@ app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) =
       ? `PPM Alert: ${expired.length} Expired Document${expired.length > 1 ? "s" : ""}${soonExpiring.length > 0 ? ` & ${soonExpiring.length} Expiring Soon` : ""}`
       : `PPM Alert: ${soonExpiring.length} Document${soonExpiring.length > 1 ? "s" : ""} Expiring Soon`;
 
-    const emailSvc = new EmailService(context.customerId);
+    const emailSvc = new EmailService(req.customerId!);
     const sent = await emailSvc.sendEmail({
       to: adminEmail,
       subject,
@@ -1579,10 +1659,10 @@ app.get("/api/ppm/work-orders/:id/export", requireAuth, async (req, res) => {
   try {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
-    const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
 
-    const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+    const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
     if (!wo) return res.status(404).json({ error: "Work order not found" });
 
     const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
@@ -2318,47 +2398,57 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
 // ── PPM Demo Data — Delete ────────────────────────────────────────────────────
 // DELETE /api/ppm/demo-data
-// Nuclear clear: identifies demo rows ONLY by the known hardcoded asset refs and
-// group names — no dependency on the is_demo flag (may be false for legacy rows
-// loaded before the column existed) and no siteId scoping (siteId may be NULL on
-// old rows).  Real assets all have customer-specific refs that never appear in
-// DEMO_ASSET_REFS, so real data is never touched.
+// Scoped delete: removes ONLY rows where is_demo=true within the caller's allowed
+// site(s).  Single-site customers see all their is_demo rows; enterprise users are
+// scoped to their active site (or all allowed sites if no active site is set).
+// FK-safe order: WO docs → work orders → schedules → assets → asset groups.
 app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
-    const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
 
-    // ── NUCLEAR WIPE — FK-safe order ─────────────────────────────────────────
-    // Deletes ALL PPM data for this customer regardless of assetRef, is_demo flag,
-    // or siteId.  This catches demo seeder rows, test-script leftovers, and any
-    // other non-real data.  Templates (ppm_templates, ppm_template_tasks) are
-    // intentionally left intact — they are customer-level configuration.
+    // ── STEP 1: delete demo PPM data in FK-safe order (is_demo=true only, scoped to caller's site(s))
 
-    // Count before so the response can report what was removed.
-    const [{ woDocCount }] = await custDb
-      .select({ woDocCount: count() })
-      .from(isolatedSchema.ppmWorkOrderDocuments);
-    const [{ woCount }] = await custDb
-      .select({ woCount: count() })
-      .from(isolatedSchema.ppmWorkOrders);
-    const [{ schedCount }] = await custDb
-      .select({ schedCount: count() })
-      .from(isolatedSchema.ppmSchedules);
-    const [{ assetCount }] = await custDb
-      .select({ assetCount: count() })
-      .from(isolatedSchema.ppmAssets);
-    const [{ groupCount }] = await custDb
-      .select({ groupCount: count() })
-      .from(isolatedSchema.ppmAssetGroups);
+    // Work order docs have no siteId — delete via scoped demo WO ids
+    const demoWoRows = await custDb
+      .select({ id: isolatedSchema.ppmWorkOrders.id })
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(and(
+        eq(isolatedSchema.ppmWorkOrders.isDemo, true),
+        scopedWhere(siteContext, isolatedSchema.ppmWorkOrders),
+      ));
+    const demoWoIds = demoWoRows.map(w => w.id);
 
-    // Delete in FK-safe order
-    await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
-    await custDb.delete(isolatedSchema.ppmWorkOrders);
-    await custDb.delete(isolatedSchema.ppmSchedules);
-    await custDb.delete(isolatedSchema.ppmAssets);
-    await custDb.delete(isolatedSchema.ppmAssetGroups);
+    let woDocCount = 0;
+    if (demoWoIds.length > 0) {
+      const deletedDocs = await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
+        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, demoWoIds))
+        .returning({ id: isolatedSchema.ppmWorkOrderDocuments.id });
+      woDocCount = deletedDocs.length;
+    }
 
-    // ── STEP 2: delete demo contractor companies (and their workers) by known name
+    const deletedWOs = await custDb.delete(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
+      .returning({ id: isolatedSchema.ppmWorkOrders.id });
+    const woCount = deletedWOs.length;
+
+    const deletedScheds = await custDb.delete(isolatedSchema.ppmSchedules)
+      .where(and(eq(isolatedSchema.ppmSchedules.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmSchedules)))
+      .returning({ id: isolatedSchema.ppmSchedules.id });
+    const schedCount = deletedScheds.length;
+
+    const deletedAssets = await custDb.delete(isolatedSchema.ppmAssets)
+      .where(and(eq(isolatedSchema.ppmAssets.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssets)))
+      .returning({ id: isolatedSchema.ppmAssets.id });
+    const assetCount = deletedAssets.length;
+
+    const deletedGroups = await custDb.delete(isolatedSchema.ppmAssetGroups)
+      .where(and(eq(isolatedSchema.ppmAssetGroups.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)))
+      .returning({ id: isolatedSchema.ppmAssetGroups.id });
+    const groupCount = deletedGroups.length;
+
+    // ── STEP 2: delete demo contractor companies (and their workers) by known name (not site-scoped)
     let companiesDeleted = 0;
     for (const name of DEMO_COMPANY_NAMES_LIST) {
       const [existing] = await custDb
@@ -2375,15 +2465,19 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    // ── POST-DELETE VERIFICATION — confirm tables are actually empty ───────────
+    // ── POST-DELETE VERIFICATION — confirm zero is_demo=true rows remain in scope ─
     const [{ remainingAssets }] = await custDb
-      .select({ remainingAssets: count() }).from(isolatedSchema.ppmAssets);
+      .select({ remainingAssets: count() }).from(isolatedSchema.ppmAssets)
+      .where(and(eq(isolatedSchema.ppmAssets.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssets)));
     const [{ remainingWOs }] = await custDb
-      .select({ remainingWOs: count() }).from(isolatedSchema.ppmWorkOrders);
+      .select({ remainingWOs: count() }).from(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
     const [{ remainingSchedules }] = await custDb
-      .select({ remainingSchedules: count() }).from(isolatedSchema.ppmSchedules);
+      .select({ remainingSchedules: count() }).from(isolatedSchema.ppmSchedules)
+      .where(and(eq(isolatedSchema.ppmSchedules.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmSchedules)));
     const [{ remainingGroups }] = await custDb
-      .select({ remainingGroups: count() }).from(isolatedSchema.ppmAssetGroups);
+      .select({ remainingGroups: count() }).from(isolatedSchema.ppmAssetGroups)
+      .where(and(eq(isolatedSchema.ppmAssetGroups.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)));
 
     const allClear =
       Number(remainingAssets) === 0 &&
@@ -2393,32 +2487,33 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
     if (!allClear) {
       logger.error(
-        `❌ [PPM Demo] Post-wipe verification FAILED — remaining: assets=${remainingAssets}, WOs=${remainingWOs}, schedules=${remainingSchedules}, groups=${remainingGroups}`,
+        `❌ [PPM Demo] Post-delete verification FAILED — remaining is_demo=true: assets=${remainingAssets}, WOs=${remainingWOs}, schedules=${remainingSchedules}, groups=${remainingGroups}`,
       );
       return res.status(500).json({
-        error: `Wipe incomplete — ${remainingAssets} assets, ${remainingWOs} work orders, ${remainingSchedules} schedules, ${remainingGroups} groups still remain. Check server logs for FK constraint errors.`,
+        error: `Delete incomplete — ${remainingAssets} demo assets, ${remainingWOs} demo work orders, ${remainingSchedules} demo schedules, ${remainingGroups} demo groups still remain. Check server logs.`,
       });
     }
 
-    logger.info(`✅ [PPM Demo] Nuclear wipe verified clean — deleted: assets=${assetCount}, WOs=${woCount}, schedules=${schedCount}, groups=${groupCount}, companies=${companiesDeleted}`);
+    logger.info(`✅ [PPM Demo] Scoped is_demo delete verified — deleted: assets=${assetCount}, WOs=${woCount}, schedules=${schedCount}, groups=${groupCount}, woDocs=${woDocCount}, companies=${companiesDeleted}`);
     await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, {
-      assetsDeleted: Number(assetCount),
-      workOrdersDeleted: Number(woCount),
-      schedulesDeleted: Number(schedCount),
-      groupsDeleted: Number(groupCount),
+      assetsDeleted: assetCount,
+      workOrdersDeleted: woCount,
+      schedulesDeleted: schedCount,
+      groupsDeleted: groupCount,
       companiesDeleted,
     });
     res.json({
       success: true,
-      assetsDeleted: Number(assetCount),
-      workOrdersDeleted: Number(woCount),
-      schedulesDeleted: Number(schedCount),
-      groupsDeleted: Number(groupCount),
+      assetsDeleted: assetCount,
+      workOrdersDeleted: woCount,
+      schedulesDeleted: schedCount,
+      groupsDeleted: groupCount,
       companiesDeleted,
       verified: true,
-      message: `All PPM data cleared and verified — ${assetCount} assets, ${woCount} work orders, ${schedCount} schedules, ${groupCount} groups removed. Templates untouched.`,
+      message: `Demo PPM data cleared — ${assetCount} assets, ${woCount} work orders, ${schedCount} schedules, ${groupCount} groups removed. Templates untouched.`,
     });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/ppm/demo-data", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to delete demo data" });
   }
@@ -2435,11 +2530,13 @@ app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "A valid recipient email address is required." });
     }
     const planYear = year ?? new Date().getFullYear();
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
 
-    const assets = await custDb.select().from(isolatedSchema.ppmAssets).orderBy(isolatedSchema.ppmAssets.name);
-    const workOrders = await custDb.select().from(isolatedSchema.ppmWorkOrders);
+    const assets = await custDb.select().from(isolatedSchema.ppmAssets)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssets))
+      .orderBy(isolatedSchema.ppmAssets.name);
+    const workOrders = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders));
     const yearWOs = workOrders.filter(wo => wo.dueDate && new Date(wo.dueDate).getFullYear() === planYear);
 
     // Build assetId → month → [wos] index
@@ -2563,7 +2660,7 @@ app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
 </div>
 </body></html>`;
 
-    const emailSvc = new EmailService(context.customerId);
+    const emailSvc = new EmailService(req.customerId!);
     const sent = await emailSvc.sendEmail({
       to: email,
       subject: `PPM Annual Planner ${planYear} — Maintenance Schedule Report`,

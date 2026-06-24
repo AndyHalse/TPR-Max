@@ -703,6 +703,95 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
   }, 30_000);
 
   /**
+   * PPM schedules — GET /api/ppm/schedules site isolation.
+   *
+   * Site A creates an asset (required FK) then a schedule.
+   * Site B's schedule list must NOT include the Site A schedule.
+   */
+  it("ppm schedules — Site B cannot see Site A PPM schedules", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+
+    // Create an asset at Site A (required because ppmSchedules.assetId is NOT NULL)
+    const assetRes = await agentA.post("/api/ppm/assets").send({
+      name: `PPM-Asset-SiteA-${ts}`,
+      status: "active",
+    });
+    expect(
+      [200, 201],
+      `Site A PPM asset create (status ${assetRes.status}): ${JSON.stringify(assetRes.body)}`
+    ).toContain(assetRes.status);
+    const assetId: string | undefined = assetRes.body?.id;
+    expect(assetId, "PPM asset create must return an id").toBeTruthy();
+
+    if (!assetId) return;
+
+    // Create a schedule at Site A using the new asset
+    const schedRes = await agentA.post("/api/ppm/schedules").send({
+      assetId,
+      title: `PPM-Sched-SiteA-${ts}`,
+      frequency: "monthly",
+      startDate: "2026-01-01",
+      nextDueDate: "2026-02-01",
+      status: "scheduled",
+    });
+    expect(
+      [200, 201],
+      `Site A PPM schedule create (status ${schedRes.status}): ${JSON.stringify(schedRes.body)}`
+    ).toContain(schedRes.status);
+    const schedId: string | undefined = schedRes.body?.id;
+    expect(schedId, "PPM schedule create must return an id").toBeTruthy();
+
+    // Site B lists schedules — must NOT see Site A's schedule
+    const listResB = await agentB.get("/api/ppm/schedules").expect(200);
+    const schedules: Record<string, unknown>[] = Array.isArray(listResB.body)
+      ? listResB.body
+      : [];
+    const leaked = schedules.some((s) => s.id === schedId);
+    expect(
+      leaked,
+      `[ppm-schedules] Site B must NOT see Site A PPM schedule — cross-site leak!`
+    ).toBe(false);
+  }, 30_000);
+
+  /**
+   * PPM work orders — GET /api/ppm/work-orders site isolation.
+   *
+   * Site A creates a work order. Site B's work-order list must NOT include it.
+   */
+  it("ppm work orders — Site B cannot see Site A PPM work orders", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+
+    // Create a work order at Site A (title is the only required field)
+    const woRes = await agentA.post("/api/ppm/work-orders").send({
+      title: `PPM-WO-SiteA-${ts}`,
+      status: "scheduled",
+    });
+    expect(
+      [200, 201],
+      `Site A PPM work order create (status ${woRes.status}): ${JSON.stringify(woRes.body)}`
+    ).toContain(woRes.status);
+    const woId: string | undefined = woRes.body?.id;
+    expect(woId, "PPM work order create must return an id").toBeTruthy();
+
+    // Site B lists work orders — must NOT see Site A's work order
+    const listResB = await agentB.get("/api/ppm/work-orders").expect(200);
+    const wos: Record<string, unknown>[] = Array.isArray(listResB.body)
+      ? listResB.body
+      : [];
+    const leaked = wos.some((w) => w.id === woId);
+    expect(
+      leaked,
+      `[ppm-work-orders] Site B must NOT see Site A PPM work order — cross-site leak!`
+    ).toBe(false);
+  }, 30_000);
+
+  /**
    * Regression: enterprise customer endpoints still function correctly when an
    * active site IS selected.  Verifies that the enterprise refactoring hasn't
    * broken basic listing operations that previously worked.
