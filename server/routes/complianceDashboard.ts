@@ -332,17 +332,18 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       } catch (_) { /* non-fatal, keep default */ }
 
       try {
-        const { clause: indSite, params: indSiteP } = addSiteParam([]);
+        const { clause: indSite, params: indSiteP } = addSiteParam([], 'cw');
         const workersResult = await pool.query(
-          `SELECT id, first_name, last_name, company_id,
-                  site_induction_completed, site_induction_expiry_date, site_induction_required
-           FROM "${schemaName}".contractor_workers
-           WHERE is_active = TRUE${indSite}`,
+          `SELECT cw.id, cw.first_name, cw.last_name, cw.company_id,
+                  cw.site_induction_completed, cw.site_induction_expiry_date, cw.site_induction_required
+           FROM "${schemaName}".contractor_workers cw
+           INNER JOIN "${schemaName}".contractor_companies cc
+             ON cc.id = cw.company_id AND cc.is_active = TRUE
+           WHERE cw.is_active = TRUE${indSite}`,
           indSiteP
         );
-        // Inductions are tracked for ALL active workers — not just those who
-        // have visited recently. A worker enrolled with an active company must
-        // have their induction status tracked regardless of visit history.
+        // Only count workers whose company exists and is active.
+        // Orphaned workers (company deleted/inactive) are excluded via INNER JOIN.
         indTotal = workersResult.rows.length;
 
         for (const w of workersResult.rows) {
