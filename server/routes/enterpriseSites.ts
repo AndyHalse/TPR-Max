@@ -215,54 +215,8 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         logger.warn(`[enterprise/sites] Login slug registration failed for ${created.id} (non-fatal):`, slugErr);
       }
 
-      // Independent management style: auto-provision a site-admin coordinator so
-      // the new site can self-manage its users from day one.
-      let siteAdminCredentials: { username: string; tempPassword: string } | undefined;
-      try {
-        const [custRow] = await managementDb
-          .select({ siteManagementStyle: customers.siteManagementStyle })
-          .from(customers)
-          .where(eq(customers.id, customerId))
-          .limit(1);
-
-        if (custRow?.siteManagementStyle === 'independent') {
-          const tempPassword = randomBytes(8).toString('hex'); // 16 printable hex chars
-          const hashedPw = await bcrypt.hash(tempPassword, 10);
-          const siteRef = (finalSite.reference || finalSite.id)
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '');
-          const username = `site-admin-${siteRef}`.slice(0, 50);
-
-          // Create the user account
-          const [newUser] = await custDb
-            .insert(isolatedSchema.users)
-            .values({ username, password: hashedPw, role: 'user', isActive: true })
-            .returning({ id: isolatedSchema.users.id, username: isolatedSchema.users.username });
-
-          // Grant site_coordinator with user-management power for this site
-          await custDb
-            .insert(isolatedSchema.siteUserRoles)
-            .values({
-              userId: newUser.id,
-              role: 'site_coordinator',
-              siteId: finalSite.id,
-              areaId: null,
-              canManageSiteUsers: true,
-            });
-
-          siteAdminCredentials = { username: newUser.username, tempPassword };
-          logger.info(
-            `[enterprise/sites] Auto-provisioned site admin "${newUser.username}" for site ${finalSite.id} (independent style)`,
-          );
-        }
-      } catch (provErr) {
-        logger.warn(`[enterprise/sites] Independent site-admin provisioning failed (non-fatal):`, provErr);
-      }
-
       logger.info(`[enterprise/sites] Created site ${finalSite.id} for customer ${customerId}`);
-      return res.status(201).json(siteAdminCredentials ? { ...finalSite, siteAdminCredentials } : finalSite);
+      return res.status(201).json(finalSite);
     } catch (err: any) {
       if (err?.code === '23505') {
         return res.status(409).json({ error: 'Site reference already exists' });
@@ -809,6 +763,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     role: z.enum(['enterprise_admin', 'area_manager', 'site_coordinator']),
     areaId: z.string().optional().nullable(),
     siteId: z.string().optional().nullable(),
+    canManageSiteUsers: z.boolean().optional(),
   });
 
   // Also accessible to site_coordinator with canManageSiteUsers=true (for their own site).
@@ -901,7 +856,7 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       // Create role grant
       const [grant] = await custDb
         .insert(isolatedSchema.siteUserRoles)
-        .values({ userId: newUser.id, role, areaId: areaId ?? null, siteId: siteId ?? null })
+        .values({ userId: newUser.id, role, areaId: areaId ?? null, siteId: siteId ?? null, canManageSiteUsers: body.data.canManageSiteUsers ?? false })
         .returning();
 
       logger.info(
@@ -980,6 +935,138 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     } catch (err) {
       logger.error('[enterprise/sites/:id/users] GET error:', err);
       return res.status(500).json({ error: 'Failed to load site users' });
+    }
+  });
+
+  // ── Edit enterprise user details ─────────────────────────────────────────
+  app.patch('/api/enterprise/users/:id', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const targetId = req.params.id;
+      const callerUser = (req as any).user;
+
+      const bodySchema = z.object({
+        firstName: z.string().max(100).optional().nullable(),
+        lastName:  z.string().max(100).optional().nullable(),
+        email:     z.string().email('Invalid email').optional().nullable(),
+        username:  z.string().min(3).max(50).regex(/^[A-Za-z0-9_-]+$/, 'Username may only contain letters, numbers, underscores, and hyphens').optional(),
+      });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Validation failed' });
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const [target] = await custDb
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, targetId))
+        .limit(1);
+      if (!target) return res.status(404).json({ error: 'User not found' });
+
+      if (parsed.data.username && parsed.data.username !== target.username) {
+        const [conflict] = await custDb
+          .select({ id: isolatedSchema.users.id })
+          .from(isolatedSchema.users)
+          .where(eq(isolatedSchema.users.username, parsed.data.username))
+          .limit(1);
+        if (conflict) return res.status(409).json({ error: 'That username is already in use.' });
+      }
+
+      const updates: Record<string, any> = {};
+      if (parsed.data.firstName !== undefined) updates.firstName = parsed.data.firstName;
+      if (parsed.data.lastName  !== undefined) updates.lastName  = parsed.data.lastName;
+      if (parsed.data.email     !== undefined) updates.email     = parsed.data.email;
+      if (parsed.data.username  !== undefined) updates.username  = parsed.data.username;
+
+      if (Object.keys(updates).length === 0) return res.json({ ok: true });
+
+      const [updated] = await custDb
+        .update(isolatedSchema.users)
+        .set(updates)
+        .where(eq(isolatedSchema.users.id, targetId))
+        .returning({
+          id:        isolatedSchema.users.id,
+          username:  isolatedSchema.users.username,
+          firstName: isolatedSchema.users.firstName,
+          lastName:  isolatedSchema.users.lastName,
+          email:     (isolatedSchema.users as any).email,
+        });
+
+      logger.info(
+        `[enterprise/users] EDIT: caller=${callerUser?.username} → target=${targetId} fields=${Object.keys(updates).join(',')} customer=${customerId}`,
+      );
+      return res.json({ user: updated });
+    } catch (err: any) {
+      if (err?.code === '23505') return res.status(409).json({ error: 'That username is already in use.' });
+      logger.error('[enterprise/users] PATCH edit error:', err);
+      return res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+
+  // ── Reset enterprise user password ────────────────────────────────────────
+  app.patch('/api/enterprise/users/:id/password', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const targetId = req.params.id;
+      const callerUser = (req as any).user;
+
+      const bodySchema = z.object({ password: z.string().min(8, 'Password must be at least 8 characters') });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Validation failed' });
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const [target] = await custDb
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, targetId))
+        .limit(1);
+      if (!target) return res.status(404).json({ error: 'User not found' });
+
+      const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
+      await custDb
+        .update(isolatedSchema.users)
+        .set({ password: hashedPassword })
+        .where(eq(isolatedSchema.users.id, targetId));
+
+      logger.info(
+        `[enterprise/users] PASSWORD_RESET: caller=${callerUser?.username} → target=${target.username} (${targetId}) customer=${customerId}`,
+      );
+      return res.json({ ok: true });
+    } catch (err) {
+      logger.error('[enterprise/users] PATCH password error:', err);
+      return res.status(500).json({ error: 'Failed to reset password' });
+    }
+  });
+
+  // ── Deactivate enterprise user ────────────────────────────────────────────
+  app.patch('/api/enterprise/users/:id/deactivate', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const targetId = req.params.id;
+      const callerUser = (req as any).user;
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const [target] = await custDb
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, targetId))
+        .limit(1);
+      if (!target) return res.status(404).json({ error: 'User not found' });
+
+      await custDb
+        .update(isolatedSchema.users)
+        .set({ isActive: false })
+        .where(eq(isolatedSchema.users.id, targetId));
+
+      logger.info(
+        `[enterprise/users] DEACTIVATE: caller=${callerUser?.username} → target=${target.username} (${targetId}) customer=${customerId}`,
+      );
+      return res.json({ ok: true });
+    } catch (err) {
+      logger.error('[enterprise/users] PATCH deactivate error:', err);
+      return res.status(500).json({ error: 'Failed to deactivate user' });
     }
   });
 

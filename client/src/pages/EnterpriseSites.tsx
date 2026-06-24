@@ -56,7 +56,18 @@ import {
   ShieldAlert,
   ShieldX,
   HardHat,
+  MoreVertical,
+  KeyRound,
+  UserX,
+  RefreshCw,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import GlassCard from "@/components/GlassCard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -437,7 +448,37 @@ function SiteUsersDialog({
   site: Site;
   canManage: boolean;
 }) {
+  const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
+
+  // Admin action modals
+  const [editUser,       setEditUser]       = useState<SiteUser | null>(null);
+  const [resetUser,      setResetUser]      = useState<SiteUser | null>(null);
+  const [deactivateUser, setDeactivateUser] = useState<SiteUser | null>(null);
+  const [replaceUser,    setReplaceUser]    = useState<SiteUser | null>(null);
+
+  // Edit-details form state
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName,  setEditLastName]  = useState("");
+  const [editEmail,     setEditEmail]     = useState("");
+  const [editUsername,  setEditUsername]  = useState("");
+
+  // Reset-password state
+  const [newPassword, setNewPassword] = useState("");
+
+  // Replace-admin form state
+  const [repFirstName, setRepFirstName] = useState("");
+  const [repLastName,  setRepLastName]  = useState("");
+  const [repUsername,  setRepUsername]  = useState("");
+  const [repEmail,     setRepEmail]     = useState("");
+  const [repPassword,  setRepPassword]  = useState("");
+  const [repConflict,  setRepConflict]  = useState(false);
+
+  const usernameRegex = /^[A-Za-z0-9_-]{3,}$/;
+  const canReplace =
+    !!repFirstName.trim() && !!repLastName.trim() &&
+    usernameRegex.test(repUsername.trim()) &&
+    !!repEmail.trim() && repPassword.length >= 8;
 
   const { data: siteUsers = [], isLoading } = useQuery<SiteUser[]>({
     queryKey: [`/api/enterprise/sites/${site.id}/users`],
@@ -453,6 +494,111 @@ function SiteUsersDialog({
 
   const coordinators = siteUsers.filter((u) => u.role === "site_coordinator");
   const inherited    = siteUsers.filter((u) => u.isInherited);
+
+  function openEdit(su: SiteUser) {
+    setEditUser(su);
+    setEditFirstName(su.user?.firstName ?? "");
+    setEditLastName(su.user?.lastName ?? "");
+    setEditEmail(su.user?.email ?? "");
+    setEditUsername(su.user?.username ?? "");
+  }
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editUser?.user) return;
+      const res = await apiRequest("PATCH", `/api/enterprise/users/${editUser.user.id}`, {
+        firstName: editFirstName.trim() || null,
+        lastName:  editLastName.trim()  || null,
+        email:     editEmail.trim()     || null,
+        username:  editUsername.trim(),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to update"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/enterprise/sites/${site.id}/users`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/users"] });
+      toast({ title: "Details updated" });
+      setEditUser(null);
+    },
+    onError: (err: Error) => toast({ title: "Failed to update", description: err.message, variant: "destructive" }),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      if (!resetUser?.user) return;
+      const res = await apiRequest("PATCH", `/api/enterprise/users/${resetUser.user.id}/password`, { password: newPassword });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to reset password"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Password reset", description: "The new password has been set." });
+      setResetUser(null);
+      setNewPassword("");
+    },
+    onError: (err: Error) => toast({ title: "Failed to reset password", description: err.message, variant: "destructive" }),
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: async () => {
+      if (!deactivateUser) return;
+      const revokeRes = await apiRequest("DELETE", `/api/enterprise/role-grants/${deactivateUser.id}`, undefined);
+      if (!revokeRes.ok && revokeRes.status !== 204) {
+        const err = await revokeRes.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to remove site access");
+      }
+      if (deactivateUser.user?.id) {
+        const deactivateRes = await apiRequest("PATCH", `/api/enterprise/users/${deactivateUser.user.id}/deactivate`, {});
+        if (!deactivateRes.ok) {
+          const err = await deactivateRes.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to deactivate account");
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/enterprise/sites/${site.id}/users`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/users"] });
+      toast({ title: "Administrator removed", description: "Site access revoked and account deactivated." });
+      setDeactivateUser(null);
+    },
+    onError: (err: Error) => toast({ title: "Failed to remove administrator", description: err.message, variant: "destructive" }),
+  });
+
+  const replaceMutation = useMutation({
+    mutationFn: async (newAdmin: { username: string; password: string; email: string; firstName: string; lastName: string }) => {
+      if (!replaceUser) return;
+      const createRes = await apiRequest("POST", "/api/enterprise/users", {
+        ...newAdmin,
+        role: "site_coordinator",
+        siteId: site.id,
+        canManageSiteUsers: true,
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}));
+        if (createRes.status === 409) { setRepConflict(true); }
+        throw new Error(err.error || "Failed to create new administrator");
+      }
+      const revokeRes = await apiRequest("DELETE", `/api/enterprise/role-grants/${replaceUser.id}`, undefined);
+      if (!revokeRes.ok && revokeRes.status !== 204) {
+        const err = await revokeRes.json().catch(() => ({}));
+        throw new Error(err.error || "New admin created, but failed to remove previous access");
+      }
+      if (replaceUser.user?.id) {
+        await apiRequest("PATCH", `/api/enterprise/users/${replaceUser.user.id}/deactivate`, {});
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/enterprise/sites/${site.id}/users`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/users"] });
+      toast({ title: "Administrator replaced", description: "New administrator created. Previous access revoked." });
+      setReplaceUser(null);
+    },
+    onError: (err: Error) => {
+      if (!repConflict) toast({ title: "Replace failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   return (
     <>
@@ -493,6 +639,30 @@ function SiteUsersDialog({
                         <span className="text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
                           Coordinator
                         </span>
+                        {canManage && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                                <MoreVertical size={14} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => openEdit(su)}>
+                                <Pencil size={13} className="mr-2" /> Edit details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setResetUser(su); setNewPassword(""); }}>
+                                <KeyRound size={13} className="mr-2" /> Reset password
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setReplaceUser(su); setRepFirstName(""); setRepLastName(""); setRepUsername(""); setRepEmail(""); setRepPassword(""); setRepConflict(false); }}>
+                                <RefreshCw size={13} className="mr-2" /> Replace
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeactivateUser(su)}>
+                                <UserX size={13} className="mr-2" /> Deactivate & remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -534,6 +704,145 @@ function SiteUsersDialog({
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit details ──────────────────────────────────────────────────────── */}
+      <Dialog open={!!editUser} onOpenChange={(v) => !v && setEditUser(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil size={14} className="text-blue-600" /> Edit Administrator
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="eu-first">First name</Label>
+                <Input id="eu-first" value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} placeholder="Jane" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="eu-last">Last name</Label>
+                <Input id="eu-last" value={editLastName} onChange={(e) => setEditLastName(e.target.value)} placeholder="Smith" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="eu-username">Username</Label>
+              <Input id="eu-username" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="eu-email">Email</Label>
+              <Input id="eu-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
+            <Button onClick={() => editMutation.mutate()} disabled={!editUsername.trim() || editMutation.isPending}>
+              {editMutation.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reset password ────────────────────────────────────────────────────── */}
+      <Dialog open={!!resetUser} onOpenChange={(v) => !v && setResetUser(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound size={14} className="text-blue-600" /> Reset Password — {resetUser ? userDisplayName(resetUser.user) : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="rp-password">New Password * (min 8 characters)</Label>
+              <Input id="rp-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+            </div>
+            <p className="text-xs text-amber-600 dark:text-amber-400">Share this password securely. The administrator should change it on first login.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetUser(null)}>Cancel</Button>
+            <Button onClick={() => resetPasswordMutation.mutate()} disabled={newPassword.length < 8 || resetPasswordMutation.isPending}>
+              {resetPasswordMutation.isPending ? "Saving…" : "Set Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Deactivate & remove confirm ───────────────────────────────────────── */}
+      <AlertDialog open={!!deactivateUser} onOpenChange={(v) => !v && setDeactivateUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate & Remove Administrator?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove <strong>{deactivateUser ? userDisplayName(deactivateUser.user) : ""}</strong> from{" "}
+              <strong>{site.name}</strong> and deactivate their account. You can reactivate them via platform admin if needed later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deactivateMutation.mutate()}
+              disabled={deactivateMutation.isPending}
+            >
+              {deactivateMutation.isPending ? "Removing…" : "Deactivate & Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Replace admin ─────────────────────────────────────────────────────── */}
+      <Dialog open={!!replaceUser} onOpenChange={(v) => !v && setReplaceUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw size={14} className="text-blue-600" /> Replace Administrator
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-xs text-muted-foreground">
+              Create the new administrator. <strong>{replaceUser ? userDisplayName(replaceUser.user) : ""}</strong>'s site access will be revoked and their account deactivated.
+            </p>
+            {repConflict && (
+              <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+                That username is already taken. Choose a different one.
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="rep-first">First Name *</Label>
+                <Input id="rep-first" value={repFirstName} onChange={(e) => setRepFirstName(e.target.value)} placeholder="Jane" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rep-last">Last Name *</Label>
+                <Input id="rep-last" value={repLastName} onChange={(e) => setRepLastName(e.target.value)} placeholder="Smith" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rep-username">Username *</Label>
+              <Input id="rep-username" value={repUsername} onChange={(e) => { setRepUsername(e.target.value); setRepConflict(false); }} placeholder="jane.smith" />
+              <p className="text-xs text-muted-foreground">Letters, numbers, underscores, and hyphens only. Min 3 characters.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rep-email">Email *</Label>
+              <Input id="rep-email" type="email" value={repEmail} onChange={(e) => setRepEmail(e.target.value)} placeholder="jane@example.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rep-password">Password * (min 8 characters)</Label>
+              <Input id="rep-password" type="password" value={repPassword} onChange={(e) => setRepPassword(e.target.value)} autoComplete="new-password" />
+              <p className="text-xs text-amber-600 dark:text-amber-400">Share this password securely. The administrator should change it on first login.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReplaceUser(null)}>Cancel</Button>
+            <Button
+              onClick={() => replaceMutation.mutate({ username: repUsername.trim(), password: repPassword, email: repEmail.trim(), firstName: repFirstName.trim(), lastName: repLastName.trim() })}
+              disabled={!canReplace || replaceMutation.isPending}
+            >
+              {replaceMutation.isPending ? "Replacing…" : "Replace Administrator"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -798,6 +1107,7 @@ function SiteFormDialog({
   const { toast } = useToast();
   const isEdit = !!site;
 
+  // Site fields
   const [name, setName]           = useState(site?.name ?? "");
   const [reference, setReference] = useState(site?.reference ?? "");
   const [address, setAddress]     = useState(site?.address ?? "");
@@ -806,8 +1116,29 @@ function SiteFormDialog({
   const [areaId, setAreaId]       = useState(site?.areaId ?? "none");
   const [status, setStatus]       = useState<string>(site?.status ?? "active");
 
-  // Shown once after creation when independent management style auto-provisioned a site admin
-  const [provisionedCreds, setProvisionedCreds] = useState<{ username: string; tempPassword: string } | null>(null);
+  // Admin fields (create-only)
+  const [adminFirstName, setAdminFirstName] = useState("");
+  const [adminLastName,  setAdminLastName]  = useState("");
+  const [adminUsername,  setAdminUsername]  = useState("");
+  const [adminEmail,     setAdminEmail]     = useState("");
+  const [adminPassword,  setAdminPassword]  = useState("");
+
+  const usernameRegex = /^[A-Za-z0-9_-]{3,}$/;
+  const emailRegex    = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const adminValid =
+    !!adminFirstName.trim() &&
+    !!adminLastName.trim() &&
+    usernameRegex.test(adminUsername.trim()) &&
+    emailRegex.test(adminEmail.trim()) &&
+    adminPassword.length >= 8;
+
+  const canSubmit = !!name.trim() && (isEdit || adminValid);
+
+  function resetAdmin() {
+    setAdminFirstName(""); setAdminLastName(""); setAdminUsername("");
+    setAdminEmail(""); setAdminPassword("");
+  }
 
   const mutation = useMutation({
     mutationFn: async (body: Record<string, any>) => {
@@ -817,41 +1148,79 @@ function SiteFormDialog({
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to save site"); }
       return res.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/enterprise/sites"] });
+
+      if (!isEdit) {
+        // Step 2: create the site administrator
+        try {
+          const userRes = await apiRequest("POST", "/api/enterprise/users", {
+            username:          adminUsername.trim(),
+            password:          adminPassword,
+            email:             adminEmail.trim(),
+            firstName:         adminFirstName.trim(),
+            lastName:          adminLastName.trim(),
+            role:              "site_coordinator",
+            siteId:            data.id,
+            canManageSiteUsers: true,
+          });
+          if (!userRes.ok) {
+            const err = await userRes.json().catch(() => ({}));
+            if (userRes.status === 409) {
+              toast({
+                title: "Site created",
+                description: `Site created, but the username "${adminUsername.trim()}" is already taken. Open the site and add the administrator manually.`,
+                variant: "destructive",
+              });
+              onSaved();
+              onOpenChange(false);
+              resetAdmin();
+              return;
+            }
+            throw new Error(err.error || "Failed to create administrator");
+          }
+          const fullName = `${adminFirstName.trim()} ${adminLastName.trim()}`.trim();
+          toast({ title: "Site created", description: `Site created and ${fullName} set up as site administrator.` });
+        } catch (adminErr: any) {
+          toast({
+            title: "Site created",
+            description: `Site saved, but administrator setup failed: ${adminErr.message}. Open the site to add one manually.`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({ title: "Site updated" });
+      }
+
       onSaved();
       onOpenChange(false);
-      if (data?.siteAdminCredentials) {
-        // Show a credentials reveal dialog instead of closing silently
-        setProvisionedCreds(data.siteAdminCredentials);
-      } else {
-        toast({ title: isEdit ? "Site updated" : "Site created" });
-      }
+      resetAdmin();
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canSubmit) return;
     mutation.mutate({
-      name: name.trim(),
+      name:      name.trim(),
       reference: reference.trim() || null,
-      address:   address.trim() || null,
-      postcode:  postcode.trim() || null,
-      region:    region.trim() || null,
+      address:   address.trim()   || null,
+      postcode:  postcode.trim()  || null,
+      region:    region.trim()    || null,
       areaId:    areaId === "none" ? null : areaId,
       status,
     });
   };
 
   return (
-    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Site" : "Add New Site"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* ── Site details ─────────────────────────────── */}
           <div className="space-y-1.5">
             <Label htmlFor="site-name">Site Name *</Label>
             <Input id="site-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. London HQ" required />
@@ -900,60 +1269,51 @@ function SiteFormDialog({
               </Select>
             </div>
           )}
+
+          {/* ── Site Administrator (create-only) ─────────── */}
+          {!isEdit && (
+            <div className="border-t border-border/60 pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <UserPlus size={14} className="text-blue-600" />
+                <span className="text-sm font-semibold">Site Administrator</span>
+                <span className="text-xs text-muted-foreground">(required)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="admin-first">First Name *</Label>
+                  <Input id="admin-first" value={adminFirstName} onChange={(e) => setAdminFirstName(e.target.value)} placeholder="Jane" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="admin-last">Last Name *</Label>
+                  <Input id="admin-last" value={adminLastName} onChange={(e) => setAdminLastName(e.target.value)} placeholder="Smith" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-username">Username *</Label>
+                <Input id="admin-username" value={adminUsername} onChange={(e) => setAdminUsername(e.target.value)} placeholder="jane.smith" />
+                <p className="text-xs text-muted-foreground">Letters, numbers, underscores, and hyphens only. Min 3 characters.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-email">Email *</Label>
+                <Input id="admin-email" type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="jane@example.com" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-password">Password * (min 8 characters)</Label>
+                <Input id="admin-password" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} autoComplete="new-password" />
+                <p className="text-xs text-amber-600 dark:text-amber-400">Share this password securely. The administrator should change it on first login.</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={mutation.isPending || !name.trim()}>
+            <Button type="submit" disabled={mutation.isPending || !canSubmit}>
               {mutation.isPending ? "Saving…" : isEdit ? "Save Changes" : "Create Site"}
             </Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
-
-    {/* Credentials reveal — shown once when independent management style auto-provisions a site admin */}
-    <Dialog open={!!provisionedCreds} onOpenChange={(v) => !v && setProvisionedCreds(null)}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus size={16} className="text-emerald-600" />
-            Site admin account created
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 text-sm">
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            Because this customer uses <strong>independent</strong> site management, a site-admin login has been auto-provisioned.
-            Share these one-time credentials with the site manager — they can change their password after first login.
-          </p>
-          <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">Username</span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-xs font-semibold">{provisionedCreds?.username}</span>
-                <button className="text-muted-foreground hover:text-foreground" onClick={() => navigator.clipboard.writeText(provisionedCreds?.username ?? '').then(() => toast({ title: "Username copied" }))}>
-                  <Copy size={12} />
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">Temporary password</span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-xs font-semibold tracking-wider">{provisionedCreds?.tempPassword}</span>
-                <button className="text-muted-foreground hover:text-foreground" onClick={() => navigator.clipboard.writeText(provisionedCreds?.tempPassword ?? '').then(() => toast({ title: "Password copied" }))}>
-                  <Copy size={12} />
-                </button>
-              </div>
-            </div>
-          </div>
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">
-            ⚠ This password is shown once only. Copy it now before closing.
-          </p>
-        </div>
-        <div className="flex justify-end pt-1">
-          <Button size="sm" onClick={() => setProvisionedCreds(null)}>Done</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  </>
   );
 }
 
