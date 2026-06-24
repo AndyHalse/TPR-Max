@@ -34,7 +34,25 @@ import {
   Check,
   User,
   Calendar,
+  MoreHorizontal,
+  Archive,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -637,6 +655,7 @@ export default function RAMSManagement({ companyId, embedded }: RAMSManagementPr
   const [selectedDoc, setSelectedDoc] = useState<RamsDoc | null>(null);
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
   const [newVersionDoc, setNewVersionDoc] = useState<RamsDoc | null>(null);
+  const [archiveConfirmDoc, setArchiveConfirmDoc] = useState<RamsDoc | null>(null);
 
   // Data queries — when embedded, filter by companyId on the server to avoid fetching all docs
   const { data: docs = [], isLoading } = useQuery<RamsDoc[]>({
@@ -844,6 +863,21 @@ export default function RAMSManagement({ companyId, embedded }: RAMSManagementPr
                       </Button>
                     </div>
                   )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600">
+                        <MoreHorizontal size={15} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                      <DropdownMenuItem
+                        className="text-amber-700 focus:text-amber-700 gap-2"
+                        onClick={() => setArchiveConfirmDoc(doc)}
+                      >
+                        <Archive size={14} /> Archive
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <ChevronRight size={16} className="text-slate-400" />
                 </div>
               </div>
@@ -929,6 +963,26 @@ export default function RAMSManagement({ companyId, embedded }: RAMSManagementPr
           onSuccess={() => { setReviewAction(null); setSelectedDoc(null); }}
         />
       )}
+
+      <AlertDialog open={!!archiveConfirmDoc} onOpenChange={open => { if (!open) setArchiveConfirmDoc(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive RAMS document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{archiveConfirmDoc?.documentName}</strong> ({archiveConfirmDoc?.ramsIdRef}) will be archived and removed from the Compliance Intelligence Dashboard. The record is preserved and can be reviewed in audit history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={() => { if (archiveConfirmDoc) deleteMutation.mutate(archiveConfirmDoc.id); setArchiveConfirmDoc(null); }}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
