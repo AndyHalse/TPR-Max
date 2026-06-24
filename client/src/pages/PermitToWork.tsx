@@ -44,6 +44,7 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default'|'seconda
   completed:  { label: 'Completed',    variant: 'secondary',    color: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300' },
   expired:    { label: 'Expired',      variant: 'destructive',  color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
   cancelled:  { label: 'Cancelled',    variant: 'secondary',    color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+  archived:   { label: 'Archived',     variant: 'secondary',    color: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' },
 };
 
 function overdueElapsed(validUntil: string): string {
