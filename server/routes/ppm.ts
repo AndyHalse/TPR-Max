@@ -10,7 +10,7 @@ import { EmailService } from '../emailService';
 import { ObjectStorageService, objectStorageClient } from '../objectStorage';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, and, sql, desc, or, not, ne, isNotNull, gt, gte, lt, lte, inArray, count, like } from 'drizzle-orm';
+import { eq, and, sql, desc, or, not, ne, isNotNull, isNull, gt, gte, lt, lte, inArray, count, like } from 'drizzle-orm';
 import { ppmTokenCacheGet, ppmTokenCacheSet, ppmTokenCacheEvict, ppmPublicRateLimit } from '../routeState';
 import { getCompanyComplianceStatus, getWorkerClearanceStatus } from '../utils/contractorCompliance';
 import { evaluateSiteBackground } from '../complianceEngine';
@@ -1876,50 +1876,41 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     }
     logger.info(`✅ [PPM Demo] Contractor companies seeded: ${contractorsSeeded} new, ${DEMO_CONTRACTORS.length - contractorsSeeded} already existed`);
 
-    // ── STEP 1: Wipe existing demo data for this site scope (backwards-compat) ─
-    // Matches both new rows (is_demo=true) AND legacy rows loaded before the
-    // is_demo column existed (identified by known asset refs / group names).
-    // Real PPM data is never touched. FK-safe order: Docs → WOs → Schedules → Assets → Groups
-    // Templates are customer-level (no is_demo flag) — seeded idempotently in STEP 4.
-    const _demoAssetIds = (await custDb
-      .select({ id: isolatedSchema.ppmAssets.id })
-      .from(isolatedSchema.ppmAssets)
-      .where(and(
-        or(eq(isolatedSchema.ppmAssets.isDemo, true), inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS)),
-        scopedWhere(siteContext, isolatedSchema.ppmAssets),
-      ))
-    ).map(r => r.id);
-    const _woCondition = _demoAssetIds.length > 0
-      ? or(eq(isolatedSchema.ppmWorkOrders.isDemo, true), inArray(isolatedSchema.ppmWorkOrders.assetId, _demoAssetIds))
-      : eq(isolatedSchema.ppmWorkOrders.isDemo, true);
-    const _demoWoIds = (await custDb
-      .select({ id: isolatedSchema.ppmWorkOrders.id })
-      .from(isolatedSchema.ppmWorkOrders)
-      .where(and(_woCondition, scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
-    ).map(r => r.id);
-    if (_demoWoIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
-        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, _demoWoIds));
+    // ── STEP 1: Wipe any pre-existing demo data (nuclear — assetRef / name based) ─
+    // Identifies demo rows ONLY by the hardcoded asset refs and group names so it
+    // catches rows loaded before the is_demo column existed (those have is_demo=false
+    // / NULL) AND rows with siteId=NULL from before site-scoping was added.
+    // FK-safe order: WO docs → WOs → Schedules → Assets → Groups
+    // Templates are customer-level — seeded idempotently in STEP 4 (left untouched here).
+    {
+      const _demoAssetRows = await custDb
+        .select({ id: isolatedSchema.ppmAssets.id })
+        .from(isolatedSchema.ppmAssets)
+        .where(inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS));
+      const _demoAssetIds = _demoAssetRows.map(r => r.id);
+
+      if (_demoAssetIds.length > 0) {
+        const _demoWoRows = await custDb
+          .select({ id: isolatedSchema.ppmWorkOrders.id })
+          .from(isolatedSchema.ppmWorkOrders)
+          .where(inArray(isolatedSchema.ppmWorkOrders.assetId, _demoAssetIds));
+        const _demoWoIds = _demoWoRows.map(r => r.id);
+
+        if (_demoWoIds.length > 0) {
+          await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
+            .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, _demoWoIds));
+        }
+        await custDb.delete(isolatedSchema.ppmWorkOrders)
+          .where(inArray(isolatedSchema.ppmWorkOrders.assetId, _demoAssetIds));
+        await custDb.delete(isolatedSchema.ppmSchedules)
+          .where(inArray(isolatedSchema.ppmSchedules.assetId, _demoAssetIds));
+        await custDb.delete(isolatedSchema.ppmAssets)
+          .where(inArray(isolatedSchema.ppmAssets.id, _demoAssetIds));
+      }
+
+      await custDb.delete(isolatedSchema.ppmAssetGroups)
+        .where(inArray(isolatedSchema.ppmAssetGroups.name, DEMO_GROUP_NAMES));
     }
-    await custDb.delete(isolatedSchema.ppmWorkOrders)
-      .where(and(_woCondition, scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
-    const _schedCondition = _demoAssetIds.length > 0
-      ? or(eq(isolatedSchema.ppmSchedules.isDemo, true), inArray(isolatedSchema.ppmSchedules.assetId, _demoAssetIds))
-      : eq(isolatedSchema.ppmSchedules.isDemo, true);
-    await custDb.delete(isolatedSchema.ppmSchedules)
-      .where(and(_schedCondition, scopedWhere(siteContext, isolatedSchema.ppmSchedules)));
-    if (_demoAssetIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmAssets)
-        .where(and(
-          or(eq(isolatedSchema.ppmAssets.isDemo, true), inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS)),
-          scopedWhere(siteContext, isolatedSchema.ppmAssets),
-        ));
-    }
-    await custDb.delete(isolatedSchema.ppmAssetGroups)
-      .where(and(
-        or(eq(isolatedSchema.ppmAssetGroups.isDemo, true), inArray(isolatedSchema.ppmAssetGroups.name, DEMO_GROUP_NAMES)),
-        scopedWhere(siteContext, isolatedSchema.ppmAssetGroups),
-      ));
 
     // ── STEP 2: Asset groups — one per maintenance category ─────────────────
     const DEMO_GROUPS = [
@@ -2302,70 +2293,63 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 });
 
 // ── PPM Demo Data — Delete ────────────────────────────────────────────────────
-// DELETE /api/ppm/demo-data — removes demo PPM data within the caller's site scope.
-// Catches BOTH new rows (is_demo=true) AND legacy rows loaded before the is_demo
-// column existed (matched by known asset refs / group names). Real data is never touched.
+// DELETE /api/ppm/demo-data
+// Nuclear clear: identifies demo rows ONLY by the known hardcoded asset refs and
+// group names — no dependency on the is_demo flag (may be false for legacy rows
+// loaded before the column existed) and no siteId scoping (siteId may be NULL on
+// old rows).  Real assets all have customer-specific refs that never appear in
+// DEMO_ASSET_REFS, so real data is never touched.
 app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
-    const { db: custDb, siteContext } = await getScopedDb(req);
-    await ensurePpmColumns(custDb, req.customerId!);
+    const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
 
-    // 1. Identify demo asset IDs: is_demo=true OR known seeded assetRef, within site scope
-    const demoAssetIds = (await custDb
+    // ── STEP 1: resolve demo asset IDs by assetRef (no is_demo / siteId filter)
+    const demoAssetRows = await custDb
       .select({ id: isolatedSchema.ppmAssets.id })
       .from(isolatedSchema.ppmAssets)
-      .where(and(
-        or(eq(isolatedSchema.ppmAssets.isDemo, true), inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS)),
-        scopedWhere(siteContext, isolatedSchema.ppmAssets),
-      ))
-    ).map(r => r.id);
+      .where(inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS));
+    const demoAssetIds = demoAssetRows.map(r => r.id);
 
-    // 2. Identify demo work-order IDs (is_demo=true OR linked to a demo asset), for FK delete
-    const woCondition = demoAssetIds.length > 0
-      ? or(eq(isolatedSchema.ppmWorkOrders.isDemo, true), inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds))
-      : eq(isolatedSchema.ppmWorkOrders.isDemo, true);
-    const demoWoIds = (await custDb
-      .select({ id: isolatedSchema.ppmWorkOrders.id })
-      .from(isolatedSchema.ppmWorkOrders)
-      .where(and(woCondition, scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
-    ).map(r => r.id);
+    // ── STEP 2: resolve demo work-order IDs for FK cleanup
+    let demoWoIds: string[] = [];
+    if (demoAssetIds.length > 0) {
+      const woRows = await custDb
+        .select({ id: isolatedSchema.ppmWorkOrders.id })
+        .from(isolatedSchema.ppmWorkOrders)
+        .where(inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds));
+      demoWoIds = woRows.map(r => r.id);
+    }
 
-    // 3. Delete work-order documents first (FK constraint)
+    // ── STEP 3: delete work-order documents (FK — must go first)
     if (demoWoIds.length > 0) {
       await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
         .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, demoWoIds));
     }
 
-    // 4. Delete work orders
-    await custDb.delete(isolatedSchema.ppmWorkOrders)
-      .where(and(woCondition, scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
-
-    // 5. Delete schedules (is_demo=true OR linked to a demo asset)
-    const schedCondition = demoAssetIds.length > 0
-      ? or(eq(isolatedSchema.ppmSchedules.isDemo, true), inArray(isolatedSchema.ppmSchedules.assetId, demoAssetIds))
-      : eq(isolatedSchema.ppmSchedules.isDemo, true);
-    await custDb.delete(isolatedSchema.ppmSchedules)
-      .where(and(schedCondition, scopedWhere(siteContext, isolatedSchema.ppmSchedules)));
-
-    // 6. Delete assets (is_demo=true OR known assetRef)
+    // ── STEP 4: delete work orders
     if (demoAssetIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmAssets)
-        .where(and(
-          or(eq(isolatedSchema.ppmAssets.isDemo, true), inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS)),
-          scopedWhere(siteContext, isolatedSchema.ppmAssets),
-        ));
+      await custDb.delete(isolatedSchema.ppmWorkOrders)
+        .where(inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds));
     }
 
-    // 7. Delete asset groups (is_demo=true OR known group name)
-    await custDb.delete(isolatedSchema.ppmAssetGroups)
-      .where(and(
-        or(eq(isolatedSchema.ppmAssetGroups.isDemo, true), inArray(isolatedSchema.ppmAssetGroups.name, DEMO_GROUP_NAMES)),
-        scopedWhere(siteContext, isolatedSchema.ppmAssetGroups),
-      ));
+    // ── STEP 5: delete schedules
+    if (demoAssetIds.length > 0) {
+      await custDb.delete(isolatedSchema.ppmSchedules)
+        .where(inArray(isolatedSchema.ppmSchedules.assetId, demoAssetIds));
+    }
 
-    // 8. Remove the 7 known demo contractor companies (and their workers) by name.
-    //    Templates are customer-level (no isDemo flag) — left intact.
+    // ── STEP 6: delete assets
+    if (demoAssetIds.length > 0) {
+      await custDb.delete(isolatedSchema.ppmAssets)
+        .where(inArray(isolatedSchema.ppmAssets.id, demoAssetIds));
+    }
+
+    // ── STEP 7: delete asset groups by known name
+    await custDb.delete(isolatedSchema.ppmAssetGroups)
+      .where(inArray(isolatedSchema.ppmAssetGroups.name, DEMO_GROUP_NAMES));
+
+    // ── STEP 8: delete demo contractor companies (and their workers) by known name
     let companiesDeleted = 0;
     for (const name of DEMO_COMPANY_NAMES_LIST) {
       const [existing] = await custDb
@@ -2382,17 +2366,20 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    logger.info(`✅ [PPM Demo] Demo data cleared. Assets: ${demoAssetIds.length}, WOs: ${demoWoIds.length}, companies: ${companiesDeleted}`);
-    await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, { companiesDeleted });
+    logger.info(`✅ [PPM Demo] Delete complete — assets: ${demoAssetIds.length}, WOs: ${demoWoIds.length}, companies: ${companiesDeleted}`);
+    await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, {
+      assetsDeleted: demoAssetIds.length,
+      workOrdersDeleted: demoWoIds.length,
+      companiesDeleted,
+    });
     res.json({
       success: true,
       assetsDeleted: demoAssetIds.length,
       workOrdersDeleted: demoWoIds.length,
       companiesDeleted,
-      message: `Demo data cleared. ${demoAssetIds.length} assets, ${demoWoIds.length} work orders removed.${companiesDeleted > 0 ? ` ${companiesDeleted} demo contractor companies deleted.` : ""} Real PPM data is untouched.`,
+      message: `Demo data cleared — ${demoAssetIds.length} assets, ${demoWoIds.length} work orders, ${companiesDeleted} contractor companies removed. Real PPM data untouched.`,
     });
   } catch (error: unknown) {
-    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/ppm/demo-data", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to delete demo data" });
   }
