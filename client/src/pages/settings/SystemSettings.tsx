@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FileEdit, Flame, FlaskConical, HardHat, Lock, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FileEdit, Flame, FlaskConical, HardHat, Lock, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2, Sparkles } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -150,15 +150,15 @@ export default function SystemSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/import/sample-data-status"] });
-      toast({ title: "Sample Data Loaded!", description: data.message });
+      toast({ title: "Demo Data Loaded!", description: data.message });
     },
-    onError: (error: any) => { toast({ title: "Failed to Load Sample Data", description: error.message || "An error occurred", variant: "destructive" }); },
+    onError: (error: any) => { toast({ title: "Failed to Load Demo Data", description: error.message || "An error occurred", variant: "destructive" }); },
   });
 
   const clearSampleDataMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('POST', '/api/import/clear-sample-data', {});
-      if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to clear sample data'); }
+      if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to delete demo data'); }
       return response.json();
     },
     onSuccess: (data) => {
@@ -174,9 +174,9 @@ export default function SystemSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/hr"] });
       queryClient.invalidateQueries({ queryKey: ["/api/import/sample-data-status"] });
-      toast({ title: "Sample Data Cleared!", description: data.message });
+      toast({ title: "Demo Data Deleted!", description: data.message });
     },
-    onError: (error: any) => { toast({ title: "Failed to Clear Sample Data", description: error.message || "An error occurred", variant: "destructive" }); },
+    onError: (error: any) => { toast({ title: "Failed to Delete Demo Data", description: error.message || "An error occurred", variant: "destructive" }); },
   });
 
   const handleBackupDatabase = () => backupMutation.mutate();
@@ -737,12 +737,12 @@ export default function SystemSettings() {
               disabled={sampleDataMutation.isPending || sampleDataExists}
               data-testid="button-load-sample-data"
             >
-              <FlaskConical className="w-4 h-4 mr-2" />
-              {sampleDataMutation.isPending ? "Loading..." : sampleDataExists ? "Sample Data Loaded" : "Load Sample Data"}
+              <Sparkles className="w-4 h-4 mr-2" />
+              {sampleDataMutation.isPending ? "Loading…" : sampleDataExists ? "Demo Data Loaded" : "Load Demo Data"}
             </Button>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
-            <p>{sampleDataExists ? "Sample data is already loaded. Use \"Remove Sample Data\" to clear it first before loading again." : "Loads demo data for presentations and testing — adds 10 staff, 10 visitors, 5 contractor companies (with 3–5 workers each), and 10 members, plus full HR records. Remove it afterwards using \"Remove Sample Data\"."}</p>
+            <p>{sampleDataExists ? "Demo data is already loaded. Use \"Delete Demo Data\" to clear it first before loading again." : "Loads demo data for presentations and testing — adds 10 staff, 10 visitors, 5 contractor companies (with 3–5 workers each), and 10 members, plus full HR records. Remove it afterwards using \"Delete Demo Data\"."}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -758,11 +758,11 @@ export default function SystemSettings() {
               data-testid="button-clear-sample-data"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              {clearSampleDataMutation.isPending ? "Clearing..." : "Remove Sample Data"}
+              {clearSampleDataMutation.isPending ? "Deleting…" : "Delete Demo Data"}
             </Button>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
-            <p>Removes all demo records loaded by "Load Sample Data" — staff, visitors, contractors, members, and all linked HR records. Only removes records with @example.com email addresses.</p>
+            <p>Removes all demo records loaded by "Load Demo Data" — staff, visitors, contractors, members, and all linked HR records. Only removes records with @acsltd.eu email addresses.</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -1300,13 +1300,13 @@ export default function SystemSettings() {
 </TooltipProvider>
 
 
-      {/* Clear Sample Data Confirm Dialog */}
+      {/* Delete Demo Data Confirm Dialog */}
       <AlertDialog open={showClearSampleDataDialog} onOpenChange={setShowClearSampleDataDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove All Sample Data?</AlertDialogTitle>
+            <AlertDialogTitle>Delete All Demo Data?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete all records loaded by "Load Sample Data" — including all staff, visitors, contractors, members, and their linked HR records (RTW, DBS, leave, absences, training, appraisals, documents, onboarding and leaver records). Only records with @example.com email addresses will be removed. This cannot be undone.
+              This will permanently delete all records loaded by "Load Demo Data" — including all staff, visitors, contractors, members, and their linked HR records (RTW, DBS, leave, absences, training, appraisals, documents, onboarding and leaver records). Only records with @acsltd.eu email addresses will be removed. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1315,7 +1315,7 @@ export default function SystemSettings() {
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => { setShowClearSampleDataDialog(false); clearSampleDataMutation.mutate(); }}
             >
-              Yes, Remove All Sample Data
+              Yes, Delete All Demo Data
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

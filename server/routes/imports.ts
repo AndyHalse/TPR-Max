@@ -582,7 +582,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     );
     if ((existingCheck.rows[0].total as number) > 0) {
       return res.status(409).json({
-        error: 'Sample data already loaded. Use "Remove Sample Data" first before loading again.',
+        error: 'Demo data already loaded. Use "Delete Demo Data" first before loading again.',
         existingCount: existingCheck.rows[0].total,
       });
     }
