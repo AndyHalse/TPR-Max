@@ -269,8 +269,38 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       for (const r of rams) {
         const companyName = companiesMap.get(r.companyId)?.company_name;
         const ramsDays = daysUntil(r.expiryDate);
+        const link = r.companyId ? `/contractors/${r.companyId}?tab=compliance` : '/contractors';
 
-        if (r.status === 'expired' || (ramsDays !== null && ramsDays < 0)) {
+        // ── rejected: always a critical issue ─────────────────────────────────
+        if (r.status === 'rejected') {
+          ramsExpired++;
+          criticalIssues.push({
+            id: `rams-rejected-${r.id}`, category: 'RAMS Documents', severity: 'critical',
+            title: 'RAMS document rejected',
+            detail: `${r.documentName} (${r.ramsIdRef}) — rejected, resubmission required`,
+            linkPath: link,
+          });
+          if (companyName && r.companyId) {
+            ensureContractorRisk(r.companyId, companyName);
+            contractorRiskMap[r.companyId].issues.push(`RAMS rejected: ${r.documentName}`);
+            contractorRiskMap[r.companyId].issueCount++;
+          }
+        // ── pending_review: warning — awaiting approval ────────────────────────
+        } else if (r.status === 'pending_review') {
+          ramsExpiring++;
+          warnings.push({
+            id: `rams-pending-${r.id}`, category: 'RAMS Documents', severity: 'warning',
+            title: 'RAMS document awaiting approval',
+            detail: `${r.documentName} (${r.ramsIdRef}) — pending review`,
+            linkPath: link,
+          });
+          if (companyName && r.companyId) {
+            ensureContractorRisk(r.companyId, companyName);
+            contractorRiskMap[r.companyId].issues.push(`RAMS pending: ${r.documentName}`);
+            contractorRiskMap[r.companyId].issueCount++;
+          }
+        // ── approved but expired ───────────────────────────────────────────────
+        } else if (r.status === 'expired' || (ramsDays !== null && ramsDays < 0)) {
           ramsExpired++;
           criticalIssues.push({
             id: `rams-expired-${r.id}`, category: 'RAMS Documents', severity: 'critical',
@@ -279,13 +309,14 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               ? `${r.documentName} (${r.ramsIdRef}) — expired ${Math.abs(ramsDays)} days ago`
               : `${r.documentName} (${r.ramsIdRef})`,
             daysOverdue: ramsDays !== null && ramsDays < 0 ? Math.abs(ramsDays) : undefined,
-            linkPath: r.companyId ? `/contractors/${r.companyId}?tab=compliance` : '/contractors',
+            linkPath: link,
           });
           if (companyName && r.companyId) {
             ensureContractorRisk(r.companyId, companyName);
             contractorRiskMap[r.companyId].issues.push(`RAMS expired: ${r.documentName}`);
             contractorRiskMap[r.companyId].issueCount++;
           }
+        // ── approved but expiring within 30 days ──────────────────────────────
         } else if (r.status === 'expiring' || (ramsDays !== null && ramsDays <= 30)) {
           ramsExpiring++;
           warnings.push({
@@ -294,7 +325,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             detail: ramsDays !== null
               ? `${r.documentName} (${r.ramsIdRef}) — expires in ${ramsDays} days`
               : `${r.documentName} (${r.ramsIdRef})`,
-            linkPath: r.companyId ? `/contractors/${r.companyId}?tab=compliance` : '/contractors',
+            linkPath: link,
           });
           if (companyName && r.companyId) {
             ensureContractorRisk(r.companyId, companyName);
@@ -302,6 +333,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             contractorRiskMap[r.companyId].issueCount++;
           }
           addTimeline(r.expiryDate, 'RAMS', r.documentName);
+        // ── approved and valid ─────────────────────────────────────────────────
         } else {
           ramsValid++;
           addTimeline(r.expiryDate, 'RAMS', r.documentName);
