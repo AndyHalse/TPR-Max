@@ -340,10 +340,12 @@ export function registerComplianceDashboardRoutes(app: Express): void {
            WHERE is_active = TRUE${indSite}`,
           indSiteP
         );
-        const activeWorkers = workersResult.rows.filter((w: any) => activeWorkerIds.has(w.id));
-        indTotal = activeWorkers.length;
+        // Inductions are tracked for ALL active workers — not just those who
+        // have visited recently. A worker enrolled with an active company must
+        // have their induction status tracked regardless of visit history.
+        indTotal = workersResult.rows.length;
 
-        for (const w of activeWorkers) {
+        for (const w of workersResult.rows) {
           const workerName = `${w.first_name} ${w.last_name}`;
           const companyName = companiesMap.get(w.company_id)?.company_name ?? '';
           const expiryDays = daysUntil(w.site_induction_expiry_date);
