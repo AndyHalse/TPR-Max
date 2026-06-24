@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature, requireHrAdmin, recordHrAudit } from './hrMiddleware';
+import { recordHrAudit } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -12,10 +12,17 @@ async function getDbsPool(customerId: string) {
   return { pool, schemaName };
 }
 
+function requireAdminRole(req: any, res: any, next: any) {
+  if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+    return res.status(403).json({ error: 'This area is restricted to administrators.' });
+  }
+  next();
+}
+
 export function registerHrDbsRoutes(app: Express): void {
 
-  // GET /api/staff/:staffId/dbs
-  app.get('/api/staff/:staffId/dbs', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/staff/:staffId/dbs — available to all authenticated users (no HR feature gate)
+  app.get('/api/staff/:staffId/dbs', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const result = await pool.query(
@@ -38,8 +45,8 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // POST /api/staff/:staffId/dbs — HR admin only
-  app.post('/api/staff/:staffId/dbs', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
+  // POST /api/staff/:staffId/dbs — admin/hr_admin only (no HR feature gate)
+  app.post('/api/staff/:staffId/dbs', requireAuth, requireAdminRole, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const { staffId } = req.params;
@@ -84,11 +91,13 @@ export function registerHrDbsRoutes(app: Express): void {
       );
 
       const row = result.rows[0];
-      await recordHrAudit(pool, schemaName, {
-        entityType: 'dbs', entityId: row.id, staffId,
-        action: 'create', actor: req.user?.username || 'unknown',
-        details: { dbsLevel, verifiedBy, verifiedDate, policyExpiryDate },
-      });
+      try {
+        await recordHrAudit(pool, schemaName, {
+          entityType: 'dbs', entityId: row.id, staffId,
+          action: 'create', actor: req.user?.username || 'unknown',
+          details: { dbsLevel, verifiedBy, verifiedDate, policyExpiryDate },
+        });
+      } catch (_) { /* hr_audit_log may not exist if HR module not active */ }
 
       res.status(201).json(row);
     } catch (err: any) {
@@ -97,8 +106,43 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // PUT /api/dbs/:id — HR admin only
-  app.put('/api/dbs/:id', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
+  // GET /api/staff/:staffId/dbs-required — fetch the DBS required flag
+  app.get('/api/staff/:staffId/dbs-required', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getDbsPool(req.customerId!);
+      const result = await pool.query(
+        `SELECT dbs_required FROM "${schemaName}".staff WHERE id = $1`,
+        [req.params.staffId]
+      );
+      if (result.rows.length === 0) return res.status(404).json({ error: 'Staff not found' });
+      res.json({ dbsRequired: result.rows[0].dbs_required ?? false });
+    } catch (err: any) {
+      logger.error('DBS required fetch error:', err);
+      res.status(500).json({ error: 'Failed to fetch DBS required flag' });
+    }
+  });
+
+  // PATCH /api/staff/:staffId/dbs-required — toggle DBS required flag (admin only)
+  app.patch('/api/staff/:staffId/dbs-required', requireAuth, requireAdminRole, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getDbsPool(req.customerId!);
+      const { dbsRequired } = req.body;
+      if (typeof dbsRequired !== 'boolean') {
+        return res.status(400).json({ error: 'dbsRequired must be a boolean' });
+      }
+      await pool.query(
+        `UPDATE "${schemaName}".staff SET dbs_required = $1 WHERE id = $2`,
+        [dbsRequired, req.params.staffId]
+      );
+      res.json({ success: true, dbsRequired });
+    } catch (err: any) {
+      logger.error('DBS required toggle error:', err);
+      res.status(500).json({ error: 'Failed to update DBS required flag' });
+    }
+  });
+
+  // PUT /api/dbs/:id — update record (admin/hr_admin only, no HR feature gate)
+  app.put('/api/dbs/:id', requireAuth, requireAdminRole, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const {
@@ -134,11 +178,13 @@ export function registerHrDbsRoutes(app: Express): void {
 
       if (result.rows.length === 0) return res.status(404).json({ error: 'Record not found' });
 
-      await recordHrAudit(pool, schemaName, {
-        entityType: 'dbs', entityId: req.params.id,
-        action: 'update', actor: req.user?.username || 'unknown',
-        details: { dbsLevel, policyExpiryDate },
-      });
+      try {
+        await recordHrAudit(pool, schemaName, {
+          entityType: 'dbs', entityId: req.params.id,
+          action: 'update', actor: req.user?.username || 'unknown',
+          details: { dbsLevel, policyExpiryDate },
+        });
+      } catch (_) { /* ok */ }
 
       res.json(result.rows[0]);
     } catch (err: any) {
@@ -147,8 +193,8 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // DELETE /api/dbs/:id — soft delete (HR admin only)
-  app.delete('/api/dbs/:id', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
+  // DELETE /api/dbs/:id — soft delete (admin/hr_admin only, no HR feature gate)
+  app.delete('/api/dbs/:id', requireAuth, requireAdminRole, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const actor = req.user?.username || 'unknown';
@@ -156,10 +202,12 @@ export function registerHrDbsRoutes(app: Express): void {
         `UPDATE "${schemaName}".staff_dbs SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2 WHERE id = $1`,
         [req.params.id, actor]
       );
-      await recordHrAudit(pool, schemaName, {
-        entityType: 'dbs', entityId: req.params.id,
-        action: 'delete', actor,
-      });
+      try {
+        await recordHrAudit(pool, schemaName, {
+          entityType: 'dbs', entityId: req.params.id,
+          action: 'delete', actor,
+        });
+      } catch (_) { /* ok */ }
       res.json({ success: true });
     } catch (err: any) {
       logger.error('DBS delete error:', err);
@@ -168,7 +216,7 @@ export function registerHrDbsRoutes(app: Express): void {
   });
 
   // GET /api/dbs/expiry-alerts — all staff with expired/expiring DBS within 90 days
-  app.get('/api/dbs/expiry-alerts', requireAuth, requireHrFeature, async (req, res) => {
+  app.get('/api/dbs/expiry-alerts', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const result = await pool.query(

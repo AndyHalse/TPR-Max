@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { Plus, XCircle, Loader2, ShieldCheck, AlertTriangle, ShieldAlert, Upload, FileText } from "lucide-react";
+import { apiRequest, objectUrl } from "@/lib/queryClient";
+import { Plus, XCircle, Loader2, ShieldCheck, AlertTriangle, ShieldAlert, Upload, FileText, ExternalLink } from "lucide-react";
 
 const DBS_LEVELS: Record<string, string> = {
   basic: "Basic DBS Check",
@@ -57,7 +58,8 @@ function FileUploadField({ value, fileName, onUploaded, onClear }: {
         try {
           const base64 = (reader.result as string).split(',')[1];
           const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type }) as any;
-          onUploaded(res.objectPath, file.name);
+          const json = await res.json();
+          onUploaded(json.objectPath, file.name);
         } catch {
           toast({ title: "Upload failed", variant: "destructive" });
         } finally {
@@ -75,7 +77,15 @@ function FileUploadField({ value, fileName, onUploaded, onClear }: {
     return (
       <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
         <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate flex-1">{fileName || "View file"}</a>
+        <span className="text-sm text-blue-600 truncate flex-1">{fileName || "Certificate document"}</span>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-blue-500 hover:text-blue-700 h-6 px-2 text-xs flex-shrink-0"
+          onClick={() => window.open(objectUrl(value), '_blank')}
+        >
+          <ExternalLink className="h-3 w-3 mr-1" />View
+        </Button>
         <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-600 h-6 px-2 text-xs flex-shrink-0" onClick={onClear}>Remove</Button>
       </div>
     );
@@ -120,8 +130,30 @@ export default function StaffDbsTab({ staffId }: { staffId: string }) {
     }),
   });
 
+  const { data: dbsRequiredData } = useQuery<{ dbsRequired: boolean }>({
+    queryKey: ["/api/staff", staffId, "dbs-required"],
+    queryFn: () => fetch(`/api/staff/${staffId}/dbs-required`, { credentials: "include" }).then(r => {
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    }),
+  });
+
+  const dbsRequired = dbsRequiredData?.dbsRequired ?? false;
+
+  const toggleRequired = useMutation({
+    mutationFn: (val: boolean) => apiRequest("PATCH", `/api/staff/${staffId}/dbs-required`, { dbsRequired: val }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/staff", staffId, "dbs-required"] });
+      qc.invalidateQueries({ queryKey: ["/api/staff"] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update DBS requirement", variant: "destructive" }),
+  });
+
   const add = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", `/api/staff/${staffId}/dbs`, data),
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", `/api/staff/${staffId}/dbs`, data);
+      return (res as Response).json();
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/staff", staffId, "dbs"] });
       setOpen(false);
@@ -147,8 +179,29 @@ export default function StaffDbsTab({ staffId }: { staffId: string }) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-gray-700">DBS Certificates &amp; Safeguarding</h3>
-        <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add DBS Record</Button>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Add DBS Record
+        </Button>
       </div>
+
+      {/* DBS Check Required toggle — mirrors contractor worker DBS tab */}
+      <Card className="border-gray-200 bg-gray-50">
+        <CardContent className="pt-3 pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-gray-800">DBS Check Required</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Enable to require a valid DBS certificate for site clearance (schools, care, NHS)
+              </p>
+            </div>
+            <Switch
+              checked={dbsRequired}
+              onCheckedChange={val => toggleRequired.mutate(val)}
+              disabled={toggleRequired.isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {hasAlert && (
         <div className={`flex items-center gap-2 p-3 rounded-lg text-sm font-medium ${currentRecord.status === "expired" ? "bg-red-50 text-red-700 border border-red-200" : "bg-yellow-50 text-yellow-700 border border-yellow-200"}`}>
@@ -160,7 +213,9 @@ export default function StaffDbsTab({ staffId }: { staffId: string }) {
       )}
 
       {isLoading ? (
-        <div className="text-center py-4 text-gray-500 flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>
+        <div className="text-center py-4 text-gray-500 flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+        </div>
       ) : records.length === 0 ? (
         <div className="text-center py-8">
           <ShieldCheck className="h-10 w-10 mx-auto text-gray-300 mb-2" />
@@ -172,8 +227,8 @@ export default function StaffDbsTab({ staffId }: { staffId: string }) {
           {records.map((r: any) => (
             <Card key={r.id} className={r.is_current ? "border-blue-200" : "opacity-60"}>
               <CardContent className="pt-3 pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-0.5">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="space-y-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{DBS_LEVELS[r.dbs_level] || r.dbs_level}</span>
                       {r.is_current && <Badge className="bg-blue-100 text-blue-800 text-xs">Current</Badge>}
@@ -191,6 +246,16 @@ export default function StaffDbsTab({ staffId }: { staffId: string }) {
                       {r.policy_expiry_date && <> · Policy expiry {new Date(r.policy_expiry_date).toLocaleDateString("en-GB")}</>}
                     </div>
                     {r.notes && <div className="text-xs text-gray-400 italic mt-1">{r.notes}</div>}
+                    {r.document_url && (
+                      <button
+                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 mt-1"
+                        onClick={() => window.open(objectUrl(r.document_url), '_blank')}
+                      >
+                        <FileText className="h-3 w-3" />
+                        {r.document_name || "View certificate"}
+                        <ExternalLink className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                   <Button
                     size="sm"
