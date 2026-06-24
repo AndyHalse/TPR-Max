@@ -1,6 +1,7 @@
 import { HardHat, AlertTriangle, UserPlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GlassCard from "@/components/GlassCard";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
@@ -36,34 +37,48 @@ export default function ContractorManagement() {
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-24 sm:pb-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <HardHat className="h-8 w-8 text-orange-600" />
-          <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">{t('title')}</h1>
-          {st.headerF10OverdueCount > 0 && (
-            <span
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold cursor-pointer hover:bg-red-200 transition-colors"
-              title={t('f10OverdueTooltip', { count: st.headerF10OverdueCount })}
-              onClick={() => st.setActiveTab("cdm")}
-            >
-              <AlertTriangle className="h-3 w-3" />
-              {st.headerF10OverdueCount} {t('f10Overdue')}
-            </span>
-          )}
+      <TooltipProvider delayDuration={400}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <HardHat className="h-8 w-8 text-orange-600" />
+            <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">{t('title')}</h1>
+            {st.headerF10OverdueCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold cursor-pointer hover:bg-red-200 transition-colors"
+                    onClick={() => st.setActiveTab("cdm")}
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {st.headerF10OverdueCount} {t('f10Overdue')}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t('f10OverdueTooltip', { count: st.headerF10OverdueCount })} — click to go to CDM
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => st.setShowQRScanner(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                  <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
+                </svg>
+                <span className="hidden sm:inline">{t('common:scanQr')}</span>
+                <span className="sm:hidden">{t('scan')}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Scan a worker's or contractor's QR code to instantly check them in or out
+            </TooltipContent>
+          </Tooltip>
         </div>
-        <Button
-          onClick={() => st.setShowQRScanner(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-          title={t('common:scanQrFull')}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-            <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
-          </svg>
-          <span className="hidden sm:inline">{t('common:scanQr')}</span>
-          <span className="sm:hidden">{t('scan')}</span>
-        </Button>
-      </div>
+      </TooltipProvider>
 
       <ContractorTabNav activeTab={st.activeTab} setActiveTab={st.setActiveTab} headerF10OverdueCount={st.headerF10OverdueCount} settings={st.companySettings} />
 
