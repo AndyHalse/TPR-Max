@@ -22,7 +22,9 @@
     "prebooking": "Pre-reserva",
     "prebookMobile": "Reserva",
     "co2Reports": "Informes CO2",
-    "hsDocument": "Documento H&S"
+    "hsDocument": "Documento H&S",
+    "hsMobile": "H&S",
+    "rams": "RAMS"
   },
   "companies": {
     "title": "Empresas contratistas",

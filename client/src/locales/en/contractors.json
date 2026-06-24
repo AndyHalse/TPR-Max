@@ -22,7 +22,9 @@
     "prebooking": "Pre-booking",
     "prebookMobile": "Pre-book",
     "co2Reports": "CO2 Reports",
-    "hsDocument": "H&S Document"
+    "hsDocument": "H&S Document",
+    "hsMobile": "H&S",
+    "rams": "RAMS"
   },
   "companies": {
     "title": "Contractor Companies",
