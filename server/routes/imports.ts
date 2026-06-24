@@ -2548,18 +2548,43 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
       const pool = (customerDb2 as any).$client ?? (customerDb2 as any).session?.client;
 
-      // ── Step 1: Collect all sample entity IDs (@acsltd.eu marker) ─────────
-      // The sample data loader writes @acsltd.eu emails; the status check also
-      // queries @acsltd.eu — this must match or removal appears to do nothing.
-      const staffRes   = await pool.query(`SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@acsltd.eu'`);
-      const workerRes  = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE email LIKE '%@acsltd.eu'`);
-      const companyRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@acsltd.eu'`);
-      const visitorRes = await pool.query(`SELECT id FROM "${schemaName}".visitors WHERE email LIKE '%@acsltd.eu'`);
+      // ── Step 1: Collect all demo/test entity IDs ───────────────────────────
+      // Three email domains are used across different data sources:
+      //   @acsltd.eu     — current demo seeder (Load Demo Data button)
+      //   @test.example  — site-isolation vitest fixtures
+      //   @example.com   — site-isolation bash test script + older seeders
+      // All three are safe to wipe; none appear in real production datasets.
+      const EMAIL_FILTER = `email LIKE '%@acsltd.eu' OR email LIKE '%@test.example' OR email LIKE '%@example.com'`;
+      const CO_EMAIL_FILTER = `contact_email LIKE '%@acsltd.eu' OR contact_email LIKE '%@test.example' OR contact_email LIKE '%@example.com'`;
+      const staffRes   = await pool.query(`SELECT id FROM "${schemaName}".staff WHERE ${EMAIL_FILTER}`);
+      const workerRes  = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE ${EMAIL_FILTER}`);
+      // Also catch contractor companies by name pattern (test script uses IsoHTTPCo, IsoPassPrintCo,
+      // SITE-ISO-*, __IsoTest* as company names — their workers may have no email at all)
+      const companyRes = await pool.query(`
+        SELECT id FROM "${schemaName}".contractor_companies
+        WHERE ${CO_EMAIL_FILTER}
+           OR company_name LIKE 'IsoHTTPCo%'
+           OR company_name LIKE 'IsoPassPrintCo%'
+           OR company_name LIKE 'SITE-ISO-%'
+           OR company_name LIKE '__IsoTest%'
+      `);
+      const visitorRes = await pool.query(`SELECT id FROM "${schemaName}".visitors WHERE ${EMAIL_FILTER}`);
 
       const staffIds:   string[] = staffRes.rows.map((r: any) => r.id);
-      const workerIds:  string[] = workerRes.rows.map((r: any) => r.id);
       const companyIds: string[] = companyRes.rows.map((r: any) => r.id);
       const visitorIds: string[] = visitorRes.rows.map((r: any) => r.id);
+
+      // Also collect all workers that belong to expanded company set — SITE-ISO-* companies
+      // can have workers with no email at all so email filter alone misses them.
+      let workerIdSet = new Set<string>(workerRes.rows.map((r: any) => r.id));
+      if (companyIds.length > 0) {
+        const extraWorkers = await pool.query(
+          `SELECT id FROM "${schemaName}".contractor_workers WHERE company_id IN (${companyIds.map((_: any, i: number) => `$${i + 1}`).join(',')})`,
+          companyIds
+        );
+        for (const r of extraWorkers.rows) workerIdSet.add(r.id);
+      }
+      const workerIds: string[] = [...workerIdSet];
 
       const deleted: Record<string, number> = {};
       const failures: string[] = [];
@@ -2599,8 +2624,8 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         await del('contractor_documents',  `WHERE worker_id IN (${wP})`, workerIds);
         await del('nvq_qualifications',    `WHERE worker_id IN (${wP})`, workerIds);
         await del('card_issues',           `WHERE worker_id IN (${wP})`, workerIds);
-        // Lone worker sessions for sample workers (sample data uses @acsltd.eu)
-        await del('lone_worker_sessions', `WHERE person_email LIKE '%@acsltd.eu'`);
+        // Lone worker sessions for demo/test workers
+        await del('lone_worker_sessions', `WHERE person_email LIKE '%@acsltd.eu' OR person_email LIKE '%@test.example' OR person_email LIKE '%@example.com'`);
       }
 
       // ── Step 3: Delete company-dependent rows (NO ACTION FKs) ─────────────
@@ -2661,8 +2686,7 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         // pre_bookings.visitor_id → visitors.id FK doesn't block visitor deletion.
         await del('pre_bookings', `WHERE visitor_id IN (${vP})`, visitorIds);
       }
-      await del('pre_bookings', `WHERE visitor_email LIKE '%@example.com'`);
-      await del('pre_bookings', `WHERE visitor_email LIKE '%@acsltd.eu'`);
+      await del('pre_bookings', `WHERE visitor_email LIKE '%@acsltd.eu' OR visitor_email LIKE '%@test.example' OR visitor_email LIKE '%@example.com'`);
 
       // ── Step 5: Staff HR records + sessions + room bookings referencing sample staff ──
       if (staffIds.length > 0) {
@@ -2700,19 +2724,41 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       }
 
       // ── Step 6: Main records (dependency order: workers → companies → visitors → members → staff) ──
-      await del('contractor_workers',   `WHERE email LIKE '%@acsltd.eu'`);
+      // Belt-and-braces: delete by all three email domains (catches any workers whose company
+      // was already deleted or had no company_id) plus by ID set collected above.
+      await del('contractor_workers', `WHERE email LIKE '%@acsltd.eu' OR email LIKE '%@test.example' OR email LIKE '%@example.com'`);
+      if (workerIds.length > 0) {
+        // Catch workers belonging to name-pattern companies who have no email
+        await del('contractor_workers', `WHERE id IN (${inP(workerIds)})`, workerIds);
+      }
       if (companyIds.length > 0) {
         await del('contractor_companies', `WHERE id IN (${inP(companyIds)})`, companyIds);
+      }
+      // Also catch name-pattern companies that slipped through (should already be in companyIds)
+      for (const pat of ['IsoHTTPCo%', 'IsoPassPrintCo%', 'SITE-ISO-%', '__IsoTest%']) {
+        await del('contractor_companies', `WHERE company_name LIKE '${pat}'`);
       }
       // Delete visitors by BOTH ID (FK-safe) and email pattern as a belt-and-braces approach.
       if (visitorIds.length > 0) {
         await del('visitors', `WHERE id IN (${inP(visitorIds)})`, visitorIds);
       }
-      await del('visitors', `WHERE email LIKE '%@acsltd.eu'`);
-      await del('members',  `WHERE email LIKE '%@acsltd.eu'`);
+      await del('visitors', `WHERE email LIKE '%@acsltd.eu' OR email LIKE '%@test.example' OR email LIKE '%@example.com'`);
+      // Also clean up visitors by purpose field — test fixtures use these purpose strings and
+      // may not have a matching email domain.  Must clean visitor_history FK first.
+      try {
+        const TEST_PURPOSES = `'site-isolation-http-test','induction-isolation-test','pass-print-isolation-test','pass-isolation-http-test','Demo Visit'`;
+        await pool.query(`DELETE FROM "${schemaName}".visitor_history WHERE visitor_id IN (SELECT id FROM "${schemaName}".visitors WHERE purpose IN (${TEST_PURPOSES}))`);
+        await pool.query(`DELETE FROM "${schemaName}".pre_bookings WHERE visitor_id IN (SELECT id FROM "${schemaName}".visitors WHERE purpose IN (${TEST_PURPOSES}))`);
+        const r = await pool.query(`DELETE FROM "${schemaName}".visitors WHERE purpose IN (${TEST_PURPOSES})`);
+        deleted['visitors_by_purpose'] = r.rowCount ?? 0;
+      } catch (e) { logger.warn(`Clear demo: visitors by purpose — ${(e as any).message}`); }
+      await del('members',  `WHERE email LIKE '%@acsltd.eu' OR email LIKE '%@test.example' OR email LIKE '%@example.com'`);
       if (staffIds.length > 0) {
         await del('staff', `WHERE id IN (${inP(staffIds)})`, staffIds);
       }
+      // Belt-and-braces: catch any remaining test staff not caught by email filter
+      // (e.g. staff in 'IsoHTTP Dept' whose FK records were already cleaned above)
+      await del('staff', `WHERE email LIKE '%@acsltd.eu' OR email LIKE '%@test.example' OR email LIKE '%@example.com'`);
 
       // ── Step 7: Training requirements ─────────────────────────────────────
       try {
