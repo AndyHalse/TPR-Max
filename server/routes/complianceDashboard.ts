@@ -269,7 +269,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       for (const r of rams) {
         const companyName = companiesMap.get(r.companyId)?.company_name;
         const ramsDays = daysUntil(r.expiryDate);
-        const link = r.companyId ? `/contractors/${r.companyId}?tab=compliance` : '/contractors';
+        const link = '/contractors?tab=rams';
 
         // ── rejected: always a critical issue ─────────────────────────────────
         if (r.status === 'rejected') {
@@ -1197,7 +1197,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             id: `doc-approvals-pending`, category: 'Document Approvals', severity: 'warning',
             title: `${docApprovalsCount} document${docApprovalsCount !== 1 ? 's' : ''} awaiting approval`,
             detail: `${docApprovalsCount} contractor document${docApprovalsCount !== 1 ? 's' : ''} pending review`,
-            linkPath: '/contractors?gaps=true&sort=true',
+            linkPath: '/contractors?tab=contractors&gaps=true&sort=true',
           });
         }
       } catch (e: any) {
