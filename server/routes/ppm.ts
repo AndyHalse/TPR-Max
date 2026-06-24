@@ -2351,7 +2351,32 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    logger.info(`✅ [PPM Demo] Nuclear wipe complete — assets: ${assetCount}, WOs: ${woCount}, schedules: ${schedCount}, groups: ${groupCount}, companies: ${companiesDeleted}`);
+    // ── POST-DELETE VERIFICATION — confirm tables are actually empty ───────────
+    const [{ remainingAssets }] = await custDb
+      .select({ remainingAssets: count() }).from(isolatedSchema.ppmAssets);
+    const [{ remainingWOs }] = await custDb
+      .select({ remainingWOs: count() }).from(isolatedSchema.ppmWorkOrders);
+    const [{ remainingSchedules }] = await custDb
+      .select({ remainingSchedules: count() }).from(isolatedSchema.ppmSchedules);
+    const [{ remainingGroups }] = await custDb
+      .select({ remainingGroups: count() }).from(isolatedSchema.ppmAssetGroups);
+
+    const allClear =
+      Number(remainingAssets) === 0 &&
+      Number(remainingWOs) === 0 &&
+      Number(remainingSchedules) === 0 &&
+      Number(remainingGroups) === 0;
+
+    if (!allClear) {
+      logger.error(
+        `❌ [PPM Demo] Post-wipe verification FAILED — remaining: assets=${remainingAssets}, WOs=${remainingWOs}, schedules=${remainingSchedules}, groups=${remainingGroups}`,
+      );
+      return res.status(500).json({
+        error: `Wipe incomplete — ${remainingAssets} assets, ${remainingWOs} work orders, ${remainingSchedules} schedules, ${remainingGroups} groups still remain. Check server logs for FK constraint errors.`,
+      });
+    }
+
+    logger.info(`✅ [PPM Demo] Nuclear wipe verified clean — deleted: assets=${assetCount}, WOs=${woCount}, schedules=${schedCount}, groups=${groupCount}, companies=${companiesDeleted}`);
     await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, {
       assetsDeleted: Number(assetCount),
       workOrdersDeleted: Number(woCount),
@@ -2366,7 +2391,8 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       schedulesDeleted: Number(schedCount),
       groupsDeleted: Number(groupCount),
       companiesDeleted,
-      message: `All PPM data cleared — ${assetCount} assets, ${woCount} work orders, ${schedCount} schedules, ${groupCount} groups removed. Templates untouched.`,
+      verified: true,
+      message: `All PPM data cleared and verified — ${assetCount} assets, ${woCount} work orders, ${schedCount} schedules, ${groupCount} groups removed. Templates untouched.`,
     });
   } catch (error: unknown) {
     logger.error("DELETE /api/ppm/demo-data", error);
