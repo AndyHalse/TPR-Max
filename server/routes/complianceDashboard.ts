@@ -6,6 +6,8 @@ import * as schema from '../isolatedSchema';
 import { eq, ne, and } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { getScopedDb, scopedWhere, SiteContextError } from '../siteScope';
+import { db } from '../db';
+import { ramsDocuments as sharedRamsDocuments } from '@shared/schema';
 
 // Module-level dashboard cache: 90-second TTL, keyed by customerId
 const _dashboardCache = new Map<string, { data: any; expiresAt: number }>();
@@ -251,12 +253,16 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       const insScore = insTotal === 0 ? null : Math.round((insCompliant / insTotal) * 100);
 
       // ── 2. RAMS Documents ─────────────────────────────────────────────────────
-      // NOTE: ramsDocuments.status is NOT kept in sync with expiryDate — nothing in
-      // the system ever transitions it to 'expiring'/'expired'. So compute expiry
-      // LIVE from expiryDate (matching Contractor Insurance / Compliance Certificates),
-      // and treat the stored status only as a backstop for manual overrides.
-      const rams = await custDb.select().from(schema.ramsDocuments)
-        .where(and(eq(schema.ramsDocuments.isActive, true), scopedWhere(siteContext, schema.ramsDocuments)));
+      // IMPORTANT: RAMS documents live in the SHARED management DB (ramsDocuments
+      // from @shared/schema), NOT the customer-isolated DB. The isolated schema's
+      // ramsDocuments table is always empty. Query the shared DB filtered by
+      // customerId, mirroring what GET /api/rams does.
+      const ramsConditions: any[] = [
+        eq(sharedRamsDocuments.customerId, req.customerId!),
+        eq(sharedRamsDocuments.isActive, true),
+      ];
+      if (enterpriseSiteId) ramsConditions.push(eq(sharedRamsDocuments.siteId, enterpriseSiteId));
+      const rams = await db.select().from(sharedRamsDocuments).where(and(...ramsConditions));
 
       let ramsTotal = rams.length, ramsValid = 0, ramsExpiring = 0, ramsExpired = 0;
 
