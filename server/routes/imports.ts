@@ -2864,15 +2864,12 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn(`Clear sample (old): contractors — ${(e as any).message}`); }
 
       // ── RA Builder sample data cleanup ────────────────────────────────────
+      // Delete all RA builder records — assessments have no demo flag so a full
+      // wipe is the only reliable way to clear seeded + manually-created drafts.
       try {
-        const raRes = await pool.query(`SELECT id FROM "${schemaName}".ra_builder_assessments WHERE id LIKE 'ra-demo-%'`);
-        const raIds: string[] = raRes.rows.map((r: any) => r.id);
-        if (raIds.length > 0) {
-          const rP = inP(raIds);
-          await pool.query(`DELETE FROM "${schemaName}".ra_builder_hazards WHERE assessment_id IN (${rP})`, raIds);
-          await pool.query(`DELETE FROM "${schemaName}".ra_builder_assessments WHERE id IN (${rP})`, raIds);
-          deleted['ra_builder_assessments'] = raIds.length;
-        }
+        await pool.query(`DELETE FROM "${schemaName}".ra_builder_hazards`);
+        const raDelRes = await pool.query(`DELETE FROM "${schemaName}".ra_builder_assessments`);
+        deleted['ra_builder_assessments'] = raDelRes.rowCount ?? 0;
       } catch (e) { logger.warn(`Clear sample: ra_builder — ${(e as any).message}`); }
 
       // ── Audit & Inspection sample data cleanup ─────────────────────────────
