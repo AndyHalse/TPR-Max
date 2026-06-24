@@ -13,8 +13,10 @@ export function useContractorManagement() {
 
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [activeTab, setActiveTab] = useState<"previous"|"walkin"|"prebook"|"contractors"|"co2"|"assign-hs"|"rams"|"ppm"|"cdm">(() => {
-    // Fix 3 — honour ?gaps=true deep-link from Compliance Dashboard
     const params = new URLSearchParams(window.location.search);
+    const validTabs = ["previous","walkin","prebook","contractors","co2","assign-hs","rams","ppm","cdm"] as const;
+    const t = params.get('tab');
+    if (t && (validTabs as readonly string[]).includes(t)) return t as typeof validTabs[number];
     if (params.get('gaps') === 'true') return 'contractors';
     return 'previous';
   });
