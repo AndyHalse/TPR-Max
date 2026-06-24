@@ -86,7 +86,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     stat: c => c.total === 0 ? "No policies tracked" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : (c as any).missing ? `${(c as any).missing} missing` : `All ${c.total} current`,
   },
   rams: {
-    label: "RAMS Documents", icon: FileText, link: "/contractors?gaps=true&sort=true",
+    label: "RAMS Documents", icon: FileText, link: "/contractors?tab=rams",
     stat: c => c.total === 0 ? "No documents" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.total} valid`,
   },
   inductions: {
