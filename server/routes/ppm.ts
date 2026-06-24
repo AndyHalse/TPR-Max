@@ -2457,10 +2457,79 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
         .where(eq(isolatedSchema.contractorCompanies.companyName, name))
         .limit(1);
       if (existing) {
+        const cid = existing.id;
+
+        // Collect worker IDs so we can delete worker-level children first
+        const workers = await custDb
+          .select({ id: isolatedSchema.contractorWorkers.id })
+          .from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.companyId, cid));
+        const wids = workers.map(w => w.id);
+
+        if (wids.length > 0) {
+          // Worker children — delete before workers
+          for (const table of [
+            isolatedSchema.workerNotes,
+            isolatedSchema.workerCompetencies,
+            isolatedSchema.nvqQualifications,
+            isolatedSchema.cardIssues,
+            isolatedSchema.workerCertifications,
+            isolatedSchema.workerDocumentAssignments,
+            isolatedSchema.workerDocumentAcceptances,
+          ] as any[]) {
+            try {
+              await custDb.delete(table).where(inArray(table.workerId, wids));
+            } catch (_) { /* table may not have matching rows */ }
+          }
+          try {
+            await custDb.delete(isolatedSchema.inductionTokens)
+              .where(inArray(isolatedSchema.inductionTokens.workerId, wids));
+          } catch (_) { /* ok */ }
+          try {
+            await custDb.delete(isolatedSchema.contractorSiteClearances)
+              .where(inArray(isolatedSchema.contractorSiteClearances.workerId, wids));
+          } catch (_) { /* ok */ }
+          try {
+            await custDb.delete(isolatedSchema.contractorDocuments)
+              .where(inArray(isolatedSchema.contractorDocuments.workerId, wids));
+          } catch (_) { /* ok */ }
+        }
+
+        // Delete workers
         await custDb.delete(isolatedSchema.contractorWorkers)
-          .where(eq(isolatedSchema.contractorWorkers.companyId, existing.id));
+          .where(eq(isolatedSchema.contractorWorkers.companyId, cid));
+
+        // Company children — delete before company
+        for (const table of [
+          isolatedSchema.companyNotes,
+          isolatedSchema.co2Records,
+          isolatedSchema.co2EmissionsData,
+          isolatedSchema.co2MonthlySummaries,
+          isolatedSchema.co2SustainabilityReports,
+          isolatedSchema.enhancedCompanyDetails,
+          isolatedSchema.localLabourRecords,
+          isolatedSchema.ramsDocuments,
+          isolatedSchema.contractorVisits,
+        ] as any[]) {
+          try {
+            await custDb.delete(table).where(eq(table.companyId, cid));
+          } catch (_) { /* table may not have matching rows */ }
+        }
+        try {
+          await custDb.delete(isolatedSchema.contractorSiteClearances)
+            .where(eq(isolatedSchema.contractorSiteClearances.companyId, cid));
+        } catch (_) { /* ok */ }
+        try {
+          await custDb.delete(isolatedSchema.contractorDocuments)
+            .where(eq(isolatedSchema.contractorDocuments.companyId, cid));
+        } catch (_) { /* ok */ }
+        try {
+          await custDb.delete(isolatedSchema.cdmProjects)
+            .where(eq(isolatedSchema.cdmProjects.companyId, cid));
+        } catch (_) { /* ok */ }
+
         await custDb.delete(isolatedSchema.contractorCompanies)
-          .where(eq(isolatedSchema.contractorCompanies.id, existing.id));
+          .where(eq(isolatedSchema.contractorCompanies.id, cid));
         companiesDeleted++;
       }
     }
