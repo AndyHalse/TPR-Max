@@ -46,6 +46,25 @@ async function logPpmAudit(
   }
 }
 
+// ── Runtime column migration (idempotent, per-customer DB) ───────────────────
+// Adds is_demo + siteId columns to PPM tables if they were created before this
+// schema version. Safe to re-run — uses ADD COLUMN IF NOT EXISTS.
+const _ppmColumnsMigrated = new Set<string>();
+async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> {
+  if (_ppmColumnsMigrated.has(customerId)) return;
+  try {
+    await custDb.execute(sql`ALTER TABLE ppm_asset_groups ADD COLUMN IF NOT EXISTS site_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_asset_groups ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    await custDb.execute(sql`ALTER TABLE ppm_assets       ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    await custDb.execute(sql`ALTER TABLE ppm_schedules    ADD COLUMN IF NOT EXISTS site_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_schedules    ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders  ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    _ppmColumnsMigrated.add(customerId);
+  } catch (err) {
+    logger.warn('[PPM] Column migration warning (non-fatal):', err);
+  }
+}
+
 /**
  * Hard-gate helper: validates that a (company, worker) pair is cleared to be assigned
  * to a PPM work order. Returns null if cleared, or a JSON-ready error payload if blocked.
@@ -204,11 +223,14 @@ app.post("/api/ppm/assets/:id/duplicate", requireAuth, async (req, res) => {
 // ── PPM Asset Groups CRUD ────────────────────────────────────────────────────
 app.get("/api/ppm/asset-groups", requireAuth, async (req, res) => {
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const rows = await custDb.select().from(isolatedSchema.ppmAssetGroups).orderBy(isolatedSchema.ppmAssetGroups.name);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const rows = await custDb.select().from(isolatedSchema.ppmAssetGroups)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssetGroups))
+      .orderBy(isolatedSchema.ppmAssetGroups.name);
     res.json(rows);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("GET /api/ppm/asset-groups", error);
     res.status(500).json({ error: "Failed to fetch asset groups" });
   }
@@ -218,11 +240,12 @@ app.post("/api/ppm/asset-groups", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const parsed = isolatedSchema.insertPpmAssetGroupSchema.parse(req.body);
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [row] = await custDb.insert(isolatedSchema.ppmAssetGroups).values(parsed).returning();
+    const { db: custDb, siteId } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [row] = await custDb.insert(isolatedSchema.ppmAssetGroups).values(withSiteId(siteId, parsed)).returning();
     res.status(201).json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("POST /api/ppm/asset-groups", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create asset group" });
   }
@@ -320,9 +343,11 @@ app.delete("/api/ppm/templates/:id", requireAuth, async (req, res) => {
 // PPM Schedules
 app.get("/api/ppm/schedules", requireAuth, async (req, res) => {
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const rows = await custDb.select().from(isolatedSchema.ppmSchedules).orderBy(isolatedSchema.ppmSchedules.nextDueDate);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const rows = await custDb.select().from(isolatedSchema.ppmSchedules)
+      .where(scopedWhere(siteContext, isolatedSchema.ppmSchedules))
+      .orderBy(isolatedSchema.ppmSchedules.nextDueDate);
     // Compute overdue status at query time
     const today = new Date().toISOString().split('T')[0];
     const enriched = rows.map(r => ({
@@ -331,6 +356,7 @@ app.get("/api/ppm/schedules", requireAuth, async (req, res) => {
     }));
     res.json(enriched);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("GET /api/ppm/schedules", error);
     res.status(500).json({ error: "Failed to fetch PPM schedules" });
   }
@@ -342,12 +368,13 @@ app.post("/api/ppm/schedules", requireAuth, async (req, res) => {
     const body = req.body;
     const nextDueDate = calcNextDueDate(body.startDate, body.frequency, body.customDays);
     const parsed = isolatedSchema.insertPpmScheduleSchema.parse({ ...body, nextDueDate });
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [row] = await custDb.insert(isolatedSchema.ppmSchedules).values(parsed).returning();
+    const { db: custDb, siteId } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
+    const [row] = await custDb.insert(isolatedSchema.ppmSchedules).values(withSiteId(siteId, parsed)).returning();
     await logPpmAudit(custDb, "schedule_created", req.user!.username, { scheduleId: row.id });
     res.status(201).json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("POST /api/ppm/schedules", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM schedule" });
   }
@@ -1661,8 +1688,8 @@ Generated by TPR Max — PPM Work Order Export &nbsp;·&nbsp; ${generatedAt}${pr
 app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteId, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
 
     // ── All demo assets (checked by assetRef) ────────────────────────────────
     const ALL_DEMO_ASSETS = [
@@ -1832,14 +1859,26 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     }
     logger.info(`✅ [PPM Demo] Contractor companies seeded: ${contractorsSeeded} new, ${DEMO_CONTRACTORS.length - contractorsSeeded} already existed`);
 
-    // ── STEP 1: Wipe all existing PPM data (FK-safe order) ─────────────────
-    // Documents → Work Orders → Schedules → Assets → Groups → Templates
-    await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
-    await custDb.delete(isolatedSchema.ppmWorkOrders);
-    await custDb.delete(isolatedSchema.ppmSchedules);
-    await custDb.delete(isolatedSchema.ppmAssets);
-    await custDb.delete(isolatedSchema.ppmAssetGroups);
-    await custDb.delete(isolatedSchema.ppmTemplates);
+    // ── STEP 1: Wipe existing DEMO data for this site scope only ────────────
+    // Real PPM data is never touched. FK-safe order: Docs → WOs → Schedules → Assets → Groups
+    // Templates are customer-level (no siteId, no isDemo flag) — seeded idempotently in STEP 4.
+    const _demoWoIds = (await custDb
+      .select({ id: isolatedSchema.ppmWorkOrders.id })
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
+    ).map(r => r.id);
+    if (_demoWoIds.length > 0) {
+      await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
+        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, _demoWoIds));
+    }
+    await custDb.delete(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
+    await custDb.delete(isolatedSchema.ppmSchedules)
+      .where(and(eq(isolatedSchema.ppmSchedules.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmSchedules)));
+    await custDb.delete(isolatedSchema.ppmAssets)
+      .where(and(eq(isolatedSchema.ppmAssets.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssets)));
+    await custDb.delete(isolatedSchema.ppmAssetGroups)
+      .where(and(eq(isolatedSchema.ppmAssetGroups.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)));
 
     // ── STEP 2: Asset groups — one per maintenance category ─────────────────
     const DEMO_GROUPS = [
@@ -1863,7 +1902,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     };
     for (const g of DEMO_GROUPS) {
       const [ins] = await custDb.insert(isolatedSchema.ppmAssetGroups)
-        .values(g).returning({ id: isolatedSchema.ppmAssetGroups.id });
+        .values(withSiteId(siteId, { ...g, isDemo: true }) as any).returning({ id: isolatedSchema.ppmAssetGroups.id });
       // Map each category that uses this group name
       for (const [cat, grpName] of Object.entries(categoryToGroup)) {
         if (grpName === g.name) groupIdByCategory[cat] = ins.id;
@@ -1876,20 +1915,29 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     for (const a of ALL_DEMO_ASSETS) {
       const groupId = groupIdByCategory[a.category] ?? null;
       const [inserted] = await custDb.insert(isolatedSchema.ppmAssets)
-        .values({ ...a, groupId } as any)
+        .values(withSiteId(siteId, { ...a, groupId, isDemo: true }) as any)
         .returning({ id: isolatedSchema.ppmAssets.id });
       assetIdByRef[a.assetRef] = inserted.id;
       assetsCreated++;
     }
 
-    // ── STEP 4: Insert templates (fresh — table was wiped above) ─────────────
+    // ── STEP 4: Seed templates idempotently (customer-level, not site-scoped) ──
+    // Templates are shared across all sites for this customer. Insert only if
+    // a template with the same name doesn't already exist.
     let templatesCreated = 0;
     const templateIdByName: Record<string, string> = {};
     for (const t of DEMO_TEMPLATES) {
-      const [ins] = await custDb.insert(isolatedSchema.ppmTemplates)
-        .values(t as any).returning({ id: isolatedSchema.ppmTemplates.id });
-      templateIdByName[t.name] = ins.id;
-      templatesCreated++;
+      const [existing] = await custDb.select({ id: isolatedSchema.ppmTemplates.id })
+        .from(isolatedSchema.ppmTemplates)
+        .where(eq(isolatedSchema.ppmTemplates.name, t.name)).limit(1);
+      if (existing) {
+        templateIdByName[t.name] = existing.id;
+      } else {
+        const [ins] = await custDb.insert(isolatedSchema.ppmTemplates)
+          .values(t as any).returning({ id: isolatedSchema.ppmTemplates.id });
+        templateIdByName[t.name] = ins.id;
+        templatesCreated++;
+      }
     }
 
     // ── Contractor assignment per category ────────────────────────────────────
@@ -2009,16 +2057,19 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       if (!assetId) continue;
       const templateId = templateIdByName[s.templateName] ?? null;
 
-      const [ins] = await custDb.insert(isolatedSchema.ppmSchedules).values({
-        assetId, templateId,
-        title: s.templateName,
-        frequency: s.frequency,
-        customDays: s.customDays ?? null,
-        startDate: `${CUR_YEAR}-01-01`,
-        nextDueDate: s.nextDueDate,
-        status: "scheduled",
-        assignedTo: s.assignedTo ?? null,
-      } as any).returning({ id: isolatedSchema.ppmSchedules.id });
+      const [ins] = await custDb.insert(isolatedSchema.ppmSchedules).values(
+        withSiteId(siteId, {
+          assetId, templateId,
+          title: s.templateName,
+          frequency: s.frequency,
+          customDays: s.customDays ?? null,
+          startDate: `${CUR_YEAR}-01-01`,
+          nextDueDate: s.nextDueDate,
+          status: "scheduled",
+          assignedTo: s.assignedTo ?? null,
+          isDemo: true,
+        }) as any
+      ).returning({ id: isolatedSchema.ppmSchedules.id });
       schedulesCreated++;
       scheduleIdMap[`${s.assetRef}:${s.templateName}`] = ins.id;
     }
@@ -2171,19 +2222,22 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
           const demoCertUploadedAt = (rec.status === "completed" && requiresCertificate && rec.completedDate)
             ? new Date(rec.completedDate + "T09:00:00Z")
             : null;
-          await custDb.insert(isolatedSchema.ppmWorkOrders).values({
-            assetId,
-            scheduleId,
-            title,
-            status: rec.status,
-            dueDate: rec.dueDate,
-            completedDate: rec.completedDate ?? null,
-            contractorCompanyName: showContractor ? contractor?.company ?? null : null,
-            contractorWorkerName:  showContractor ? contractor?.worker  ?? null : null,
-            notes: rec.notes ?? null,
-            requiresCertificate,
-            certificateUploadedAt: demoCertUploadedAt,
-          } as any);
+          await custDb.insert(isolatedSchema.ppmWorkOrders).values(
+            withSiteId(siteId, {
+              assetId,
+              scheduleId,
+              title,
+              status: rec.status,
+              dueDate: rec.dueDate,
+              completedDate: rec.completedDate ?? null,
+              contractorCompanyName: showContractor ? contractor?.company ?? null : null,
+              contractorWorkerName:  showContractor ? contractor?.worker  ?? null : null,
+              notes: rec.notes ?? null,
+              requiresCertificate,
+              certificateUploadedAt: demoCertUploadedAt,
+              isDemo: true,
+            }) as any
+          );
           workOrdersCreated++;
         }
       }
@@ -2207,34 +2261,44 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 });
 
 // ── PPM Demo Data — Delete ────────────────────────────────────────────────────
-// DELETE /api/ppm/demo-data — wipe all PPM data AND the seeded demo contractor
-// companies/workers, leaving the system clean and ready for real-life use.
+// DELETE /api/ppm/demo-data — remove ONLY is_demo=true rows within the caller's
+// site scope. Real PPM data is never touched. Works for single-site and enterprise.
 app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    await ensurePpmColumns(custDb, req.customerId!);
 
-    // Safety guard: block if any completed work orders exist to prevent accidental data loss
-    const [completedCount] = await custDb
-      .select({ count: count() })
+    // 1. Collect demo work-order IDs in scope so documents can be removed first (FK)
+    const demoWoIds = (await custDb
+      .select({ id: isolatedSchema.ppmWorkOrders.id })
       .from(isolatedSchema.ppmWorkOrders)
-      .where(eq(isolatedSchema.ppmWorkOrders.status, "completed"));
-    if ((completedCount?.count ?? 0) > 0) {
-      return res.status(400).json({
-        error: `Cannot wipe demo data: ${completedCount.count} completed work order(s) exist. Change their status or delete them individually first.`,
-      });
+      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
+    ).map(r => r.id);
+
+    if (demoWoIds.length > 0) {
+      await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
+        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, demoWoIds));
     }
 
-    // 1. Wipe all PPM data (same FK-safe order as the load step)
-    await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
-    await custDb.delete(isolatedSchema.ppmWorkOrders);
-    await custDb.delete(isolatedSchema.ppmSchedules);
-    await custDb.delete(isolatedSchema.ppmAssets);
-    await custDb.delete(isolatedSchema.ppmAssetGroups);
-    await custDb.delete(isolatedSchema.ppmTemplates);
+    // 2. Delete demo work orders
+    await custDb.delete(isolatedSchema.ppmWorkOrders)
+      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
 
-    // 2. Remove the 7 demo contractor companies (and their workers, which cascade)
+    // 3. Delete demo schedules
+    await custDb.delete(isolatedSchema.ppmSchedules)
+      .where(and(eq(isolatedSchema.ppmSchedules.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmSchedules)));
+
+    // 4. Delete demo assets
+    await custDb.delete(isolatedSchema.ppmAssets)
+      .where(and(eq(isolatedSchema.ppmAssets.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssets)));
+
+    // 5. Delete demo asset groups
+    await custDb.delete(isolatedSchema.ppmAssetGroups)
+      .where(and(eq(isolatedSchema.ppmAssetGroups.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)));
+
+    // 6. Remove the 7 known demo contractor companies (and their workers) by name.
+    //    Templates are customer-level (no isDemo flag) — left intact.
     const DEMO_COMPANY_NAMES = [
       "CoolAir Services Ltd",
       "FireGuard UK Ltd",
@@ -2252,7 +2316,6 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
         .where(eq(isolatedSchema.contractorCompanies.companyName, name))
         .limit(1);
       if (existing) {
-        // Delete workers first (FK constraint)
         await custDb.delete(isolatedSchema.contractorWorkers)
           .where(eq(isolatedSchema.contractorWorkers.companyId, existing.id));
         await custDb.delete(isolatedSchema.contractorCompanies)
@@ -2261,14 +2324,15 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    logger.info(`✅ [PPM Demo] Deleted all demo data. ${companiesDeleted} contractor companies removed.`);
+    logger.info(`✅ [PPM Demo] Demo data cleared. ${companiesDeleted} contractor companies removed.`);
     await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, { companiesDeleted });
     res.json({
       success: true,
       companiesDeleted,
-      message: `All demo data removed. ${companiesDeleted} demo contractor companies deleted. The system is ready for real-life use.`,
+      message: `Demo data cleared for this site. ${companiesDeleted > 0 ? `${companiesDeleted} demo contractor companies deleted. ` : ""}Real PPM data is untouched.`,
     });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/ppm/demo-data", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to delete demo data" });
   }

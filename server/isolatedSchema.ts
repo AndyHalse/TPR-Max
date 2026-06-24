@@ -2393,8 +2393,10 @@ export type InsertBiostarDevice = z.infer<typeof insertBiostarDeviceSchema>;
 
 export const ppmAssetGroups = pgTable("ppm_asset_groups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),          // e.g. "HVAC System", "Access Control"
-  description: text("description"),     // Optional notes about what the group covers
+  name: text("name").notNull(),
+  description: text("description"),
+  siteId: varchar("site_id"),
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2416,6 +2418,7 @@ export const ppmAssets = pgTable("ppm_assets", {
   notes: text("notes"),
   status: text("status").notNull().default("active"), // active | decommissioned
   siteId: varchar("site_id"),
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2454,6 +2457,8 @@ export const ppmSchedules = pgTable("ppm_schedules", {
   assignedTo: text("assigned_to"),       // Contractor/engineer name or company
   status: text("status").notNull().default("scheduled"), // scheduled | overdue | completed | cancelled
   notes: text("notes"),
+  siteId: varchar("site_id"),
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2489,6 +2494,7 @@ export const ppmWorkOrders = pgTable("ppm_work_orders", {
   missingDocsAlertedAt: timestamp("missing_docs_alerted_at"), // Set when overdue+no-documents alert sent; prevents daily re-send
   arrivedAt: timestamp("arrived_at"),
   siteId: varchar("site_id"),
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
