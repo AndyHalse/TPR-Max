@@ -2304,52 +2304,37 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
   try {
     const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
 
-    // ── STEP 1: resolve demo asset IDs by assetRef (no is_demo / siteId filter)
-    const demoAssetRows = await custDb
-      .select({ id: isolatedSchema.ppmAssets.id })
-      .from(isolatedSchema.ppmAssets)
-      .where(inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS));
-    const demoAssetIds = demoAssetRows.map(r => r.id);
+    // ── NUCLEAR WIPE — FK-safe order ─────────────────────────────────────────
+    // Deletes ALL PPM data for this customer regardless of assetRef, is_demo flag,
+    // or siteId.  This catches demo seeder rows, test-script leftovers, and any
+    // other non-real data.  Templates (ppm_templates, ppm_template_tasks) are
+    // intentionally left intact — they are customer-level configuration.
 
-    // ── STEP 2: resolve demo work-order IDs for FK cleanup
-    let demoWoIds: string[] = [];
-    if (demoAssetIds.length > 0) {
-      const woRows = await custDb
-        .select({ id: isolatedSchema.ppmWorkOrders.id })
-        .from(isolatedSchema.ppmWorkOrders)
-        .where(inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds));
-      demoWoIds = woRows.map(r => r.id);
-    }
+    // Count before so the response can report what was removed.
+    const [{ woDocCount }] = await custDb
+      .select({ woDocCount: count() })
+      .from(isolatedSchema.ppmWorkOrderDocuments);
+    const [{ woCount }] = await custDb
+      .select({ woCount: count() })
+      .from(isolatedSchema.ppmWorkOrders);
+    const [{ schedCount }] = await custDb
+      .select({ schedCount: count() })
+      .from(isolatedSchema.ppmSchedules);
+    const [{ assetCount }] = await custDb
+      .select({ assetCount: count() })
+      .from(isolatedSchema.ppmAssets);
+    const [{ groupCount }] = await custDb
+      .select({ groupCount: count() })
+      .from(isolatedSchema.ppmAssetGroups);
 
-    // ── STEP 3: delete work-order documents (FK — must go first)
-    if (demoWoIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
-        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, demoWoIds));
-    }
+    // Delete in FK-safe order
+    await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
+    await custDb.delete(isolatedSchema.ppmWorkOrders);
+    await custDb.delete(isolatedSchema.ppmSchedules);
+    await custDb.delete(isolatedSchema.ppmAssets);
+    await custDb.delete(isolatedSchema.ppmAssetGroups);
 
-    // ── STEP 4: delete work orders
-    if (demoAssetIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmWorkOrders)
-        .where(inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds));
-    }
-
-    // ── STEP 5: delete schedules
-    if (demoAssetIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmSchedules)
-        .where(inArray(isolatedSchema.ppmSchedules.assetId, demoAssetIds));
-    }
-
-    // ── STEP 6: delete assets
-    if (demoAssetIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmAssets)
-        .where(inArray(isolatedSchema.ppmAssets.id, demoAssetIds));
-    }
-
-    // ── STEP 7: delete asset groups by known name
-    await custDb.delete(isolatedSchema.ppmAssetGroups)
-      .where(inArray(isolatedSchema.ppmAssetGroups.name, DEMO_GROUP_NAMES));
-
-    // ── STEP 8: delete demo contractor companies (and their workers) by known name
+    // ── STEP 2: delete demo contractor companies (and their workers) by known name
     let companiesDeleted = 0;
     for (const name of DEMO_COMPANY_NAMES_LIST) {
       const [existing] = await custDb
@@ -2366,18 +2351,22 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    logger.info(`✅ [PPM Demo] Delete complete — assets: ${demoAssetIds.length}, WOs: ${demoWoIds.length}, companies: ${companiesDeleted}`);
+    logger.info(`✅ [PPM Demo] Nuclear wipe complete — assets: ${assetCount}, WOs: ${woCount}, schedules: ${schedCount}, groups: ${groupCount}, companies: ${companiesDeleted}`);
     await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, {
-      assetsDeleted: demoAssetIds.length,
-      workOrdersDeleted: demoWoIds.length,
+      assetsDeleted: Number(assetCount),
+      workOrdersDeleted: Number(woCount),
+      schedulesDeleted: Number(schedCount),
+      groupsDeleted: Number(groupCount),
       companiesDeleted,
     });
     res.json({
       success: true,
-      assetsDeleted: demoAssetIds.length,
-      workOrdersDeleted: demoWoIds.length,
+      assetsDeleted: Number(assetCount),
+      workOrdersDeleted: Number(woCount),
+      schedulesDeleted: Number(schedCount),
+      groupsDeleted: Number(groupCount),
       companiesDeleted,
-      message: `Demo data cleared — ${demoAssetIds.length} assets, ${demoWoIds.length} work orders, ${companiesDeleted} contractor companies removed. Real PPM data untouched.`,
+      message: `All PPM data cleared — ${assetCount} assets, ${woCount} work orders, ${schedCount} schedules, ${groupCount} groups removed. Templates untouched.`,
     });
   } catch (error: unknown) {
     logger.error("DELETE /api/ppm/demo-data", error);
