@@ -391,21 +391,35 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       const indScore = indTotal === 0 ? null : Math.round((indCompliant / indTotal) * 100);
 
       // ── 4. Worker Right to Work ───────────────────────────────────────────────
+      // RTW data lives in contractor_documents (document_type='right_to_work'),
+      // NOT on contractor_workers.right_to_work_status (that field is never
+      // synced when documents are uploaded). We pick one row per worker using
+      // DISTINCT ON, preferring the best document (approved first, then by
+      // expiry desc). Only workers with an active company are counted.
       let workerRtwTotal = 0, workerRtwCompliant = 0;
       try {
         const { clause: rtwSite, params: rtwSiteP } = addSiteParam([], 'cw');
         const workerRtwResult = await pool.query(
-          `SELECT cw.id, cw.first_name, cw.last_name, cw.company_id,
-                  cw.right_to_work_status, cw.right_to_work_expiry_date
+          `SELECT DISTINCT ON (cw.id)
+                  cw.id, cw.first_name, cw.last_name, cw.company_id,
+                  cd.expiry_date AS right_to_work_expiry_date,
+                  cd.status      AS right_to_work_status
            FROM "${schemaName}".contractor_workers cw
-           WHERE cw.is_active = TRUE
-             AND (cw.right_to_work_status IS NOT NULL OR cw.right_to_work_expiry_date IS NOT NULL)${rtwSite}`,
+           INNER JOIN "${schemaName}".contractor_companies cc
+             ON cc.id = cw.company_id AND cc.is_active = TRUE
+           INNER JOIN "${schemaName}".contractor_documents cd
+             ON cd.worker_id = cw.id
+            AND cd.document_type = 'right_to_work'
+            AND cd.is_active = TRUE
+           WHERE cw.is_active = TRUE${rtwSite}
+           ORDER BY cw.id,
+             CASE cd.status WHEN 'approved' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END,
+             cd.expiry_date DESC NULLS LAST`,
           rtwSiteP
         );
-        const activeRtwWorkers = workerRtwResult.rows.filter((w: any) => activeWorkerIds.has(w.id));
-        workerRtwTotal = activeRtwWorkers.length;
+        workerRtwTotal = workerRtwResult.rows.length;
 
-        for (const w of activeRtwWorkers) {
+        for (const w of workerRtwResult.rows) {
           const workerName = `${w.first_name} ${w.last_name}`;
           const companyName = companiesMap.get(w.company_id)?.company_name ?? '';
           const days = daysUntil(w.right_to_work_expiry_date);
