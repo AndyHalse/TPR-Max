@@ -791,6 +791,28 @@ export function registerPermitToWorkRoutes(app: Express): void {
     }
   });
 
+  // PATCH /api/ptw/:id/archive — archive an expired/cancelled/completed permit
+  app.patch('/api/ptw/:id/archive', requireAuth, requirePermitToWorkFeature, async (req: any, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { id } = req.params;
+      const [permit] = await custDb.select({ id: isolatedSchema.permitToWork.id, status: isolatedSchema.permitToWork.status, permitNumber: isolatedSchema.permitToWork.permitNumber })
+        .from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      if (!permit) return res.status(404).json({ error: 'Permit not found' });
+      const archivable = ['expired', 'cancelled', 'completed'];
+      if (!archivable.includes((permit as any).status)) {
+        return res.status(400).json({ error: 'Only expired, cancelled, or completed permits can be archived.' });
+      }
+      await custDb.update(isolatedSchema.permitToWork)
+        .set({ status: 'archived', updatedAt: new Date() })
+        .where(eq(isolatedSchema.permitToWork.id, id));
+      res.json({ success: true });
+    } catch (err) {
+      logger.error('PATCH /api/ptw/:id/archive', err);
+      res.status(500).json({ error: 'Failed to archive permit' });
+    }
+  });
+
   // ─── Daily PTW cron ──────────────────────────────────────────────────────────
   const ptwAlertHour = parseInt(process.env.PTW_ALERT_HOUR ?? '7', 10);
   cron.schedule(`0 ${ptwAlertHour} * * *`, async () => {

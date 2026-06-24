@@ -813,7 +813,14 @@ export default function ComplianceDashboard() {
   const [isForceRefreshing, setIsForceRefreshing] = useState(false);
   const { data, isLoading, dataUpdatedAt, isFetching, error } = useQuery<DashboardData>({
     queryKey: ["/api/compliance-dashboard"],
+    queryFn: async () => {
+      const res = await fetch("/api/compliance-dashboard?refresh=1", { credentials: "include" });
+      if (!res.ok) throw Object.assign(new Error("Dashboard fetch failed"), { status: res.status });
+      return res.json();
+    },
     refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
     retry: (count, err: any) => err?.status !== 403 && count < 3,
   });
 

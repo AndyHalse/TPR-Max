@@ -948,7 +948,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         const permitsResult = await pool.query(
           `SELECT id, work_description, status, permit_valid_until, permit_number
            FROM "${schemaName}".permit_to_work
-           WHERE status NOT IN ('completed', 'rejected', 'draft', 'cancelled')
+           WHERE status NOT IN ('completed', 'rejected', 'draft', 'cancelled', 'archived')
            AND created_at >= $1${ptwSite}`,
           ptwSiteP
         );

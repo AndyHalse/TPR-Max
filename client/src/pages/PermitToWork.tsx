@@ -15,8 +15,12 @@ import {
   ClipboardList, Plus, Eye, CheckCircle2, XCircle, Clock, AlertTriangle,
   Flame, Zap, HardHat, Wind, Shovel, TriangleAlert, FileWarning,
   ChevronRight, ChevronDown, User, Calendar, MapPin, MoreVertical, RefreshCw, Pause, Play, Lock, Info,
-  Shield, Upload, Trash2, RotateCcw, FileText, ExternalLink, Paperclip, BadgeCheck
+  Shield, Upload, Trash2, RotateCcw, FileText, ExternalLink, Paperclip, BadgeCheck, Archive
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
@@ -162,6 +166,7 @@ export default function PermitToWork() {
   const [actionDialogState, setActionDialogState] = useState<{ type: string; permitId: string; permitNumber: string } | null>(null);
   const [actionReason, setActionReason] = useState('');
   const [closeSatisfactory, setCloseSatisfactory] = useState(true);
+  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; number: string } | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const didHighlight = useRef(false);
 
@@ -208,7 +213,7 @@ export default function PermitToWork() {
     active:     p => ['active', 'suspended'].includes(p.status),
     pending:    p => ['draft', 'submitted'].includes(p.status),
     authorised: p => p.status === 'authorised',
-    history:    p => ['completed', 'expired', 'cancelled'].includes(p.status),
+    history:    p => ['completed', 'expired', 'cancelled', 'archived'].includes(p.status),
   };
 
   const filteredPermits = permits.filter(tab_filters[activeTab] || (() => true));
@@ -243,6 +248,16 @@ export default function PermitToWork() {
       qc.invalidateQueries({ queryKey: ['/api/ptw', viewPermitId] });
     },
     onError: () => toast({ title: 'Failed to update checklist', variant: 'destructive' }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (permitId: string) => apiRequest('PATCH', `/api/ptw/${permitId}/archive`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/ptw'] });
+      setArchiveConfirm(null);
+      toast({ title: 'Permit archived successfully.' });
+    },
+    onError: (e: any) => toast({ title: e?.error || 'Archive failed', variant: 'destructive' }),
   });
 
   const handleActionConfirm = () => {
@@ -451,11 +466,19 @@ export default function PermitToWork() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              {!['completed', 'expired', 'cancelled'].includes(permit.status) && (
+                              {!['completed', 'expired', 'cancelled', 'archived'].includes(permit.status) && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-red-600" onClick={() => setActionDialogState({ type: 'cancel', permitId: permit.id, permitNumber: permit.permitNumber })}>
                                     <XCircle className="h-4 w-4 mr-2" /> Cancel Permit
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {['completed', 'expired', 'cancelled'].includes(permit.status) && isManager && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-amber-700 dark:text-amber-500" onClick={() => setArchiveConfirm({ id: permit.id, number: permit.permitNumber })}>
+                                    <Archive className="h-4 w-4 mr-2" /> Archive
                                   </DropdownMenuItem>
                                 </>
                               )}
@@ -863,6 +886,28 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Archive permit confirmation */}
+      <AlertDialog open={!!archiveConfirm} onOpenChange={open => !open && setArchiveConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this permit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permit <strong>{archiveConfirm?.number}</strong> will be archived and will no longer appear as an active issue on the Compliance Intelligence Dashboard. You can still view it in the History tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiveMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={archiveMutation.isPending}
+              onClick={() => archiveConfirm && archiveMutation.mutate(archiveConfirm.id)}
+            >
+              {archiveMutation.isPending ? 'Archiving…' : 'Archive Permit'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
