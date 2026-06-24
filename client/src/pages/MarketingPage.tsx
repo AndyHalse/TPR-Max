@@ -147,6 +147,7 @@ export default function MarketingPage() {
           "template-library",
           "teams-integration",
           "calendar-integration",
+          "enterprise",
         ].includes(hash)
       ) {
         setActiveTab(hash);
@@ -404,7 +405,7 @@ export default function MarketingPage() {
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
-                  29 Modules · One Platform
+                  30 Modules · One Platform
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-violet-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -429,7 +430,7 @@ export default function MarketingPage() {
               </p>
 
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-                Managing health &amp; safety, contractor compliance, site security, and workforce wellbeing shouldn't mean juggling 8 different systems — each with its own login, data silo, and invoice. <strong>TPR removes those pain points</strong> for any business or organisation with one unified platform: 26 modules, one login, one database, one subscription.
+                Managing health &amp; safety, contractor compliance, site security, and workforce wellbeing shouldn't mean juggling 8 different systems — each with its own login, data silo, and invoice. <strong>TPR removes those pain points</strong> for any business or organisation with one unified platform: 30 modules, one login, one database, one subscription.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
@@ -457,6 +458,7 @@ export default function MarketingPage() {
                   "Template Library — Pre-Built H&S Frameworks",
                   "Microsoft Teams Event Notifications",
                   "Outlook & Google Calendar Auto Visitor Sync",
+                  "Enterprise Multi-site Estate Management",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -783,7 +785,7 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              26 Modules. One{" "}
+              30 Modules. One{" "}
               <span style={{ color: "#2460A9" }}>Connected Workforce & Site Safety Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
@@ -1008,6 +1010,14 @@ export default function MarketingPage() {
                 bg: "bg-emerald-50 dark:bg-emerald-900/20",
                 border: "border-emerald-200 dark:border-emerald-800",
                 desc: "Weighted compliance health score aggregated across all modules — insurance, RAMS, inductions, certificates, PPM, fire risk, and right-to-work. Spot risks before they become enforcement issues.",
+              },
+              {
+                icon: Building2,
+                name: "Enterprise Multi-site",
+                color: "text-blue-700",
+                bg: "bg-blue-50 dark:bg-blue-900/20",
+                border: "border-blue-200 dark:border-blue-800",
+                desc: "Manage an entire portfolio of sites from one enterprise console. Per-site compliance dashboards, area/region grouping, site-scoped coordinators, and real-time estate-wide compliance scoring.",
               },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
@@ -1266,6 +1276,14 @@ export default function MarketingPage() {
               >
                 <CalendarClock className="h-4 w-4 mb-1" />
                 Cal Sync
+              </TabsTrigger>
+              <TabsTrigger
+                value="enterprise"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-blue-700 transition-all duration-200"
+                data-testid="tab-enterprise"
+              >
+                <Building2 className="h-4 w-4 mb-1" />
+                Enterprise
               </TabsTrigger>
             </TabsList>
 
@@ -3818,6 +3836,145 @@ export default function MarketingPage() {
               </div>
             </TabsContent>
 
+            {/* Enterprise Multi-site Tab */}
+            <TabsContent value="enterprise" className="space-y-6" data-testid="content-enterprise">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-blue-700 text-white">
+                      <Building2 className="h-3 w-3 mr-1" />
+                      NEW — Enterprise Multi-site Management
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Manage Your Entire Estate From One Console
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Purpose-built for organisations running multiple sites — business parks, multi-campus universities, retail chains, NHS trusts, construction portfolios. A single enterprise admin view gives you compliance oversight across every site, while each location stays fully isolated with its own data, branding, and local coordinator.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Estate Overview Dashboard:</strong> See every site in your portfolio at a glance — compliance score, on-site headcount, open alerts, and expiring documentation, all in one view
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Per-Site Compliance Dashboard:</strong> Each site has its own weighted compliance health score covering contractor insurance, inductions, RAMS, certificates, PPM, and fire risk — with drill-down to individual gaps
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Area & Region Grouping:</strong> Organise sites into logical areas or regions (e.g. North, South, Campus A/B) to roll up compliance reporting across clusters of locations
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Site Coordinators:</strong> Assign dedicated local administrators to each site — they manage their own location's visitors, contractors, and compliance without touching other sites
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Full Data Isolation:</strong> Each site's data is completely segregated — coordinators only see their own site's records. Enterprise admins have read-across visibility without breaching site-level privacy
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Coordinator Lifecycle Management:</strong> Enterprise admins can add, edit, reset passwords, replace, or deactivate site coordinators directly — no IT involvement needed
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Expiry Alerts Across the Estate:</strong> Upcoming certificate, insurance, and document expiries are surfaced at the enterprise level so nothing slips through at a quiet site
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => scrollToSection("contact")}
+                    className="text-white"
+                    style={{ backgroundColor: "#2460A9" }}
+                    data-testid="button-enterprise-demo"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Book an Enterprise Demo
+                  </Button>
+                </div>
+
+                {/* Right panel — visual mock of the enterprise console */}
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
+                    {/* Header bar */}
+                    <div className="bg-blue-700 px-5 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-white" />
+                        <span className="text-sm font-semibold text-white">Enterprise Admin Console</span>
+                      </div>
+                      <Badge className="bg-white/20 text-white text-xs border-0">4 Sites</Badge>
+                    </div>
+                    {/* Estate summary row */}
+                    <div className="grid grid-cols-3 gap-0 border-b border-slate-200 dark:border-slate-700">
+                      {[
+                        { label: "Estate Score", value: "84%", color: "text-emerald-600" },
+                        { label: "On-Site Now", value: "142", color: "text-blue-700" },
+                        { label: "Open Alerts", value: "3", color: "text-orange-600" },
+                      ].map((s) => (
+                        <div key={s.label} className="px-4 py-3 text-center border-r last:border-r-0 border-slate-200 dark:border-slate-700">
+                          <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Site rows */}
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {[
+                        { site: "London HQ", area: "South", score: 94, status: "bg-emerald-500", people: 68, alerts: 0 },
+                        { site: "Manchester Office", area: "North", score: 81, status: "bg-emerald-500", people: 34, alerts: 1 },
+                        { site: "Birmingham Site", area: "Midlands", score: 76, status: "bg-yellow-500", people: 27, alerts: 2 },
+                        { site: "Leeds Depot", area: "North", score: 63, status: "bg-orange-500", people: 13, alerts: 0 },
+                      ].map((row) => (
+                        <div key={row.site} className="flex items-center gap-3 px-4 py-3">
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${row.status}`}></div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{row.site}</p>
+                            <p className="text-[10px] text-slate-400">{row.area}</p>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs shrink-0">
+                            <span className="text-slate-500">{row.people} on-site</span>
+                            <div className="flex items-center gap-1">
+                              <div className="w-14 h-1.5 rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${row.score >= 85 ? "bg-emerald-500" : row.score >= 70 ? "bg-yellow-500" : "bg-orange-500"}`}
+                                  style={{ width: `${row.score}%` }}
+                                ></div>
+                              </div>
+                              <span className={`font-semibold ${row.score >= 85 ? "text-emerald-600" : row.score >= 70 ? "text-yellow-600" : "text-orange-600"}`}>{row.score}%</span>
+                            </div>
+                            {row.alerts > 0 && (
+                              <span className="bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 text-[10px] px-1.5 py-0.5 rounded-full font-medium">{row.alerts} alert{row.alerts > 1 ? "s" : ""}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Caption */}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Enterprise Admin Console — real-time compliance scoring across your entire site portfolio
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+
           </Tabs>
 
         </div>
@@ -4253,7 +4410,7 @@ export default function MarketingPage() {
                   "AI-powered induction video generation",
                   "CO2 Sustainability Reporting",
                   "Paxton Net2 & BioStar 2 hardware integrations",
-                  "Portfolio dashboard (multi-site)",
+                  "Enterprise Multi-site Management (full estate console)",
                   "Template Library — 50+ pre-built H&S frameworks",
                   "Microsoft Teams event notifications",
                   "Outlook & Google Calendar auto visitor sync",
@@ -4546,7 +4703,7 @@ export default function MarketingPage() {
               <ul className="space-y-2 text-sm text-slate-300">
                 {[
                   ["Emergency Mustering", "features"],
-                  ["All 22 Modules", "modules"],
+                  ["All 30 Modules", "modules"],
                   ["CDM 2015 Compliance", "features"],
                   ["Industries We Serve", "industries"],
                   ["Book a Demo", "contact"],
@@ -4567,7 +4724,7 @@ export default function MarketingPage() {
             <div>
               <h3 className="text-base font-semibold mb-4 text-white">About TPR</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
-                The UK's Connected Workforce &amp; Site Safety Platform. 28 modules covering contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, Teams notifications, calendar sync, and more — all in one subscription.
+                The UK's Connected Workforce &amp; Site Safety Platform. 30 modules covering contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, enterprise multi-site management, Teams notifications, calendar sync, and more — all in one subscription.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["GDPR Compliant", "UK-Built", "Multi-Tenant", "BioStar 2 Ready"].map(tag => (
@@ -4583,7 +4740,7 @@ export default function MarketingPage() {
               © 2026 ACS Safety & Security Ltd. All rights reserved.
             </p>
             <p className="text-slate-500 text-xs">
-              The UK's Connected Workforce & Site Safety Platform — 28 modules, one subscription.
+              The UK's Connected Workforce & Site Safety Platform — 30 modules, one subscription.
             </p>
           </div>
         </div>
