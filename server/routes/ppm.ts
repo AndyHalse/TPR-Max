@@ -47,18 +47,42 @@ async function logPpmAudit(
 }
 
 // ── Runtime column migration (idempotent, per-customer DB) ───────────────────
-// Adds is_demo + siteId columns to PPM tables if they were created before this
-// schema version. Safe to re-run — uses ADD COLUMN IF NOT EXISTS.
+// Adds columns to PPM tables that were introduced after initial schema creation.
+// Safe to re-run on any DB — uses ADD COLUMN IF NOT EXISTS throughout.
 const _ppmColumnsMigrated = new Set<string>();
 async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> {
   if (_ppmColumnsMigrated.has(customerId)) return;
   try {
+    // ppm_asset_groups
     await custDb.execute(sql`ALTER TABLE ppm_asset_groups ADD COLUMN IF NOT EXISTS site_id TEXT`);
     await custDb.execute(sql`ALTER TABLE ppm_asset_groups ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
-    await custDb.execute(sql`ALTER TABLE ppm_assets       ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
-    await custDb.execute(sql`ALTER TABLE ppm_schedules    ADD COLUMN IF NOT EXISTS site_id TEXT`);
-    await custDb.execute(sql`ALTER TABLE ppm_schedules    ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
-    await custDb.execute(sql`ALTER TABLE ppm_work_orders  ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+
+    // ppm_assets — site_id was originally missing from this table's migration
+    await custDb.execute(sql`ALTER TABLE ppm_assets ADD COLUMN IF NOT EXISTS site_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_assets ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+
+    // ppm_schedules
+    await custDb.execute(sql`ALTER TABLE ppm_schedules ADD COLUMN IF NOT EXISTS site_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_schedules ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+
+    // ppm_work_orders — many columns were added after initial table creation
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS site_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS group_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS description TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS completion_notes TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS assigned_email TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS contractor_company_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS contractor_worker_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS access_token TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMP`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS requires_certificate BOOLEAN NOT NULL DEFAULT FALSE`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS certificate_uploaded_at TIMESTAMP`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS overdue_alerted_at TIMESTAMP`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS missing_cert_alerted_at TIMESTAMP`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS missing_docs_alerted_at TIMESTAMP`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMP`);
+
     _ppmColumnsMigrated.add(customerId);
   } catch (err) {
     logger.warn('[PPM] Column migration warning (non-fatal):', err);
