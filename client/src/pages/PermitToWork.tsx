@@ -168,6 +168,7 @@ export default function PermitToWork() {
   const [actionReason, setActionReason] = useState('');
   const [closeSatisfactory, setCloseSatisfactory] = useState(true);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; number: string } | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const didHighlight = useRef(false);
 
@@ -217,13 +218,19 @@ export default function PermitToWork() {
     history:    p => ['completed', 'expired', 'cancelled', 'archived'].includes(p.status),
   };
 
-  const filteredPermits = permits.filter(tab_filters[activeTab] || (() => true));
+  const filteredPermits = permits.filter(p => {
+    if (!(tab_filters[activeTab]?.(p))) return false;
+    if (activeTab === 'history' && p.status === 'archived' && !showArchived) return false;
+    return true;
+  });
+
+  const archivedCount = permits.filter(p => p.status === 'archived').length;
 
   const counts = {
     active:     permits.filter(tab_filters.active).length,
     pending:    permits.filter(tab_filters.pending).length,
     authorised: permits.filter(tab_filters.authorised).length,
-    history:    permits.filter(tab_filters.history).length,
+    history:    permits.filter(p => tab_filters.history(p) && p.status !== 'archived').length,
   };
 
   const doAction = (type: string, permitId: string, body: any = {}) =>
@@ -357,7 +364,7 @@ export default function PermitToWork() {
               { key: 'authorised', label: 'Authorised',         icon: CheckCircle2, bg: 'bg-blue-50 dark:bg-blue-900/20',      text: 'text-blue-700 dark:text-blue-300' },
               { key: 'history',    label: 'History',            icon: ClipboardList,bg: 'bg-gray-50 dark:bg-gray-800',         text: 'text-gray-700 dark:text-gray-300' },
             ] as any[]).map(chip => (
-              <button key={chip.key} onClick={() => setActiveTab(chip.key)}
+              <button key={chip.key} onClick={() => { setActiveTab(chip.key); setShowArchived(false); }}
                 className={`${chip.bg} ${chip.text} rounded-xl p-3 text-left transition-all ring-2 ${activeTab === chip.key ? 'ring-current' : 'ring-transparent hover:ring-current/40'}`}>
                 <chip.icon className="h-5 w-5 mb-1" />
                 <div className="text-2xl font-bold">{counts[chip.key as keyof typeof counts]}</div>
@@ -365,6 +372,19 @@ export default function PermitToWork() {
               </button>
             ))}
           </div>
+
+          {/* Archived toggle — History tab only */}
+          {activeTab === 'history' && archivedCount > 0 && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowArchived(v => !v)}
+                className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                {showArchived ? `Hide Archived (${archivedCount})` : `Show Archived (${archivedCount})`}
+              </button>
+            </div>
+          )}
 
           {/* Permit list */}
           {isLoading ? (
