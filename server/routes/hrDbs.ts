@@ -240,6 +240,64 @@ export function registerHrDbsRoutes(app: Express): void {
       res.status(500).json({ error: 'Failed to fetch DBS expiry alerts' });
     }
   });
+
+  // ── Staff Notes ───────────────────────────────────────────────────────────
+  // GET /api/staff/:staffId/notes
+  app.get('/api/staff/:staffId/notes', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getDbsPool(req.customerId!);
+      const { staffId } = req.params;
+      const result = await pool.query(
+        `SELECT id, staff_id, note, note_type, added_by, created_at
+         FROM "${schemaName}".staff_notes
+         WHERE staff_id = $1
+         ORDER BY created_at DESC`,
+        [staffId]
+      );
+      res.json(result.rows);
+    } catch (err: any) {
+      logger.error('Staff notes fetch error:', err);
+      res.status(500).json({ error: 'Failed to fetch staff notes' });
+    }
+  });
+
+  // POST /api/staff/:staffId/notes
+  app.post('/api/staff/:staffId/notes', requireAuth, requireAdminRole, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getDbsPool(req.customerId!);
+      const { staffId } = req.params;
+      const { note, noteType = 'general' } = req.body;
+      if (!note || typeof note !== 'string' || !note.trim()) {
+        return res.status(400).json({ error: 'Note text is required' });
+      }
+      const actor = req.user?.username || 'unknown';
+      const result = await pool.query(
+        `INSERT INTO "${schemaName}".staff_notes (id, staff_id, note, note_type, added_by)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4)
+         RETURNING *`,
+        [staffId, note.trim(), noteType, actor]
+      );
+      res.status(201).json(result.rows[0]);
+    } catch (err: any) {
+      logger.error('Staff note create error:', err);
+      res.status(500).json({ error: 'Failed to create staff note' });
+    }
+  });
+
+  // DELETE /api/staff/notes/:noteId
+  app.delete('/api/staff/notes/:noteId', requireAuth, requireAdminRole, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getDbsPool(req.customerId!);
+      await pool.query(
+        `DELETE FROM "${schemaName}".staff_notes WHERE id = $1`,
+        [req.params.noteId]
+      );
+      res.json({ success: true });
+    } catch (err: any) {
+      logger.error('Staff note delete error:', err);
+      res.status(500).json({ error: 'Failed to delete staff note' });
+    }
+  });
 }
 
 // Cron helper — called from daily job

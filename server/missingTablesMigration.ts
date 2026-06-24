@@ -1023,6 +1023,37 @@ const addStaffDbsRequiredColumnMigration: Migration = {
   }
 };
 
+const createStaffNotesTableMigration: Migration = {
+  version: '20260624_002_staff_notes',
+  description: 'Create staff_notes table for admin notes on staff members',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS staff_notes (
+          id          TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          staff_id    TEXT        NOT NULL,
+          note        TEXT        NOT NULL,
+          note_type   TEXT        NOT NULL DEFAULT 'general',
+          added_by    TEXT        NOT NULL,
+          created_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+        )
+      `);
+      await db.execute(`
+        CREATE INDEX IF NOT EXISTS idx_staff_notes_staff_id ON staff_notes (staff_id)
+      `);
+      logger.info('✅ staff_notes table ensured');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const code = error?.code;
+      if (msg.includes('already exists') || code === '42P07') {
+        logger.info('ℹ️ staff_notes table/index already exists, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -1042,4 +1073,5 @@ export const missingTablesMigrations = [
   createCompanyNotesTableMigration,
   addContractorDbsApprovalColumnsMigration,
   addStaffDbsRequiredColumnMigration,
+  createStaffNotesTableMigration,
 ];

@@ -7,7 +7,9 @@ import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
 import StaffDbsTab from "@/components/StaffDbsTab";
 import StaffDocumentsTab from "@/components/StaffDocumentsTab";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff, FileText, XCircle } from "lucide-react";
+import StaffActivityTab from "@/components/StaffActivityTab";
+import StaffNotesTab from "@/components/StaffNotesTab";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff, FileText, XCircle, History, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +67,12 @@ function StaffProfilePanel({
     enabled: featureHrModule,
   });
 
+  const { data: staffNotes = [] } = useQuery<any[]>({
+    queryKey: ["/api/staff", vs.id, "notes"],
+    queryFn: () =>
+      fetch(`/api/staff/${vs.id}/notes`, { credentials: "include" }).then(r => r.json()),
+  });
+
   return (
     <>
       {/* Slim top bar */}
@@ -80,6 +88,17 @@ function StaffProfilePanel({
           </TabsTrigger>
           <TabsTrigger value="dbs" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
             <Shield size={11} className="mr-1" />{t('tabs.dbs')}
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
+            <History size={11} className="mr-1" />Activity
+          </TabsTrigger>
+          <TabsTrigger value="notes" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
+            <StickyNote size={11} className="mr-1" />Notes
+            {staffNotes.length > 0 && (
+              <Badge className="ml-1 bg-amber-100 text-amber-700 text-[9px] px-1 py-0 h-4">
+                {staffNotes.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -165,15 +184,15 @@ function StaffProfilePanel({
         </TabsContent>
 
         <TabsContent value="dbs" className="mt-0 px-4 py-4 max-h-[500px] overflow-y-auto">
-          {featureHrModule ? (
-            <StaffDbsTab staffId={vs.id} />
-          ) : (
-            <div className="text-center py-8">
-              <Shield className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-              <p className="text-gray-500 text-sm font-medium">{t('upgrade.title')}</p>
-              <p className="text-gray-400 text-xs mt-1">{t('upgrade.desc')}</p>
-            </div>
-          )}
+          <StaffDbsTab staffId={vs.id} />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-0 px-4 py-4 max-h-[560px] overflow-y-auto">
+          <StaffActivityTab staffId={vs.id} />
+        </TabsContent>
+
+        <TabsContent value="notes" className="mt-0 px-4 py-4 max-h-[560px] overflow-y-auto">
+          <StaffNotesTab staffId={vs.id} />
         </TabsContent>
       </Tabs>
     </>
