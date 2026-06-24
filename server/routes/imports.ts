@@ -2622,7 +2622,6 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         await del('co2_records',           `WHERE worker_id IN (${wP})`, workerIds);
         await del('local_labour_records',  `WHERE worker_id IN (${wP})`, workerIds);
         await del('contractor_documents',  `WHERE worker_id IN (${wP})`, workerIds);
-        await del('nvq_qualifications',    `WHERE worker_id IN (${wP})`, workerIds);
         await del('card_issues',           `WHERE worker_id IN (${wP})`, workerIds);
         // Lone worker sessions for demo/test workers
         await del('lone_worker_sessions', `WHERE person_email LIKE '%@acsltd.eu' OR person_email LIKE '%@test.example' OR person_email LIKE '%@example.com'`);
