@@ -44,7 +44,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getSessionToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import EquipmentCertificatesTab from "./EquipmentCertificatesTab";
 
@@ -149,8 +149,14 @@ export default function ContractorEquipmentTab({ companyId }: Props) {
   const { data: equipment = [], isLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/contractors", companyId, "equipment"],
     queryFn: async () => {
-      const res = await fetch(`/api/contractors/${companyId}/equipment`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load equipment");
+      const token = getSessionToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/contractors/${companyId}/equipment`, { credentials: "include", headers });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Failed to load equipment (${res.status})`);
+      }
       return res.json();
     },
   });
