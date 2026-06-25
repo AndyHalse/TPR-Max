@@ -12,6 +12,52 @@ async function getEquipPool(customerId: string) {
   return { pool, schemaName, custDb };
 }
 
+const _equipTablesMigrated = new Set<string>();
+async function ensureEquipmentTables(pool: any, schemaName: string, customerId: string): Promise<void> {
+  if (_equipTablesMigrated.has(customerId)) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "${schemaName}".contractor_equipment (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        make_model TEXT,
+        serial_or_reg TEXT,
+        notes TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "${schemaName}".equipment_certification_types (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        key TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'other',
+        legal_basis TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      INSERT INTO "${schemaName}".equipment_certification_types (key, name, category, legal_basis) VALUES
+        ('loler_examination', 'LOLER Thorough Examination', 'inspection', 'Lifting Operations & Lifting Equipment Regs 1998'),
+        ('puwer_inspection', 'PUWER Inspection', 'inspection', 'Provision & Use of Work Equipment Regs 1998'),
+        ('pat_test', 'PAT Test', 'inspection', 'Electricity at Work Regulations 1989'),
+        ('mot', 'MOT Certificate', 'legal', 'Road Traffic Act 1988'),
+        ('road_tax_insurance', 'Road Tax & Vehicle Insurance', 'legal', 'Road Traffic Act 1988'),
+        ('plant_insurance', 'Plant & Tool Insurance', 'legal', 'Employer obligation / contract requirement')
+      ON CONFLICT (key) DO NOTHING
+    `);
+    _equipTablesMigrated.add(customerId);
+    logger.info(`✅ Equipment tables/types ensured for ${customerId}`);
+  } catch (err) {
+    logger.warn('[Equipment] Table ensure warning (non-fatal):', err);
+  }
+}
+
 export function registerContractorEquipmentRoutes(app: Express): void {
 
   // GET /api/contractor-equipment/certification-types
@@ -19,6 +65,7 @@ export function registerContractorEquipmentRoutes(app: Express): void {
   app.get('/api/contractor-equipment/certification-types', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getEquipPool(req.customerId!);
+      await ensureEquipmentTables(pool, schemaName, req.customerId!);
       const result = await pool.query(
         `SELECT * FROM "${schemaName}".equipment_certification_types
          WHERE is_active = TRUE
@@ -36,17 +83,18 @@ export function registerContractorEquipmentRoutes(app: Express): void {
   app.get('/api/contractors/:companyId/equipment', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getEquipPool(req.customerId!);
+      await ensureEquipmentTables(pool, schemaName, req.customerId!);
       const { companyId } = req.params;
       const result = await pool.query(
         `SELECT e.*,
           (SELECT COUNT(*) FROM "${schemaName}".contractor_documents d
-           WHERE d.equipment_id = e.id AND d.is_active = TRUE AND d.status = 'approved'
+           WHERE d.equipment_id = e.id::text AND d.is_active = TRUE AND d.status = 'approved'
              AND (d.expiry_date IS NULL OR d.expiry_date > NOW())) AS valid_cert_count,
           (SELECT COUNT(*) FROM "${schemaName}".contractor_documents d
-           WHERE d.equipment_id = e.id AND d.is_active = TRUE
+           WHERE d.equipment_id = e.id::text AND d.is_active = TRUE
              AND d.expiry_date IS NOT NULL AND d.expiry_date < NOW()) AS expired_cert_count,
           (SELECT COUNT(*) FROM "${schemaName}".contractor_documents d
-           WHERE d.equipment_id = e.id AND d.is_active = TRUE AND d.status = 'pending') AS pending_cert_count
+           WHERE d.equipment_id = e.id::text AND d.is_active = TRUE AND d.status = 'pending') AS pending_cert_count
          FROM "${schemaName}".contractor_equipment e
          WHERE e.company_id = $1 AND e.is_active = TRUE
          ORDER BY e.created_at DESC`,
@@ -68,6 +116,7 @@ export function registerContractorEquipmentRoutes(app: Express): void {
   app.post('/api/contractors/:companyId/equipment', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getEquipPool(req.customerId!);
+      await ensureEquipmentTables(pool, schemaName, req.customerId!);
       const { companyId } = req.params;
       const { name, category, makeModel, serialOrReg, notes } = req.body;
       if (!name || !category) {
@@ -138,6 +187,7 @@ export function registerContractorEquipmentRoutes(app: Express): void {
   app.get('/api/contractors/equipment/:equipId/certificates', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getEquipPool(req.customerId!);
+      await ensureEquipmentTables(pool, schemaName, req.customerId!);
       const { equipId } = req.params;
 
       const [typesResult, docsResult] = await Promise.all([
@@ -195,6 +245,7 @@ export function registerContractorEquipmentRoutes(app: Express): void {
   app.post('/api/contractors/equipment/:equipId/certificates', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName, custDb } = await getEquipPool(req.customerId!);
+      await ensureEquipmentTables(pool, schemaName, req.customerId!);
       const { equipId } = req.params;
       const { documentType, documentUrl, expiryDate, issuedBy, certNumber, documentName } = req.body;
       if (!documentType || !documentUrl) {

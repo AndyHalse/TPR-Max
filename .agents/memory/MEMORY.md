@@ -22,3 +22,4 @@
 - [Site login names pattern](site-login-names.md) — management DB site_login_names table for per-site login; autoActiveSiteId flows through PendingCustomerOtp → createCustomerSession; registerSiteLoginName helper tries site name first then namespaces.
 - [TPR Max deep-link UX principle](deep-link-ux-principle.md) — every View/action link must go to the exact page+tab where the user acts; never generic pages; user explicitly requires this across the whole platform.
 - [TPR Max tooltip UX principle](tooltip-ux-principle.md) — add hover tooltips to all interactive elements on every page as we go through testing; use Radix TooltipProvider (delayDuration=400) per section; never use bare title= attributes.
+- [Equipment Register uuid=text type mismatch](equipment-register-type-mismatch.md) — contractor_equipment.id is uuid; contractor_documents.equipment_id is text; must cast e.id::text in subqueries or PostgreSQL silently returns [] via "does not exist" catch.
