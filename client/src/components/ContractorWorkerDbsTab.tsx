@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, objectUrl } from "@/lib/queryClient";
+import { apiRequest, objectUrl, getSessionToken } from "@/lib/queryClient";
 import { Plus, XCircle, Loader2, ShieldCheck, AlertTriangle, ShieldAlert, Upload, FileText, Eye, CheckCircle2, ClipboardCheck } from "lucide-react";
 
 const DBS_LEVELS: Record<string, string> = {
@@ -141,11 +141,15 @@ export default function ContractorWorkerDbsTab({
 
   const { data: records = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/contractors/workers", workerId, "dbs"],
-    queryFn: () =>
-      fetch(`/api/contractors/workers/${workerId}/dbs`, { credentials: "include" }).then(r => {
+    queryFn: () => {
+      const token = getSessionToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return fetch(`/api/contractors/workers/${workerId}/dbs`, { credentials: "include", headers }).then(r => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json();
-      }),
+      });
+    },
   });
 
   const add = useMutation({
