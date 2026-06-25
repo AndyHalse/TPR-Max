@@ -785,7 +785,15 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       // ── 8. Staff Right to Work ────────────────────────────────────────────────
       let rtwTracked = 0, rtwCompliant = 0, rtwExpiring = 0, rtwExpired = 0;
+      let rtwEnabled = false;
+      let rtwQuerySucceeded = false;
       try {
+        const [rtwSettings] = await custDb
+          .select({ featureHrModule: schema.companySettings.featureHrModule })
+          .from(schema.companySettings)
+          .limit(1);
+        rtwEnabled = rtwSettings?.featureHrModule ?? false;
+
         const { clause: srtwSite, params: srtwSiteP } = addSiteParam([], 's');
         const rtwResult = await pool.query(
           `SELECT rtw.staff_id, rtw.expiry_date, s.first_name, s.last_name, s.department
@@ -819,12 +827,22 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             addTimeline(row.expiry_date, 'Staff Right to Work', `${staffName} — Right to Work`);
           }
         }
+        rtwQuerySucceeded = true;
       } catch (e: any) {
         logger.warn('RTW query error (non-fatal):', e.message);
         loadErrors.push('Staff Right to Work');
       }
 
-      const rtwScore = rtwTracked === 0 ? null : Math.round((rtwCompliant / rtwTracked) * 100);
+      // rtwTracked counts staff with expiry-dated RTW records. Zero means no
+      // time-limited RTW on file — score 100 when HR module is active (all clear).
+      let rtwScore: number | null;
+      if (rtwTracked > 0) {
+        rtwScore = Math.round((rtwCompliant / rtwTracked) * 100);
+      } else if (rtwEnabled && rtwQuerySucceeded) {
+        rtwScore = 100;
+      } else {
+        rtwScore = null;
+      }
 
       // ── 9. Staff DBS ──────────────────────────────────────────────────────────
       let staffDbsTotal = 0, staffDbsCompliant = 0;
