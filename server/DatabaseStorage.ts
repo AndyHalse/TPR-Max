@@ -1571,6 +1571,7 @@ export class DatabaseStorage implements IStorage {
         // CRITICAL FIX: Map frontend compatibility fields
         inductionCompleted: worker.siteInductionCompleted || false,
         phone: worker.phoneNumber,
+        dbsRequired: worker.dbsRequired ?? false,
       } as ContractorWorker;
       
       return mappedWorker;
@@ -1657,6 +1658,7 @@ export class DatabaseStorage implements IStorage {
       // CRITICAL FIX: Map frontend compatibility fields
       inductionCompleted: worker.siteInductionCompleted || false,
       phone: worker.phoneNumber,
+      dbsRequired: worker.dbsRequired ?? false,
     } as ContractorWorker;
     
     return mappedWorker;

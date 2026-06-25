@@ -1580,6 +1580,7 @@ export class DatabaseService {
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
           needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
+          dbsRequired: worker.dbsRequired ?? false,
         } as ContractorWorker;
         
         return mappedWorker;
@@ -2128,6 +2129,7 @@ export class DatabaseService {
         phone: worker.phoneNumber,
         qrCode: worker.qrCode || null,
         needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
+        dbsRequired: worker.dbsRequired ?? false,
       } as ContractorWorker;
       
       
