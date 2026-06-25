@@ -278,7 +278,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
 
   useEffect(() => { if (slidesData?.scenes) setEditedScenes(slidesData.scenes); }, [slidesData?.scenes]);
 
-  const { data: cpData } = useQuery<{ checkpoints: Checkpoint[] }>({
+  const { data: cpData, isError: cpError, refetch: refetchCpData } = useQuery<{ checkpoints: Checkpoint[] }>({
     queryKey: ['/api/induction/checkpoints'],
     queryFn: async () => { const r = await apiRequest('GET', '/api/induction/checkpoints'); return r.json(); },
   });
@@ -303,7 +303,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const saveScenesMutation = useMutation({
     mutationFn: async () => { const r = await apiRequest('PUT', `/api/induction/settings/${roleType}/scenes`, { scenes: editedScenes }); return r.json(); },
     onSuccess: () => { toast({ title: 'Slides saved', description: 'Slide content updated successfully.' }); refetchSlides(); },
-    onError: () => toast({ title: 'Error saving slides', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Error saving slides', description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const [uploadingSlideIdx, setUploadingSlideIdx] = useState<number | null>(null);
@@ -349,7 +349,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       return r.json();
     },
     onSuccess: () => { toast({ title: 'Checkpoint created' }); setCpForm({ label: '', content: '' }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
-    onError: () => toast({ title: 'Error creating checkpoint', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Error creating checkpoint', description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const updateCpMutation = useMutation({
@@ -359,7 +359,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       return r.json();
     },
     onSuccess: () => { toast({ title: 'Checkpoint updated' }); setEditingCp(null); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
-    onError: () => toast({ title: 'Error updating checkpoint', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Error updating checkpoint', description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const uploadCpPhotoMutation = useMutation({
@@ -389,7 +389,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
       onQuestionsRefetch();
     },
-    onError: () => toast({ title: 'Failed to add question', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Failed to add question', description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const updateQuestionMutation = useMutation({
@@ -404,7 +404,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
       onQuestionsRefetch();
     },
-    onError: () => toast({ title: 'Failed to update question', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Failed to update question', description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const deleteQuestionMutation = useMutation({
@@ -416,7 +416,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
       onQuestionsRefetch();
     },
-    onError: () => toast({ title: 'Failed to delete question', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Failed to delete question', description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const toggleCpMutation = useMutation({
@@ -429,7 +429,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const deleteCpMutation = useMutation({
     mutationFn: async (id: string) => { const r = await apiRequest('DELETE', `/api/induction/checkpoints/${id}`); return r.json(); },
     onSuccess: () => { toast({ title: 'Checkpoint deleted' }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
-    onError: () => toast({ title: 'Error deleting checkpoint', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Error deleting checkpoint', description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   // ── Helpers ──
@@ -545,7 +545,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       setCurrentCustomVideoUrl(null); setVideoSource('ai_generated');
       queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
       toast({ title: 'Video removed', description: 'The custom video has been removed.' });
-    } catch { toast({ title: 'Failed to remove video', variant: 'destructive' }); }
+    } catch (err: any) { toast({ title: 'Failed to remove video', description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsDeletingVideo(false); }
   };
 
@@ -572,8 +572,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         toast({ title: 'Questions Cleared', description: 'All questions removed — regenerate to get fresh ones.' });
         queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
         onQuestionsRefetch();
+      } else {
+        toast({ title: 'Failed to clear questions', description: data.error, variant: 'destructive' });
       }
-    } catch { toast({ title: 'Failed', variant: 'destructive' }); }
+    } catch (err: any) { toast({ title: 'Failed to clear questions', description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsCleaningUp(false); }
   };
 
@@ -583,7 +585,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       await apiRequest('PATCH', `/api/induction/settings/${roleType}/toggle`, { kioskEnabled: enabled });
       queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
       toast({ title: enabled ? 'Kiosk induction enabled' : 'Kiosk induction disabled' });
-    } catch { setKioskEnabled(prev); toast({ title: 'Failed', variant: 'destructive' }); }
+    } catch (err: any) { setKioskEnabled(prev); toast({ title: 'Failed to update kiosk setting', description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsTogglingKiosk(false); }
   };
 
@@ -594,7 +596,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     try {
       await apiRequest('PATCH', `/api/induction/settings/${roleType}/toggle`, { failureFeedbackLevel: value });
       queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
-    } catch { setFailureFeedbackLevel(prev); toast({ title: 'Failed to save', variant: 'destructive' }); }
+    } catch (err: any) { setFailureFeedbackLevel(prev); toast({ title: 'Failed to save feedback level', description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsSavingFeedbackLevel(false); }
   };
 
@@ -1100,7 +1102,12 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           </Button>
         </div>
 
-        {!cpData?.checkpoints?.length ? (
+        {cpError ? (
+          <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Could not load checkpoints. <button className="underline ml-1" onClick={() => refetchCpData()}>Try again</button>
+          </div>
+        ) : !cpData?.checkpoints?.length ? (
           <div className="text-center py-6 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
             <QrCode className="w-8 h-8 mx-auto mb-2 opacity-30" />
             <p className="text-sm text-variable">No checkpoints yet. Create your first one above.</p>

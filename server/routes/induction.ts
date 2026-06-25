@@ -4423,9 +4423,9 @@ export function registerInductionRoutes(app: Express): void {
         hasScenes: sql<boolean>`(scenes_data IS NOT NULL)`,
       }).from(inductionSettings);
       res.json({ settings: globalRows });
-    } catch (error) {
-      logger.error('Error fetching induction settings:', error);
-      res.status(500).json({ error: 'Failed to fetch induction settings' });
+    } catch (error: any) {
+      logger.error('[induction] GET /settings error', { customerId: req.customerId, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to fetch induction settings', detail: error?.message });
     }
   });
 
@@ -4443,9 +4443,9 @@ export function registerInductionRoutes(app: Express): void {
       }
 
       res.json({ setting });
-    } catch (error) {
-      logger.error('Error fetching role-specific induction settings:', error);
-      res.status(500).json({ error: 'Failed to fetch induction settings' });
+    } catch (error: any) {
+      logger.error('[induction] GET /settings/:roleType error', { customerId: req.customerId, roleType: req.params.roleType, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to fetch induction settings', detail: error?.message });
     }
   });
 
@@ -4474,9 +4474,9 @@ export function registerInductionRoutes(app: Express): void {
         .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
 
       res.json({ success: true, roleType, ...updateFields });
-    } catch (error) {
-      logger.error('Error toggling induction setting:', error);
-      res.status(500).json({ error: 'Failed to update induction settings' });
+    } catch (error: any) {
+      logger.error('[induction] PATCH /settings/:roleType/toggle error', { customerId: req.customerId, roleType: req.params.roleType, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to update induction settings', detail: error?.message });
     }
   });
 
@@ -5498,9 +5498,9 @@ export function registerInductionRoutes(app: Express): void {
       } catch {
         return res.json({ scenes: [] });
       }
-    } catch (error) {
-      logger.error('Error fetching scenes for slide editor:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      logger.error('[induction] GET /settings/:roleType/scenes error', { customerId: req.customerId, roleType: req.params.roleType, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to fetch slides', detail: error?.message });
     }
   });
 
@@ -5519,9 +5519,9 @@ export function registerInductionRoutes(app: Express): void {
         .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
 
       return res.json({ success: true });
-    } catch (error) {
-      logger.error('Error saving scenes:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      logger.error('[induction] PUT /settings/:roleType/scenes error', { customerId: req.customerId, roleType: req.params.roleType, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to save slides', detail: error?.message });
     }
   });
 
@@ -5564,8 +5564,8 @@ export function registerInductionRoutes(app: Express): void {
       logger.info(`✅ Slide photo saved: ${storedPath}`);
       return res.json({ success: true, url: storedPath });
     } catch (error: any) {
-      logger.error('❌ Error uploading slide photo:', error);
-      res.status(500).json({ error: error.message || 'Failed to upload photo' });
+      logger.error('[induction] POST /settings/:roleType/scenes/photo error', { customerId: req.customerId, roleType: req.params.roleType, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to upload slide photo', detail: error?.message });
     }
   });
 
@@ -5585,9 +5585,9 @@ export function registerInductionRoutes(app: Express): void {
         .where(eq(isolatedSchema.inductionCheckpoints.customerId, customerId))
         .orderBy(isolatedSchema.inductionCheckpoints.orderIndex);
       return res.json({ checkpoints: rows });
-    } catch (error) {
-      logger.error('Error listing checkpoints:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      logger.error('[induction] GET /checkpoints error', { customerId: req.customerId, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to load checkpoints', detail: error?.message });
     }
   });
 
@@ -5646,9 +5646,9 @@ export function registerInductionRoutes(app: Express): void {
         })
         .returning();
       return res.json({ checkpoint: newCheckpoint });
-    } catch (error) {
-      logger.error('Error creating checkpoint:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      logger.error('[induction] POST /checkpoints error', { customerId: req.customerId, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to create checkpoint', detail: error?.message });
     }
   });
 
@@ -5674,9 +5674,9 @@ export function registerInductionRoutes(app: Express): void {
           eq(isolatedSchema.inductionCheckpoints.customerId, customerId)
         ));
       return res.json({ success: true });
-    } catch (error) {
-      logger.error('Error updating checkpoint:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      logger.error('[induction] PUT /checkpoints/:id error', { customerId: req.customerId, id: req.params.id, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to update checkpoint', detail: error?.message });
     }
   });
 
@@ -5719,8 +5719,8 @@ export function registerInductionRoutes(app: Express): void {
       logger.info(`🖼️ Checkpoint photo saved: ${storedPath}`);
       return res.json({ success: true, url: storedPath });
     } catch (error: any) {
-      logger.error('Error uploading checkpoint photo:', error);
-      res.status(500).json({ error: error.message || 'Failed to upload photo' });
+      logger.error('[induction] POST /checkpoints/:id/photo error', { customerId: req.customerId, id: req.params.id, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to upload checkpoint photo', detail: error?.message });
     }
   });
 
@@ -5738,9 +5738,9 @@ export function registerInductionRoutes(app: Express): void {
           eq(isolatedSchema.inductionCheckpoints.customerId, customerId)
         ));
       return res.json({ success: true });
-    } catch (error) {
-      logger.error('Error deleting checkpoint:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      logger.error('[induction] DELETE /checkpoints/:id error', { customerId: req.customerId, id: req.params.id, user: (req as any).user?.username, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to delete checkpoint', detail: error?.message });
     }
   });
 
@@ -5768,9 +5768,9 @@ export function registerInductionRoutes(app: Express): void {
         } catch (_) { /* try next customer */ }
       }
       return res.status(404).json({ error: 'Checkpoint not found' });
-    } catch (error) {
-      logger.error('Error resolving checkpoint by qrToken:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      logger.error('[induction] GET /checkpoint/:qrToken error', { qrToken: req.params.qrToken, message: error?.message, code: error?.code, stack: error?.stack?.split('\n').slice(0, 6).join('\n') });
+      res.status(500).json({ error: 'Failed to resolve checkpoint', detail: error?.message });
     }
   });
 

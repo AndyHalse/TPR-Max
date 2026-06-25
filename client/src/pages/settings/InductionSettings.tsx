@@ -127,14 +127,14 @@ export default function InductionSettings() {
       setCurrentCustomVideoUrl(null);
       setVideoSource("ai_generated");
       toast({ title: "Video removed", description: "The custom video has been removed." });
-    } catch {
-      toast({ title: "Failed to remove video", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Failed to remove video", description: err?.detail || err?.message, variant: "destructive" });
     } finally {
       setIsDeletingVideo(false);
     }
   };
 
-  const { data: slidesData, isLoading: slidesLoading, refetch: refetchSlides } = useQuery<{ scenes: InductionScene[] }>({
+  const { data: slidesData, isLoading: slidesLoading, isError: slidesError, refetch: refetchSlides } = useQuery<{ scenes: InductionScene[] }>({
     queryKey: ["/api/induction/settings", slideRoleType, "scenes"],
     queryFn: async () => {
       const r = await apiRequest("GET", `/api/induction/settings/${slideRoleType}/scenes`);
@@ -155,7 +155,7 @@ export default function InductionSettings() {
       toast({ title: "Slides saved", description: "Slide content updated successfully." });
       refetchSlides();
     },
-    onError: () => toast({ title: "Error saving slides", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Error saving slides", description: err?.detail || err?.message, variant: "destructive" }),
   });
 
   const uploadSlidePictureMutation = useMutation({
@@ -177,7 +177,7 @@ export default function InductionSettings() {
       );
       toast({ title: "Photo uploaded", description: "Scene photo ready — save slides to apply." });
     },
-    onError: () => toast({ title: "Photo upload failed", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Photo upload failed", description: err?.detail || err?.message, variant: "destructive" }),
   });
 
   // ── Section 4: Checkpoint state ──
@@ -186,7 +186,7 @@ export default function InductionSettings() {
   const [editCpForm, setEditCpForm] = useState({ label: "", content: "" });
   const [showQr, setShowQr] = useState<string | null>(null);
 
-  const { data: cpData, refetch: refetchCp } = useQuery<{ checkpoints: Checkpoint[] }>({
+  const { data: cpData, isLoading: cpLoading, isError: cpError, refetch: refetchCp } = useQuery<{ checkpoints: Checkpoint[] }>({
     queryKey: ["/api/induction/checkpoints"],
     queryFn: async () => {
       const r = await apiRequest("GET", "/api/induction/checkpoints");
@@ -208,7 +208,7 @@ export default function InductionSettings() {
       setCpForm({ label: "", content: "" });
       queryClient.invalidateQueries({ queryKey: ["/api/induction/checkpoints"] });
     },
-    onError: () => toast({ title: "Error creating checkpoint", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Error creating checkpoint", description: err?.detail || err?.message, variant: "destructive" }),
   });
 
   const updateCpMutation = useMutation({
@@ -225,7 +225,7 @@ export default function InductionSettings() {
       setEditingCp(null);
       queryClient.invalidateQueries({ queryKey: ["/api/induction/checkpoints"] });
     },
-    onError: () => toast({ title: "Error updating checkpoint", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Error updating checkpoint", description: err?.detail || err?.message, variant: "destructive" }),
   });
 
   const toggleCpMutation = useMutation({
@@ -245,7 +245,7 @@ export default function InductionSettings() {
       toast({ title: "Checkpoint deleted" });
       queryClient.invalidateQueries({ queryKey: ["/api/induction/checkpoints"] });
     },
-    onError: () => toast({ title: "Error deleting checkpoint", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Error deleting checkpoint", description: err?.detail || err?.message, variant: "destructive" }),
   });
 
   const getQrUrl = (qrToken: string) => `${window.location.origin}/induction/checkpoint/${qrToken}`;
@@ -574,7 +574,13 @@ export default function InductionSettings() {
             {slidesLoading && (
               <div className="text-center py-8 text-variable text-sm">Loading slides…</div>
             )}
-            {!slidesLoading && editedScenes.length === 0 && (
+            {slidesError && (
+              <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Could not load slides. <button className="underline ml-1" onClick={() => refetchSlides()}>Try again</button>
+              </div>
+            )}
+            {!slidesLoading && !slidesError && editedScenes.length === 0 && (
               <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                 <Layers className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm text-variable">No slides found for this role type.</p>
@@ -727,7 +733,16 @@ export default function InductionSettings() {
             </div>
 
             {/* Checkpoint list */}
-            {!cpData?.checkpoints?.length && (
+            {cpLoading && (
+              <div className="text-center py-6 text-variable text-sm">Loading checkpoints…</div>
+            )}
+            {cpError && (
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Could not load checkpoints. <button className="underline ml-1" onClick={() => refetchCp()}>Try again</button>
+              </div>
+            )}
+            {!cpLoading && !cpError && !cpData?.checkpoints?.length && (
               <div className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                 <QrCode className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm text-variable">No checkpoints yet. Create your first one above.</p>
