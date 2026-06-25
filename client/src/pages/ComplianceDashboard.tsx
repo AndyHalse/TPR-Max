@@ -872,10 +872,28 @@ export default function ComplianceDashboard() {
   }
 
   if (!data) {
+    const errStatus = (error as any)?.status;
+    const errDetail = (error as any)?.detail ?? (error as any)?.message;
+    console.error('[ComplianceDashboard] load error', { status: errStatus, detail: errDetail, error });
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
-        <AlertTriangle className="h-6 w-6 mr-2" />
-        Failed to load compliance dashboard
+      <div className="flex flex-col items-center justify-center h-64 gap-4 text-center p-6">
+        <AlertTriangle className="h-10 w-10 text-red-400" />
+        <div>
+          <p className="text-gray-700 font-semibold mb-1">Failed to load compliance dashboard</p>
+          {errStatus && (
+            <p className="text-xs text-gray-400 mb-1">HTTP {errStatus}</p>
+          )}
+          {errDetail && (
+            <p className="text-xs text-gray-400 max-w-sm">{errDetail}</p>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/compliance-dashboard"] })}
+        >
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Try again
+        </Button>
       </div>
     );
   }

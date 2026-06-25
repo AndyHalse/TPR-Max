@@ -40,10 +40,26 @@ export function registerComplianceDashboardRoutes(app: Express): void {
   });
 
   app.get('/api/compliance-dashboard', async (req, res) => {
+    const customerId = req.customerId!;
+    const requestUser = req.user?.username ?? 'unknown';
+    logger.info('Compliance dashboard requested', { customerId, user: requestUser, refresh: req.query.refresh });
+
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
-      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const schemaName = customerDbService.generateSchemaName(customerId);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+      // Fail fast if we cannot obtain a raw pool — every section query will crash otherwise
+      if (!pool) {
+        logger.error('Compliance dashboard: raw pool unavailable from drizzle client', {
+          customerId, user: requestUser,
+          clientKeys: Object.keys((custDb as any) ?? {}),
+        });
+        return res.status(500).json({
+          error: 'Database connection unavailable. Please try refreshing the page.',
+          detail: 'pool_undefined',
+        });
+      }
 
       // Resolve enterprise site context so the dashboard only shows data for the
       // active site (matching how every other site-scoped route works).
@@ -1330,8 +1346,17 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       _dashboardCache.set(cacheKey, { data: responseData, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
       res.json(responseData);
     } catch (err: any) {
-      logger.error('Compliance dashboard error:', err);
-      res.status(500).json({ error: 'Failed to generate compliance dashboard' });
+      logger.error('Compliance dashboard fatal error', {
+        customerId,
+        user: requestUser,
+        message: err?.message,
+        code: err?.code,
+        stack: err?.stack?.split('\n').slice(0, 10).join('\n'),
+      });
+      res.status(500).json({
+        error: 'Failed to generate compliance dashboard',
+        detail: err?.message ?? 'Unknown error',
+      });
     }
   });
 }
