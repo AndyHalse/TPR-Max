@@ -59,6 +59,7 @@ export default function ContractorPortalAdmin() {
     data: overview,
     isLoading: overviewLoading,
     isError: overviewError,
+    error: overviewFetchError,
     refetch: refetchOverview,
   } = useQuery<{ portalUsers: any[]; pendingDocs: any[]; submittedCompanies: any[] }>({
     queryKey: OVERVIEW_KEY,
@@ -156,9 +157,7 @@ export default function ContractorPortalAdmin() {
   const approveForSiteMutation = useMutation({
     mutationFn: async ({ companyId, overrideReason }: { companyId: string; overrideReason?: string }) => {
       const res = await apiRequest("POST", `/api/contractors/${companyId}/approve-for-site`, overrideReason ? { overrideReason } : {});
-      const data = await res.json();
-      if (!res.ok) throw Object.assign(new Error(data.error || "Approval failed"), data);
-      return data;
+      return res.json();
     },
     onSuccess: (_data, vars) => {
       const wasOverride = !!vars.overrideReason;
@@ -203,7 +202,13 @@ export default function ContractorPortalAdmin() {
     queryKey: ["/api/contractors/onboarding-requirements"],
   });
 
-  const { data: auditLog = [] } = useQuery<any[]>({
+  const {
+    data: auditLog = [],
+    isLoading: auditLoading,
+    isError: auditError,
+    error: auditFetchError,
+    refetch: refetchAudit,
+  } = useQuery<any[]>({
     queryKey: ["/api/contractors/onboarding-audit"],
   });
 
@@ -372,7 +377,7 @@ export default function ContractorPortalAdmin() {
                 <div className="text-center py-12 space-y-3">
                   <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
                   <p className="font-medium text-slate-700 dark:text-slate-300">Failed to load portal users</p>
-                  <p className="text-sm text-muted-foreground">There was an error fetching data from the server.</p>
+                  <p className="text-sm text-muted-foreground">{(overviewFetchError as any)?.detail || (overviewFetchError as any)?.message || "There was an error fetching data from the server."}</p>
                   <Button variant="outline" onClick={() => refetchOverview()} className="gap-2">
                     <RefreshCw className="w-4 h-4" /> Retry
                   </Button>
@@ -497,7 +502,7 @@ export default function ContractorPortalAdmin() {
                 <div className="text-center py-12 space-y-3">
                   <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
                   <p className="font-medium text-slate-700 dark:text-slate-300">Failed to load pending documents</p>
-                  <p className="text-sm text-muted-foreground">There was an error fetching data from the server.</p>
+                  <p className="text-sm text-muted-foreground">{(overviewFetchError as any)?.detail || (overviewFetchError as any)?.message || "There was an error fetching data from the server."}</p>
                   <Button variant="outline" onClick={() => refetchOverview()} className="gap-2">
                     <RefreshCw className="w-4 h-4" /> Retry
                   </Button>
@@ -742,7 +747,20 @@ export default function ContractorPortalAdmin() {
               <CardDescription>Recent onboarding events across all contractor companies — approvals, blocked check-ins, and document decisions.</CardDescription>
             </CardHeader>
             <CardContent>
-              {auditLog.length === 0 ? (
+              {auditError ? (
+                <div className="text-center py-8 space-y-3">
+                  <AlertTriangle className="w-8 h-8 mx-auto text-amber-500" />
+                  <p className="font-medium text-sm">Failed to load activity log</p>
+                  <p className="text-xs text-muted-foreground">{(auditFetchError as any)?.detail || (auditFetchError as any)?.message || "There was an error fetching the audit trail."}</p>
+                  <Button variant="outline" size="sm" onClick={() => refetchAudit()} className="gap-2">
+                    <RefreshCw className="w-3 h-3" /> Retry
+                  </Button>
+                </div>
+              ) : auditLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /><span>Loading activity…</span>
+                </div>
+              ) : auditLog.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">No activity recorded yet.</div>
               ) : (
                 <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-1">

@@ -758,6 +758,10 @@ export function registerContractorRoutes(app: Express): void {
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) {
+        logger.error('[portal-admin] onboarding-requirements: pool unavailable', { customerId });
+        return res.status(500).json({ error: 'Database connection unavailable.', detail: 'pool_undefined' });
+      }
       // Seed-on-read: ensures table + UK defaults exist on older schemas (no manual migration needed)
       await seedOnboardingRequirements(pool, schemaName);
       const result = await pool.query(
@@ -765,8 +769,12 @@ export function registerContractorRoutes(app: Express): void {
       );
       return res.json(result.rows);
     } catch (error: any) {
-      logger.error('Error loading onboarding requirements:', error);
-      return res.status(500).json({ error: 'Failed to load requirements.' });
+      logger.error('[portal-admin] onboarding-requirements GET error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to load requirements.', detail: error?.message });
     }
   });
 
@@ -779,6 +787,10 @@ export function registerContractorRoutes(app: Express): void {
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) {
+        logger.error('[portal-admin] onboarding-requirements PUT: pool unavailable', { customerId, docType });
+        return res.status(500).json({ error: 'Database connection unavailable.', detail: 'pool_undefined' });
+      }
       const knownDefault = UK_DEFAULT_REQUIREMENTS.find(r => r.document_type === docType);
       const label = knownDefault?.label ?? docType;
       const sortOrder = knownDefault?.sort_order ?? 99;
@@ -791,8 +803,12 @@ export function registerContractorRoutes(app: Express): void {
       );
       return res.json({ success: true });
     } catch (error: any) {
-      logger.error('Error updating onboarding requirement:', error);
-      return res.status(500).json({ error: 'Failed to update requirement.' });
+      logger.error('[portal-admin] onboarding-requirements PUT error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to update requirement.', detail: error?.message });
     }
   });
 
@@ -804,6 +820,10 @@ export function registerContractorRoutes(app: Express): void {
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) {
+        logger.error('[portal-admin] onboarding-audit: pool unavailable', { customerId });
+        return res.status(500).json({ error: 'Database connection unavailable.', detail: 'pool_undefined' });
+      }
       const limit = Math.min(Number(req.query.limit) || 50, 200);
       const companyId = req.query.companyId as string | undefined;
 
@@ -821,8 +841,12 @@ export function registerContractorRoutes(app: Express): void {
       );
       return res.json(result.rows);
     } catch (err: any) {
-      logger.error('Error loading onboarding audit:', err);
-      return res.status(500).json({ error: 'Failed to load audit trail.' });
+      logger.error('[portal-admin] onboarding-audit GET error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: err?.message, code: err?.code,
+        stack: err?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to load audit trail.', detail: err?.message });
     }
   });
 
@@ -5196,8 +5220,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       return res.json({ portalUsers, pendingDocs, submittedCompanies });
     } catch (error: any) {
-      logger.error('Error loading portal admin overview:', error);
-      return res.status(500).json({ error: 'Failed to load portal overview.' });
+      logger.error('[portal-admin] admin-overview error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to load portal overview.', detail: error?.message });
     }
   });
 
@@ -5295,8 +5323,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       return res.json({ success: true, message: `Invitation sent to ${email}.`, portalUrl });
     } catch (error: any) {
-      logger.error('Error sending portal invite:', error);
-      return res.status(500).json({ error: 'Failed to send invitation.' });
+      logger.error('[portal-admin] portal-invite error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to send invitation.', detail: error?.message });
     }
   });
 
@@ -5328,8 +5360,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         }))
       );
     } catch (error: any) {
-      logger.error('Error listing portal users:', error);
-      return res.status(500).json({ error: 'Failed to load portal users.' });
+      logger.error('[portal-admin] portal-users list error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to load portal users.', detail: error?.message });
     }
   });
 
@@ -5349,8 +5385,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       if (!updated) return res.status(404).json({ error: 'Portal user not found.' });
       return res.json({ success: true });
     } catch (error: any) {
-      logger.error('Error revoking portal user:', error);
-      return res.status(500).json({ error: 'Failed to revoke access.' });
+      logger.error('[portal-admin] revoke portal user error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to revoke access.', detail: error?.message });
     }
   });
 
@@ -5421,8 +5461,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       return res.json({ success: true });
     } catch (error: any) {
-      logger.error('Error resending login details:', error);
-      return res.status(500).json({ error: 'Failed to resend login details.' });
+      logger.error('[portal-admin] resend-login error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to resend login details.', detail: error?.message });
     }
   });
 
@@ -5685,8 +5729,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       return res.json(updated);
     } catch (error: any) {
-      logger.error('Error reviewing document:', error);
-      return res.status(500).json({ error: 'Failed to update document status.' });
+      logger.error('[portal-admin] document-review error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to update document status.', detail: error?.message });
     }
   });
 
@@ -5700,6 +5748,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) {
+        logger.error('[portal-admin] approve-for-site: pool unavailable', { customerId, id });
+        return res.status(500).json({ error: 'Database connection unavailable.', detail: 'pool_undefined' });
+      }
 
       // Check compliance before approving
       const compliance = await getCompanyComplianceStatus(db, id);
@@ -5763,8 +5815,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       return res.json({ success: true });
     } catch (error: any) {
-      logger.error('Error approving contractor for site:', error);
-      return res.status(500).json({ error: 'Failed to approve contractor.' });
+      logger.error('[portal-admin] approve-for-site error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to approve contractor.', detail: error?.message });
     }
   });
 
@@ -5779,6 +5835,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
       const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) {
+        logger.error('[portal-admin] request-changes: pool unavailable', { customerId, id });
+        return res.status(500).json({ error: 'Database connection unavailable.', detail: 'pool_undefined' });
+      }
 
       await pool.query(
         `UPDATE "${schemaName}".contractor_companies SET onboarding_status = 'changes_requested', updated_at = NOW() WHERE id = $1`,
@@ -5825,8 +5885,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       return res.json({ success: true });
     } catch (error: any) {
-      logger.error('Error requesting changes:', error);
-      return res.status(500).json({ error: 'Failed to request changes.' });
+      logger.error('[portal-admin] request-changes error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to request changes.', detail: error?.message });
     }
   });
 
