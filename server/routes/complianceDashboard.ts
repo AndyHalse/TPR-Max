@@ -1024,7 +1024,15 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       // ── 13. Risk Assessments ──────────────────────────────────────────────────
       let raTotal = 0, raCompliant = 0, raReviewDue = 0;
+      let raEnabled = false;
+      let raQuerySucceeded = false;
       try {
+        const [raSettings] = await custDb
+          .select({ featureRaBuilder: schema.companySettings.featureRaBuilder })
+          .from(schema.companySettings)
+          .limit(1);
+        raEnabled = raSettings?.featureRaBuilder ?? false;
+
         const raRows = await custDb.select({
           id: schema.raBuilderAssessments.id,
           title: schema.raBuilderAssessments.title,
@@ -1055,16 +1063,32 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             addTimeline(ra.nextReviewDate, 'Risk Assessments', `${ra.title} — review`, `/ra-builder?highlight=${ra.id}`);
           }
         }
+        raQuerySucceeded = true;
       } catch (e: any) {
         logger.warn('RA query error (non-fatal):', e.message);
         loadErrors.push('Risk Assessments');
       }
 
-      const raScore = raTotal === 0 ? null : Math.round((raCompliant / raTotal) * 100);
+      let raScore: number | null;
+      if (raTotal > 0) {
+        raScore = Math.round((raCompliant / raTotal) * 100);
+      } else if (raEnabled && raQuerySucceeded) {
+        raScore = 100;
+      } else {
+        raScore = null;
+      }
 
       // ── 14. Audits ────────────────────────────────────────────────────────────
       let auditsTotal = 0, auditsCompliant = 0, auditsOverdue = 0;
+      let auditsEnabled = false;
+      let auditsQuerySucceeded = false;
       try {
+        const [auditSettings] = await custDb
+          .select({ featureAuditEngine: schema.companySettings.featureAuditEngine })
+          .from(schema.companySettings)
+          .limit(1);
+        auditsEnabled = auditSettings?.featureAuditEngine ?? false;
+
         const auditRows = await custDb.select({
           id: schema.auditRecords.id,
           title: schema.auditRecords.title,
@@ -1133,12 +1157,20 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         } catch (e: any) {
           logger.warn('Audit corrective actions query error (non-fatal):', e.message);
         }
+        auditsQuerySucceeded = true;
       } catch (e: any) {
         logger.warn('Audit query error (non-fatal):', e.message);
         loadErrors.push('Audits');
       }
 
-      const auditsScore = auditsTotal === 0 ? null : Math.round((auditsCompliant / auditsTotal) * 100);
+      let auditsScore: number | null;
+      if (auditsTotal > 0) {
+        auditsScore = Math.round((auditsCompliant / auditsTotal) * 100);
+      } else if (auditsEnabled && auditsQuerySucceeded) {
+        auditsScore = 100;
+      } else {
+        auditsScore = null;
+      }
 
       // ── 15. PPM Work Orders ───────────────────────────────────────────────────
       let ppmTotal = 0, ppmOverdue = 0, ppmDueSoon = 0;
