@@ -82,7 +82,22 @@ import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteS
     return `${minutes}m`;
   }
 
-const docRequestUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const docRequestUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/pdf',
+      'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    return cb(new Error('Unsupported file type'));
+  },
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1996,7 +2011,22 @@ export function registerContractorRoutes(app: Express): void {
   // Server-side document upload — replaces the old signed-URL flow that failed
   // in browsers due to GCS CORS. The file is streamed through our server to GCS
   // using the Replit sidecar credentials (no browser-side GCS auth needed).
-  const contractorDocUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+  const contractorDocUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowed = [
+        'application/pdf',
+        'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ];
+      if (allowed.includes(file.mimetype)) return cb(null, true);
+      return cb(new Error('Unsupported file type'));
+    },
+  });
   app.post("/api/contractors/:companyId/documents/upload", requireAuth, contractorDocUpload.single('file'), async (req, res) => {
     try {
       if (!['admin', 'manager'].includes((req.user as any)?.role)) {

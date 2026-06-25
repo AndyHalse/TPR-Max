@@ -13,7 +13,22 @@ import { logger } from '../utils/logger';
 import { PTW_CHECKLISTS, PERMIT_TYPE_LABELS, PTW_COMPANY_DOC_LABELS } from '../utils/ptwChecklists';
 import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/pdf',
+      'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    return cb(new Error('Unsupported file type'));
+  },
+});
 const objectStorage = new ObjectStorageService();
 
 const requirePermitToWorkFeature = async (req: any, res: any, next: any) => {

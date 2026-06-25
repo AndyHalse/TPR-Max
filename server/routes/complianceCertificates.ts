@@ -14,7 +14,22 @@ import { calculateCertificateStatus, calculateNextDueDate, getDaysUntilExpiry, g
 import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 import { evaluateSiteBackground } from '../complianceEngine';
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/pdf',
+      'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    return cb(new Error('Unsupported file type'));
+  },
+});
 const objectStorage = new ObjectStorageService();
 
 // DDL guard — run CREATE TABLE + ALTER once per customer schema per process lifetime

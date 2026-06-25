@@ -5,7 +5,9 @@ import { verifySessionToken } from './auth';
 import { databaseService } from './databaseService';
 import { db } from './db';
 import { evacuations } from '@shared/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gt } from 'drizzle-orm';
+import { customerDbService } from './customerDatabase';
+import * as isolatedSchema from './isolatedSchema';
 
 interface MusterUpdateMessage {
   type: 'muster_update';
@@ -39,9 +41,26 @@ async function validateCredential(
       return tokenData.customerId === customerId;
     }
     case 'emergency-token': {
-      // Safety tokens have format customerId.base64url — the prefix is the customerId
-      const prefix = credential.split('.')[0];
-      return prefix === customerId;
+      // Do NOT trust the prefix. Verify the token exists in THIS customer's
+      // isolated safetyTokens table and has not expired.
+      try {
+        const customerDb = await customerDbService.getCustomerDatabase(customerId);
+        const now = new Date();
+        const rows = await customerDb
+          .select({ id: isolatedSchema.safetyTokens.id })
+          .from(isolatedSchema.safetyTokens)
+          .where(and(
+            eq(isolatedSchema.safetyTokens.token, credential),
+            gt(isolatedSchema.safetyTokens.expiresAt, now)
+          ))
+          .limit(1);
+        return rows.length > 0;
+      } catch (err) {
+        logger.warn('WebSocket emergency-token validation failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return false;
+      }
     }
     case 'monitor': {
       // Validate the evacuationId exists for this customerId (read-only channel)

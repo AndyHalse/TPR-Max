@@ -137,7 +137,7 @@ export class DatabaseService {
     let fireMarshalUrlId = insertStaff.fireMarshalUrlId;
     if (insertStaff.isFireMarshal && !fireMarshalUrlId) {
       fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
-      logger.info(`🔥 Generated Fire Marshal URL ID for new staff ${insertStaff.firstName} ${insertStaff.lastName}: ${fireMarshalUrlId}`);
+      logger.info(`🔥 Generated Fire Marshal URL ID for new staff (id pending insert): ${fireMarshalUrlId}`);
     }
 
     // Auto-generate QR code for staff check-in
@@ -182,7 +182,7 @@ export class DatabaseService {
       if (isOrWillBeFireMarshal && hasNoUrlId) {
         // Generate a unique, URL-safe ID (12 characters from UUID without dashes)
         updates.fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
-        logger.info(`🔥 Generated Fire Marshal URL ID for ${existingStaff[0].firstName} ${existingStaff[0].lastName}: ${updates.fireMarshalUrlId}`);
+        logger.info(`🔥 Generated Fire Marshal URL ID for staff ${existingStaff[0].id}: ${updates.fireMarshalUrlId}`);
       }
     }
     
@@ -2151,7 +2151,7 @@ export class DatabaseService {
       logger.info(`🔍 DATABASE SERVICE - Received updates for worker ${id}:`, updates);
       logger.info(`🔍 DATABASE SERVICE - Update keys:`, Object.keys(updates));
       logger.info(`🔍 DATABASE SERVICE - Checking for critical fields:`);
-      logger.info(`  - rightToWork: ${updates.rightToWork} (schema field name)`);
+      logger.info(`  - rightToWork field present: ${updates.rightToWork !== undefined}`);
       logger.info(`  - cscsStatus: ${updates.cscsStatus} (schema field name)`);
       logger.info(`  - inductionCompleted: ${updates.inductionCompleted}`);
       
@@ -2279,7 +2279,7 @@ export class DatabaseService {
       }
       
       logger.info(`✅ DATABASE SERVICE - Successfully updated worker. Result fields:`);
-      logger.info(`  - rightToWork: ${updated.rightToWork}`);
+      logger.info(`  - rightToWork field present in result: ${updated.rightToWork !== undefined}`);
       logger.info(`  - cscsStatus: ${updated.cscsStatus}`);
       logger.info(`  - siteInductionCompleted (DB field): ${updated.siteInductionCompleted}`);
       

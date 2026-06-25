@@ -17,6 +17,7 @@ connect.sid
 
 # Security: Prevent sensitive auth files
 *.auth
+.env
 .env.local
 .env.production
 

@@ -1782,7 +1782,22 @@ export function registerInductionRoutes(app: Express): void {
   // Server-side worker document upload — replaces signed-URL flow that fails in
   // browsers due to GCS CORS. File is buffered through our server and saved to GCS
   // using the Replit sidecar credentials.
-  const workerDocUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+  const workerDocUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowed = [
+        'application/pdf',
+        'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ];
+      if (allowed.includes(file.mimetype)) return cb(null, true);
+      return cb(new Error('Unsupported file type'));
+    },
+  });
   app.post('/api/contractors/workers/:workerId/documents/upload', requireAuth, workerDocUpload.single('file'), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: 'No file provided' });

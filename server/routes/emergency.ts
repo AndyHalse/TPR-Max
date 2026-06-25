@@ -5572,7 +5572,7 @@ ${evacuationPhotosData.length > 0 ? `
   });
 
   // Muster accounted status toggle endpoint
-  app.post("/api/muster/:personId/toggle", async (req, res) => {
+  app.post("/api/muster/:personId/toggle", requireAuthOrFireMarshal, async (req, res) => {
     try {
       const { personId } = req.params;
       const { type } = req.body;
