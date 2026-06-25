@@ -1054,6 +1054,19 @@ const createStaffNotesTableMigration: Migration = {
   }
 };
 
+const addWorkerDbsRequiredColumnMigration: Migration = {
+  version: '20260625_001_worker_dbs_required',
+  description: 'Add dbs_required column to contractor_workers for per-worker DBS compliance tracking',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS dbs_required BOOLEAN NOT NULL DEFAULT FALSE`);
+      logger.info('✅ contractor_workers.dbs_required column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ contractor_workers.dbs_required: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -1074,4 +1087,5 @@ export const missingTablesMigrations = [
   addContractorDbsApprovalColumnsMigration,
   addStaffDbsRequiredColumnMigration,
   createStaffNotesTableMigration,
+  addWorkerDbsRequiredColumnMigration,
 ];

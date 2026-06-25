@@ -978,6 +978,8 @@ export const contractorWorkers = pgTable("contractor_workers", {
   loneWorkerSince: timestamp("lone_worker_since"),
   loneWorkerDeadline: timestamp("lone_worker_deadline"),
   loneWorkerEscalationLevel: integer("lone_worker_escalation_level").default(0),
+  // DBS (Disclosure and Barring Service) requirement flag
+  dbsRequired: boolean("dbs_required").default(false),
   // Archiving (soft-delete)
   archivedAt: timestamp("archived_at"),
   archivedBy: text("archived_by"),
