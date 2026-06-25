@@ -75,7 +75,7 @@ export default function EquipmentCertificatesTab({ equipmentId }: Props) {
   const [issuedBy, setIssuedBy] = useState("");
   const [certNumber, setCertNumber] = useState("");
 
-  const { data: certs = [], isLoading } = useQuery<EquipCertType[]>({
+  const { data: certs = [], isLoading, isError, error, refetch } = useQuery<EquipCertType[]>({
     queryKey: ["/api/contractors/equipment", equipmentId, "certificates"],
     queryFn: async () => {
       const token = getSessionToken();
@@ -88,6 +88,7 @@ export default function EquipmentCertificatesTab({ equipmentId }: Props) {
       }
       return res.json();
     },
+    retry: 1,
   });
 
   const uploadMutation = useMutation({
@@ -170,6 +171,27 @@ export default function EquipmentCertificatesTab({ equipmentId }: Props) {
 
   if (isLoading) {
     return <div className="text-sm text-muted-foreground py-4 text-center">Loading certificates…</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-destructive py-4">
+        <AlertCircle className="w-4 h-4 shrink-0" />
+        <span>
+          {(error as Error)?.message ?? "Could not load certificates."}{" "}
+          <button className="underline" onClick={() => refetch()}>Retry</button>
+        </span>
+      </div>
+    );
+  }
+
+  if (certs.length === 0) {
+    return (
+      <div className="text-center py-6 text-sm text-muted-foreground">
+        <AlertCircle className="w-5 h-5 mx-auto mb-2 text-muted-foreground/50" />
+        No certificate types found. Contact your administrator if this persists.
+      </div>
+    );
   }
 
   const validCount = certs.filter((c) => c.status === "valid").length;

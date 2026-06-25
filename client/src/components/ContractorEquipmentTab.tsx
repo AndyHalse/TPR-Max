@@ -180,9 +180,12 @@ export default function ContractorEquipmentTab({ companyId }: Props) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (saved: Equipment) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", companyId, "equipment"] });
-      toast({ title: editTarget ? "Equipment updated" : "Equipment added" });
+      if (!editTarget) {
+        setExpandedId(saved.id);
+      }
+      toast({ title: editTarget ? "Equipment updated" : "Equipment added — upload certificates below" });
       closeDialog();
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
@@ -283,7 +286,7 @@ export default function ContractorEquipmentTab({ companyId }: Props) {
                         variant="ghost"
                         className="h-7 w-7 p-0"
                         onClick={() => openEdit(item)}
-                        title="Edit"
+                        title="Edit equipment details"
                       >
                         <Pencil className="w-3 h-3" />
                       </Button>
@@ -292,18 +295,21 @@ export default function ContractorEquipmentTab({ companyId }: Props) {
                         variant="ghost"
                         className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                         onClick={() => setDeleteTarget(item)}
-                        title="Remove"
+                        title="Remove equipment"
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0"
+                        variant="outline"
+                        className="h-7 px-2 gap-1 text-xs"
                         onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                        title={isExpanded ? "Collapse" : "View certificates"}
                       >
-                        {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        {isExpanded ? (
+                          <><ChevronUp className="w-3 h-3" /> Hide certificates</>
+                        ) : (
+                          <><ChevronDown className="w-3 h-3" /> Certificates</>
+                        )}
                       </Button>
                     </div>
                   </div>
