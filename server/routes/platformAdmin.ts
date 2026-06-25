@@ -1286,12 +1286,12 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
   // ── User Management per customer ─────────────────────────────────────────
 
-  const VALID_ROLES = new Set(['admin', 'user']);
+  const VALID_ROLES = new Set(['admin', 'user', 'security', 'fire_marshal']);
 
   function validateUserFields(body: any): string | null {
     const { email, role } = body;
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Please enter a valid email address.';
-    if (role && !VALID_ROLES.has(role)) return 'Role must be admin or user.';
+    if (role && !VALID_ROLES.has(role)) return 'Role must be admin, user, security, or fire_marshal.';
     return null;
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -41,6 +41,22 @@ export default function SecuritySettings() {
 
   const sessionUserFromList = users?.find(u => u.isCurrentUser);
   const isAdminUser = sessionUserFromList?.role === 'admin' || currentUser?.role === 'admin';
+
+  const { data: enterpriseGrantsRaw = [] } = useQuery<Array<{ userId: string; role: string; siteId?: string; areaId?: string }>>({
+    queryKey: ['/api/enterprise/role-grants'],
+    enabled: isAdminUser,
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  const enterpriseRoleMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const g of enterpriseGrantsRaw) {
+      if (!map[g.userId]) map[g.userId] = [];
+      if (!map[g.userId].includes(g.role)) map[g.userId].push(g.role);
+    }
+    return map;
+  }, [enterpriseGrantsRaw]);
 
   const copyInvitationLink = (token: string, customerId?: string) => {
     const baseUrl = window.location.origin;
@@ -217,7 +233,7 @@ export default function SecuritySettings() {
           <p className="text-variable">Loading users...</p>
         </div>
       ) : users && users.length > 0 ? (
-        <>
+        <TooltipProvider delayDuration={200}>
           {users.map((user) => {
             const isCurrentUser = user.isCurrentUser || user.id === currentUser?.id;
             const isPending = user.status === 'pending';
@@ -249,6 +265,34 @@ export default function SecuritySettings() {
                       {user.role === 'admin' ? 'Admin' : user.role === 'security' ? 'Security' : user.role === 'fire_marshal' ? 'Fire Marshal' : 'User'}
                     </Badge>
                   )}
+                  {!isPending && isAdminUser && user.role === 'admin' && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700 cursor-help text-xs">
+                          Ent. Admin
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>Enterprise Admin (automatic — all sites)</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {!isPending && isAdminUser && (enterpriseRoleMap[user.id] ?? []).map(role => (
+                    <Tooltip key={role}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className={
+                          role === 'enterprise_admin'
+                            ? 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700 cursor-help text-xs'
+                            : role === 'area_manager'
+                            ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 cursor-help text-xs'
+                            : 'bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-700 cursor-help text-xs'
+                        }>
+                          {role === 'enterprise_admin' ? 'Ent. Admin' : role === 'area_manager' ? 'Area Mgr' : 'Site Coord'}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {role === 'enterprise_admin' ? 'Enterprise Admin — full cross-site access' : role === 'area_manager' ? 'Area Manager — manages sites within their area' : 'Site Coordinator — manages their specific site(s)'}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
                   {isAdminUser && (
                     <>
                       {isPending ? (
@@ -327,7 +371,7 @@ export default function SecuritySettings() {
               </div>
             );
           })}
-        </>
+        </TooltipProvider>
       ) : (
         <div className="text-center py-8">
           <Shield className="mx-auto text-variable mb-4" size={48} />

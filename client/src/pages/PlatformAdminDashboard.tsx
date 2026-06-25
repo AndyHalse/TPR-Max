@@ -2374,8 +2374,10 @@ export default function PlatformAdminDashboard() {
                   <div className="space-y-1">
                     <Label className="text-xs">Role</Label>
                     <select value={userForm.role} onChange={e => setUserForm(f => ({ ...f, role: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <option value="admin">admin</option>
-                      <option value="user">user</option>
+                      <option value="user">Standard User</option>
+                      <option value="admin">Administrator</option>
+                      <option value="security">Security</option>
+                      <option value="fire_marshal">Fire Marshal</option>
                     </select>
                   </div>
                 </div>
@@ -2416,8 +2418,10 @@ export default function PlatformAdminDashboard() {
                   <div className="space-y-1">
                     <Label className="text-xs">Role</Label>
                     <select value={userForm.role} onChange={e => setUserForm(f => ({ ...f, role: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <option value="admin">admin</option>
-                      <option value="user">user</option>
+                      <option value="user">Standard User</option>
+                      <option value="admin">Administrator</option>
+                      <option value="security">Security</option>
+                      <option value="fire_marshal">Fire Marshal</option>
                     </select>
                   </div>
                 </div>
