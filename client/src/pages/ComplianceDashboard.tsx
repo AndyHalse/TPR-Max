@@ -526,7 +526,7 @@ async function generateCompliancePDF(data: DashboardData) {
   const catKeys = [
     "contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "workerCertifications", "equipment",
     "complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment",
-    "staffRightToWork", "staffDbs", "staffTraining",
+    "staffRightToWork", "staffDbs",
   ] as const;
   const cardW = (colW - 4) / 2;
   const cardH = 23;
@@ -777,7 +777,7 @@ async function generateCompliancePDF(data: DashboardData) {
   doc.setFontSize(7);
   doc.setTextColor(107, 114, 128);
   const noteLines = doc.splitTextToSize(
-    "The overall score is the average of two domain scores (50% each). Contractor Compliance: Insurance (25%), RAMS (15%), Inductions (15%), Worker Right to Work (15%), Worker DBS (10%), Worker Certifications (10%), Equipment (10%). Site Compliance: Certificates (20%), Permits (15%), Risk Assessments (15%), Audits (15%), PPM (10%), Fire Risk Assessment (10%), Staff Right to Work (10%), Staff DBS (2.5%), Staff Training (2.5%). Categories with no data are excluded and weights re-normalised — untracked items never inflate the score.",
+    "The overall score is the average of two domain scores (50% each). Contractor Compliance: Insurance (25%), RAMS (15%), Inductions (15%), Worker Right to Work (15%), Worker DBS (10%), Worker Certifications (10%), Equipment (10%). Site Compliance: Certificates (20%), Permits (15%), Risk Assessments (15%), Audits (15%), PPM (10%), Fire Risk Assessment (10%), Staff Right to Work (10%), Staff DBS (5%). Categories with no data are excluded and weights re-normalised — untracked items never inflate the score.",
     colW - 8
   );
   doc.text(noteLines, margin + 4, y + 12);
@@ -906,7 +906,7 @@ export default function ComplianceDashboard() {
   const timelineGroups = groupTimelineItems(data.expiryTimeline);
 
   const contractorKeys = ["contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "workerCertifications", "equipment"];
-  const siteKeys = ["complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment", "staffRightToWork", "staffDbs", "staffTraining"];
+  const siteKeys = ["complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment", "staffRightToWork", "staffDbs"];
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
@@ -1188,7 +1188,7 @@ export default function ComplianceDashboard() {
           </div>
           <div>
             <p className="font-medium text-amber-700 dark:text-amber-400 mb-0.5">🟧 Site Compliance (50% of overall)</p>
-            <p>Compliance Certificates (20%) · Permits (15%) · Risk Assessments (15%) · Audits (15%) · PPM (10%) · Fire Risk Assessment (10%) · Staff Right to Work (10%) · Staff DBS (2.5%) · Staff Training (2.5%)</p>
+            <p>Compliance Certificates (20%) · Permits (15%) · Risk Assessments (15%) · Audits (15%) · PPM (10%) · Fire Risk Assessment (10%) · Staff Right to Work (10%) · Staff DBS (5%)</p>
           </div>
         </div>
         <p className="mt-2">Each category scores 0–100 based on compliant vs total tracked items. Categories with no data are excluded from the score and shown as "Not tracked". Weights are re-normalised across tracked categories only — untracked items never inflate the score.</p>
