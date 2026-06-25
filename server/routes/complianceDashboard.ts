@@ -959,7 +959,17 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       // ── 12. Permits to Work ───────────────────────────────────────────────────
       let permitsTotal = 0, permitsCompliant = 0, permitsExpired = 0, permitsPending = 0;
+      let ptwEnabled = false;
+      let ptwQuerySucceeded = false;
       try {
+        // Check if the PTW feature is enabled so we can distinguish "not tracked"
+        // (feature off) from "no active permits" (feature on, everything closed).
+        const [ptwSettings] = await custDb
+          .select({ featurePermitToWork: schema.companySettings.featurePermitToWork })
+          .from(schema.companySettings)
+          .limit(1);
+        ptwEnabled = ptwSettings?.featurePermitToWork ?? false;
+
         const { clause: ptwSite, params: ptwSiteP } = addSiteParam([ago12Months.toISOString()]);
         const permitsResult = await pool.query(
           `SELECT id, work_description, status, permit_valid_until, permit_number
@@ -994,12 +1004,23 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             }
           }
         }
+        ptwQuerySucceeded = true;
       } catch (e: any) {
         logger.warn('Permits query error (non-fatal):', e.message);
         loadErrors.push('Permits to Work');
       }
 
-      const permitsScore = permitsTotal === 0 ? null : Math.round((permitsCompliant / permitsTotal) * 100);
+      // If the feature is enabled and the query succeeded, a zero total means
+      // no active/outstanding permits — score 100 (all clear).
+      // If the feature is disabled or the query failed, return null (not tracked).
+      let permitsScore: number | null;
+      if (permitsTotal > 0) {
+        permitsScore = Math.round((permitsCompliant / permitsTotal) * 100);
+      } else if (ptwEnabled && ptwQuerySucceeded) {
+        permitsScore = 100;
+      } else {
+        permitsScore = null;
+      }
 
       // ── 13. Risk Assessments ──────────────────────────────────────────────────
       let raTotal = 0, raCompliant = 0, raReviewDue = 0;
