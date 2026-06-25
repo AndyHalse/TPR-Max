@@ -53,7 +53,6 @@ interface DashboardData {
     inductions: CategoryStat;
     workerRightToWork: CategoryStat;
     workerDbs: CategoryStat;
-    workerCertifications: CategoryStat;
     equipment: CategoryStat;
     staffRightToWork: CategoryStat;
     staffDbs: CategoryStat;
@@ -128,10 +127,6 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
   workerDbs: {
     label: "Worker DBS", icon: Fingerprint, link: "/contractors?gaps=true&sort=true",
     stat: c => (c.total ?? 0) === 0 ? "None on record" : `${c.compliant} of ${c.total} current`,
-  },
-  workerCertifications: {
-    label: "Worker Certifications", icon: Award, link: "/contractors?gaps=true&sort=true",
-    stat: c => (c.total ?? 0) === 0 ? "No certifications" : `${c.compliant} of ${c.total} current`,
   },
   equipment: {
     label: "Equipment", icon: Package, link: "/contractors?gaps=true&sort=true",
@@ -310,7 +305,6 @@ const TIMELINE_CATEGORY_COLOURS: Record<string, string> = {
   "Contractor Inductions": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
   "Worker Right to Work":  "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300",
   "Worker DBS":            "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
-  "Worker Certifications": "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
   "Equipment":             "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   "Staff Right to Work":   "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
   "Staff DBS":             "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
@@ -524,7 +518,7 @@ async function generateCompliancePDF(data: DashboardData) {
   sectionHeader("Category Breakdown");
 
   const catKeys = [
-    "contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "workerCertifications", "equipment",
+    "contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "equipment",
     "complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment",
     "staffRightToWork", "staffDbs",
   ] as const;
@@ -777,7 +771,7 @@ async function generateCompliancePDF(data: DashboardData) {
   doc.setFontSize(7);
   doc.setTextColor(107, 114, 128);
   const noteLines = doc.splitTextToSize(
-    "The overall score is the average of two domain scores (50% each). Contractor Compliance: Insurance (25%), RAMS (15%), Inductions (15%), Worker Right to Work (15%), Worker DBS (10%), Worker Certifications (10%), Equipment (10%). Site Compliance: Certificates (20%), Permits (15%), Risk Assessments (15%), Audits (15%), PPM (10%), Fire Risk Assessment (10%), Staff Right to Work (10%), Staff DBS (5%). Categories with no data are excluded and weights re-normalised — untracked items never inflate the score.",
+    "The overall score is the average of two domain scores (50% each). Contractor Compliance: Insurance (25%), RAMS (15%), Inductions (15%), Worker Right to Work (15%), Worker DBS (15%), Equipment (15%). Site Compliance: Certificates (20%), Permits (15%), Risk Assessments (15%), Audits (15%), PPM (10%), Fire Risk Assessment (10%), Staff Right to Work (10%), Staff DBS (5%). Categories with no data are excluded and weights re-normalised — untracked items never inflate the score.",
     colW - 8
   );
   doc.text(noteLines, margin + 4, y + 12);
@@ -905,7 +899,7 @@ export default function ComplianceDashboard() {
   const visibleWarnings = showAllWarnings ? data.warnings : data.warnings.slice(0, MAX_VISIBLE);
   const timelineGroups = groupTimelineItems(data.expiryTimeline);
 
-  const contractorKeys = ["contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "workerCertifications", "equipment"];
+  const contractorKeys = ["contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "equipment"];
   const siteKeys = ["complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment", "staffRightToWork", "staffDbs"];
 
   return (
@@ -1184,7 +1178,7 @@ export default function ComplianceDashboard() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <p className="font-medium text-blue-700 dark:text-blue-400 mb-0.5">🟦 Contractor Compliance (50% of overall)</p>
-            <p>Insurance (25%) · RAMS (15%) · Inductions (15%) · Worker Right to Work (15%) · Worker DBS (10%) · Worker Certifications (10%) · Equipment (10%)</p>
+            <p>Insurance (25%) · RAMS (15%) · Inductions (15%) · Worker Right to Work (15%) · Worker DBS (15%) · Equipment (15%)</p>
           </div>
           <div>
             <p className="font-medium text-amber-700 dark:text-amber-400 mb-0.5">🟧 Site Compliance (50% of overall)</p>
