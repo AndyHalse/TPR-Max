@@ -2657,8 +2657,11 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           const r = await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE ${ptwConditions.join(' OR ')}`, ptwParams);
           deleted['permit_to_work'] = r.rowCount ?? 0;
         } catch (e) { logger.warn(`Clear sample: permit_to_work — ${(e as any).message}`); }
-        // Contractor pre-bookings
-        await del('contractor_prebookings', `WHERE contact_email LIKE '%@example.com'`);
+        // Contractor pre-bookings — by company FK and by all test email domains
+        await del('contractor_prebookings', `WHERE company_id IN (${cP})`, companyIds);
+        await del('contractor_prebookings', `WHERE contact_email LIKE '%@example.com' OR contact_email LIKE '%@acsltd.eu' OR contact_email LIKE '%@test.example'`);
+        await del('contractor_prebookings', `WHERE worker_email  LIKE '%@example.com' OR worker_email  LIKE '%@acsltd.eu' OR worker_email  LIKE '%@test.example'`);
+        await del('contractor_prebookings', `WHERE qr_code LIKE 'CTPB-DEMO-%'`);
       }
 
       // ── Step 4: contractor_visits (NO ACTION FKs to staff+workers+companies) ──
@@ -2750,6 +2753,9 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         await pool.query(`DELETE FROM "${schemaName}".pre_bookings WHERE visitor_id IN (SELECT id FROM "${schemaName}".visitors WHERE purpose IN (${TEST_PURPOSES}))`);
         const r = await pool.query(`DELETE FROM "${schemaName}".visitors WHERE purpose IN (${TEST_PURPOSES})`);
         deleted['visitors_by_purpose'] = r.rowCount ?? 0;
+        // Contractor pre-bookings by purpose — same test-fixture purposes
+        const cpbR = await pool.query(`DELETE FROM "${schemaName}".contractor_prebookings WHERE purpose IN (${TEST_PURPOSES})`);
+        deleted['contractor_prebookings_by_purpose'] = (deleted['contractor_prebookings_by_purpose'] ?? 0) + (cpbR.rowCount ?? 0);
       } catch (e) { logger.warn(`Clear demo: visitors by purpose — ${(e as any).message}`); }
       await del('members',  `WHERE email LIKE '%@acsltd.eu' OR email LIKE '%@test.example' OR email LIKE '%@example.com'`);
       if (staffIds.length > 0) {
