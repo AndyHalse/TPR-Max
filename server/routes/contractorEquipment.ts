@@ -314,6 +314,46 @@ export function registerContractorEquipmentRoutes(app: Express): void {
     }
   });
 
+  // PATCH /api/contractors/equipment/certificates/:docId/review
+  // Approve or reject an equipment certificate (admin/manager only)
+  app.patch('/api/contractors/equipment/certificates/:docId/review', requireAuth, async (req, res) => {
+    try {
+      const role = (req.user as any)?.role;
+      if (!['admin', 'manager'].includes(role)) {
+        return res.status(403).json({ error: 'Admin or manager access required' });
+      }
+      const { pool, schemaName } = await getEquipPool(req.customerId!);
+      const { docId } = req.params;
+      const { action, rejectionReason } = req.body as { action: string; rejectionReason?: string };
+      if (!['approved', 'rejected'].includes(action)) {
+        return res.status(400).json({ error: 'action must be "approved" or "rejected"' });
+      }
+      const reviewerName = (req.user as any)?.email || (req.user as any)?.username || 'admin';
+      const result = await pool.query(
+        `UPDATE "${schemaName}".contractor_documents
+         SET status          = $1,
+             approved_by     = $2,
+             approved_at     = $3,
+             rejected_reason = $4,
+             updated_at      = NOW()
+         WHERE id = $5 AND is_active = TRUE
+         RETURNING *`,
+        [
+          action,
+          reviewerName,
+          action === 'approved' ? new Date() : null,
+          action === 'rejected' ? (rejectionReason || 'Document rejected') : null,
+          docId,
+        ]
+      );
+      if (!result.rows.length) return res.status(404).json({ error: 'Document not found' });
+      res.json(result.rows[0]);
+    } catch (err: any) {
+      logger.error('Equipment cert review error:', err);
+      res.status(500).json({ error: 'Failed to review equipment certificate' });
+    }
+  });
+
   // DELETE /api/contractors/equipment/certificates/:docId
   // Soft-deactivate an equipment certificate
   app.delete('/api/contractors/equipment/certificates/:docId', requireAuth, async (req, res) => {
