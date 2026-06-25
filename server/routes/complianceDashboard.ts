@@ -547,7 +547,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               title: 'Worker DBS expired',
               detail: `${workerName} — expired ${Math.abs(days)} days ago`,
               daysOverdue: Math.abs(days),
-              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -559,7 +559,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `wdbs-expiring-${row.id}`, category: 'Worker DBS', severity: 'warning',
               title: 'Worker DBS expiring soon',
               detail: `${workerName} — expires in ${days} days`,
-              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -603,7 +603,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               title: 'Worker DBS expired',
               detail: `${workerName} — expired ${Math.abs(days)} days ago`,
               daysOverdue: Math.abs(days),
-              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -615,7 +615,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `wdbs-doc-expiring-${row.worker_id}`, category: 'Worker DBS', severity: 'warning',
               title: 'Worker DBS expiring soon',
               detail: `${workerName} — expires in ${days} days`,
-              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -701,7 +701,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `wcert-rejected-${row.id}`, category: 'Worker Certifications', severity: 'warning',
               title: 'Worker certificate rejected — re-upload required',
               detail: `${row.document_name} — ${workerName}`,
-              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -713,7 +713,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `wcert-pending-${row.id}`, category: 'Worker Certifications', severity: 'warning',
               title: 'Worker certificate awaiting review',
               detail: `${row.document_name} — ${workerName}`,
-              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -729,7 +729,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                 title: 'Worker certification expired',
                 detail: `${row.document_name} — ${workerName}, expired ${Math.abs(days)} days ago`,
                 daysOverdue: Math.abs(days),
-                linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+                linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
               });
               if (row.company_id && companyName) {
                 ensureContractorRisk(row.company_id, companyName);
@@ -741,7 +741,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                 id: `wcert-expiring-${row.id}`, category: 'Worker Certifications', severity: 'warning',
                 title: 'Worker certification expiring soon',
                 detail: `${row.document_name} — ${workerName}, expires in ${days} days`,
-                linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+                linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}&workerTab=hs-documents` : '/contractors',
               });
               if (row.company_id && companyName) {
                 ensureContractorRisk(row.company_id, companyName);
