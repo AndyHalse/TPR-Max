@@ -49,7 +49,8 @@ import {
   LayoutGrid,
   LayoutList,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  UserCheck,
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
@@ -266,6 +267,10 @@ export default function Contractors() {
     const p = new URLSearchParams(window.location.search);
     return p.get("docType") || null;
   });
+  const [workerDoc, setWorkerDoc] = useState<string | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("workerDoc") || null;
+  });
 
   useEffect(() => {
     const p = new URLSearchParams();
@@ -275,10 +280,11 @@ export default function Contractors() {
     if (showGapsOnly) p.set("gaps", "true");
     if (sortGapsFirst) p.set("sort", "true");
     if (docTypeFilter) p.set("docType", docTypeFilter);
+    if (workerDoc) p.set("workerDoc", workerDoc);
     const qs = p.toString();
     const newUrl = window.location.pathname + (qs ? `?${qs}` : "");
     window.history.replaceState(window.history.state, "", newUrl);
-  }, [activeTab, searchTerm, viewMode, showGapsOnly, sortGapsFirst, docTypeFilter]);
+  }, [activeTab, searchTerm, viewMode, showGapsOnly, sortGapsFirst, docTypeFilter, workerDoc]);
 
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
@@ -292,6 +298,7 @@ export default function Contractors() {
   const [showIssueCardModal, setShowIssueCardModal] = useState(false);
   const [workerForCard, setWorkerForCard] = useState<any>(null);
   const [issueCardForm, setIssueCardForm] = useState({ cardType: 'yellow', offenceId: '', description: '' });
+  const [selectedWorkerInitialTab, setSelectedWorkerInitialTab] = useState<string>('profile');
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [documentToDelete, setDocumentToDelete] = useState<any>(null);
@@ -446,6 +453,13 @@ export default function Contractors() {
   });
 
   const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
+
+  // Right-to-Work worker summary — loaded when the ?workerDoc=right_to_work view is active
+  const { data: rtwWorkers = [], isLoading: rtwLoading } = useQuery<any[]>({
+    queryKey: ['/api/contractors/workers/right-to-work'],
+    enabled: workerDoc === 'right_to_work',
+    refetchInterval: 30000,
+  });
 
   const { data: activeLoneWorkers = [] } = useQuery<any[]>({
     queryKey: ['/api/lone-worker/active'],
@@ -700,8 +714,9 @@ export default function Contractors() {
     setShowIssueCardModal(true);
   };
 
-  const handleEditWorker = (worker: any) => {
+  const handleEditWorker = (worker: any, initialTab = 'profile') => {
     setSelectedWorker(worker);
+    setSelectedWorkerInitialTab(initialTab);
     setShowEditWorkerModal(true);
   };
 
@@ -1351,6 +1366,106 @@ export default function Contractors() {
           )}
         </div>
       </GlassCard>
+
+      {/* Worker Right to Work panel — shown when ?workerDoc=right_to_work */}
+      {workerDoc === 'right_to_work' && (
+        <GlassCard>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <UserCheck size={18} className="text-lime-600" />
+              <h3 className="text-lg font-semibold text-fixed">Worker Right to Work Documents</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{rtwWorkers.length} workers</Badge>
+              <button
+                onClick={() => setWorkerDoc(null)}
+                className="text-xs text-slate-400 hover:text-slate-600 ml-2"
+                title="Clear filter"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+          {rtwLoading ? (
+            <div className="text-center py-6">
+              <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
+              <p className="mt-2 text-sm text-variable">Loading…</p>
+            </div>
+          ) : rtwWorkers.length === 0 ? (
+            <p className="text-sm text-variable py-4 text-center">No active workers found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/20 text-left text-xs text-variable uppercase tracking-wide">
+                    <th className="pb-2 pr-4 font-medium">Worker</th>
+                    <th className="pb-2 pr-4 font-medium">Company</th>
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 pr-4 font-medium">Expiry</th>
+                    <th className="pb-2 font-medium">Approved By</th>
+                    <th className="pb-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rtwWorkers.map((w: any) => {
+                    const status = w.doc_status as string | null;
+                    const expiry = w.doc_expiry ? new Date(w.doc_expiry) : null;
+                    const now = new Date();
+                    const daysLeft = expiry ? Math.ceil((expiry.getTime() - now.getTime()) / 86400000) : null;
+                    const isExpired = expiry && daysLeft !== null && daysLeft < 0;
+                    const isExpiring = !isExpired && daysLeft !== null && daysLeft <= 30;
+
+                    let statusBadge: JSX.Element;
+                    if (!status || !w.doc_id) {
+                      statusBadge = <Badge className="bg-red-100 text-red-700 border-red-200 text-[11px]">Missing</Badge>;
+                    } else if (status === 'approved' && !isExpired) {
+                      statusBadge = <Badge className="bg-green-100 text-green-700 border-green-200 text-[11px]">Approved</Badge>;
+                    } else if (isExpired) {
+                      statusBadge = <Badge className="bg-red-100 text-red-700 border-red-200 text-[11px]">Expired</Badge>;
+                    } else if (isExpiring) {
+                      statusBadge = <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[11px]">Expiring soon</Badge>;
+                    } else if (status === 'pending') {
+                      statusBadge = <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[11px]">Pending review</Badge>;
+                    } else {
+                      statusBadge = <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[11px]">{status}</Badge>;
+                    }
+
+                    return (
+                      <tr key={w.id} className="border-b border-white/10 last:border-0 hover:bg-white/10 transition-colors">
+                        <td className="py-2 pr-4 font-medium text-fixed">{w.first_name} {w.last_name}</td>
+                        <td className="py-2 pr-4 text-variable">{w.company_name}</td>
+                        <td className="py-2 pr-4">{statusBadge}</td>
+                        <td className="py-2 pr-4 text-variable">
+                          {expiry ? (
+                            <span className={isExpired ? 'text-red-600 font-medium' : isExpiring ? 'text-amber-600' : ''}>
+                              {expiry.toLocaleDateString('en-GB')}
+                              {daysLeft !== null && daysLeft <= 30 && (
+                                <span className="ml-1 text-xs">({daysLeft < 0 ? `${Math.abs(daysLeft)}d ago` : `${daysLeft}d`})</span>
+                              )}
+                            </span>
+                          ) : <span className="text-slate-400">—</span>}
+                        </td>
+                        <td className="py-2 pr-4 text-variable text-xs">{w.approved_by || <span className="text-slate-400">—</span>}</td>
+                        <td className="py-2 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => handleEditWorker({ id: w.id, companyId: w.company_id, firstName: w.first_name, lastName: w.last_name }, 'hs-documents')}
+                          >
+                            <Eye size={12} className="mr-1" />
+                            View Docs
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </GlassCard>
+      )}
 
       {/* Contractors List */}
       <div className={viewMode === 'grid' ? "grid grid-cols-1 gap-6" : "space-y-2"}>
@@ -2657,7 +2772,8 @@ export default function Contractors() {
         worker={selectedWorker}
         companyName={contractors.find((c: any) => c.id === selectedWorker?.companyId)?.name ?? ""}
         open={showEditWorkerModal}
-        onOpenChange={setShowEditWorkerModal}
+        onOpenChange={(open) => { setShowEditWorkerModal(open); if (!open) setSelectedWorkerInitialTab('profile'); }}
+        initialTab={selectedWorkerInitialTab}
       />
 
       {/* Delete Company Document Confirmation Dialog */}

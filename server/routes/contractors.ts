@@ -357,6 +357,48 @@ export function registerContractorRoutes(app: Express): void {
   });
 
 
+  // ── Worker Right-to-Work document summary (all active workers + best RTW doc) ──
+  app.get("/api/contractors/workers/right-to-work", requireAuth, async (req, res) => {
+    try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+      const schemaName = customerDbService.generateSchemaName(req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const { rows } = await pool.query(`
+        SELECT DISTINCT ON (cw.id)
+          cw.id,
+          cw.first_name,
+          cw.last_name,
+          cw.company_id,
+          cc.name AS company_name,
+          cd.id              AS doc_id,
+          cd.status          AS doc_status,
+          cd.expiry_date     AS doc_expiry,
+          cd.approved_by,
+          cd.approved_at,
+          cd.created_at      AS uploaded_at
+        FROM "${schemaName}".contractor_workers cw
+        INNER JOIN "${schemaName}".contractor_companies cc
+          ON cc.id = cw.company_id AND cc.is_active = TRUE
+        LEFT JOIN "${schemaName}".contractor_documents cd
+          ON cd.worker_id = cw.id
+         AND cd.document_type = 'right_to_work'
+         AND cd.is_active = TRUE
+        WHERE cw.is_active = TRUE
+        ORDER BY cw.id,
+          CASE WHEN cd.id IS NULL THEN 99
+               WHEN cd.status = 'approved' THEN 1
+               WHEN cd.status = 'pending'  THEN 2
+               ELSE 3 END,
+          cd.expiry_date DESC NULLS LAST
+      `);
+      return res.json(rows);
+    } catch (error) {
+      logger.error("Error fetching worker RTW summary:", error);
+      return res.status(500).json({ error: "Failed to fetch worker RTW summary" });
+    }
+  });
+
   // Contractor Pre-booking endpoints
   app.get("/api/contractors/prebookings", requireAuth, async (req, res) => {
     try {

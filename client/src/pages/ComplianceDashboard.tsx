@@ -122,7 +122,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     stat: c => c.total === 0 ? "None recorded" : c.overdue ? `${c.overdue} overdue` : c.reviewDue ? `${c.reviewDue} review due` : `${c.current} current`,
   },
   workerRightToWork: {
-    label: "Worker Right to Work", icon: UserCheck, link: "/contractors?gaps=true&sort=true",
+    label: "Worker Right to Work", icon: UserCheck, link: "/contractors?workerDoc=right_to_work",
     stat: c => (c.total ?? 0) === 0 ? "No workers tracked" : `${c.compliant} of ${c.total} compliant`,
   },
   workerDbs: {

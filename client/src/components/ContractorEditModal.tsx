@@ -22,6 +22,7 @@ interface ContractorEditModalProps {
   companyName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTab?: string;
 }
 
 interface ContractorVisit {
@@ -41,10 +42,11 @@ interface HSDocumentAssignment {
   template: UkHSDocumentTemplate;
 }
 
-export function ContractorEditModal({ worker, companyName, open, onOpenChange }: ContractorEditModalProps) {
+export function ContractorEditModal({ worker, companyName, open, onOpenChange, initialTab }: ContractorEditModalProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const [activeModalTab, setActiveModalTab] = useState(initialTab || 'profile');
   const [showHSModal, setShowHSModal] = useState(false);
   const [showHostSelection, setShowHostSelection] = useState(false);
   const [selectedHostId, setSelectedHostId] = useState('');
@@ -64,6 +66,11 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   });
   const [isScanningDoc, setIsScanningDoc] = useState(false);
   const [aiExtracted, setAiExtracted] = useState(false);
+
+  // Reset tab to initialTab (or profile) each time the modal is opened
+  useEffect(() => {
+    if (open) setActiveModalTab(initialTab || 'profile');
+  }, [open, initialTab]);
 
   // Tracks whether the user has made any input change in the current modal open.
   // Allows freshWorker to load and update the form UNTIL the user starts typing,
@@ -659,7 +666,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
             </DialogDescription>
           </DialogHeader>
 
-        <Tabs defaultValue="profile" className="flex-1 overflow-hidden flex flex-col">
+        <Tabs value={activeModalTab} onValueChange={setActiveModalTab} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-1">
