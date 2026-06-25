@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -814,8 +814,7 @@ export default function ComplianceDashboard() {
   const { data, isLoading, dataUpdatedAt, isFetching, error } = useQuery<DashboardData>({
     queryKey: ["/api/compliance-dashboard"],
     queryFn: async () => {
-      const res = await fetch("/api/compliance-dashboard?refresh=1", { credentials: "include" });
-      if (!res.ok) throw Object.assign(new Error("Dashboard fetch failed"), { status: res.status });
+      const res = await apiRequest('GET', '/api/compliance-dashboard?refresh=1');
       return res.json();
     },
     refetchInterval: 5 * 60 * 1000,
@@ -827,11 +826,11 @@ export default function ComplianceDashboard() {
   async function handleRefresh() {
     setIsForceRefreshing(true);
     try {
-      const res = await fetch("/api/compliance-dashboard?refresh=1", { credentials: "include" });
-      if (res.ok) {
-        const fresh = await res.json();
-        queryClient.setQueryData(["/api/compliance-dashboard"], fresh);
-      }
+      const res = await apiRequest('GET', '/api/compliance-dashboard?refresh=1');
+      const fresh = await res.json();
+      queryClient.setQueryData(["/api/compliance-dashboard"], fresh);
+    } catch {
+      // non-fatal — user can retry manually
     } finally {
       setIsForceRefreshing(false);
     }
@@ -842,8 +841,8 @@ export default function ComplianceDashboard() {
     setIsGeneratingPDF(true);
     try {
       await generateCompliancePDF(data);
-      // Fix 7 — server-side audit log on PDF export
-      fetch("/api/compliance-dashboard/pdf-export-audit", { method: "POST", credentials: "include" }).catch(() => {});
+      // server-side audit log on PDF export (fire-and-forget)
+      apiRequest('POST', '/api/compliance-dashboard/pdf-export-audit').catch(() => {});
     } finally {
       setIsGeneratingPDF(false);
     }
