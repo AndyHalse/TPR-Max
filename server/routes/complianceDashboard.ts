@@ -573,7 +573,64 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           }
         }
 
+        // Count workers who have an approved dbs_certificate in contractor_documents
+        // but no dedicated contractor_worker_dbs record (so they aren't double-counted)
+        const { clause: dbsDocSite, params: dbsDocSiteP } = addSiteParam([], 'cw');
+        const dbsDocResult = await pool.query(
+          `SELECT DISTINCT ON (cw.id) cw.id AS worker_id, cw.first_name, cw.last_name, cw.company_id,
+                  cd.expiry_date
+           FROM "${schemaName}".contractor_workers cw
+           JOIN "${schemaName}".contractor_documents cd ON cd.worker_id = cw.id
+           WHERE cw.is_active = TRUE
+             AND cd.document_type = 'dbs_certificate'
+             AND cd.status = 'approved'
+             AND cd.is_active = TRUE
+             AND NOT EXISTS (
+               SELECT 1 FROM "${schemaName}".contractor_worker_dbs d
+               WHERE d.worker_id = cw.id AND d.is_current = TRUE AND d.deleted_at IS NULL
+             )${dbsDocSite}`,
+          dbsDocSiteP
+        );
+        for (const row of dbsDocResult.rows) {
+          if (!activeWorkerIds.has(row.worker_id)) continue;
+          workerDbsTotal++;
+          const workerName = `${row.first_name} ${row.last_name}`;
+          const companyName = companiesMap.get(row.company_id)?.company_name ?? '';
+          const days = daysUntil(row.expiry_date);
+          if (days !== null && days < 0) {
+            criticalIssues.push({
+              id: `wdbs-doc-expired-${row.worker_id}`, category: 'Worker DBS', severity: 'critical',
+              title: 'Worker DBS expired',
+              detail: `${workerName} — expired ${Math.abs(days)} days ago`,
+              daysOverdue: Math.abs(days),
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+            });
+            if (row.company_id && companyName) {
+              ensureContractorRisk(row.company_id, companyName);
+              contractorRiskMap[row.company_id].issues.push(`DBS expired: ${workerName}`);
+              contractorRiskMap[row.company_id].issueCount++;
+            }
+          } else if (days !== null && days <= 30) {
+            warnings.push({
+              id: `wdbs-doc-expiring-${row.worker_id}`, category: 'Worker DBS', severity: 'warning',
+              title: 'Worker DBS expiring soon',
+              detail: `${workerName} — expires in ${days} days`,
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
+            });
+            if (row.company_id && companyName) {
+              ensureContractorRisk(row.company_id, companyName);
+              contractorRiskMap[row.company_id].issues.push(`DBS expiring: ${workerName}`);
+              contractorRiskMap[row.company_id].issueCount++;
+            }
+            addTimeline(row.expiry_date, 'Worker DBS', `${workerName} — DBS`);
+          } else {
+            workerDbsCompliant++;
+            addTimeline(row.expiry_date, 'Worker DBS', `${workerName} — DBS`);
+          }
+        }
+
         // Flag active workers with dbs_required = TRUE who have no current DBS record
+        // AND no approved dbs_certificate in contractor_documents
         const { clause: dbsReqSite, params: dbsReqSiteP } = addSiteParam([], 'cw');
         const dbsRequiredResult = await pool.query(
           `SELECT cw.id, cw.first_name, cw.last_name, cw.company_id
@@ -582,6 +639,11 @@ export function registerComplianceDashboardRoutes(app: Express): void {
              AND NOT EXISTS (
                SELECT 1 FROM "${schemaName}".contractor_worker_dbs d
                WHERE d.worker_id = cw.id AND d.is_current = TRUE AND d.deleted_at IS NULL
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM "${schemaName}".contractor_documents cd2
+               WHERE cd2.worker_id = cw.id AND cd2.document_type = 'dbs_certificate'
+                 AND cd2.status = 'approved' AND cd2.is_active = TRUE
              )${dbsReqSite}`,
           dbsReqSiteP
         );
@@ -623,7 +685,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
            WHERE cd.worker_id IS NOT NULL
              AND cd.is_active = TRUE
              AND cw.is_active = TRUE
-             AND cd.document_type <> 'right_to_work'${wcertSite}`,
+             AND cd.document_type NOT IN ('right_to_work', 'dbs_certificate')${wcertSite}`,
           wcertSiteP
         );
 

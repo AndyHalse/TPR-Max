@@ -281,7 +281,7 @@ export function registerContractorRoutes(app: Express): void {
            FROM "${schemaName}".contractor_documents cd
            JOIN "${schemaName}".contractor_workers cw ON cw.id = cd.worker_id
            WHERE cd.worker_id IS NOT NULL AND cd.is_active = TRUE
-             AND cd.document_type <> 'right_to_work'`
+             AND cd.document_type NOT IN ('right_to_work', 'dbs_certificate')`
         );
         for (const r of rows) {
           const docStatus = r.status ?? 'pending';

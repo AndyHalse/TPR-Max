@@ -195,8 +195,21 @@ export async function getWorkerClearanceStatus(
            WHERE worker_id = $1 AND is_current = TRUE AND deleted_at IS NULL LIMIT 1`,
           [workerId]
         );
-        if (result.rows.length === 0) blocking.push("DBS check required but not on record");
-        else {
+        if (result.rows.length === 0) {
+          // Fall back to checking contractor_documents for an approved dbs_certificate
+          const docResult = await pool.query(
+            `SELECT expiry_date FROM "${schemaName}".contractor_documents
+             WHERE worker_id = $1 AND document_type = 'dbs_certificate'
+               AND status = 'approved' AND is_active = TRUE LIMIT 1`,
+            [workerId]
+          );
+          if (docResult.rows.length === 0) {
+            blocking.push("DBS check required but not on record");
+          } else {
+            const expiry = docResult.rows[0].expiry_date;
+            if (expiry && new Date(expiry) < new Date()) blocking.push("DBS check expired");
+          }
+        } else {
           const expiry = result.rows[0].policy_expiry_date;
           if (expiry && new Date(expiry) < new Date()) blocking.push("DBS check expired");
         }

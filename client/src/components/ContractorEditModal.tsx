@@ -1174,6 +1174,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange, i
                           <SelectItem value="manual_handling">Manual Handling</SelectItem>
                           <SelectItem value="working_at_height">Working at Height</SelectItem>
                           <SelectItem value="first_aid">First Aid Certificate</SelectItem>
+                          <SelectItem value="dbs_certificate">DBS Certificate</SelectItem>
                           <SelectItem value="certification">Other Certification</SelectItem>
                           <SelectItem value="training">Training Certificate</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
