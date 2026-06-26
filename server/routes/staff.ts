@@ -601,6 +601,22 @@ export function registerStaffRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid staff data", details: error.errors });
       } else if (error instanceof Error) {
+        // Detect PostgreSQL unique constraint violations for friendly messages
+        const cause = (error as any).cause ?? (error as any);
+        const pgCode = cause?.code;
+        if (pgCode === '23505') {
+          const detail: string = cause?.detail ?? '';
+          if (detail.includes('email') || (error.message && error.message.includes('"email"'))) {
+            return res.status(409).json({ error: "A staff member with this email address already exists." });
+          }
+          if (detail.includes('employee_id') || (error.message && error.message.includes('"employee_id"'))) {
+            return res.status(409).json({ error: "A staff member with this Employee ID already exists." });
+          }
+          if (detail.includes('qr_code') || (error.message && error.message.includes('"qr_code"'))) {
+            return res.status(409).json({ error: "QR code conflict — please try again." });
+          }
+          return res.status(409).json({ error: "A staff member with these details already exists." });
+        }
         res.status(400).json({ error: error.message });
       } else {
         res.status(500).json({ error: "Failed to create staff member" });

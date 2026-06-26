@@ -1067,6 +1067,31 @@ const addWorkerDbsRequiredColumnMigration: Migration = {
   }
 };
 
+const addLoneWorkerSessionColumnsMigration: Migration = {
+  version: '20260626_001_lone_worker_session_columns',
+  description: 'Add check_ins_completed, escalations_fired, and site_id columns to lone_worker_sessions for customers where the table pre-existed without them',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE lone_worker_sessions ADD COLUMN IF NOT EXISTS check_ins_completed INTEGER NOT NULL DEFAULT 0`);
+      logger.info('✅ lone_worker_sessions.check_ins_completed column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ lone_worker_sessions.check_ins_completed: ${(err?.message || '').substring(0, 80)}`);
+    }
+    try {
+      await db.execute(`ALTER TABLE lone_worker_sessions ADD COLUMN IF NOT EXISTS escalations_fired INTEGER NOT NULL DEFAULT 0`);
+      logger.info('✅ lone_worker_sessions.escalations_fired column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ lone_worker_sessions.escalations_fired: ${(err?.message || '').substring(0, 80)}`);
+    }
+    try {
+      await db.execute(`ALTER TABLE lone_worker_sessions ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+      logger.info('✅ lone_worker_sessions.site_id column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ lone_worker_sessions.site_id: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -1088,4 +1113,5 @@ export const missingTablesMigrations = [
   addStaffDbsRequiredColumnMigration,
   createStaffNotesTableMigration,
   addWorkerDbsRequiredColumnMigration,
+  addLoneWorkerSessionColumnsMigration,
 ];
