@@ -255,6 +255,27 @@ export async function seedRoleScopeUser(
 }
 
 /**
+ * Update the customer's site_management_style directly in the management DB.
+ * Call clearCustomerEnterpriseCache(customerId) after this to make the running
+ * server reflect the change immediately (the cache is per-process in-memory).
+ */
+export async function seedManagementStyle(
+  customerId: string,
+  style: "central" | "independent",
+): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `UPDATE customers SET site_management_style = $1 WHERE id = $2`,
+      [style, customerId],
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
  * Remove a test user and all their role grants created by seedRoleScopeUser.
  */
 export async function cleanupRoleScopeUser(

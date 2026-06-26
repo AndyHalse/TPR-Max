@@ -40,6 +40,7 @@ import { describe, it, beforeAll, afterAll, expect } from "vitest";
 import request from "supertest";
 import type { Express } from "express";
 import { createApp } from "../server/app";
+import { clearCustomerEnterpriseCache } from "../server/enterpriseRoles";
 import {
   seedEnterpriseTestCustomer,
   cleanupEnterpriseTestCustomer,
@@ -47,6 +48,7 @@ import {
   deleteTestInductionToken,
   seedRoleScopeUser,
   cleanupRoleScopeUser,
+  seedManagementStyle,
   type SeedResult,
 } from "./helpers/seedEnterprise";
 
@@ -973,4 +975,220 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
     const staff = await agent.get("/api/staff");
     expect([200], "GET /api/staff should return 200").toContain(staff.status);
   }, 30_000);
+
+  // ── Site management style gating ─────────────────────────────────────────────
+
+  /**
+   * Site management style gating — Central vs Independent.
+   *
+   * Proves that `resolveEnterpriseGrants()` derives `canManageSiteIds` from the
+   * customer's `site_management_style` column, and that the enterprise
+   * user-management routes correctly enforce it.
+   *
+   * PROVE-IT-BITES: in server/enterpriseRoles.ts find the line:
+   *   const canManageSiteIds = siteManagementStyle === 'independent' ? coordinatorSiteIds : [];
+   * and change it to:
+   *   const canManageSiteIds = coordinatorSiteIds;   // old per-flag logic
+   * Run the suite → the "Central" test goes RED because site_coordinator now
+   * has canManageSiteIds=[siteAId] and POST /api/enterprise/users returns 201
+   * instead of the expected 403.  Restore → GREEN.
+   */
+  describe("site management style gating — Central vs Independent", () => {
+    // All user IDs created during this sub-suite are tracked here for cleanup.
+    const createdUserIds: string[] = [];
+
+    afterAll(async () => {
+      // Always restore to Central (safe default) so no other tests are affected.
+      await seedManagementStyle(seed.customerId, "central");
+      clearCustomerEnterpriseCache(seed.customerId);
+      for (const id of createdUserIds) {
+        await cleanupRoleScopeUser(seed, id).catch(() => {/* ignore cleanup errors */});
+      }
+    }, 15_000);
+
+    /**
+     * Central — site_coordinator has no user-management power.
+     *
+     * Creates a site_coordinator for Site A, sets style=central, verifies:
+     *   POST /api/enterprise/users       → 403
+     *   POST /api/enterprise/role-grants → 403
+     *   GET  /api/enterprise/role-grants/my → canManageSiteIds:[], style:'central'
+     */
+    it("Central — site_coordinator blocked from POST /api/enterprise/users and POST /api/enterprise/role-grants", async () => {
+      // Create a site_coordinator scoped to Site A only (role='user' in users table,
+      // so resolveEnterpriseGrants reads grants rather than taking the admin fast-path).
+      const coordUser = await seedRoleScopeUser(seed, {
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      createdUserIds.push(coordUser.userId);
+
+      // Set Central mode and clear the in-process cache so the server sees it immediately.
+      await seedManagementStyle(seed.customerId, "central");
+      clearCustomerEnterpriseCache(seed.customerId);
+
+      const coordAgent = await agentForSiteAsUser(seed.siteAId, coordUser.userId);
+      const ts = Date.now();
+
+      // POST /api/enterprise/users → must be 403 in Central mode
+      const createUserRes = await coordAgent.post("/api/enterprise/users").send({
+        username: `central-block-${ts}`,
+        password: "Test1234!",
+        email: `central-block-${ts}@example.com`,
+        firstName: "Central",
+        lastName: "Blocked",
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      expect(
+        createUserRes.status,
+        `Central mode: site_coordinator must NOT create users — got ${createUserRes.status}: ${JSON.stringify(createUserRes.body)}`
+      ).toBe(403);
+
+      // POST /api/enterprise/role-grants → must be 403 in Central mode
+      const grantRes = await coordAgent.post("/api/enterprise/role-grants").send({
+        userId: coordUser.userId,
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      expect(
+        grantRes.status,
+        `Central mode: site_coordinator must NOT create grants — got ${grantRes.status}: ${JSON.stringify(grantRes.body)}`
+      ).toBe(403);
+
+      // GET /api/enterprise/role-grants/my → canManageSiteIds:[], siteManagementStyle:'central'
+      const myGrantsRes = await coordAgent
+        .get("/api/enterprise/role-grants/my")
+        .expect(200);
+      expect(
+        myGrantsRes.body.canManageSiteIds,
+        `Central mode: canManageSiteIds must be [] (got ${JSON.stringify(myGrantsRes.body.canManageSiteIds)})`
+      ).toEqual([]);
+      expect(
+        myGrantsRes.body.siteManagementStyle,
+        `Central mode: siteManagementStyle must be 'central' (got '${myGrantsRes.body.siteManagementStyle}')`
+      ).toBe("central");
+    }, 30_000);
+
+    /**
+     * Independent — site_coordinator may manage their own site, not others'.
+     *
+     * Sets style=independent for the same coordinator user, verifies:
+     *   POST /api/enterprise/users at Site A → 201 (own site)
+     *   POST /api/enterprise/users at Site B → 403 (outside scope)
+     *   GET  /api/enterprise/role-grants/my → canManageSiteIds includes siteAId
+     */
+    it("Independent — site_coordinator allowed for own site, blocked for other site", async () => {
+      // Create a fresh coordinator for Site A for this test.
+      const coordUser = await seedRoleScopeUser(seed, {
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      createdUserIds.push(coordUser.userId);
+
+      // Switch to Independent mode.
+      await seedManagementStyle(seed.customerId, "independent");
+      clearCustomerEnterpriseCache(seed.customerId);
+
+      // Two agents: one with activeSiteId=A, one with activeSiteId=B
+      const coordAgentA = await agentForSiteAsUser(seed.siteAId, coordUser.userId);
+      const coordAgentB = await agentForSiteAsUser(seed.siteBId, coordUser.userId);
+      const ts = Date.now();
+
+      // POST /api/enterprise/users at Site A → must succeed (201)
+      const createUserResA = await coordAgentA.post("/api/enterprise/users").send({
+        username: `indep-coord-a-${ts}`,
+        password: "Test1234!",
+        email: `indep-coord-a-${ts}@example.com`,
+        firstName: "Indep",
+        lastName: "CoordA",
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      expect(
+        [200, 201],
+        `Independent mode: site_coordinator must be able to create user for own site — got ${createUserResA.status}: ${JSON.stringify(createUserResA.body)}`
+      ).toContain(createUserResA.status);
+      if (createUserResA.body?.id) createdUserIds.push(createUserResA.body.id);
+
+      // POST /api/enterprise/users at Site B → must be blocked (403, outside scope)
+      const createUserResB = await coordAgentB.post("/api/enterprise/users").send({
+        username: `indep-coord-b-${ts}`,
+        password: "Test1234!",
+        email: `indep-coord-b-${ts}@example.com`,
+        firstName: "Indep",
+        lastName: "CoordB",
+        role: "site_coordinator",
+        siteId: seed.siteBId,
+      });
+      expect(
+        createUserResB.status,
+        `Independent mode: site_coordinator must NOT create user for other site — got ${createUserResB.status}: ${JSON.stringify(createUserResB.body)}`
+      ).toBe(403);
+
+      // GET /api/enterprise/role-grants/my → siteAId in canManageSiteIds, style='independent'
+      const myGrantsRes = await coordAgentA
+        .get("/api/enterprise/role-grants/my")
+        .expect(200);
+      expect(
+        myGrantsRes.body.canManageSiteIds,
+        `Independent mode: canManageSiteIds must include siteAId — got ${JSON.stringify(myGrantsRes.body.canManageSiteIds)}`
+      ).toContain(seed.siteAId);
+      expect(
+        myGrantsRes.body.siteManagementStyle,
+        `Independent mode: siteManagementStyle must be 'independent' (got '${myGrantsRes.body.siteManagementStyle}')`
+      ).toBe("independent");
+    }, 30_000);
+
+    /**
+     * HQ unaffected — enterprise_admin can create users in both modes.
+     *
+     * enterprise_admin (role='admin' in the users table → fast-path in
+     * resolveEnterpriseGrants, allowedSiteIds='all') must never be restricted
+     * by site_management_style.
+     */
+    it("HQ unaffected — enterprise_admin can create users in Central and Independent mode", async () => {
+      // seed.adminUserId has role='admin' → resolves to enterprise_admin regardless of grants.
+      const adminAgent = await agentForSite(seed.siteAId);
+      const ts = Date.now();
+
+      // Central mode — enterprise_admin must still create users
+      await seedManagementStyle(seed.customerId, "central");
+      clearCustomerEnterpriseCache(seed.customerId);
+
+      const centralRes = await adminAgent.post("/api/enterprise/users").send({
+        username: `hq-central-${ts}`,
+        password: "Test1234!",
+        email: `hq-central-${ts}@example.com`,
+        firstName: "HQ",
+        lastName: "Central",
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      expect(
+        [200, 201],
+        `enterprise_admin must create user in Central mode — got ${centralRes.status}: ${JSON.stringify(centralRes.body)}`
+      ).toContain(centralRes.status);
+      if (centralRes.body?.id) createdUserIds.push(centralRes.body.id);
+
+      // Independent mode — enterprise_admin still unaffected
+      await seedManagementStyle(seed.customerId, "independent");
+      clearCustomerEnterpriseCache(seed.customerId);
+
+      const indepRes = await adminAgent.post("/api/enterprise/users").send({
+        username: `hq-indep-${ts}`,
+        password: "Test1234!",
+        email: `hq-indep-${ts}@example.com`,
+        firstName: "HQ",
+        lastName: "Indep",
+        role: "site_coordinator",
+        siteId: seed.siteAId,
+      });
+      expect(
+        [200, 201],
+        `enterprise_admin must create user in Independent mode — got ${indepRes.status}: ${JSON.stringify(indepRes.body)}`
+      ).toContain(indepRes.status);
+      if (indepRes.body?.id) createdUserIds.push(indepRes.body.id);
+    }, 30_000);
+  }); // end describe("site management style gating")
 });
