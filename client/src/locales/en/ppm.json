@@ -353,5 +353,36 @@
     "biannual": "Bi-annual",
     "annual": "Annual",
     "custom": "Custom"
+  },
+  "page": {
+    "title": "Planned Preventative Maintenance",
+    "subtitle": "Manage assets, maintenance templates, schedules and work orders.",
+    "complianceScore": "{{score}}% compliant",
+    "loadDemoData": "Load Demo Data",
+    "deleteAllDemoData": "Delete All Demo Data",
+    "loadingDemo": "Loading…",
+    "deletingDemo": "Deleting…",
+    "demoDataLoaded": "Demo data loaded",
+    "demoDataRemoved": "Demo data removed",
+    "confirmLoadDemo": "This will add demo assets, templates, schedules and work orders. Continue?",
+    "confirmDeleteDemo": "Delete all PPM demo data? This cannot be undone.",
+    "moduleNotAvailableTitle": "PPM Module Not Available",
+    "moduleNotAvailableDesc": "The PPM module is not included in your current plan. Please contact ACS to upgrade.",
+    "notificationsDisabledTitle": "Automated notifications are currently disabled",
+    "notificationsDisabledDesc": "The following alert types are suppressed until notifications are re-enabled: overdue work order reminders, missing certificate alerts, missing document warnings, and document expiry notifications.",
+    "goToNotificationSettings": "Go to Notification Settings",
+    "toTurnOn": "to turn on.",
+    "viewNow": "View now →",
+    "overdueWorkOrdersSingular": "{{count}} overdue work order",
+    "overdueWorkOrdersPlural": "{{count}} overdue work orders",
+    "actionRequired": "— action required.",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "assets": "Assets",
+      "templates": "Templates",
+      "schedules": "Schedules",
+      "workOrders": "Work Orders",
+      "annualPlanner": "Annual Planner"
+    }
   }
 }

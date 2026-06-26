@@ -353,5 +353,36 @@
     "biannual": "Semestral",
     "annual": "Anual",
     "custom": "Personalizado"
+  },
+  "page": {
+    "title": "Mantenimiento Preventivo Planificado",
+    "subtitle": "Gestione activos, plantillas de mantenimiento, programaciones y órdenes de trabajo.",
+    "complianceScore": "{{score}}% conforme",
+    "loadDemoData": "Cargar Datos Demo",
+    "deleteAllDemoData": "Eliminar Todos los Datos Demo",
+    "loadingDemo": "Cargando…",
+    "deletingDemo": "Eliminando…",
+    "demoDataLoaded": "Datos demo cargados",
+    "demoDataRemoved": "Datos demo eliminados",
+    "confirmLoadDemo": "Esto añadirá activos, plantillas, programaciones y órdenes de trabajo de demostración. ¿Continuar?",
+    "confirmDeleteDemo": "¿Eliminar todos los datos demo de PPM? Esta acción no se puede deshacer.",
+    "moduleNotAvailableTitle": "Módulo PPM No Disponible",
+    "moduleNotAvailableDesc": "El módulo PPM no está incluido en su plan actual. Contacte con ACS para actualizar.",
+    "notificationsDisabledTitle": "Las notificaciones automáticas están actualmente desactivadas",
+    "notificationsDisabledDesc": "Los siguientes tipos de alertas están suprimidos hasta que se reactiven las notificaciones: recordatorios de órdenes de trabajo atrasadas, alertas de certificados faltantes, advertencias de documentos faltantes y notificaciones de vencimiento de documentos.",
+    "goToNotificationSettings": "Ir a Configuración de Notificaciones",
+    "toTurnOn": "para activar.",
+    "viewNow": "Ver ahora →",
+    "overdueWorkOrdersSingular": "{{count}} orden de trabajo atrasada",
+    "overdueWorkOrdersPlural": "{{count}} órdenes de trabajo atrasadas",
+    "actionRequired": "— acción requerida.",
+    "tabs": {
+      "dashboard": "Panel",
+      "assets": "Activos",
+      "templates": "Plantillas",
+      "schedules": "Programaciones",
+      "workOrders": "Órdenes de Trabajo",
+      "annualPlanner": "Planificador Anual"
+    }
   }
 }
