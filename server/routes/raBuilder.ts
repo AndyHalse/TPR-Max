@@ -74,13 +74,12 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.get('/api/ra-builder/assessments/:id', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [assessment] = await custDb
         .select()
         .from(isolatedSchema.raBuilderAssessments)
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
       if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
       const hazards = await custDb
         .select()
@@ -96,8 +95,7 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.put('/api/ra-builder/assessments/:id', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const parsed = isolatedSchema.insertRaBuilderAssessmentSchema.partial().parse(req.body);
 
@@ -107,7 +105,7 @@ export function registerRaBuilderRoutes(app: Express): void {
         const [existing] = await custDb
           .select()
           .from(isolatedSchema.raBuilderAssessments)
-          .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+          .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
         if (existing?.linkedRamsDocumentId) {
           const active = parsed.status === 'approved';
           await db
@@ -123,7 +121,7 @@ export function registerRaBuilderRoutes(app: Express): void {
       const [row] = await custDb
         .update(isolatedSchema.raBuilderAssessments)
         .set({ ...parsed, updatedAt: new Date() })
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id))
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)))
         .returning();
       if (!row) return res.status(404).json({ error: 'Assessment not found' });
       res.json(row);
@@ -135,8 +133,7 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.delete('/api/ra-builder/assessments/:id', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
 
       // If this assessment was published to RAMS, remove the linked document
@@ -144,7 +141,7 @@ export function registerRaBuilderRoutes(app: Express): void {
       const [existing] = await custDb
         .select()
         .from(isolatedSchema.raBuilderAssessments)
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
 
       if (existing?.linkedRamsDocumentId) {
         // Fix 1: doc lives in the shared table, not the isolated one
@@ -158,7 +155,7 @@ export function registerRaBuilderRoutes(app: Express): void {
 
       await custDb
         .delete(isolatedSchema.raBuilderAssessments)
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
       res.json({ success: true });
     } catch (error) {
       logger.error('DELETE /api/ra-builder/assessments/:id', error);
@@ -168,14 +165,13 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.post('/api/ra-builder/assessments/:id/approve', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
 
       const [assessment] = await custDb
         .select()
         .from(isolatedSchema.raBuilderAssessments)
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
       if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
 
       // Fix 4: idempotent approve — if already published, re-affirm and return.
@@ -190,7 +186,7 @@ export function registerRaBuilderRoutes(app: Express): void {
         const [reaffirmed] = await custDb
           .update(isolatedSchema.raBuilderAssessments)
           .set({ status: 'approved', updatedAt: new Date() })
-          .where(eq(isolatedSchema.raBuilderAssessments.id, id))
+          .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)))
           .returning();
         return res.json(reaffirmed);
       }
@@ -237,7 +233,7 @@ export function registerRaBuilderRoutes(app: Express): void {
           linkedRamsDocumentId: ramsDoc.id,
           updatedAt: new Date(),
         })
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id))
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)))
         .returning();
 
       res.json(updated);
@@ -249,15 +245,14 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.post('/api/ra-builder/assessments/:id/archive', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
 
       // Fix 3: deactivate the linked shared RAMS doc so it drops out of the register.
       const [existing] = await custDb
         .select()
         .from(isolatedSchema.raBuilderAssessments)
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
       if (existing?.linkedRamsDocumentId) {
         await db
           .update(sharedRamsDocuments)
@@ -271,7 +266,7 @@ export function registerRaBuilderRoutes(app: Express): void {
       const [row] = await custDb
         .update(isolatedSchema.raBuilderAssessments)
         .set({ status: 'archived', updatedAt: new Date() })
-        .where(eq(isolatedSchema.raBuilderAssessments.id, id))
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)))
         .returning();
       if (!row) return res.status(404).json({ error: 'Assessment not found' });
       res.json(row);
@@ -285,9 +280,11 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.get('/api/ra-builder/assessments/:id/hazards', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
+      const [parentAssessment] = await custDb.select().from(isolatedSchema.raBuilderAssessments)
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
+      if (!parentAssessment) return res.status(404).json({ error: 'Assessment not found' });
       const rows = await custDb
         .select()
         .from(isolatedSchema.raBuilderHazards)
@@ -302,9 +299,11 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.post('/api/ra-builder/assessments/:id/hazards', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
+      const [parentAssessment] = await custDb.select().from(isolatedSchema.raBuilderAssessments)
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
+      if (!parentAssessment) return res.status(404).json({ error: 'Assessment not found' });
       const body = { ...req.body, assessmentId: id };
       const likelihood = Number(body.likelihood) || 3;
       const severity = Number(body.severity) || 3;
@@ -332,9 +331,11 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.put('/api/ra-builder/assessments/:id/hazards/:hazardId', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const { hazardId } = req.params;
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const { id, hazardId } = req.params;
+      const [parentAssessment] = await custDb.select().from(isolatedSchema.raBuilderAssessments)
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
+      if (!parentAssessment) return res.status(404).json({ error: 'Assessment not found' });
       const body = req.body;
       const updates: any = { ...body };
 
@@ -351,7 +352,7 @@ export function registerRaBuilderRoutes(app: Express): void {
         const [existing] = await custDb
           .select()
           .from(isolatedSchema.raBuilderHazards)
-          .where(eq(isolatedSchema.raBuilderHazards.id, hazardId));
+          .where(and(eq(isolatedSchema.raBuilderHazards.id, hazardId), eq(isolatedSchema.raBuilderHazards.assessmentId, id)));
         if (!existing) return res.status(404).json({ error: 'Hazard not found' });
 
         if (needsRating) {
@@ -374,7 +375,7 @@ export function registerRaBuilderRoutes(app: Express): void {
       const [row] = await custDb
         .update(isolatedSchema.raBuilderHazards)
         .set(parsed)
-        .where(eq(isolatedSchema.raBuilderHazards.id, hazardId))
+        .where(and(eq(isolatedSchema.raBuilderHazards.id, hazardId), eq(isolatedSchema.raBuilderHazards.assessmentId, id)))
         .returning();
       if (!row) return res.status(404).json({ error: 'Hazard not found' });
       res.json(row);
@@ -386,12 +387,14 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.delete('/api/ra-builder/assessments/:id/hazards/:hazardId', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const { hazardId } = req.params;
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const { id, hazardId } = req.params;
+      const [parentAssessment] = await custDb.select().from(isolatedSchema.raBuilderAssessments)
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
+      if (!parentAssessment) return res.status(404).json({ error: 'Assessment not found' });
       await custDb
         .delete(isolatedSchema.raBuilderHazards)
-        .where(eq(isolatedSchema.raBuilderHazards.id, hazardId));
+        .where(and(eq(isolatedSchema.raBuilderHazards.id, hazardId), eq(isolatedSchema.raBuilderHazards.assessmentId, id)));
       res.json({ success: true });
     } catch (error) {
       logger.error('DELETE /api/ra-builder/assessments/:id/hazards/:hazardId', error);
@@ -401,15 +404,18 @@ export function registerRaBuilderRoutes(app: Express): void {
 
   app.post('/api/ra-builder/assessments/:id/hazards/reorder', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const { id } = req.params;
+      const [parentAssessment] = await custDb.select().from(isolatedSchema.raBuilderAssessments)
+        .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
+      if (!parentAssessment) return res.status(404).json({ error: 'Assessment not found' });
       const items: { id: string; sortOrder: number }[] = req.body;
       await Promise.all(
         items.map(({ id: hazardId, sortOrder }) =>
           custDb
             .update(isolatedSchema.raBuilderHazards)
             .set({ sortOrder })
-            .where(eq(isolatedSchema.raBuilderHazards.id, hazardId))
+            .where(and(eq(isolatedSchema.raBuilderHazards.id, hazardId), eq(isolatedSchema.raBuilderHazards.assessmentId, id)))
         )
       );
       res.json({ success: true });

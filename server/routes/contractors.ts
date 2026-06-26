@@ -469,10 +469,9 @@ export function registerContractorRoutes(app: Express): void {
   app.get("/api/contractors/prebookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: cpbGetCtx } = await getScopedDb(req);
       const [preBooking] = await customerDb.select().from(isolatedSchema.contractorPreBookings)
-        .where(eq(isolatedSchema.contractorPreBookings.id, id));
+        .where(and(eq(isolatedSchema.contractorPreBookings.id, id), scopedWhere(cpbGetCtx, isolatedSchema.contractorPreBookings)));
       
       if (!preBooking) {
         return res.status(404).json({ error: "Contractor pre-booking not found" });
@@ -575,8 +574,7 @@ export function registerContractorRoutes(app: Express): void {
   app.put("/api/contractors/prebookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: cpbPutCtx } = await getScopedDb(req);
       const updates = {
         ...req.body,
         scheduledDate: req.body.scheduledDate ? new Date(req.body.scheduledDate) : undefined,
@@ -585,7 +583,7 @@ export function registerContractorRoutes(app: Express): void {
       
       const [updatedPreBooking] = await customerDb.update(isolatedSchema.contractorPreBookings)
         .set(updates)
-        .where(eq(isolatedSchema.contractorPreBookings.id, id))
+        .where(and(eq(isolatedSchema.contractorPreBookings.id, id), scopedWhere(cpbPutCtx, isolatedSchema.contractorPreBookings)))
         .returning();
       
       if (!updatedPreBooking) {
@@ -602,11 +600,10 @@ export function registerContractorRoutes(app: Express): void {
   app.delete("/api/contractors/prebookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: cpbDelCtx } = await getScopedDb(req);
       
       const [deleted] = await customerDb.delete(isolatedSchema.contractorPreBookings)
-        .where(eq(isolatedSchema.contractorPreBookings.id, id))
+        .where(and(eq(isolatedSchema.contractorPreBookings.id, id), scopedWhere(cpbDelCtx, isolatedSchema.contractorPreBookings)))
         .returning();
       
       if (!deleted) {
@@ -631,9 +628,9 @@ export function registerContractorRoutes(app: Express): void {
       
       // Find pre-booking by QR code
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteId: cpbCiSiteId, siteContext: cpbCiCtx } = await getScopedDb(req);
       const [preBooking] = await customerDb.select().from(isolatedSchema.contractorPreBookings)
-        .where(eq(isolatedSchema.contractorPreBookings.qrCode, qrCode));
+        .where(and(eq(isolatedSchema.contractorPreBookings.qrCode, qrCode), scopedWhere(cpbCiCtx, isolatedSchema.contractorPreBookings)));
       
       if (!preBooking) {
         return res.status(404).json({ error: "Invalid QR code" });
@@ -761,7 +758,7 @@ export function registerContractorRoutes(app: Express): void {
       // Create contractor visit record in customer database
       const visitId = randomUUID();
       const [visit] = await customerDb.insert(isolatedSchema.contractorVisits)
-        .values({
+        .values(withSiteId(cpbCiSiteId, {
           id: visitId,
           workerId: worker.id,
           companyId: company.id,
@@ -770,7 +767,7 @@ export function registerContractorRoutes(app: Express): void {
           hsRulesAcceptedAt: new Date(),
           qrCode: qrCode,
           checkedInAt: new Date()
-        })
+        }))
         .returning();
       
       res.json({
@@ -4734,6 +4731,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       // Atomically mark the worker as checked-in and create the visit record so
       // they can never appear checked-in without a corresponding history entry.
       const checkInTime = new Date();
+      const { siteId: workerCheckinSiteId } = await getScopedDb(req);
       const contractorCheckinDb = await customerDbService.getCustomerDatabase(context.customerId);
       await contractorCheckinDb.transaction(async (tx) => {
         // Pass the transaction as db so the update enrolls in the same atomic unit
@@ -4750,7 +4748,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           },
         );
 
-        await tx.insert(isolatedSchema.contractorVisits).values({
+        await tx.insert(isolatedSchema.contractorVisits).values(withSiteId(workerCheckinSiteId, {
           workerId: workerId,
           companyId: worker.companyId,
           purpose: purpose || "Site work",
@@ -4761,7 +4759,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           hsRulesAcceptedAt: contractorHsAcceptedAt,
           qrCode: visitQrCode,
           passUrl: passUrl,
-        });
+        }));
       });
       logger.info(`Created visit record for ID ${worker.id}`);
 

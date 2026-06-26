@@ -439,8 +439,7 @@ export function registerStaffRoutes(app: Express): void {
   app.put("/api/zones/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { name, color, description, displayOrder, mapX, mapY, isActive } = req.body;
       const [zone] = await custDb
         .update(isolatedSchema.evacuationZones)
@@ -454,7 +453,7 @@ export function registerStaffRoutes(app: Express): void {
           ...(isActive !== undefined && { isActive }),
           updatedAt: new Date(),
         })
-        .where(eq(isolatedSchema.evacuationZones.id, id))
+        .where(and(eq(isolatedSchema.evacuationZones.id, id), scopedWhere(siteContext, isolatedSchema.evacuationZones)))
         .returning();
       if (!zone) {
         return res.status(404).json({ error: "Zone not found" });
@@ -469,11 +468,10 @@ export function registerStaffRoutes(app: Express): void {
   app.delete("/api/zones/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const [deleted] = await custDb
         .delete(isolatedSchema.evacuationZones)
-        .where(eq(isolatedSchema.evacuationZones.id, id))
+        .where(and(eq(isolatedSchema.evacuationZones.id, id), scopedWhere(siteContext, isolatedSchema.evacuationZones)))
         .returning();
       if (!deleted) {
         return res.status(404).json({ error: "Zone not found" });
@@ -487,8 +485,7 @@ export function registerStaffRoutes(app: Express): void {
 
   app.post("/api/zones/reorder", requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { zoneIds } = req.body;
       if (!Array.isArray(zoneIds)) {
         return res.status(400).json({ error: "zoneIds must be an array" });
@@ -497,7 +494,7 @@ export function registerStaffRoutes(app: Express): void {
         await custDb
           .update(isolatedSchema.evacuationZones)
           .set({ displayOrder: i, updatedAt: new Date() })
-          .where(eq(isolatedSchema.evacuationZones.id, zoneIds[i]));
+          .where(and(eq(isolatedSchema.evacuationZones.id, zoneIds[i]), scopedWhere(siteContext, isolatedSchema.evacuationZones)));
       }
       res.json({ success: true });
     } catch (error) {

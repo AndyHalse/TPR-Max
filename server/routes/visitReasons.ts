@@ -1,7 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { customerDbService } from '../customerDatabase';
-import { getScopedDb } from '../siteScope';
+import { getScopedDb, scopedWhere, withSiteId } from '../siteScope';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, asc, isNull } from 'drizzle-orm';
 import { logger } from '../utils/logger';
@@ -45,8 +44,7 @@ async function resolveVisitReasons(req: any, includeInactive = false) {
   }
 
   // 3. Legacy / non-enterprise: all active records (unchanged)
-  const custDb2 = await customerDbService.getCustomerDatabase(req.customerId!);
-  const all = await custDb2
+  const all = await custDb
     .select()
     .from(isolatedSchema.visitReasons)
     .where(includeInactive ? undefined : eq(isolatedSchema.visitReasons.isActive, true))
@@ -85,10 +83,10 @@ export function registerVisitReasonRoutes(app: Express): void {
     try {
       const { label, instructions, requireHsAcceptance, hsContent, isActive, sortOrder, appliesTo } = req.body;
       if (!label?.trim()) return res.status(400).json({ error: 'Label is required' });
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteId } = await getScopedDb(req);
       const [created] = await custDb
         .insert(isolatedSchema.visitReasons)
-        .values({
+        .values(withSiteId(siteId, {
           label: label.trim(),
           instructions: instructions || '',
           requireHsAcceptance: requireHsAcceptance ?? false,
@@ -96,7 +94,7 @@ export function registerVisitReasonRoutes(app: Express): void {
           isActive: isActive ?? true,
           sortOrder: sortOrder ?? 0,
           appliesTo: appliesTo || 'both',
-        })
+        }))
         .returning();
       return res.status(201).json(created);
     } catch (err: any) {
@@ -110,12 +108,12 @@ export function registerVisitReasonRoutes(app: Express): void {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       for (let i = 0; i < ids.length; i++) {
         await custDb
           .update(isolatedSchema.visitReasons)
           .set({ sortOrder: i, updatedAt: new Date() })
-          .where(eq(isolatedSchema.visitReasons.id, ids[i]));
+          .where(and(eq(isolatedSchema.visitReasons.id, ids[i]), scopedWhere(siteContext, isolatedSchema.visitReasons)));
       }
       return res.json({ ok: true });
     } catch (err: any) {
@@ -129,7 +127,7 @@ export function registerVisitReasonRoutes(app: Express): void {
     try {
       const { id } = req.params;
       const { label, instructions, requireHsAcceptance, hsContent, isActive, sortOrder, appliesTo } = req.body;
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const updateData: Partial<typeof isolatedSchema.visitReasons.$inferSelect> = { updatedAt: new Date() };
       if (label !== undefined) updateData.label = label.trim();
       if (instructions !== undefined) updateData.instructions = instructions;
@@ -141,7 +139,7 @@ export function registerVisitReasonRoutes(app: Express): void {
       const [updated] = await custDb
         .update(isolatedSchema.visitReasons)
         .set(updateData)
-        .where(eq(isolatedSchema.visitReasons.id, id))
+        .where(and(eq(isolatedSchema.visitReasons.id, id), scopedWhere(siteContext, isolatedSchema.visitReasons)))
         .returning();
       if (!updated) return res.status(404).json({ error: 'Visit reason not found' });
       return res.json(updated);
@@ -155,11 +153,11 @@ export function registerVisitReasonRoutes(app: Express): void {
   app.delete('/api/visit-reasons/:id', requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       await custDb
         .update(isolatedSchema.visitReasons)
         .set({ isActive: false, updatedAt: new Date() })
-        .where(eq(isolatedSchema.visitReasons.id, id));
+        .where(and(eq(isolatedSchema.visitReasons.id, id), scopedWhere(siteContext, isolatedSchema.visitReasons)));
       return res.json({ ok: true });
     } catch (err: any) {
       logger.error('DELETE /api/visit-reasons/:id error:', err);

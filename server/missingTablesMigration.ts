@@ -1115,6 +1115,45 @@ const addLoneWorkerSessionColumnsMigration: Migration = {
   }
 };
 
+const addRaBuilderAssessmentsSiteIdMigration: Migration = {
+  version: '20260626_009_ra_builder_assessments_site_id',
+  description: 'Add site_id column to ra_builder_assessments table for multi-site scope filtering',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE ra_builder_assessments ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+      logger.info('✅ ra_builder_assessments.site_id column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ ra_builder_assessments.site_id: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
+const addMeetingRoomsSiteIdMigration: Migration = {
+  version: '20260626_007_meeting_rooms_site_id',
+  description: 'Add site_id column to meeting_rooms table for multi-site scope filtering',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE meeting_rooms ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+      logger.info('✅ meeting_rooms.site_id column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ meeting_rooms.site_id: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
+const addRoomBookingsSiteIdMigration: Migration = {
+  version: '20260626_008_room_bookings_site_id',
+  description: 'Add site_id column to room_bookings table for multi-site scope filtering',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE room_bookings ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+      logger.info('✅ room_bookings.site_id column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ room_bookings.site_id: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
 const addFireRiskAssessmentsSiteIdMigration: Migration = {
   version: '20260626_006_fire_risk_assessments_site_id',
   description: 'Add site_id column to fire_risk_assessments table for multi-site scope filtering',
@@ -1208,4 +1247,7 @@ export const missingTablesMigrations = [
   addCdmProjectsSiteIdMigration,
   addHsIncidentsSiteIdMigration,
   addFireRiskAssessmentsSiteIdMigration,
+  addMeetingRoomsSiteIdMigration,
+  addRoomBookingsSiteIdMigration,
+  addRaBuilderAssessmentsSiteIdMigration,
 ];

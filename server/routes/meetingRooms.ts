@@ -8,7 +8,6 @@ import {
   getMockRoomBookings,
 } from '../auth';
 import { simpleDatabaseService } from '../simpleDatabaseService';
-import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, ne, sql, inArray } from 'drizzle-orm';
@@ -76,10 +75,9 @@ export function registerMeetingRoomRoutes(app: Express): void {
   app.get("/api/meeting-rooms/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const mrContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const mrDb = await customerDbService.getCustomerDatabase(mrContext.customerId);
+      const { db: mrDb, siteContext } = await getScopedDb(req);
       const [room] = await mrDb.select().from(isolatedSchema.meetingRooms)
-        .where(eq(isolatedSchema.meetingRooms.id, id));
+        .where(and(eq(isolatedSchema.meetingRooms.id, id), scopedWhere(siteContext, isolatedSchema.meetingRooms)));
       
       if (!room) {
         return res.status(404).json({ error: "Meeting room not found" });
@@ -130,15 +128,14 @@ export function registerMeetingRoomRoutes(app: Express): void {
       }
       const { id } = req.params;
       const { hasProjector, hasVideoConference, hasWhiteboard, hasTV, hasAirCon, hasCatering, ...rest } = parsed.data;
-      const mrUpdateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const mrUpdateDb = await customerDbService.getCustomerDatabase(mrUpdateContext.customerId);
+      const { db: mrUpdateDb, siteContext: mrUpdateSiteContext } = await getScopedDb(req);
 
       // Fix 3: only update equipment when amenity flags are present in the payload
       const setObj: Record<string, any> = { ...rest };
       const amenityFlags = { hasProjector, hasVideoConference, hasWhiteboard, hasTV, hasAirCon, hasCatering };
       if (Object.values(amenityFlags).some(v => v !== undefined)) {
         // Merge with existing equipment so unmentioned flags are preserved
-        const [existing] = await mrUpdateDb.select().from(isolatedSchema.meetingRooms).where(eq(isolatedSchema.meetingRooms.id, id));
+        const [existing] = await mrUpdateDb.select().from(isolatedSchema.meetingRooms).where(and(eq(isolatedSchema.meetingRooms.id, id), scopedWhere(mrUpdateSiteContext, isolatedSchema.meetingRooms)));
         if (existing) {
           const cur = equipmentToAmenities(existing);
           setObj.equipment = amenitiesToEquipment({
@@ -153,7 +150,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       }
 
       const [room] = await mrUpdateDb.update(isolatedSchema.meetingRooms)
-        .set(setObj).where(eq(isolatedSchema.meetingRooms.id, id)).returning();
+        .set(setObj).where(and(eq(isolatedSchema.meetingRooms.id, id), scopedWhere(mrUpdateSiteContext, isolatedSchema.meetingRooms))).returning();
       
       if (!room) {
         return res.status(404).json({ error: "Meeting room not found" });
@@ -173,10 +170,9 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(403).json({ error: "Administrator or manager access required" });
       }
       const { id } = req.params;
-      const mrDelContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const mrDelDb = await customerDbService.getCustomerDatabase(mrDelContext.customerId);
+      const { db: mrDelDb, siteContext: mrDelSiteContext } = await getScopedDb(req);
       const [deletedRoom] = await mrDelDb.delete(isolatedSchema.meetingRooms)
-        .where(eq(isolatedSchema.meetingRooms.id, id)).returning();
+        .where(and(eq(isolatedSchema.meetingRooms.id, id), scopedWhere(mrDelSiteContext, isolatedSchema.meetingRooms))).returning();
       const success = !!deletedRoom;
       
       if (!success) {
@@ -206,7 +202,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to check availability" });
       }
       
-      const availDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: availDb, siteContext: availSiteContext } = await getScopedDb(req);
       const startDt = new Date(startDateTime as string);
       const endDt = new Date(endDateTime as string);
       const conflictingBookings = await availDb.select().from(isolatedSchema.roomBookings)
@@ -214,7 +210,8 @@ export function registerMeetingRoomRoutes(app: Express): void {
           eq(isolatedSchema.roomBookings.meetingRoomId, roomId as string),
           ne(isolatedSchema.roomBookings.status, 'cancelled'),
           sql`${isolatedSchema.roomBookings.startTime} < ${endDt}`,
-          sql`${isolatedSchema.roomBookings.endTime} > ${startDt}`
+          sql`${isolatedSchema.roomBookings.endTime} > ${startDt}`,
+          scopedWhere(availSiteContext, isolatedSchema.roomBookings),
         ));
       const filteredAvail = excludeBookingId 
         ? conflictingBookings.filter(b => b.id !== excludeBookingId) 
@@ -253,7 +250,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to check availability" });
       }
       
-      const legacyAvailDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: legacyAvailDb, siteContext: legacyAvailSiteContext } = await getScopedDb(req);
       const legacyStart = new Date(startTime);
       const legacyEnd = new Date(endTime);
       const legacyConflicts = await legacyAvailDb.select().from(isolatedSchema.roomBookings)
@@ -261,7 +258,8 @@ export function registerMeetingRoomRoutes(app: Express): void {
           eq(isolatedSchema.roomBookings.meetingRoomId, id),
           ne(isolatedSchema.roomBookings.status, 'cancelled'),
           sql`${isolatedSchema.roomBookings.startTime} < ${legacyEnd}`,
-          sql`${isolatedSchema.roomBookings.endTime} > ${legacyStart}`
+          sql`${isolatedSchema.roomBookings.endTime} > ${legacyStart}`,
+          scopedWhere(legacyAvailSiteContext, isolatedSchema.roomBookings),
         ));
       const filteredLegacy = excludeBookingId 
         ? legacyConflicts.filter(b => b.id !== excludeBookingId) 
@@ -296,10 +294,11 @@ export function registerMeetingRoomRoutes(app: Express): void {
       if (room_id) conditions.push(eq(isolatedSchema.roomBookings.meetingRoomId, room_id));
 
       const rawBookings = await bookingsDb.select().from(isolatedSchema.roomBookings)
-        .where(and(...conditions))
+        .where(and(and(...conditions), scopedWhere(siteContext, isolatedSchema.roomBookings)))
         .orderBy(sql`${isolatedSchema.roomBookings.startTime} asc`);
 
-      const allRooms = await bookingsDb.select().from(isolatedSchema.meetingRooms);
+      const allRooms = await bookingsDb.select().from(isolatedSchema.meetingRooms)
+        .where(scopedWhere(siteContext, isolatedSchema.meetingRooms));
       const roomMap = new Map(allRooms.map(r => [r.id, r]));
       
       const staffIds = [...new Set(rawBookings.map(b => b.bookedByStaffId).filter(Boolean))];
@@ -360,7 +359,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       endDate.setDate(endDate.getDate() + daysAhead - 1);
       const endOfDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
       
-      const todayBookingsDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: todayBookingsDb, siteContext: todaySiteContext } = await getScopedDb(req);
       const bookings = await todayBookingsDb
         .select({
           id: isolatedSchema.roomBookings.id,
@@ -391,7 +390,8 @@ export function registerMeetingRoomRoutes(app: Express): void {
         .where(
           and(
             sql`${isolatedSchema.roomBookings.startTime} >= ${startOfDay}`,
-            sql`${isolatedSchema.roomBookings.endTime} <= ${endOfDay}`
+            sql`${isolatedSchema.roomBookings.endTime} <= ${endOfDay}`,
+            scopedWhere(todaySiteContext, isolatedSchema.roomBookings),
           )
         )
         .orderBy(isolatedSchema.roomBookings.startTime);
@@ -451,9 +451,9 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to view booking" });
       }
       
-      const bookingGetDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: bookingGetDb, siteContext: bookingGetSiteContext } = await getScopedDb(req);
       const [booking] = await bookingGetDb.select().from(isolatedSchema.roomBookings)
-        .where(eq(isolatedSchema.roomBookings.id, id));
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(bookingGetSiteContext, isolatedSchema.roomBookings)));
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -475,7 +475,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to create a booking" });
       }
       
-      const { db: bookingDb, siteId: bookingSiteId } = await getScopedDb(req);
+      const { db: bookingDb, siteId: bookingSiteId, siteContext: bookingSiteContext } = await getScopedDb(req);
       
       let bookedByStaffId = bookingData.bookedByStaffId;
       if (!bookedByStaffId && req.user?.id) {
@@ -523,7 +523,8 @@ export function registerMeetingRoomRoutes(app: Express): void {
               eq(isolatedSchema.roomBookings.meetingRoomId, bookingData.roomId),
               ne(isolatedSchema.roomBookings.status, 'cancelled'),
               sql`${isolatedSchema.roomBookings.startTime} < ${endTime}`,
-              sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`
+              sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`,
+              scopedWhere(bookingSiteContext, isolatedSchema.roomBookings),
             ));
           if (conflicts.length > 0) return null; // skip conflicting slot
 
@@ -668,9 +669,9 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to update bookings" });
       }
       
-      const patchDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: patchDb, siteContext: patchSiteContext } = await getScopedDb(req);
       const [currentBooking] = await patchDb.select().from(isolatedSchema.roomBookings)
-        .where(eq(isolatedSchema.roomBookings.id, id));
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(patchSiteContext, isolatedSchema.roomBookings)));
       if (!currentBooking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
@@ -709,7 +710,8 @@ export function registerMeetingRoomRoutes(app: Express): void {
             ne(isolatedSchema.roomBookings.status, 'cancelled'),
             ne(isolatedSchema.roomBookings.id, id),
             sql`${isolatedSchema.roomBookings.startTime} < ${endTime}`,
-            sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`
+            sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`,
+            scopedWhere(patchSiteContext, isolatedSchema.roomBookings),
           ));
 
         if (patchConflicts.length > 0) {
@@ -720,7 +722,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       }
 
       const [booking] = await patchDb.update(isolatedSchema.roomBookings)
-        .set(updates).where(eq(isolatedSchema.roomBookings.id, id)).returning();
+        .set(updates).where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(patchSiteContext, isolatedSchema.roomBookings))).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -796,9 +798,9 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to cancel booking" });
       }
       
-      const cancelDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: cancelDb, siteContext: cancelSiteContext } = await getScopedDb(req);
       const [fullBooking] = await cancelDb.select().from(isolatedSchema.roomBookings)
-        .where(eq(isolatedSchema.roomBookings.id, id));
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(cancelSiteContext, isolatedSchema.roomBookings)));
       
       if (!fullBooking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -815,7 +817,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       const [booking] = await cancelDb.update(isolatedSchema.roomBookings)
         .set({ status: 'cancelled', updatedAt: new Date() })
-        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(cancelSiteContext, isolatedSchema.roomBookings))).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -863,9 +865,9 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to delete booking" });
       }
       
-      const delBookingDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: delBookingDb, siteContext: delBookingSiteContext } = await getScopedDb(req);
       const [booking] = await delBookingDb.select().from(isolatedSchema.roomBookings)
-        .where(eq(isolatedSchema.roomBookings.id, id));
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(delBookingSiteContext, isolatedSchema.roomBookings)));
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
@@ -880,7 +882,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       }
       
       const [deletedBooking] = await delBookingDb.delete(isolatedSchema.roomBookings)
-        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(delBookingSiteContext, isolatedSchema.roomBookings))).returning();
       const success = !!deletedBooking;
       
       if (!success) {
@@ -904,10 +906,10 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to check in" });
       }
       
-      const checkinMeetDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: checkinMeetDb, siteContext: checkinSiteContext } = await getScopedDb(req);
       const [booking] = await checkinMeetDb.update(isolatedSchema.roomBookings)
         .set({ status: 'in_progress', updatedAt: new Date() })
-        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(checkinSiteContext, isolatedSchema.roomBookings))).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -929,10 +931,10 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to end meeting" });
       }
       
-      const endMeetDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: endMeetDb, siteContext: endMeetSiteContext } = await getScopedDb(req);
       const [booking] = await endMeetDb.update(isolatedSchema.roomBookings)
         .set({ status: 'completed', updatedAt: new Date() })
-        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
+        .where(and(eq(isolatedSchema.roomBookings.id, id), scopedWhere(endMeetSiteContext, isolatedSchema.roomBookings))).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -955,14 +957,15 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to view upcoming bookings" });
       }
       
-      const upcomingDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: upcomingDb, siteContext: upcomingSiteContext } = await getScopedDb(req);
       const now = new Date();
       const futureTime = new Date(now.getTime() + (minutes ? parseInt(minutes as string) : 15) * 60000);
       const upcomingBookings = await upcomingDb.select().from(isolatedSchema.roomBookings)
         .where(and(
           ne(isolatedSchema.roomBookings.status, 'cancelled'),
           sql`${isolatedSchema.roomBookings.startTime} >= ${now}`,
-          sql`${isolatedSchema.roomBookings.startTime} <= ${futureTime}`
+          sql`${isolatedSchema.roomBookings.startTime} <= ${futureTime}`,
+          scopedWhere(upcomingSiteContext, isolatedSchema.roomBookings),
         ));
       
       res.json(upcomingBookings);
@@ -992,8 +995,9 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(401).json({ error: "Please log in to view analytics" });
       }
       
-      const patternsDb = await customerDbService.getCustomerDatabase(customerId);
-      const patterns = await patternsDb.select().from(isolatedSchema.roomBookings);
+      const { db: patternsDb, siteContext: patternsSiteContext } = await getScopedDb(req);
+      const patterns = await patternsDb.select().from(isolatedSchema.roomBookings)
+        .where(scopedWhere(patternsSiteContext, isolatedSchema.roomBookings));
       res.json(patterns);
     } catch (error) {
       logger.error("Error fetching meeting patterns:", error);

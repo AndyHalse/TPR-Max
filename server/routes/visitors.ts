@@ -1310,10 +1310,10 @@ export function registerVisitorRoutes(app: Express): void {
     try {
       const { id } = req.params;
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: pbInvSiteCtx } = await getScopedDb(req);
       
       const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
-        .where(eq(isolatedSchema.preBookings.id, id)).limit(1);
+        .where(and(eq(isolatedSchema.preBookings.id, id), scopedWhere(pbInvSiteCtx, isolatedSchema.preBookings))).limit(1);
       
       if (!preBooking) {
         return res.status(404).json({ error: "Pre-booking not found" });
@@ -1346,7 +1346,7 @@ export function registerVisitorRoutes(app: Express): void {
       if (emailSent) {
         await customerDb.update(isolatedSchema.preBookings)
           .set({ emailSent: true, emailSentAt: new Date() })
-          .where(eq(isolatedSchema.preBookings.id, preBooking.id));
+          .where(and(eq(isolatedSchema.preBookings.id, preBooking.id), scopedWhere(pbInvSiteCtx, isolatedSchema.preBookings)));
       }
       
       res.json({ success: emailSent, preBooking });
@@ -1359,11 +1359,10 @@ export function registerVisitorRoutes(app: Express): void {
   app.delete("/api/prebookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: pbDelSiteCtx } = await getScopedDb(req);
 
       const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
-        .where(eq(isolatedSchema.preBookings.id, id)).limit(1);
+        .where(and(eq(isolatedSchema.preBookings.id, id), scopedWhere(pbDelSiteCtx, isolatedSchema.preBookings))).limit(1);
 
       if (!preBooking) {
         return res.status(404).json({ error: "Pre-booking not found" });
@@ -1373,7 +1372,7 @@ export function registerVisitorRoutes(app: Express): void {
       }
 
       await customerDb.delete(isolatedSchema.preBookings)
-        .where(eq(isolatedSchema.preBookings.id, id));
+        .where(and(eq(isolatedSchema.preBookings.id, id), scopedWhere(pbDelSiteCtx, isolatedSchema.preBookings)));
 
       logger.info(`Pre-booking cancelled: ${id}`);
       res.json({ success: true });
@@ -1396,7 +1395,7 @@ export function registerVisitorRoutes(app: Express): void {
       
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: customerDb, siteContext: pbCiSiteCtx } = await getScopedDb(req);
 
       // Server-side H&S enforcement for pre-booked visitors
       // Only enforce if there is actual H&S content to show — mirrors the client-side modal gate
@@ -1419,12 +1418,12 @@ export function registerVisitorRoutes(app: Express): void {
       if (qrCode.startsWith('PBK-')) {
         const preBookingId = qrCode.replace('PBK-', '');
         const [found] = await customerDb.select().from(isolatedSchema.preBookings)
-          .where(eq(isolatedSchema.preBookings.id, preBookingId)).limit(1);
+          .where(and(eq(isolatedSchema.preBookings.id, preBookingId), scopedWhere(pbCiSiteCtx, isolatedSchema.preBookings))).limit(1);
         preBooking = found;
       } else {
         const lookupCode = qrCode.startsWith('PRE-') ? qrCode.replace('PRE-', '') : qrCode;
         const [found] = await customerDb.select().from(isolatedSchema.preBookings)
-          .where(eq(isolatedSchema.preBookings.qrCode, lookupCode)).limit(1);
+          .where(and(eq(isolatedSchema.preBookings.qrCode, lookupCode), scopedWhere(pbCiSiteCtx, isolatedSchema.preBookings))).limit(1);
         preBooking = found;
       }
       
@@ -1464,7 +1463,7 @@ export function registerVisitorRoutes(app: Express): void {
       
       await customerDb.update(isolatedSchema.preBookings)
         .set({ isCheckedIn: true, checkedInAt: new Date(), visitorId: visitor.id })
-        .where(eq(isolatedSchema.preBookings.id, preBooking.id));
+        .where(and(eq(isolatedSchema.preBookings.id, preBooking.id), scopedWhere(pbCiSiteCtx, isolatedSchema.preBookings)));
       
       logger.info(`Visitor checked in from pre-booking: ID ${visitor.id} (ID: ${visitor.id}) in customer DB`);
       logger.info(`Pre-booking checkin: ePassEnabled=${pbSettings?.ePassEnabled}, visitorEmail=${visitor?.email ? '[set]' : '[missing]'}`);
@@ -2363,12 +2362,11 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/prebookings/today", requireAuth, async (req, res) => {
     try {
       const today = new Date();
-      const pbContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const pbCustomerDb = await customerDbService.getCustomerDatabase(pbContext.customerId);
+      const { db: pbCustomerDb, siteContext: pbTodaySiteCtx } = await getScopedDb(req);
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
       const preBookings = await pbCustomerDb.select().from(isolatedSchema.preBookings)
-        .where(and(gte(isolatedSchema.preBookings.expectedDate, todayStart), gte(todayEnd, isolatedSchema.preBookings.expectedDate)));
+        .where(and(gte(isolatedSchema.preBookings.expectedDate, todayStart), gte(todayEnd, isolatedSchema.preBookings.expectedDate), scopedWhere(pbTodaySiteCtx, isolatedSchema.preBookings)));
       res.json(preBookings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch today's pre-bookings" });

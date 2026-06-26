@@ -24,7 +24,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext: analyticsSiteCtx } = await getScopedDb(req);
       const spCheck = await (custDb as any).execute(sql`SHOW search_path`);
       const activeSchema = spCheck?.rows?.[0]?.search_path || 'unknown';
       
@@ -41,7 +41,6 @@ export function registerAnalyticsRoutes(app: Express): void {
           .limit(1);
         if (custSettings?.featureMembers === true) {
           featureMembers = true;
-          const { siteContext: analyticsSiteCtx } = await getScopedDb(req);
           const checkedInMembers = await custDb
             .select()
             .from(isolatedSchema.members)

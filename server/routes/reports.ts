@@ -688,10 +688,9 @@ export function registerReportRoutes(app: Express): void {
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext: rptDelCtx } = await getScopedDb(req);
       const [deleted] = await custDb.delete(isolatedSchema.reports)
-        .where(eq(isolatedSchema.reports.id, id))
+        .where(and(eq(isolatedSchema.reports.id, id), scopedWhere(rptDelCtx, isolatedSchema.reports)))
         .returning();
       if (!deleted) {
         return res.status(404).json({ error: "Report not found" });
@@ -712,9 +711,8 @@ export function registerReportRoutes(app: Express): void {
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      await custDb.delete(isolatedSchema.reports);
+      const { db: custDb, siteContext: rptClrCtx } = await getScopedDb(req);
+      await custDb.delete(isolatedSchema.reports).where(scopedWhere(rptClrCtx, isolatedSchema.reports));
       res.json({ success: true });
     } catch (error) {
       logger.error("Error clearing reports:", error);
