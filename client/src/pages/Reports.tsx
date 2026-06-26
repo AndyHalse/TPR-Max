@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -42,6 +43,7 @@ import type { CompanySettings } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Reports() {
+  const { t } = useTranslation("reports");
   const { toast } = useToast();
   const [dateFrom, setDateFrom] = useState<Date>(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
   const [dateTo, setDateTo] = useState<Date>(new Date());
@@ -80,8 +82,8 @@ export default function Reports() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       toast({
-        title: "Success",
-        description: "Report generated successfully!",
+        title: t("toast.success"),
+        description: t("toast.reportGenerated"),
       });
       
       // Open the generated report in a new window
@@ -92,8 +94,8 @@ export default function Reports() {
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to generate report",
+        title: t("toast.error"),
+        description: t("toast.failedGenerate"),
         variant: "destructive",
       });
     },
@@ -109,14 +111,14 @@ export default function Reports() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       toast({
-        title: "Success",
-        description: "Report email sent successfully!",
+        title: t("toast.success"),
+        description: t("toast.emailSent"),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to send report email",
+        title: t("toast.error"),
+        description: t("toast.failedEmail"),
         variant: "destructive",
       });
     },
@@ -129,10 +131,10 @@ export default function Reports() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
-      toast({ title: "Report deleted" });
+      toast({ title: t("toast.deleted") });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to delete report", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("toast.failedDelete"), variant: "destructive" });
     },
   });
 
@@ -143,10 +145,10 @@ export default function Reports() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
-      toast({ title: "All reports cleared" });
+      toast({ title: t("toast.cleared") });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to clear reports", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("toast.failedClear"), variant: "destructive" });
     },
   });
 
@@ -156,8 +158,8 @@ export default function Reports() {
     if (!isSnapshotReport) {
       if (!dateFrom || !dateTo) {
         toast({
-          title: "Error",
-          description: "Please select both start and end dates",
+          title: t("toast.error"),
+          description: t("toast.selectDates"),
           variant: "destructive",
         });
         return;
@@ -165,8 +167,8 @@ export default function Reports() {
 
       if (dateFrom > dateTo) {
         toast({
-          title: "Error",
-          description: "Start date must be before end date",
+          title: t("toast.error"),
+          description: t("toast.dateOrderError"),
           variant: "destructive",
         });
         return;
@@ -192,8 +194,8 @@ export default function Reports() {
       const missing = selectedStaff.length - withEmail.length;
       if (missing > 0) {
         toast({
-          title: "Some staff have no email",
-          description: `${missing} selected staff member${missing !== 1 ? 's have' : ' has'} no email address and will be skipped.`,
+          title: t("toast.someNoEmail"),
+          description: t("toast.someNoEmailDesc", { count: missing, plural: missing !== 1 ? 's' : '' }),
         });
       }
       recipients = withEmail;
@@ -205,8 +207,8 @@ export default function Reports() {
 
     if (recipients.length === 0) {
       toast({
-        title: "Error",
-        description: "Please select staff members or provide email recipients",
+        title: t("toast.noRecipientsTitle"),
+        description: t("toast.noRecipientsDesc"),
         variant: "destructive",
       });
       return;
@@ -326,7 +328,7 @@ export default function Reports() {
   return (
     <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl sm:text-2xl font-bold text-fixed">Reports & Analytics</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-fixed">{t("title")}</h2>
       </div>
 
       
@@ -335,17 +337,17 @@ export default function Reports() {
         <GlassCard>
           <div className="flex items-center mb-6">
             <Plus className="mr-3 text-blue-600" size={24} />
-            <h3 className="text-lg font-semibold text-fixed">Generate New Report</h3>
+            <h3 className="text-lg font-semibold text-fixed">{t("generateNew")}</h3>
           </div>
           
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="reportType" className="text-sm font-medium text-variable">
-                Report Type
+                {t("reportType")}
               </Label>
               <Select value={reportType} onValueChange={setReportType}>
                 <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-report-type">
-                  <SelectValue placeholder="Select report type" />
+                  <SelectValue placeholder={t("selectReportType")} />
                 </SelectTrigger>
                 <SelectContent>
                   {visibleReportOptions.map(opt => (
@@ -357,12 +359,12 @@ export default function Reports() {
             
             {isSnapshotReport ? (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                This is a point-in-time snapshot — no date range required. The report reflects the current compliance status of all contractors.
+                {t("snapshotNote")}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-variable">From Date</Label>
+                  <Label className="text-sm font-medium text-variable">{t("fromDate")}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -371,7 +373,7 @@ export default function Reports() {
                         data-testid="button-date-from"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "dd MMM yyyy") : "Pick a date"}
+                        {dateFrom ? format(dateFrom, "dd MMM yyyy") : t("pickDate")}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -386,7 +388,7 @@ export default function Reports() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-variable">To Date</Label>
+                  <Label className="text-sm font-medium text-variable">{t("toDate")}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -395,7 +397,7 @@ export default function Reports() {
                         data-testid="button-date-to"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "dd MMM yyyy") : "Pick a date"}
+                        {dateTo ? format(dateTo, "dd MMM yyyy") : t("pickDate")}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -418,7 +420,7 @@ export default function Reports() {
               data-testid="button-generate-report"
             >
               <FileText className="mr-2" size={16} />
-              {generateReportMutation.isPending ? "Generating..." : "Generate Report"}
+              {generateReportMutation.isPending ? t("generating") : t("generateReport")}
             </Button>
           </div>
         </GlassCard>
@@ -427,7 +429,7 @@ export default function Reports() {
         <GlassCard>
           <div className="flex items-center mb-6">
             <BarChart3 className="mr-3 text-blue-600" size={24} />
-            <h3 className="text-lg font-semibold text-fixed">Quick Stats</h3>
+            <h3 className="text-lg font-semibold text-fixed">{t("quickStats")}</h3>
           </div>
           
           <div className="space-y-4">
@@ -436,20 +438,20 @@ export default function Reports() {
                 <div className="text-2xl font-bold text-blue-600 mb-1">
                   {reports?.length || 0}
                 </div>
-                <div className="text-sm text-variable">Total Reports</div>
+                <div className="text-sm text-variable">{t("totalReports")}</div>
               </div>
               
               <div className="text-center p-4 bg-white/50 rounded-xl">
                 <div className="text-2xl font-bold text-green-600 mb-1">
                   {reports?.filter(r => r.emailSent).length || 0}
                 </div>
-                <div className="text-sm text-variable">Reports Emailed</div>
+                <div className="text-sm text-variable">{t("reportsEmailed")}</div>
               </div>
             </div>
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-variable">Email Recipients</Label>
+                <Label className="text-sm font-medium text-variable">{t("emailRecipients")}</Label>
                 <Button
                   variant="outline"
                   size="sm"
@@ -458,13 +460,13 @@ export default function Reports() {
                   data-testid="button-toggle-staff-selection"
                 >
                   <UserCheck className="mr-1" size={12} />
-                  {showStaffSelection ? 'Hide Staff' : 'Select Staff'}
+                  {showStaffSelection ? t("hideStaff") : t("selectStaff")}
                 </Button>
               </div>
 
               {showStaffSelection && (
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-white/30 rounded-xl p-3 bg-white/30">
-                  <Label className="text-xs font-medium text-variable">Select Staff Members:</Label>
+                  <Label className="text-xs font-medium text-variable">{t("selectStaffMembers")}</Label>
                   {staff && staff.length > 0 ? (
                     <>
                       {staff.map((staffMember) => (
@@ -484,23 +486,23 @@ export default function Reports() {
                       ))}
                       {selectedStaff.length > 0 && (
                         <p className="text-xs text-blue-600 mt-2 font-medium">
-                          ✓ {selectedStaff.length} staff member{selectedStaff.length !== 1 ? 's' : ''} selected
+                          {t("staffSelected", { count: selectedStaff.length })}
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="text-xs text-variable">No staff members found</p>
+                    <p className="text-xs text-variable">{t("noStaffFound")}</p>
                   )}
                 </div>
               )}
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-variable">
-                  Additional Email Recipients (optional)
+                  {t("additionalRecipients")}
                 </Label>
                 <Input
                   type="email"
-                  placeholder="Enter email addresses separated by commas"
+                  placeholder={t("emailPlaceholder")}
                   value={emailRecipients}
                   onChange={(e) => setEmailRecipients(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
@@ -508,10 +510,10 @@ export default function Reports() {
                 />
                 <div className="text-xs text-variable bg-blue-50 p-2 rounded-lg">
                   {selectedStaff.length > 0 
-                    ? `📧 Will send to ${selectedStaff.length} selected staff member${selectedStaff.length !== 1 ? 's' : ''}${emailRecipients.trim() ? ' + manual recipients' : ''}` 
+                    ? t("willSendToStaff", { count: selectedStaff.length, extra: emailRecipients.trim() ? t("plusManual") : "" })
                     : emailRecipients.trim() 
-                      ? "📧 Will send to manual recipients only" 
-                      : `📧 Default recipient: ${settings?.email || 'admin@company.com'}`
+                      ? t("willSendToManual")
+                      : t("defaultRecipient", { email: settings?.email || 'admin@company.com' })
                   }
                 </div>
               </div>
@@ -523,7 +525,7 @@ export default function Reports() {
       {/* Reports List */}
       <GlassCard>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-fixed">Generated Reports</h3>
+          <h3 className="text-lg font-semibold text-fixed">{t("generatedReports")}</h3>
           {reports && reports.length > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -534,26 +536,26 @@ export default function Reports() {
                   disabled={clearAllReportsMutation.isPending}
                 >
                   <Trash2 size={14} className="mr-1.5" />
-                  Clear All Reports
+                  {t("clearAllReports")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle className="flex items-center gap-2">
                     <AlertTriangle className="text-red-500" size={20} />
-                    Clear All Reports?
+                    {t("clearAllTitle")}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete all {reports.length} generated report{reports.length !== 1 ? 's' : ''} for your company. This action cannot be undone.
+                    {t("clearAllDesc", { count: reports.length })}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-red-600 hover:bg-red-700 text-white"
                     onClick={() => clearAllReportsMutation.mutate()}
                   >
-                    Yes, clear all
+                    {t("yesClearAll")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -564,8 +566,8 @@ export default function Reports() {
         {!reports || reports.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-variable mb-4" />
-            <p className="text-variable text-lg">No reports generated yet</p>
-            <p className="text-variable text-sm mt-2">Generate your first report to get started</p>
+            <p className="text-variable text-lg">{t("noReports")}</p>
+            <p className="text-variable text-sm mt-2">{t("noReportsHint")}</p>
           </div>
         ) : (
           <>
@@ -589,7 +591,7 @@ export default function Reports() {
                             {formatReportType(report.reportType)}
                           </div>
                           <div className="text-xs text-variable">
-                            Generated {new Date(report.generatedAt).toLocaleDateString('en-GB')}
+                            {t("generated")} {new Date(report.generatedAt).toLocaleDateString('en-GB')}
                           </div>
                         </div>
                       </div>
@@ -607,7 +609,7 @@ export default function Reports() {
                       {report.emailSent && (
                         <span className="flex items-center text-xs text-green-600">
                           <Mail size={11} className="mr-1" />
-                          Emailed
+                          {t("emailed")}
                         </span>
                       )}
                     </div>
@@ -621,7 +623,7 @@ export default function Reports() {
                         data-testid={`button-view-report-${report.id}`}
                       >
                         <ExternalLink size={12} className="mr-1" />
-                        View
+                        {t("common:view")}
                       </Button>
                       <Button
                         size="sm"
@@ -632,7 +634,7 @@ export default function Reports() {
                         data-testid={`button-email-report-${report.id}`}
                       >
                         <Send size={12} className="mr-1" />
-                        Email
+                        {t("emailBtn")}
                       </Button>
                       <Button
                         size="sm"
@@ -642,7 +644,7 @@ export default function Reports() {
                         data-testid={`button-print-report-${report.id}`}
                       >
                         <Printer size={12} className="mr-1" />
-                        Print
+                        {t("common:print")}
                       </Button>
                       <Button
                         size="sm"
@@ -665,11 +667,11 @@ export default function Reports() {
               <table className="w-full">
                 <thead className="bg-white/50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Report</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Period</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Stats</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("colReport")}</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("colPeriod")}</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("colStats")}</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("common:status")}</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("common:actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/20">
@@ -687,7 +689,7 @@ export default function Reports() {
                             <FileText className="mr-3 text-blue-600" size={16} />
                             <div>
                               <div className="text-sm font-medium text-fixed">{formatReportType(report.reportType)}</div>
-                              <div className="text-xs text-variable">Generated {new Date(report.generatedAt).toLocaleDateString('en-GB')}</div>
+                              <div className="text-xs text-variable">{t("generated")} {new Date(report.generatedAt).toLocaleDateString('en-GB')}</div>
                             </div>
                           </div>
                         </td>
@@ -706,7 +708,7 @@ export default function Reports() {
                             {report.emailSent && (
                               <div className="flex items-center text-xs text-green-600">
                                 <Mail size={12} className="mr-1" />
-                                Emailed {report.emailSentAt ? new Date(report.emailSentAt).toLocaleDateString('en-GB') : ""}
+                                {t("emailed")} {report.emailSentAt ? new Date(report.emailSentAt).toLocaleDateString('en-GB') : ""}
                               </div>
                             )}
                           </div>
@@ -714,13 +716,13 @@ export default function Reports() {
                         <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex space-x-2">
                             <Button size="sm" variant="outline" onClick={() => handleEmailReport(report.id)} disabled={emailReportMutation.isPending} data-testid={`button-email-report-${report.id}`}>
-                              <Send size={12} className="mr-1" />Email
+                              <Send size={12} className="mr-1" />{t("emailBtn")}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => window.open(reportUrl, '_blank')} data-testid={`button-view-report-${report.id}`}>
-                              <ExternalLink size={12} className="mr-1" />View
+                              <ExternalLink size={12} className="mr-1" />{t("common:view")}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => handlePrintReport(report.id)} className="hover:bg-[var(--background)]" data-testid={`button-print-report-${report.id}`}>
-                              <Printer size={12} className="mr-1" />Print
+                              <Printer size={12} className="mr-1" />{t("common:print")}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => deleteReportMutation.mutate(report.id)} disabled={deleteReportMutation.isPending} className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300" data-testid={`button-delete-report-${report.id}`}>
                               <Trash2 size={12} />
@@ -744,16 +746,16 @@ export default function Reports() {
             <Shield className="text-amber-600 dark:text-amber-400" size={18} />
           </div>
           <div>
-            <h3 className="text-base font-bold text-fixed">Lone Worker Sessions</h3>
-            <p className="text-xs text-variable">{loneWorkerTotal} session{loneWorkerTotal !== 1 ? 's' : ''} on record</p>
+            <h3 className="text-base font-bold text-fixed">{t("loneWorker.title")}</h3>
+            <p className="text-xs text-variable">{t("loneWorker.count", { count: loneWorkerTotal })}</p>
           </div>
         </div>
 
         {loneWorkerSessions.length === 0 ? (
           <div className="text-center py-8">
             <Shield className="mx-auto h-10 w-10 text-variable mb-3" />
-            <p className="text-variable">No lone worker sessions recorded yet</p>
-            <p className="text-xs text-variable mt-1">Sessions appear here when staff or contractors are placed under lone worker protection</p>
+            <p className="text-variable">{t("loneWorker.empty")}</p>
+            <p className="text-xs text-variable mt-1">{t("loneWorker.emptyHint")}</p>
           </div>
         ) : (
           <>
@@ -764,14 +766,14 @@ export default function Reports() {
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm text-fixed">{session.personName}</span>
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${session.status === 'active' ? 'bg-amber-100 text-amber-700' : session.status === 'ended_ok' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {session.status === 'active' ? 'Active' : session.status === 'ended_ok' ? 'Ended OK' : session.status === 'escalated' ? 'Escalated' : session.status}
+                      {session.status === 'active' ? t("loneWorker.statusActive") : session.status === 'ended_ok' ? t("loneWorker.statusEndedOk") : session.status === 'escalated' ? t("loneWorker.statusEscalated") : session.status}
                     </span>
                   </div>
                   <p className="text-xs text-variable capitalize">{session.personType}</p>
                   <p className="text-xs text-variable">{new Date(session.startedAt).toLocaleString()}</p>
-                  {session.endedAt && <p className="text-xs text-variable">Ended: {new Date(session.endedAt).toLocaleString()}</p>}
-                  <p className="text-xs text-variable">Check-ins completed: {session.checkInsCompleted ?? 0}</p>
-                  {session.escalationsFired > 0 && <p className="text-xs text-red-600 font-medium">Escalation level {session.escalationsFired}</p>}
+                  {session.endedAt && <p className="text-xs text-variable">{t("loneWorker.ended")}: {new Date(session.endedAt).toLocaleString()}</p>}
+                  <p className="text-xs text-variable">{t("loneWorker.checkIns")}: {session.checkInsCompleted ?? 0}</p>
+                  {session.escalationsFired > 0 && <p className="text-xs text-red-600 font-medium">{t("loneWorker.escalationLevel")} {session.escalationsFired}</p>}
                 </div>
               ))}
             </div>
@@ -781,13 +783,13 @@ export default function Reports() {
               <table className="w-full text-sm">
                 <thead className="bg-white/50 dark:bg-white/5">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Person</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Started</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Ended</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Check-ins</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Escalation</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("loneWorker.colPerson")}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("loneWorker.colType")}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("loneWorker.colStarted")}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("loneWorker.colEnded")}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("loneWorker.colCheckIns")}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("common:status")}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">{t("loneWorker.colEscalation")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/20">
@@ -800,12 +802,12 @@ export default function Reports() {
                       <td className="px-4 py-3 text-variable">{session.checkInsCompleted ?? 0}</td>
                       <td className="px-4 py-3">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${session.status === 'active' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : session.status === 'ended_ok' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
-                          {session.status === 'active' ? 'Active' : session.status === 'ended_ok' ? 'Ended OK' : session.status === 'escalated' ? 'Escalated' : session.status}
+                          {session.status === 'active' ? t("loneWorker.statusActive") : session.status === 'ended_ok' ? t("loneWorker.statusEndedOk") : session.status === 'escalated' ? t("loneWorker.statusEscalated") : session.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-variable">
                         {session.escalationsFired > 0 ? (
-                          <span className="text-red-600 font-medium">Level {session.escalationsFired}</span>
+                          <span className="text-red-600 font-medium">{t("loneWorker.level")} {session.escalationsFired}</span>
                         ) : '—'}
                       </td>
                     </tr>
@@ -817,10 +819,10 @@ export default function Reports() {
             {/* Pagination controls */}
             {loneWorkerTotalPages > 1 && (
               <div className="flex items-center justify-between pt-3 border-t border-white/20">
-                <p className="text-xs text-variable">Page {loneWorkerPage} of {loneWorkerTotalPages} ({loneWorkerTotal} total)</p>
+                <p className="text-xs text-variable">{t("loneWorker.page", { page: loneWorkerPage, total: loneWorkerTotalPages, count: loneWorkerTotal })}</p>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setLoneWorkerPage(p => Math.max(1, p - 1))} disabled={loneWorkerPage === 1} className="h-7 px-3 text-xs">Previous</Button>
-                  <Button size="sm" variant="outline" onClick={() => setLoneWorkerPage(p => Math.min(loneWorkerTotalPages, p + 1))} disabled={loneWorkerPage >= loneWorkerTotalPages} className="h-7 px-3 text-xs">Next</Button>
+                  <Button size="sm" variant="outline" onClick={() => setLoneWorkerPage(p => Math.max(1, p - 1))} disabled={loneWorkerPage === 1} className="h-7 px-3 text-xs">{t("loneWorker.previous")}</Button>
+                  <Button size="sm" variant="outline" onClick={() => setLoneWorkerPage(p => Math.min(loneWorkerTotalPages, p + 1))} disabled={loneWorkerPage >= loneWorkerTotalPages} className="h-7 px-3 text-xs">{t("loneWorker.next")}</Button>
                 </div>
               </div>
             )}

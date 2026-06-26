@@ -1,0 +1,90 @@
+{
+  "title": "Salas de Reuniones y Gestión de Reservas",
+  "titleTooltip": "Cree y gestione salas de reuniones reservables para su sitio. Use la pestaña Salas para añadir instalaciones y capacidad, luego la pestaña Calendario para ver y crear reservas. Las reservas pueden ser puntuales o recurrentes.",
+  "subtitle": "Gestione salas de reuniones, vea el calendario de reservas y cree nuevas reservaciones",
+  "quickBook": "Reserva Rápida",
+  "addMeetingRoom": "Añadir Sala de Reuniones",
+  "confirmDelete": "¿Está seguro de que desea eliminar \"{{name}}\"?",
+  "confirmCancelBooking": "¿Está seguro de que desea cancelar esta reserva?",
+  "tabs": {
+    "manageRooms": "Gestionar Salas",
+    "rooms": "Salas",
+    "bookingCalendar": "Calendario de Reservas",
+    "calendar": "Calendario"
+  },
+  "card": {
+    "available": "Disponible",
+    "inactive": "Inactiva",
+    "people": "{{count}} personas",
+    "facilitiesLabel": "Instalaciones:",
+    "basicRoom": "Sala básica",
+    "viewBookings": "Ver Reservas"
+  },
+  "empty": {
+    "title": "Sin Salas de Reuniones",
+    "description": "Comience creando su primera sala de reuniones.",
+    "createButton": "Crear Sala de Reuniones"
+  },
+  "facility": {
+    "projector": "Proyector",
+    "video": "Vídeo",
+    "tv": "TV",
+    "whiteboard": "Pizarra",
+    "airCon": "Aire Acondicionado"
+  },
+  "roomForm": {
+    "createTitle": "Crear Nueva Sala de Reuniones",
+    "editTitle": "Editar Sala de Reuniones",
+    "roomName": "Nombre de la Sala *",
+    "location": "Ubicación *",
+    "capacity": "Capacidad *",
+    "active": "Activa",
+    "description": "Descripción",
+    "descriptionPlaceholder": "Breve descripción de la sala...",
+    "facilities": "Instalaciones de la Sala",
+    "projector": "📽️ Proyector",
+    "videoConference": "📹 Videoconferencia",
+    "tvScreen": "📺 Pantalla TV",
+    "whiteboard": "📝 Pizarra",
+    "airConditioning": "❄️ Aire Acondicionado",
+    "catering": "🍽️ Catering Disponible",
+    "updating": "Actualizando...",
+    "creating": "Creando...",
+    "updateRoom": "Actualizar Sala",
+    "createRoom": "Crear Sala"
+  },
+  "viewDialog": {
+    "title": "Detalles de la Reserva",
+    "titleField": "Título",
+    "recurring": "Recurrente",
+    "recurringSeries": "Serie Recurrente",
+    "frequency": "Frecuencia: ",
+    "repeatsUntil": "Se repite hasta: ",
+    "editOccurrence": "La edición afecta solo a esta ocurrencia.",
+    "room": "Sala",
+    "organizer": "Organizador",
+    "startTime": "Hora de Inicio",
+    "endTime": "Hora de Fin",
+    "attendees": "Asistentes ({{count}} esperados)",
+    "noAttendees": "No hay asistentes adicionales registrados.",
+    "catering": "Catering",
+    "required": "Requerido",
+    "specialRequirements": "Requisitos Especiales",
+    "unknownRoom": "Sala Desconocida",
+    "unknown": "Desconocido",
+    "weekly": "Semanal",
+    "fortnightly": "Cada 2 semanas",
+    "monthly": "Mensual"
+  },
+  "toast": {
+    "roomUpdated": "Sala Actualizada",
+    "roomCreated": "Sala Creada",
+    "roomUpdatedDesc": "La sala de reuniones ha sido actualizada correctamente.",
+    "roomCreatedDesc": "La sala de reuniones ha sido creada correctamente.",
+    "roomDeleted": "Sala Eliminada",
+    "roomDeletedDesc": "La sala de reuniones ha sido eliminada correctamente.",
+    "bookingCancelled": "Reserva Cancelada",
+    "bookingCancelledDesc": "La reserva ha sido cancelada correctamente.",
+    "error": "Error"
+  }
+}

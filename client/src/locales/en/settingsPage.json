@@ -1,0 +1,46 @@
+{
+  "title": "Settings",
+  "aiSettings": "AI Settings",
+  "autoSave": "✨ Auto-save enabled — changes saved after 1.5 seconds",
+  "quickSetup": {
+    "heading": "Quick Setup — {{completed}} of {{total}} complete",
+    "subheading": "Complete these steps to get the most out of TPR Max",
+    "dismiss": "Dismiss quick setup",
+    "items": {
+      "companyLogoLabel": "Upload your company logo",
+      "companyLogoHint": "Appears on ID passes, kiosk screen and email headers",
+      "emergencyEmailLabel": "Set your emergency / CDM alerts email",
+      "emergencyEmailHint": "Receives fire-muster and CDM incident notifications",
+      "emailSmtpLabel": "Configure email delivery (SMTP)",
+      "emailSmtpHint": "Required for visitor invitations, welcome emails and alerts",
+      "musterPointLabel": "Name at least one muster point",
+      "musterPointHint": "Used during emergency evacuations"
+    }
+  },
+  "tabs": {
+    "company": "Company",
+    "branding": "Branding",
+    "users": "Users",
+    "departments": "Departments",
+    "zones": "Zones",
+    "email": "Email",
+    "phoneSystems": "Phone Systems",
+    "reports": "Reports",
+    "printing": "Printing & ID",
+    "hsDocs": "H&S Docs",
+    "hsRules": "H&S Rules",
+    "nda": "NDA",
+    "contractors": "Card Offences",
+    "ai": "AI Settings",
+    "integrations": "Integrations",
+    "sso": "SSO",
+    "visitReasons": "Visit Reasons",
+    "jobTitles": "Job Titles",
+    "loneWorker": "Lone Worker",
+    "system": "System",
+    "preferences": "My Preferences",
+    "printingFull": "Printing & ID",
+    "hsSDocsFull": "H&S Documents"
+  },
+  "selectSection": "Select section…"
+}

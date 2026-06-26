@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -43,31 +44,32 @@ interface QuickSetupStatus {
 const QUICK_SETUP_ITEMS = [
   {
     key: "companyLogoSet" as const,
-    label: "Upload your company logo",
-    hint: "Appears on ID passes, kiosk screen and email headers",
+    labelKey: "quickSetup.items.companyLogoLabel",
+    hintKey: "quickSetup.items.companyLogoHint",
     tab: "branding",
   },
   {
     key: "emergencyEmailSet" as const,
-    label: "Set your emergency / CDM alerts email",
-    hint: "Receives fire-muster and CDM incident notifications",
+    labelKey: "quickSetup.items.emergencyEmailLabel",
+    hintKey: "quickSetup.items.emergencyEmailHint",
     tab: "company",
   },
   {
     key: "emailSmtpConfigured" as const,
-    label: "Configure email delivery (SMTP)",
-    hint: "Required for visitor invitations, welcome emails and alerts",
+    labelKey: "quickSetup.items.emailSmtpLabel",
+    hintKey: "quickSetup.items.emailSmtpHint",
     tab: "email",
   },
   {
     key: "mustersPointNamed" as const,
-    label: "Name at least one muster point",
-    hint: "Used during emergency evacuations",
+    labelKey: "quickSetup.items.musterPointLabel",
+    hintKey: "quickSetup.items.musterPointHint",
     tab: "zones",
   },
 ];
 
 export default function Settings() {
+  const { t } = useTranslation("settingsPage");
   const [activeTab, setActiveTab] = useState("company");
   const tabsRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
@@ -94,7 +96,7 @@ export default function Settings() {
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl sm:text-2xl font-bold text-fixed">Settings</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-fixed">{t("title")}</h2>
         <div className="flex items-center gap-2 flex-shrink-0">
           <Link to="/settings/ai">
             <Button
@@ -104,7 +106,7 @@ export default function Settings() {
               data-testid="link-ai-settings"
             >
               <Bot size={15} />
-              <span className="hidden sm:inline ml-2">AI Settings</span>
+              <span className="hidden sm:inline ml-2">{t("aiSettings")}</span>
             </Button>
           </Link>
         </div>
@@ -114,7 +116,7 @@ export default function Settings() {
       <div className="flex items-center gap-2 p-3 sm:p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
         <div className="h-2 w-2 flex-shrink-0 bg-green-500 rounded-full animate-pulse"></div>
         <p className="text-xs sm:text-sm text-green-800 dark:text-green-300 font-medium">
-          ✨ Auto-save enabled — changes saved after 1.5 seconds
+          {t("autoSave")}
         </p>
       </div>
 
@@ -124,7 +126,7 @@ export default function Settings() {
           <button
             onClick={() => dismissMutation.mutate()}
             className="absolute top-3 right-3 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
-            aria-label="Dismiss quick setup"
+            aria-label={t("quickSetup.dismiss")}
           >
             <X size={16} />
           </button>
@@ -133,10 +135,10 @@ export default function Settings() {
             <Rocket size={18} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <div>
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                Quick Setup — {completedCount} of {totalCount} complete
+                {t("quickSetup.heading", { completed: completedCount, total: totalCount })}
               </h3>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                Complete these steps to get the most out of TPR Max
+                {t("quickSetup.subheading")}
               </p>
             </div>
           </div>
@@ -150,7 +152,7 @@ export default function Settings() {
           </div>
 
           <ul className="grid sm:grid-cols-2 gap-2">
-            {QUICK_SETUP_ITEMS.map(({ key, label, hint, tab }) => {
+            {QUICK_SETUP_ITEMS.map(({ key, labelKey, hintKey, tab }) => {
               const done = quickSetup?.items[key] ?? false;
               return (
                 <li key={key}>
@@ -184,11 +186,11 @@ export default function Settings() {
                             : "text-blue-900 dark:text-blue-100"
                         }`}
                       >
-                        {label}
+                        {t(labelKey)}
                       </p>
                       {!done && (
                         <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5 leading-tight">
-                          {hint}
+                          {t(hintKey)}
                         </p>
                       )}
                     </div>
@@ -206,30 +208,30 @@ export default function Settings() {
         <div className="md:hidden mb-4">
           <Select value={activeTab} onValueChange={setActiveTab}>
             <SelectTrigger className="w-full h-11 text-sm font-medium">
-              <SelectValue placeholder="Select section…" />
+              <SelectValue placeholder={t("selectSection")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="company">Company</SelectItem>
-              <SelectItem value="branding">Branding</SelectItem>
-              <SelectItem value="users">Users</SelectItem>
-              <SelectItem value="departments">Departments</SelectItem>
-              <SelectItem value="zones">Zones</SelectItem>
-              <SelectItem value="email">Email</SelectItem>
-              <SelectItem value="phone-systems">Phone Systems</SelectItem>
-              <SelectItem value="reports">Reports</SelectItem>
-              <SelectItem value="printing">Printing &amp; ID</SelectItem>
-              <SelectItem value="hs-documents">H&amp;S Documents</SelectItem>
-              <SelectItem value="hsrules">H&amp;S Rules</SelectItem>
-              <SelectItem value="nda">NDA</SelectItem>
-              <SelectItem value="contractors">Card Offences</SelectItem>
-              <SelectItem value="ai">AI Settings</SelectItem>
-              <SelectItem value="integrations">Integrations</SelectItem>
+              <SelectItem value="company">{t("tabs.company")}</SelectItem>
+              <SelectItem value="branding">{t("tabs.branding")}</SelectItem>
+              <SelectItem value="users">{t("tabs.users")}</SelectItem>
+              <SelectItem value="departments">{t("tabs.departments")}</SelectItem>
+              <SelectItem value="zones">{t("tabs.zones")}</SelectItem>
+              <SelectItem value="email">{t("tabs.email")}</SelectItem>
+              <SelectItem value="phone-systems">{t("tabs.phoneSystems")}</SelectItem>
+              <SelectItem value="reports">{t("tabs.reports")}</SelectItem>
+              <SelectItem value="printing">{t("tabs.printingFull")}</SelectItem>
+              <SelectItem value="hs-documents">{t("tabs.hsSDocsFull")}</SelectItem>
+              <SelectItem value="hsrules">{t("tabs.hsRules")}</SelectItem>
+              <SelectItem value="nda">{t("tabs.nda")}</SelectItem>
+              <SelectItem value="contractors">{t("tabs.contractors")}</SelectItem>
+              <SelectItem value="ai">{t("tabs.ai")}</SelectItem>
+              <SelectItem value="integrations">{t("tabs.integrations")}</SelectItem>
               <SelectItem value="sso">Single Sign-On</SelectItem>
-              <SelectItem value="visit-reasons">Visit Reasons</SelectItem>
-              <SelectItem value="job-titles">Job Titles</SelectItem>
-              <SelectItem value="lone-worker">Lone Worker</SelectItem>
-              <SelectItem value="system">System</SelectItem>
-              <SelectItem value="preferences">My Preferences</SelectItem>
+              <SelectItem value="visit-reasons">{t("tabs.visitReasons")}</SelectItem>
+              <SelectItem value="job-titles">{t("tabs.jobTitles")}</SelectItem>
+              <SelectItem value="lone-worker">{t("tabs.loneWorker")}</SelectItem>
+              <SelectItem value="system">{t("tabs.system")}</SelectItem>
+              <SelectItem value="preferences">{t("tabs.preferences")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -237,67 +239,67 @@ export default function Settings() {
         {/* Desktop tab bar */}
         <TabsList className="hidden md:flex flex-wrap h-auto gap-1 p-1 bg-muted/50 rounded-xl mb-2">
           <TabsTrigger value="company" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Building2 size={14} />Company
+            <Building2 size={14} />{t("tabs.company")}
           </TabsTrigger>
           <TabsTrigger value="branding" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Palette size={14} />Branding
+            <Palette size={14} />{t("tabs.branding")}
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Users size={14} />Users
+            <Users size={14} />{t("tabs.users")}
           </TabsTrigger>
           <TabsTrigger value="departments" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Building size={14} />Departments
+            <Building size={14} />{t("tabs.departments")}
           </TabsTrigger>
           <TabsTrigger value="zones" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <MapPin size={14} />Zones
+            <MapPin size={14} />{t("tabs.zones")}
           </TabsTrigger>
           <TabsTrigger value="email" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Mail size={14} />Email
+            <Mail size={14} />{t("tabs.email")}
           </TabsTrigger>
           <TabsTrigger value="phone-systems" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Phone size={14} />Phone Systems
+            <Phone size={14} />{t("tabs.phoneSystems")}
           </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <FileText size={14} />Reports
+            <FileText size={14} />{t("tabs.reports")}
           </TabsTrigger>
           <TabsTrigger value="printing" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Printer size={14} />Printing &amp; ID
+            <Printer size={14} />{t("tabs.printing")}
           </TabsTrigger>
           <TabsTrigger value="hs-documents" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <ScrollText size={14} />H&amp;S Docs
+            <ScrollText size={14} />{t("tabs.hsDocs")}
           </TabsTrigger>
           <TabsTrigger value="hsrules" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <HardHat size={14} />H&amp;S Rules
+            <HardHat size={14} />{t("tabs.hsRules")}
           </TabsTrigger>
           <TabsTrigger value="nda" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <PenLine size={14} />NDA
+            <PenLine size={14} />{t("tabs.nda")}
           </TabsTrigger>
           <TabsTrigger value="contractors" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <AlertTriangle size={14} />Card Offences
+            <AlertTriangle size={14} />{t("tabs.contractors")}
           </TabsTrigger>
           <TabsTrigger value="ai" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Brain size={14} />AI Settings
+            <Brain size={14} />{t("tabs.ai")}
           </TabsTrigger>
           <TabsTrigger value="integrations" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Settings2 size={14} />Integrations
+            <Settings2 size={14} />{t("tabs.integrations")}
           </TabsTrigger>
           <TabsTrigger value="sso" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Shield size={14} />SSO
+            <Shield size={14} />{t("tabs.sso")}
           </TabsTrigger>
           <TabsTrigger value="visit-reasons" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <ClipboardList size={14} />Visit Reasons
+            <ClipboardList size={14} />{t("tabs.visitReasons")}
           </TabsTrigger>
           <TabsTrigger value="job-titles" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Briefcase size={14} />Job Titles
+            <Briefcase size={14} />{t("tabs.jobTitles")}
           </TabsTrigger>
           <TabsTrigger value="lone-worker" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Bell size={14} />Lone Worker
+            <Bell size={14} />{t("tabs.loneWorker")}
           </TabsTrigger>
           <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Wrench size={14} />System
+            <Wrench size={14} />{t("tabs.system")}
           </TabsTrigger>
           <TabsTrigger value="preferences" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <PanelLeft size={14} />My Preferences
+            <PanelLeft size={14} />{t("tabs.preferences")}
           </TabsTrigger>
         </TabsList>
 

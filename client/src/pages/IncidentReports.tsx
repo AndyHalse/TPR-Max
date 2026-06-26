@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ function ColHeader({ label, tip }: { label: string; tip: string }) {
 }
 
 export default function IncidentReports() {
+  const { t } = useTranslation("incidentReports");
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<IncidentReport | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
@@ -78,11 +80,11 @@ export default function IncidentReports() {
       apiRequest("DELETE", `/api/emergency/incident-reports/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/emergency/incident-reports"] });
-      toast({ title: "Report deleted", description: "The incident report has been removed." });
+      toast({ title: t("toast.deleted"), description: t("toast.deletedDesc") });
       setDeleteTarget(null);
     },
     onError: () => {
-      toast({ title: "Delete failed", description: "Could not delete the report. Please try again.", variant: "destructive" });
+      toast({ title: t("toast.deleteFailed"), description: t("toast.deleteFailedDesc"), variant: "destructive" });
     },
   });
 
@@ -91,9 +93,9 @@ export default function IncidentReports() {
     try {
       await apiRequest("POST", `/api/emergency/incident-reports/${r.evacuationId}/refresh`);
       queryClient.invalidateQueries({ queryKey: ["/api/emergency/incident-reports"] });
-      toast({ title: "Report refreshed", description: "Accountability data has been recalculated from the latest records." });
+      toast({ title: t("toast.refreshed"), description: t("toast.refreshedDesc") });
     } catch {
-      toast({ title: "Refresh failed", description: "Could not refresh the report. Please try again.", variant: "destructive" });
+      toast({ title: t("toast.refreshFailed"), description: t("toast.refreshFailedDesc"), variant: "destructive" });
     } finally {
       setRefreshingId(null);
     }
@@ -113,9 +115,9 @@ export default function IncidentReports() {
         <div className="flex items-center gap-3">
           <ScrollText className="text-blue-600 dark:text-blue-400 flex-shrink-0" size={28} />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Incident Reports</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("title")}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Automatically generated after every evacuation or drill.
+              {t("subtitle")}
             </p>
           </div>
         </div>
@@ -130,9 +132,9 @@ export default function IncidentReports() {
           ) : reports.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <ScrollText size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400 font-medium">No incident reports yet</p>
+              <p className="text-gray-500 dark:text-gray-400 font-medium">{t("noReports")}</p>
               <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-                Reports are saved automatically when you end an evacuation or drill from the Muster page.
+                {t("noReportsHint")}
               </p>
             </div>
           ) : (
@@ -158,12 +160,12 @@ export default function IncidentReports() {
                         {r.isDrill ? (
                           <Badge className="bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 flex items-center gap-1">
                             <ShieldAlert size={11} />
-                            Fire Drill
+                            {t("fireDrill")}
                           </Badge>
                         ) : (
                           <Badge className="bg-red-100 text-red-800 border-red-400 dark:bg-red-900/30 dark:text-red-300 dark:border-red-600 flex items-center gap-1">
                             <Siren size={11} />
-                            Emergency
+                            {t("emergency")}
                           </Badge>
                         )}
                       </div>
@@ -176,30 +178,30 @@ export default function IncidentReports() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Users size={13} className="text-gray-400" />
-                          {r.totalOnSite} on site
+                          {r.totalOnSite} {t("onSite")}
                         </span>
                         <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                           <CheckCircle size={13} />
-                          {r.accountedFor} safe
+                          {r.accountedFor} {t("safe")}
                         </span>
                         {r.unaccounted > 0 && (
                           <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
                             <XCircle size={13} />
-                            {r.unaccounted} missing
+                            {r.unaccounted} {t("missing")}
                           </span>
                         )}
-                        <span className={`font-semibold ${pctColor}`}>{pct}% accounted</span>
+                        <span className={`font-semibold ${pctColor}`}>{pct}% {t("accounted")}</span>
                       </div>
 
                       {r.activatedBy && (
-                        <p className="text-xs text-gray-400 dark:text-gray-500">Activated by {r.activatedBy}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{t("activatedBy", { name: r.activatedBy })}</p>
                       )}
 
                       {/* Warning banner if no accountability data was captured */}
                       {r.totalOnSite > 0 && r.accountedFor === 0 && (
                         <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-2.5 text-xs text-amber-700 dark:text-amber-300">
                           <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
-                          <span>No accountability data was recorded for this event. Use <strong>Refresh</strong> to recalculate from the latest muster records.</span>
+                          <span>{t("noDataWarning")}</span>
                         </div>
                       )}
 
@@ -211,7 +213,7 @@ export default function IncidentReports() {
                           className="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white"
                         >
                           <Eye size={14} className="mr-1.5" />
-                          View Report
+                          {t("viewReport")}
                         </Button>
                         <Button
                           size="sm"
@@ -220,7 +222,7 @@ export default function IncidentReports() {
                           className="flex-1 text-sm border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20"
                         >
                           <Download size={14} className="mr-1.5" />
-                          PDF
+                          {t("pdf")}
                         </Button>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -234,7 +236,7 @@ export default function IncidentReports() {
                               <RefreshCw size={14} className={refreshingId === r.evacuationId ? "animate-spin" : ""} />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">Recalculate accountability stats from the latest muster records</TooltipContent>
+                          <TooltipContent side="top" className="text-xs">{t("refreshTip")}</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -247,7 +249,7 @@ export default function IncidentReports() {
                               <Trash2 size={14} />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">Delete this report record</TooltipContent>
+                          <TooltipContent side="top" className="text-xs">{t("deleteTip")}</TooltipContent>
                         </Tooltip>
                       </div>
                     </div>
@@ -260,22 +262,22 @@ export default function IncidentReports() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      <th className="pb-3 pr-4">Date &amp; Time</th>
-                      <th className="pb-3 pr-4">Type</th>
-                      <th className="pb-3 pr-4">Activated by</th>
+                      <th className="pb-3 pr-4">{t("colDateTime")}</th>
+                      <th className="pb-3 pr-4">{t("colType")}</th>
+                      <th className="pb-3 pr-4">{t("colActivatedBy")}</th>
                       <th className="pb-3 pr-4">
-                        <ColHeader label="Duration" tip="Time from alarm activation to the evacuation being marked complete on the Muster page." />
+                        <ColHeader label={t("colDuration")} tip={t("colDurationTip")} />
                       </th>
                       <th className="pb-3 pr-4">
-                        <ColHeader label="On Site" tip="Total number of people (visitors, contractors, staff) recorded as checked in at the moment the evacuation started." />
+                        <ColHeader label={t("colOnSite")} tip={t("colOnSiteTip")} />
                       </th>
                       <th className="pb-3 pr-4">
-                        <ColHeader label="Accounted" tip="Number of people marked as safe or confirmed at the muster point. Red figure = still missing at close of event." />
+                        <ColHeader label={t("colAccounted")} tip={t("colAccountedTip")} />
                       </th>
                       <th className="pb-3 pr-4">
-                        <ColHeader label="Completion" tip="Percentage of on-site people accounted for. 100% = everyone confirmed safe before the evacuation was closed." />
+                        <ColHeader label={t("colCompletion")} tip={t("colCompletionTip")} />
                       </th>
-                      <th className="pb-3">Action</th>
+                      <th className="pb-3">{t("colAction")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -297,12 +299,12 @@ export default function IncidentReports() {
                             {r.isDrill ? (
                               <Badge className="bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 flex items-center gap-1 w-fit">
                                 <ShieldAlert size={11} />
-                                Fire Drill
+                                {t("fireDrill")}
                               </Badge>
                             ) : (
                               <Badge className="bg-red-100 text-red-800 border-red-400 dark:bg-red-900/30 dark:text-red-300 dark:border-red-600 flex items-center gap-1 w-fit">
                                 <Siren size={11} />
-                                Emergency
+                                {t("emergency")}
                               </Badge>
                             )}
                           </td>
@@ -344,7 +346,7 @@ export default function IncidentReports() {
                                     <AlertTriangle size={12} />
                                   </span>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs max-w-xs">No accountability data was recorded for this event. Click <strong>Refresh</strong> to recalculate from the latest muster records.</TooltipContent>
+                                <TooltipContent side="top" className="text-xs max-w-xs">{t("noDataWarningDetail")}</TooltipContent>
                               </Tooltip>
                             )}
                           </td>
@@ -359,10 +361,10 @@ export default function IncidentReports() {
                                     className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
                                   >
                                     <Eye size={12} className="mr-1" />
-                                    View
+                                    {t("view")}
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">Open the full incident report in a new tab</TooltipContent>
+                                <TooltipContent side="top" className="text-xs">{t("viewTip")}</TooltipContent>
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -373,10 +375,10 @@ export default function IncidentReports() {
                                     className="text-xs border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20"
                                   >
                                     <Download size={12} className="mr-1" />
-                                    PDF
+                                    {t("pdf")}
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">Download a printable PDF version of this report</TooltipContent>
+                                <TooltipContent side="top" className="text-xs">{t("pdfTip")}</TooltipContent>
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -390,7 +392,7 @@ export default function IncidentReports() {
                                     <RefreshCw size={12} className={refreshingId === r.evacuationId ? "animate-spin" : ""} />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">Recalculate accountability stats from the latest muster records</TooltipContent>
+                                <TooltipContent side="top" className="text-xs">{t("refreshTip")}</TooltipContent>
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -403,7 +405,7 @@ export default function IncidentReports() {
                                     <Trash2 size={12} />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">Delete this report record (the underlying evacuation data is not affected)</TooltipContent>
+                                <TooltipContent side="top" className="text-xs">{t("deleteTip")}</TooltipContent>
                               </Tooltip>
                             </div>
                           </td>
@@ -421,23 +423,23 @@ export default function IncidentReports() {
         <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Incident Report?</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently remove the report record from the list.{" "}
-                {deleteTarget?.isDrill ? "Fire Drill" : "Emergency evacuation"} on{" "}
+                {t("deleteDescLine1")}{" "}
+                {deleteTarget?.isDrill ? t("fireDrillOn") : t("emergencyOn")} {t("on")}{" "}
                 {formatDateTime(deleteTarget?.generatedAt ?? null)}.
                 <br /><br />
-                The underlying evacuation record and any accountability data are not affected. The report can be re-generated by visiting this page again.
+                {t("deleteDescLine2")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
                 disabled={deleteMutation.isPending}
               >
-                {deleteMutation.isPending ? "Deleting…" : "Delete Report"}
+                {deleteMutation.isPending ? t("deleting") : t("deleteReport")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

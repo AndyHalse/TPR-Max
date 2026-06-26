@@ -1,0 +1,90 @@
+{
+  "title": "Meeting Rooms & Booking Management",
+  "titleTooltip": "Create and manage bookable meeting rooms for your site. Use the Rooms tab to add facilities and capacity, then the Calendar tab to view and create reservations. Bookings can be one-off or recurring.",
+  "subtitle": "Manage meeting rooms, view bookings calendar, and create new reservations",
+  "quickBook": "Quick Book",
+  "addMeetingRoom": "Add Meeting Room",
+  "confirmDelete": "Are you sure you want to delete \"{{name}}\"?",
+  "confirmCancelBooking": "Are you sure you want to cancel this booking?",
+  "tabs": {
+    "manageRooms": "Manage Rooms",
+    "rooms": "Rooms",
+    "bookingCalendar": "Booking Calendar",
+    "calendar": "Calendar"
+  },
+  "card": {
+    "available": "Available",
+    "inactive": "Inactive",
+    "people": "{{count}} people",
+    "facilitiesLabel": "Facilities:",
+    "basicRoom": "Basic room",
+    "viewBookings": "View Bookings"
+  },
+  "empty": {
+    "title": "No Meeting Rooms",
+    "description": "Get started by creating your first meeting room.",
+    "createButton": "Create Meeting Room"
+  },
+  "facility": {
+    "projector": "Projector",
+    "video": "Video",
+    "tv": "TV",
+    "whiteboard": "Whiteboard",
+    "airCon": "Air Con"
+  },
+  "roomForm": {
+    "createTitle": "Create New Meeting Room",
+    "editTitle": "Edit Meeting Room",
+    "roomName": "Room Name *",
+    "location": "Location *",
+    "capacity": "Capacity *",
+    "active": "Active",
+    "description": "Description",
+    "descriptionPlaceholder": "Brief description of the room...",
+    "facilities": "Room Facilities",
+    "projector": "📽️ Projector",
+    "videoConference": "📹 Video Conference",
+    "tvScreen": "📺 TV Screen",
+    "whiteboard": "📝 Whiteboard",
+    "airConditioning": "❄️ Air Conditioning",
+    "catering": "🍽️ Catering Available",
+    "updating": "Updating...",
+    "creating": "Creating...",
+    "updateRoom": "Update Room",
+    "createRoom": "Create Room"
+  },
+  "viewDialog": {
+    "title": "Booking Details",
+    "titleField": "Title",
+    "recurring": "Recurring",
+    "recurringSeries": "Recurring Series",
+    "frequency": "Frequency: ",
+    "repeatsUntil": "Repeats until: ",
+    "editOccurrence": "Editing affects only this occurrence.",
+    "room": "Room",
+    "organizer": "Organizer",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "attendees": "Attendees ({{count}} expected)",
+    "noAttendees": "No additional attendees recorded.",
+    "catering": "Catering",
+    "required": "Required",
+    "specialRequirements": "Special Requirements",
+    "unknownRoom": "Unknown Room",
+    "unknown": "Unknown",
+    "weekly": "Weekly",
+    "fortnightly": "Every 2 weeks",
+    "monthly": "Monthly"
+  },
+  "toast": {
+    "roomUpdated": "Room Updated",
+    "roomCreated": "Room Created",
+    "roomUpdatedDesc": "Meeting room has been updated successfully.",
+    "roomCreatedDesc": "Meeting room has been created successfully.",
+    "roomDeleted": "Room Deleted",
+    "roomDeletedDesc": "Meeting room has been deleted successfully.",
+    "bookingCancelled": "Booking Cancelled",
+    "bookingCancelledDesc": "The booking has been cancelled successfully.",
+    "error": "Error"
+  }
+}

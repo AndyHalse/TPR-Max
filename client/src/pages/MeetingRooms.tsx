@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function MeetingRooms() {
+  const { t } = useTranslation("meetingRooms");
   const [selectedRoom, setSelectedRoom] = useState<MeetingRoom | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -88,14 +90,14 @@ export default function MeetingRooms() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meeting-rooms"] });
       toast({
-        title: isEditMode ? "Room Updated" : "Room Created",
-        description: `Meeting room has been ${isEditMode ? "updated" : "created"} successfully.`,
+        title: isEditMode ? t("toast.roomUpdated") : t("toast.roomCreated"),
+        description: isEditMode ? t("toast.roomUpdatedDesc") : t("toast.roomCreatedDesc"),
       });
       resetForm();
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: t("toast.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -110,13 +112,13 @@ export default function MeetingRooms() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meeting-rooms"] });
       toast({
-        title: "Room Deleted",
-        description: "Meeting room has been deleted successfully.",
+        title: t("toast.roomDeleted"),
+        description: t("toast.roomDeletedDesc"),
       });
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: t("toast.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -150,7 +152,7 @@ export default function MeetingRooms() {
   };
 
   const handleDelete = (room: MeetingRoom) => {
-    if (confirm(`Are you sure you want to delete "${room.name}"?`)) {
+    if (confirm(t("confirmDelete", { name: room.name }))) {
       deleteMutation.mutate(room.id);
     }
   };
@@ -193,13 +195,13 @@ export default function MeetingRooms() {
     return gradients[index % gradients.length];
   };
 
-  const getFacilityLabels = (room: MeetingRoom) => {
+  const getFacilityLabels = (room: MeetingRoom, tFn: typeof t) => {
     const labels: { icon: any; label: string }[] = [];
-    if (room.hasProjector) labels.push({ icon: <Projector className="h-3 w-3" />, label: "Projector" });
-    if (room.hasVideoConference) labels.push({ icon: <Video className="h-3 w-3" />, label: "Video" });
-    if (room.hasTV) labels.push({ icon: <Tv className="h-3 w-3" />, label: "TV" });
-    if (room.hasWhiteboard) labels.push({ icon: <PenTool className="h-3 w-3" />, label: "Whiteboard" });
-    if (room.hasAirCon) labels.push({ icon: <Snowflake className="h-3 w-3" />, label: "Air Con" });
+    if (room.hasProjector) labels.push({ icon: <Projector className="h-3 w-3" />, label: tFn("facility.projector") });
+    if (room.hasVideoConference) labels.push({ icon: <Video className="h-3 w-3" />, label: tFn("facility.video") });
+    if (room.hasTV) labels.push({ icon: <Tv className="h-3 w-3" />, label: tFn("facility.tv") });
+    if (room.hasWhiteboard) labels.push({ icon: <PenTool className="h-3 w-3" />, label: tFn("facility.whiteboard") });
+    if (room.hasAirCon) labels.push({ icon: <Snowflake className="h-3 w-3" />, label: tFn("facility.airCon") });
     return labels;
   };
 
@@ -233,17 +235,17 @@ export default function MeetingRooms() {
   };
 
   const handleBookingCancel = async (booking: any) => {
-    if (confirm('Are you sure you want to cancel this booking?')) {
+    if (confirm(t("confirmCancelBooking"))) {
       try {
         await apiRequest('POST', `/api/room-bookings/${booking.id}/cancel`, {});
         queryClient.invalidateQueries({ queryKey: ['/api/room-bookings'] });
         toast({
-          title: 'Booking Cancelled',
-          description: 'The booking has been cancelled successfully.',
+          title: t("toast.bookingCancelled"),
+          description: t("toast.bookingCancelledDesc"),
         });
       } catch (error: any) {
         toast({
-          title: 'Error',
+          title: t("toast.error"),
           description: error.message,
           variant: 'destructive',
         });
@@ -268,7 +270,7 @@ export default function MeetingRooms() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-bold text-fixed">
-              Meeting Rooms & Booking Management
+              {t("title")}
             </h1>
             <TooltipProvider delayDuration={300}>
               <Tooltip>
@@ -276,13 +278,13 @@ export default function MeetingRooms() {
                   <Info className="h-4 w-4 text-gray-400 hover:text-blue-500 cursor-pointer flex-shrink-0" />
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
-                  <p>Create and manage bookable meeting rooms for your site. Use the Rooms tab to add facilities and capacity, then the Calendar tab to view and create reservations. Bookings can be one-off or recurring.</p>
+                  <p>{t("titleTooltip")}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <p className="text-sm sm:text-base text-variable mt-1 hidden sm:block">
-            Manage meeting rooms, view bookings calendar, and create new reservations
+            {t("subtitle")}
           </p>
         </div>
 
@@ -296,7 +298,7 @@ export default function MeetingRooms() {
             className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 text-xs sm:text-sm whitespace-nowrap"
           >
             <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
-            Quick Book
+            {t("quickBook")}
           </Button>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -310,14 +312,14 @@ export default function MeetingRooms() {
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-xs sm:text-sm whitespace-nowrap"
               >
                 <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
-                Add Meeting Room
+                {t("addMeetingRoom")}
               </Button>
             </DialogTrigger>
           
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {isEditMode ? "Edit Meeting Room" : "Create New Meeting Room"}
+                {isEditMode ? t("roomForm.editTitle") : t("roomForm.createTitle")}
               </DialogTitle>
             </DialogHeader>
 
@@ -329,7 +331,7 @@ export default function MeetingRooms() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Room Name *</FormLabel>
+                        <FormLabel>{t("roomForm.roomName")}</FormLabel>
                         <FormControl>
                           <Input 
                             {...field} 
@@ -347,7 +349,7 @@ export default function MeetingRooms() {
                     name="location"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Location *</FormLabel>
+                        <FormLabel>{t("roomForm.location")}</FormLabel>
                         <FormControl>
                           <Input 
                             {...field} 
@@ -367,7 +369,7 @@ export default function MeetingRooms() {
                     name="capacity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Capacity *</FormLabel>
+                        <FormLabel>{t("roomForm.capacity")}</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
@@ -389,7 +391,7 @@ export default function MeetingRooms() {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-sm font-medium">Active</FormLabel>
+                          <FormLabel className="text-sm font-medium">{t("roomForm.active")}</FormLabel>
                         </div>
                         <FormControl>
                           <Switch
@@ -408,11 +410,11 @@ export default function MeetingRooms() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel>{t("roomForm.description")}</FormLabel>
                       <FormControl>
                         <Textarea 
                           {...field} 
-                          placeholder="Brief description of the room..."
+                          placeholder={t("roomForm.descriptionPlaceholder")}
                           rows={3}
                           data-testid="textarea-room-description"
                         />
@@ -425,7 +427,7 @@ export default function MeetingRooms() {
                 <Separator />
 
                 <div className="space-y-3">
-                  <h3 className="text-lg font-semibold">Room Facilities</h3>
+                  <h3 className="text-lg font-semibold">{t("roomForm.facilities")}</h3>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
@@ -434,7 +436,7 @@ export default function MeetingRooms() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium">📽️ Projector</FormLabel>
+                            <FormLabel className="text-sm font-medium">{t("roomForm.projector")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -453,7 +455,7 @@ export default function MeetingRooms() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium">📹 Video Conference</FormLabel>
+                            <FormLabel className="text-sm font-medium">{t("roomForm.videoConference")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -472,7 +474,7 @@ export default function MeetingRooms() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium">📺 TV Screen</FormLabel>
+                            <FormLabel className="text-sm font-medium">{t("roomForm.tvScreen")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -491,7 +493,7 @@ export default function MeetingRooms() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium">📝 Whiteboard</FormLabel>
+                            <FormLabel className="text-sm font-medium">{t("roomForm.whiteboard")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -510,7 +512,7 @@ export default function MeetingRooms() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium">❄️ Air Conditioning</FormLabel>
+                            <FormLabel className="text-sm font-medium">{t("roomForm.airConditioning")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -529,7 +531,7 @@ export default function MeetingRooms() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium">🍽️ Catering Available</FormLabel>
+                            <FormLabel className="text-sm font-medium">{t("roomForm.catering")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -551,7 +553,7 @@ export default function MeetingRooms() {
                     onClick={resetForm}
                     data-testid="button-cancel"
                   >
-                    Cancel
+                    {t("common:cancel")}
                   </Button>
                   <Button 
                     type="submit" 
@@ -560,8 +562,8 @@ export default function MeetingRooms() {
                     className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                   >
                     {roomMutation.isPending 
-                      ? (isEditMode ? "Updating..." : "Creating...") 
-                      : (isEditMode ? "Update Room" : "Create Room")
+                      ? (isEditMode ? t("roomForm.updating") : t("roomForm.creating")) 
+                      : (isEditMode ? t("roomForm.updateRoom") : t("roomForm.createRoom"))
                     }
                   </Button>
                 </DialogFooter>
@@ -577,13 +579,13 @@ export default function MeetingRooms() {
         <TabsList className="grid w-full grid-cols-2 gap-2">
           <TabsTrigger value="rooms" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm" data-testid="tab-rooms">
             <Settings className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Manage Rooms</span>
-            <span className="sm:hidden">Rooms</span>
+            <span className="hidden sm:inline">{t("tabs.manageRooms")}</span>
+            <span className="sm:hidden">{t("tabs.rooms")}</span>
           </TabsTrigger>
           <TabsTrigger value="bookings" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm" data-testid="tab-bookings">
             <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Booking Calendar</span>
-            <span className="sm:hidden">Calendar</span>
+            <span className="hidden sm:inline">{t("tabs.bookingCalendar")}</span>
+            <span className="sm:hidden">{t("tabs.calendar")}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -607,7 +609,7 @@ export default function MeetingRooms() {
                 <div className="flex items-center justify-between gap-1">
                   <h3 className="font-semibold text-fixed text-sm truncate">{room.name}</h3>
                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${room.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                    {room.isActive ? 'Available' : 'Inactive'}
+                    {room.isActive ? t("card.available") : t("card.inactive")}
                   </span>
                 </div>
                 <div className="flex items-center text-xs text-variable mt-0.5">
@@ -624,16 +626,16 @@ export default function MeetingRooms() {
             <div className="flex items-center gap-1.5 flex-wrap mb-3">
               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${getCapacityColor(room.capacity)}`}>
                 <Users className="h-3 w-3" />
-                {room.capacity} people
+                {t("card.people", { count: room.capacity })}
               </span>
             </div>
 
             {/* Facilities */}
             <TooltipProvider delayDuration={200}>
               <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                <span className="text-[10px] font-medium text-variable">Facilities:</span>
-                {getFacilityLabels(room).length > 0 ? (
-                  getFacilityLabels(room).map(({ icon, label }) => (
+                <span className="text-[10px] font-medium text-variable">{t("card.facilitiesLabel")}</span>
+                {getFacilityLabels(room, t).length > 0 ? (
+                  getFacilityLabels(room, t).map(({ icon, label }) => (
                     <Tooltip key={label}>
                       <TooltipTrigger asChild>
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-white/50 border border-white/40 text-variable cursor-default">
@@ -644,7 +646,7 @@ export default function MeetingRooms() {
                     </Tooltip>
                   ))
                 ) : (
-                  <span className="text-[10px] text-variable">Basic room</span>
+                  <span className="text-[10px] text-variable">{t("card.basicRoom")}</span>
                 )}
               </div>
             </TooltipProvider>
@@ -658,7 +660,7 @@ export default function MeetingRooms() {
                   onClick={() => handleEdit(room)}
                   className="h-8 w-8 p-0"
                   data-testid={`button-edit-${room.id}`}
-                  title="Edit"
+                  title={t("common:edit")}
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -668,7 +670,7 @@ export default function MeetingRooms() {
                   onClick={() => handleDelete(room)}
                   className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                   data-testid={`button-delete-${room.id}`}
-                  title="Delete"
+                  title={t("common:delete")}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -681,7 +683,7 @@ export default function MeetingRooms() {
                 data-testid={`button-view-bookings-${room.id}`}
               >
                 <Calendar className="h-4 w-4 mr-1.5" />
-                View Bookings
+                {t("card.viewBookings")}
               </Button>
             </div>
           </GlassCard>
@@ -696,9 +698,9 @@ export default function MeetingRooms() {
                 <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-fixed">No Meeting Rooms</h3>
+                <h3 className="text-lg font-semibold text-fixed">{t("empty.title")}</h3>
                 <p className="text-variable mt-1">
-                  Get started by creating your first meeting room.
+                  {t("empty.description")}
                 </p>
               </div>
               <Button 
@@ -707,7 +709,7 @@ export default function MeetingRooms() {
                 data-testid="button-create-first-room"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Create Meeting Room
+                {t("empty.createButton")}
               </Button>
             </div>
           </Card>
@@ -739,7 +741,7 @@ export default function MeetingRooms() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-2xl" data-testid="dialog-view-booking">
           <DialogHeader>
-            <DialogTitle data-testid="text-view-title">Booking Details</DialogTitle>
+            <DialogTitle data-testid="text-view-title">{t("viewDialog.title")}</DialogTitle>
           </DialogHeader>
           {viewBooking && (() => {
             // Parse recurrence pattern once
@@ -751,7 +753,11 @@ export default function MeetingRooms() {
                   : viewBooking.recurrencePattern;
               } catch {}
             }
-            const typeLabel: Record<string, string> = { weekly: 'Weekly', fortnightly: 'Every 2 weeks', monthly: 'Monthly' };
+            const typeLabel: Record<string, string> = {
+              weekly: t("viewDialog.weekly"),
+              fortnightly: t("viewDialog.fortnightly"),
+              monthly: t("viewDialog.monthly"),
+            };
             const attendees: any[] = viewBooking.attendees || [];
 
             return (
@@ -759,19 +765,19 @@ export default function MeetingRooms() {
               {/* Title + Status + Recurring badge */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Title</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{t("viewDialog.titleField")}</h4>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-lg font-semibold" data-testid="text-booking-title">{viewBooking.title}</p>
                     {viewBooking.isRecurring && (
                       <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
                         <Repeat className="h-3 w-3" />
-                        Recurring
+                        {t("viewDialog.recurring")}
                       </span>
                     )}
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{t("common:status")}</h4>
                   <Badge className="mt-1" data-testid="badge-booking-status">{viewBooking.status}</Badge>
                 </div>
               </div>
@@ -781,21 +787,21 @@ export default function MeetingRooms() {
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 space-y-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
                     <Repeat className="h-4 w-4" />
-                    Recurring Series
+                    {t("viewDialog.recurringSeries")}
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                     <div>
-                      <span className="font-medium">Frequency: </span>
-                      {typeLabel[recurringPattern.type || ''] || recurringPattern.type || 'Unknown'}
+                      <span className="font-medium">{t("viewDialog.frequency")}</span>
+                      {typeLabel[recurringPattern.type || ''] || recurringPattern.type || t("viewDialog.unknown")}
                     </div>
                     {recurringPattern.until && (
                       <div>
-                        <span className="font-medium">Repeats until: </span>
+                        <span className="font-medium">{t("viewDialog.repeatsUntil")}</span>
                         {format(new Date(recurringPattern.until), 'd MMM yyyy')}
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground italic">Editing affects only this occurrence.</p>
+                  <p className="text-xs text-muted-foreground italic">{t("viewDialog.editOccurrence")}</p>
                 </div>
               )}
 
@@ -803,18 +809,18 @@ export default function MeetingRooms() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Room</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{t("viewDialog.room")}</h4>
                   <p className="font-medium" data-testid="text-booking-room">
-                    {viewBooking.room?.name || 'Unknown Room'}
+                    {viewBooking.room?.name || t("viewDialog.unknownRoom")}
                   </p>
                   <p className="text-sm text-muted-foreground">{viewBooking.room?.location}</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Organizer</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{t("viewDialog.organizer")}</h4>
                   <p className="font-medium" data-testid="text-booking-organizer">
                     {viewBooking.organizer ? 
                       `${viewBooking.organizer.firstName} ${viewBooking.organizer.lastName}` : 
-                      'Unknown'}
+                      t("viewDialog.unknown")}
                   </p>
                   <p className="text-sm text-muted-foreground">{viewBooking.organizer?.email}</p>
                 </div>
@@ -824,13 +830,13 @@ export default function MeetingRooms() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Start Time</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{t("viewDialog.startTime")}</h4>
                   <p className="font-medium" data-testid="text-booking-start">
                     {viewBooking.startTime ? format(new Date(viewBooking.startTime), 'dd/MM/yyyy, HH:mm') : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">End Time</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">{t("viewDialog.endTime")}</h4>
                   <p className="font-medium" data-testid="text-booking-end">
                     {viewBooking.endTime ? format(new Date(viewBooking.endTime), 'dd/MM/yyyy, HH:mm') : 'N/A'}
                   </p>
@@ -842,7 +848,7 @@ export default function MeetingRooms() {
               {/* Attendees */}
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">
-                  Attendees ({viewBooking.expectedAttendees || 1} expected)
+                  {t("viewDialog.attendees", { count: viewBooking.expectedAttendees || 1 })}
                 </h4>
                 {attendees.length > 0 ? (
                   <div className="space-y-1.5">
@@ -859,7 +865,7 @@ export default function MeetingRooms() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No additional attendees recorded.</p>
+                  <p className="text-sm text-muted-foreground">{t("viewDialog.noAttendees")}</p>
                 )}
               </div>
 
@@ -867,7 +873,7 @@ export default function MeetingRooms() {
                 <>
                   <Separator />
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Description</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">{t("common:notes")}</h4>
                     <p className="mt-1" data-testid="text-booking-description">{viewBooking.description}</p>
                   </div>
                 </>
@@ -877,8 +883,8 @@ export default function MeetingRooms() {
                 <>
                   <Separator />
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Catering</h4>
-                    <p className="mt-1">Required</p>
+                    <h4 className="text-sm font-medium text-muted-foreground">{t("viewDialog.catering")}</h4>
+                    <p className="mt-1">{t("viewDialog.required")}</p>
                     {viewBooking.cateringNotes && (
                       <p className="text-sm text-muted-foreground mt-1">{viewBooking.cateringNotes}</p>
                     )}
@@ -890,7 +896,7 @@ export default function MeetingRooms() {
                 <>
                   <Separator />
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Special Requirements</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">{t("viewDialog.specialRequirements")}</h4>
                     <p className="mt-1">{viewBooking.specialRequirements}</p>
                   </div>
                 </>
@@ -904,7 +910,7 @@ export default function MeetingRooms() {
               onClick={() => setIsViewDialogOpen(false)}
               data-testid="button-close-view"
             >
-              Close
+              {t("common:close")}
             </Button>
           </DialogFooter>
         </DialogContent>

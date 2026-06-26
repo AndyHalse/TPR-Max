@@ -1,0 +1,46 @@
+{
+  "title": "Configuración",
+  "aiSettings": "Configuración de IA",
+  "autoSave": "✨ Guardado automático activado — los cambios se guardan después de 1,5 segundos",
+  "quickSetup": {
+    "heading": "Configuración Rápida — {{completed}} de {{total}} completados",
+    "subheading": "Complete estos pasos para aprovechar al máximo TPR Max",
+    "dismiss": "Descartar configuración rápida",
+    "items": {
+      "companyLogoLabel": "Suba el logotipo de su empresa",
+      "companyLogoHint": "Aparece en los pases de identificación, pantalla del quiosco y encabezados de correo",
+      "emergencyEmailLabel": "Configure su correo de alertas de emergencia / CDM",
+      "emergencyEmailHint": "Recibe notificaciones de punto de reunión contra incendios e incidentes CDM",
+      "emailSmtpLabel": "Configure la entrega de correo (SMTP)",
+      "emailSmtpHint": "Requerido para invitaciones a visitantes, correos de bienvenida y alertas",
+      "musterPointLabel": "Nombre al menos un punto de reunión",
+      "musterPointHint": "Utilizado durante evacuaciones de emergencia"
+    }
+  },
+  "tabs": {
+    "company": "Empresa",
+    "branding": "Identidad",
+    "users": "Usuarios",
+    "departments": "Departamentos",
+    "zones": "Zonas",
+    "email": "Correo",
+    "phoneSystems": "Sistemas Telefónicos",
+    "reports": "Informes",
+    "printing": "Impresión e ID",
+    "hsDocs": "Docs S&S",
+    "hsRules": "Normas S&S",
+    "nda": "NDA",
+    "contractors": "Infracciones de Tarjeta",
+    "ai": "Configuración de IA",
+    "integrations": "Integraciones",
+    "sso": "SSO",
+    "visitReasons": "Motivos de Visita",
+    "jobTitles": "Cargos",
+    "loneWorker": "Trabajador Aislado",
+    "system": "Sistema",
+    "preferences": "Mis Preferencias",
+    "printingFull": "Impresión e ID",
+    "hsSDocsFull": "Documentos de S&S"
+  },
+  "selectSection": "Seleccionar sección…"
+}

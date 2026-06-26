@@ -23,6 +23,7 @@ import {
   LayoutDashboard, Info, Lock, ShieldAlert,
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
+import { useTranslation } from "react-i18next";
 import PpmAnnualPlanner from "@/components/PpmAnnualPlanner";
 import PpmDashboard from "@/components/PpmDashboard";
 import { getCompanyClearance, getWorkerClearance } from "@/pages/contractor/types";
@@ -287,6 +288,7 @@ async function fileToBase64(file: File): Promise<string> {
 // ─── Dashboard Summary Strip ──────────────────────────────────────────────────
 
 function DashboardSummary({ onWorkOrdersClick }: { onWorkOrdersClick: (filter?: string) => void }) {
+  const { t } = useTranslation("ppm");
   const { data: schedules = [] } = useQuery<PpmSchedule[]>({ queryKey: ["/api/ppm/schedules"] });
   const { data: workOrders = [] } = useQuery<PpmWorkOrder[]>({ queryKey: ["/api/ppm/work-orders"] });
 
@@ -305,10 +307,10 @@ function DashboardSummary({ onWorkOrdersClick }: { onWorkOrdersClick: (filter?: 
   ).length;
 
   const stats = [
-    { label: "Active Schedules", value: activeSchedules, color: "text-foreground", onClick: undefined },
-    { label: "Due This Month", value: dueThisMonth, color: dueThisMonth > 0 ? "text-amber-600" : "text-foreground", onClick: undefined },
-    { label: "Overdue Work Orders", value: overdueWOs, color: overdueWOs > 0 ? "text-red-600" : "text-foreground", onClick: () => onWorkOrdersClick("overdue") },
-    { label: "Awaiting Certificates", value: awaitingCerts, color: awaitingCerts > 0 ? "text-amber-600" : "text-foreground", onClick: () => onWorkOrdersClick("awaiting-cert") },
+    { label: t("dashboard.activeSchedules"), value: activeSchedules, color: "text-foreground", onClick: undefined },
+    { label: t("dashboard.dueThisMonth"), value: dueThisMonth, color: dueThisMonth > 0 ? "text-amber-600" : "text-foreground", onClick: undefined },
+    { label: t("dashboard.overdueWorkOrders"), value: overdueWOs, color: overdueWOs > 0 ? "text-red-600" : "text-foreground", onClick: () => onWorkOrdersClick("overdue") },
+    { label: t("dashboard.awaitingCertificates"), value: awaitingCerts, color: awaitingCerts > 0 ? "text-amber-600" : "text-foreground", onClick: () => onWorkOrdersClick("awaiting-cert") },
   ];
 
   return (
@@ -331,6 +333,7 @@ function DashboardSummary({ onWorkOrdersClick }: { onWorkOrdersClick: (filter?: 
 
 function AssetsTab() {
   const { toast } = useToast();
+  const { t } = useTranslation("ppm");
 
   // ── Asset form state ────────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
@@ -360,22 +363,22 @@ function AssetsTab() {
   const inv = () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); };
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/assets", data),
-    onSuccess: () => { inv(); setOpen(false); toast({ title: "Asset created" }); },
+    onSuccess: () => { inv(); setOpen(false); toast({ title: t("assets.toast.assetCreated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/assets/${id}`, data),
-    onSuccess: () => { inv(); setOpen(false); toast({ title: "Asset updated" }); },
+    onSuccess: () => { inv(); setOpen(false); toast({ title: t("assets.toast.assetUpdated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/assets/${id}`),
-    onSuccess: () => { inv(); toast({ title: "Asset deleted" }); },
+    onSuccess: () => { inv(); toast({ title: t("assets.toast.assetDeleted") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const duplicateMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/ppm/assets/${id}/duplicate`),
-    onSuccess: () => { inv(); toast({ title: "Asset duplicated", description: "A copy has been added — update the name, ref, and serial number as needed." }); },
+    onSuccess: () => { inv(); toast({ title: t("assets.toast.assetCreated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
@@ -386,17 +389,17 @@ function AssetsTab() {
   };
   const createGroupMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/asset-groups", data),
-    onSuccess: () => { invG(); setGroupForm({ name: "", description: "" }); toast({ title: "Asset group created" }); },
+    onSuccess: () => { invG(); setGroupForm({ name: "", description: "" }); toast({ title: t("assets.toast.groupCreated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const updateGroupMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/asset-groups/${id}`, data),
-    onSuccess: () => { invG(); setEditingGroup(null); setGroupForm({ name: "", description: "" }); toast({ title: "Group updated" }); },
+    onSuccess: () => { invG(); setEditingGroup(null); setGroupForm({ name: "", description: "" }); toast({ title: t("assets.toast.groupUpdated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const deleteGroupMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/asset-groups/${id}`),
-    onSuccess: () => { invG(); toast({ title: "Group deleted", description: "Assets have been moved to Ungrouped." }); },
+    onSuccess: () => { invG(); toast({ title: t("assets.toast.groupDeleted") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
@@ -430,21 +433,21 @@ function AssetsTab() {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-semibold text-sm truncate">{a.name}</p>
-            {a.assetRef && <p className="text-xs text-muted-foreground">Ref: {a.assetRef}</p>}
+            {a.assetRef && <p className="text-xs text-muted-foreground">{t("dashboard.refLabel")}: {a.assetRef}</p>}
           </div>
           <AssetStatusBadge status={a.status} />
         </div>
-        {a.category && <p className="text-xs"><span className="text-muted-foreground">Category:</span> {a.category}</p>}
-        {a.location && <p className="text-xs"><span className="text-muted-foreground">Location:</span> {a.location}</p>}
-        {a.manufacturer && <p className="text-xs"><span className="text-muted-foreground">Manufacturer:</span> {a.manufacturer}</p>}
-        {a.serialNumber && <p className="text-xs"><span className="text-muted-foreground">Serial:</span> {a.serialNumber}</p>}
+        {a.category && <p className="text-xs"><span className="text-muted-foreground">{t("dashboard.categoryLabel")}:</span> {a.category}</p>}
+        {a.location && <p className="text-xs"><span className="text-muted-foreground">{t("dashboard.locationLabel")}:</span> {a.location}</p>}
+        {a.manufacturer && <p className="text-xs"><span className="text-muted-foreground">{t("dashboard.manufacturerLabel")}:</span> {a.manufacturer}</p>}
+        {a.serialNumber && <p className="text-xs"><span className="text-muted-foreground">{t("dashboard.serialLabel")}:</span> {a.serialNumber}</p>}
         <div className="flex gap-2 pt-1">
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(a)}><Edit className="h-3 w-3 mr-1" />Edit</Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(a)}><Edit className="h-3 w-3 mr-1" />{t("dashboard.editBtn")}</Button>
           <Button size="sm" variant="outline" className="h-7 text-xs" disabled={duplicateMutation.isPending} onClick={() => duplicateMutation.mutate(a.id)}>
-            <Copy className="h-3 w-3 mr-1" />Duplicate
+            <Copy className="h-3 w-3 mr-1" />{t("dashboard.duplicateBtn")}
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this asset? Any associated schedules will also be deleted.")) deleteMutation.mutate(a.id); }}>
-            <Trash2 className="h-3 w-3 mr-1" />Delete
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm(t("dashboard.deleteAssetConfirm"))) deleteMutation.mutate(a.id); }}>
+            <Trash2 className="h-3 w-3 mr-1" />{t("dashboard.deleteBtn")}
           </Button>
         </div>
       </GlassCard>
@@ -454,21 +457,21 @@ function AssetsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Register and track all physical assets that require maintenance.</p>
+        <p className="text-sm text-muted-foreground">{t("assets.descriptionText")}</p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setGroupForm({ name: "", description: "" }); setGroupDialogOpen(true); }}>
-            <Layers className="h-4 w-4 mr-1" />Manage Groups
+            <Layers className="h-4 w-4 mr-1" />{t("assets.manageGroups")}
           </Button>
-          <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Add Asset</Button>
+          <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />{t("assets.addAsset")}</Button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-10 text-muted-foreground">Loading assets…</div>
+        <div className="text-center py-10 text-muted-foreground">{t("assets.loadingAssets")}</div>
       ) : assets.length === 0 ? (
         <div className="text-center py-16">
           <Package className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-muted-foreground">No assets yet. Add your first asset to get started.</p>
+          <p className="text-muted-foreground">{t("assets.noAssets")}</p>
         </div>
       ) : groups.length === 0 ? (
         // No groups defined — flat list (backward compatible)
@@ -489,12 +492,12 @@ function AssetsTab() {
                   : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <Layers className="h-4 w-4 text-blue-600 shrink-0" />
                 <span className="font-semibold text-sm flex-1">{group.name}</span>
-                <Badge variant="secondary" className="text-xs">{ga.length} asset{ga.length !== 1 ? "s" : ""}</Badge>
+                <Badge variant="secondary" className="text-xs">{ga.length !== 1 ? t("dashboard.assetCountPlural", { count: ga.length }) : t("dashboard.assetCountSingular", { count: ga.length })}</Badge>
               </button>
               {expandedGroups.has(group.id) && (
                 <div className="p-3">
                   {ga.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-3 text-center">No assets assigned to this group yet. Edit an asset to assign it here.</p>
+                    <p className="text-sm text-muted-foreground py-3 text-center">{t("dashboard.noAssignedYet")}</p>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {ga.map(a => <AssetCard key={a.id} a={a} />)}
@@ -510,8 +513,8 @@ function AssetsTab() {
             <div className="border rounded-lg overflow-hidden border-dashed">
               <div className="flex items-center gap-2 px-4 py-3 bg-muted/20">
                 <Package className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="font-medium text-sm text-muted-foreground flex-1">Ungrouped</span>
-                <Badge variant="outline" className="text-xs">{ungrouped.length} asset{ungrouped.length !== 1 ? "s" : ""}</Badge>
+                <span className="font-medium text-sm text-muted-foreground flex-1">{t("assets.ungrouped")}</span>
+                <Badge variant="outline" className="text-xs">{ungrouped.length !== 1 ? t("dashboard.assetCountPlural", { count: ungrouped.length }) : t("dashboard.assetCountSingular", { count: ungrouped.length })}</Badge>
               </div>
               <div className="p-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {ungrouped.map(a => <AssetCard key={a.id} a={a} />)}
@@ -524,76 +527,76 @@ function AssetsTab() {
       {/* ── Asset Form Dialog ─────────────────────────────────────────────── */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editing ? "Edit Asset" : "New Asset"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? t("assets.editAsset") : t("assets.newAsset")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Label>Asset Name *</Label>
+                <Label>{t("assets.assetName")}</Label>
                 <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. AHU-01 Air Handling Unit" />
               </div>
               <div>
-                <Label>Asset Ref / Tag</Label>
+                <Label>{t("assets.assetRefTag")}</Label>
                 <Input value={form.assetRef} onChange={e => setForm(f => ({ ...f, assetRef: e.target.value }))} placeholder="e.g. TAG-001" />
               </div>
               <div>
-                <Label>Category</Label>
+                <Label>{t("assets.category")}</Label>
                 <Select value={form.category || "_none"} onValueChange={v => setForm(f => ({ ...f, category: v === "_none" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("assets.selectCategory")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_none">— None —</SelectItem>
+                    <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                     {ASSET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label>Asset Group</Label>
+                <Label>{t("assets.assetGroup")}</Label>
                 <Select value={form.groupId || "_none"} onValueChange={v => setForm(f => ({ ...f, groupId: v === "_none" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="— Ungrouped —" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("assets.ungroupedOption")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_none">— Ungrouped —</SelectItem>
+                    <SelectItem value="_none">{t("assets.ungroupedOption")}</SelectItem>
                     {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label>Location</Label>
+                <Label>{t("assets.location")}</Label>
                 <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Roof Level / Plant Room 1" />
               </div>
               <div>
-                <Label>Manufacturer</Label>
+                <Label>{t("assets.manufacturer")}</Label>
                 <Input value={form.manufacturer} onChange={e => setForm(f => ({ ...f, manufacturer: e.target.value }))} />
               </div>
               <div>
-                <Label>Model Number</Label>
+                <Label>{t("assets.modelNumber")}</Label>
                 <Input value={form.modelNumber} onChange={e => setForm(f => ({ ...f, modelNumber: e.target.value }))} />
               </div>
               <div>
-                <Label>Serial Number</Label>
+                <Label>{t("assets.serialNumber")}</Label>
                 <Input value={form.serialNumber} onChange={e => setForm(f => ({ ...f, serialNumber: e.target.value }))} />
               </div>
               <div>
-                <Label>Install Date</Label>
+                <Label>{t("assets.installDate")}</Label>
                 <Input type="date" value={form.installDate} onChange={e => setForm(f => ({ ...f, installDate: e.target.value }))} />
               </div>
               <div>
-                <Label>Status</Label>
+                <Label>{t("assets.statusLabel")}</Label>
                 <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="decommissioned">Decommissioned</SelectItem>
+                    <SelectItem value="active">{t("assets.active")}</SelectItem>
+                    <SelectItem value="decommissioned">{t("assets.decommissioned")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label>Notes</Label>
+                <Label>{t("assets.notes")}</Label>
                 <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>{isBusy ? "Saving…" : editing ? "Update" : "Create"}</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t("dashboard.cancelBtn")}</Button>
+            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>{isBusy ? t("assets.saving") : editing ? t("assets.update") : t("assets.create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -601,11 +604,11 @@ function AssetsTab() {
       {/* ── Group Management Dialog ───────────────────────────────────────── */}
       <Dialog open={groupDialogOpen} onOpenChange={o => { setGroupDialogOpen(o); if (!o) { setEditingGroup(null); setGroupForm({ name: "", description: "" }); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Layers className="h-4 w-4" />Asset Groups</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Layers className="h-4 w-4" />{t("assets.assetGroups")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Existing groups list */}
             {groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No groups yet. Create one below.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">{t("assets.noGroupsYet")}</p>
             ) : (
               <div className="space-y-2">
                 {groups.map(g => (
@@ -615,8 +618,8 @@ function AssetsTab() {
                         <Input value={groupForm.name} onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))} placeholder="Group name" />
                         <Input value={groupForm.description} onChange={e => setGroupForm(f => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" />
                         <div className="flex gap-2">
-                          <Button size="sm" disabled={!groupForm.name || updateGroupMutation.isPending} onClick={() => updateGroupMutation.mutate({ id: g.id, data: groupForm })}>Save</Button>
-                          <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setGroupForm({ name: "", description: "" }); }}>Cancel</Button>
+                          <Button size="sm" disabled={!groupForm.name || updateGroupMutation.isPending} onClick={() => updateGroupMutation.mutate({ id: g.id, data: groupForm })}>{t("dashboard.saveBtn")}</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setGroupForm({ name: "", description: "" }); }}>{t("dashboard.cancelBtnLabel")}</Button>
                         </div>
                       </div>
                     ) : (
@@ -629,7 +632,7 @@ function AssetsTab() {
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingGroup(g); setGroupForm({ name: g.name, description: g.description ?? "" }); }}>
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm(`Delete "${g.name}"? Assets will become ungrouped.`)) deleteGroupMutation.mutate(g.id); }}>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm(t("assets.deleteGroupConfirm", { name: g.name }))) deleteGroupMutation.mutate(g.id); }}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </>
@@ -642,17 +645,17 @@ function AssetsTab() {
             {/* Create new group form */}
             {!editingGroup && (
               <div className="border-t pt-4 space-y-2">
-                <p className="text-sm font-medium">Create New Group</p>
-                <Input value={groupForm.name} onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))} placeholder="Group name e.g. HVAC System, Access Control" />
-                <Input value={groupForm.description} onChange={e => setGroupForm(f => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" />
+                <p className="text-sm font-medium">{t("assets.createNewGroup")}</p>
+                <Input value={groupForm.name} onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))} placeholder={t("assets.groupName")} />
+                <Input value={groupForm.description} onChange={e => setGroupForm(f => ({ ...f, description: e.target.value }))} placeholder={t("assets.groupDescription")} />
                 <Button size="sm" disabled={!groupForm.name || createGroupMutation.isPending} onClick={() => createGroupMutation.mutate(groupForm)}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />{createGroupMutation.isPending ? "Creating…" : "Create Group"}
+                  <Plus className="h-3.5 w-3.5 mr-1" />{createGroupMutation.isPending ? t("assets.creating") : t("assets.createGroup")}
                 </Button>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setGroupDialogOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setGroupDialogOpen(false)}>{t("dashboard.closeBtn")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -664,6 +667,7 @@ function AssetsTab() {
 
 function TemplatesTab() {
   const { toast } = useToast();
+  const { t } = useTranslation("ppm");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PpmTemplate | null>(null);
   const emptyForm = () => ({
@@ -677,27 +681,27 @@ function TemplatesTab() {
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/templates", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: "Template created" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: t("templates.toast.templateCreated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/templates/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: "Template updated" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: t("templates.toast.templateUpdated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/templates/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); toast({ title: "Template deleted" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); toast({ title: t("templates.toast.templateDeleted") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
-  function openEdit(t: PpmTemplate) {
-    setEditing(t);
-    setForm({ name: t.name, description: t.description ?? "", category: t.category ?? "",
-      type: t.type || "non-statutory", regulationReference: t.regulationReference ?? "",
-      frequency: t.frequency, customDays: t.customDays?.toString() ?? "",
-      estimatedHours: t.estimatedHours ?? "", checklist: t.checklist ?? "" });
+  function openEdit(tmpl: PpmTemplate) {
+    setEditing(tmpl);
+    setForm({ name: tmpl.name, description: tmpl.description ?? "", category: tmpl.category ?? "",
+      type: tmpl.type || "non-statutory", regulationReference: tmpl.regulationReference ?? "",
+      frequency: tmpl.frequency, customDays: tmpl.customDays?.toString() ?? "",
+      estimatedHours: tmpl.estimatedHours ?? "", checklist: tmpl.checklist ?? "" });
     setOpen(true);
   }
   function handleSubmit() {
@@ -706,55 +710,55 @@ function TemplatesTab() {
     else createMutation.mutate(payload);
   }
   const isBusy = createMutation.isPending || updateMutation.isPending;
-  const checkItems = (t: PpmTemplate) => { try { return JSON.parse(t.checklist ?? "[]"); } catch { return []; } };
+  const checkItems = (tmpl: PpmTemplate) => { try { return JSON.parse(tmpl.checklist ?? "[]"); } catch { return []; } };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Reusable maintenance task templates with statutory classification and checklist items.</p>
-        <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Add Template</Button>
+        <p className="text-sm text-muted-foreground">{t("templates.descriptionText")}</p>
+        <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />{t("templates.addTemplate")}</Button>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-10 text-muted-foreground">Loading templates…</div>
+        <div className="text-center py-10 text-muted-foreground">{t("templates.loadingTemplates")}</div>
       ) : templates.length === 0 ? (
         <div className="text-center py-16">
           <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-muted-foreground">No templates yet. Create a template to define recurring tasks.</p>
+          <p className="text-muted-foreground">{t("templates.noTemplates")}</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map(t => {
-            const items = checkItems(t);
-            const isStatutory = t.type === "statutory";
+          {templates.map(tmpl => {
+            const items = checkItems(tmpl);
+            const isStatutory = tmpl.type === "statutory";
             return (
-              <GlassCard key={t.id} className="p-4 space-y-2">
+              <GlassCard key={tmpl.id} className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-sm truncate">{t.name}</p>
-                  <Badge variant="secondary" className="text-xs shrink-0">{freqLabel(t.frequency)}</Badge>
+                  <p className="font-semibold text-sm truncate">{tmpl.name}</p>
+                  <Badge variant="secondary" className="text-xs shrink-0">{freqLabel(tmpl.frequency)}</Badge>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {isStatutory ? (
                     <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 font-medium">
-                      <ShieldCheck className="h-3 w-3" />Statutory
+                      <ShieldCheck className="h-3 w-3" />{t("templates.statutory")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                      Non-statutory
+                      {t("templates.nonStatutory")}
                     </span>
                   )}
                 </div>
-                {t.regulationReference && (
-                  <p className="text-xs flex items-start gap-1"><BookOpen className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" /><span className="text-muted-foreground">{t.regulationReference}</span></p>
+                {tmpl.regulationReference && (
+                  <p className="text-xs flex items-start gap-1"><BookOpen className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" /><span className="text-muted-foreground">{tmpl.regulationReference}</span></p>
                 )}
-                {t.description && <p className="text-xs text-muted-foreground line-clamp-2">{t.description}</p>}
-                {t.category && <p className="text-xs"><span className="text-muted-foreground">Category:</span> {t.category}</p>}
-                {t.estimatedHours && <p className="text-xs"><span className="text-muted-foreground">Est. time:</span> {t.estimatedHours}h</p>}
-                {items.length > 0 && <p className="text-xs text-muted-foreground">{items.length} checklist item{items.length !== 1 ? "s" : ""}</p>}
+                {tmpl.description && <p className="text-xs text-muted-foreground line-clamp-2">{tmpl.description}</p>}
+                {tmpl.category && <p className="text-xs"><span className="text-muted-foreground">{t("templates.category")}:</span> {tmpl.category}</p>}
+                {tmpl.estimatedHours && <p className="text-xs"><span className="text-muted-foreground">{t("templates.estTime")}</span> {tmpl.estimatedHours}h</p>}
+                {items.length > 0 && <p className="text-xs text-muted-foreground">{items.length} {items.length !== 1 ? t("templates.checklistCountPlural") : t("templates.checklistCount")}</p>}
                 <div className="flex gap-2 pt-1">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(t)}><Edit className="h-3 w-3 mr-1" />Edit</Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this template?")) deleteMutation.mutate(t.id); }}>
-                    <Trash2 className="h-3 w-3 mr-1" />Delete
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(tmpl)}><Edit className="h-3 w-3 mr-1" />{t("dashboard.editBtn")}</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm(t("dashboard.deleteTemplateConfirm"))) deleteMutation.mutate(tmpl.id); }}>
+                    <Trash2 className="h-3 w-3 mr-1" />{t("dashboard.deleteBtn")}
                   </Button>
                 </div>
               </GlassCard>
@@ -765,29 +769,29 @@ function TemplatesTab() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editing ? "Edit Template" : "New Template"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? t("templates.editTemplate") : t("templates.newTemplate")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Template Name *</Label>
+              <Label>{t("templates.templateName")}</Label>
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Monthly HVAC Filter Check" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Type *</Label>
+                <Label>{t("templates.type")}</Label>
                 <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="statutory">Statutory (legally required)</SelectItem>
-                    <SelectItem value="non-statutory">Non-statutory (best practice)</SelectItem>
+                    <SelectItem value="statutory">{t("templates.statutoryLegal")}</SelectItem>
+                    <SelectItem value="non-statutory">{t("templates.nonStatutoryBest")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Category</Label>
+                <Label>{t("templates.category")}</Label>
                 <Select value={form.category || "_none"} onValueChange={v => setForm(f => ({ ...f, category: v === "_none" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_none">— None —</SelectItem>
+                    <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                     {ASSET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -795,11 +799,11 @@ function TemplatesTab() {
             </div>
             {form.type === "statutory" && (
               <div>
-                <Label>Regulation / Standard Reference</Label>
+                <Label>{t("templates.regulationReference")}</Label>
                 <Select value={form.regulationReference || "_custom"} onValueChange={v => setForm(f => ({ ...f, regulationReference: v === "_custom" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select or type below" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("templates.selectOrType")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_custom">Type custom reference…</SelectItem>
+                    <SelectItem value="_custom">{t("templates.typeCustom")}</SelectItem>
                     {COMMON_REGULATIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -808,7 +812,7 @@ function TemplatesTab() {
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Frequency *</Label>
+                <Label>{t("templates.frequency")}</Label>
                 <Select value={form.frequency} onValueChange={v => setForm(f => ({ ...f, frequency: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -818,21 +822,21 @@ function TemplatesTab() {
               </div>
               {form.frequency === "custom" && (
                 <div>
-                  <Label>Custom Interval (days)</Label>
+                  <Label>{t("templates.customInterval")}</Label>
                   <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 45" />
                 </div>
               )}
               <div>
-                <Label>Estimated Hours</Label>
+                <Label>{t("templates.estimatedHours")}</Label>
                 <Input value={form.estimatedHours} onChange={e => setForm(f => ({ ...f, estimatedHours: e.target.value }))} placeholder="e.g. 2.5" />
               </div>
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description of this maintenance task" />
+              <Label>{t("templates.description")}</Label>
+              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder={t("templates.descriptionPlaceholder")} />
             </div>
             <div>
-              <Label>Checklist Items (one per line)</Label>
+              <Label>{t("templates.checklistItems")}</Label>
               <Textarea
                 value={(() => { try { const arr = JSON.parse(form.checklist || "[]"); return arr.join("\n"); } catch { return form.checklist; } })()}
                 onChange={e => { const lines = e.target.value.split("\n").map(l => l.trim()).filter(Boolean); setForm(f => ({ ...f, checklist: JSON.stringify(lines) })); }}
@@ -842,8 +846,8 @@ function TemplatesTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>{isBusy ? "Saving…" : editing ? "Update" : "Create"}</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t("dashboard.cancelBtn")}</Button>
+            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>{isBusy ? t("assets.saving") : editing ? t("assets.update") : t("assets.create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -855,6 +859,7 @@ function TemplatesTab() {
 
 function SchedulesTab() {
   const { toast } = useToast();
+  const { t } = useTranslation("ppm");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PpmSchedule | null>(null);
   const emptyForm = () => ({
@@ -870,17 +875,17 @@ function SchedulesTab() {
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/schedules", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: "Schedule created" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: t("schedules.toast.scheduleCreated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/schedules/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: "Schedule updated" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: t("schedules.toast.scheduleUpdated") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/schedules/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); toast({ title: "Schedule deleted" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); toast({ title: t("schedules.toast.scheduleDeleted") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
@@ -902,9 +907,9 @@ function SchedulesTab() {
     setOpen(true);
   }
   function applyTemplate(templateId: string) {
-    const t = templates.find(t => t.id === templateId);
-    if (!t) return;
-    setForm(f => ({ ...f, templateId, title: t.name, frequency: t.frequency, customDays: t.customDays?.toString() ?? "" }));
+    const tmpl = templates.find(tmpl => tmpl.id === templateId);
+    if (!tmpl) return;
+    setForm(f => ({ ...f, templateId, title: tmpl.name, frequency: tmpl.frequency, customDays: tmpl.customDays?.toString() ?? "" }));
   }
   function handleSubmit() {
     const payload: Record<string, unknown> = {
@@ -933,36 +938,36 @@ function SchedulesTab() {
         <div className="grid grid-cols-3 gap-3">
           <GlassCard className="p-3 text-center">
             <p className={`text-2xl font-bold ${overdue > 0 ? "text-red-600" : ""}`}>{overdue}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><AlertTriangle className="h-3 w-3" />Overdue</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><AlertTriangle className="h-3 w-3" />{t("schedules.stats.overdue")}</p>
           </GlassCard>
           <GlassCard className="p-3 text-center">
             <p className={`text-2xl font-bold ${dueSoon > 0 ? "text-amber-600" : ""}`}>{dueSoon}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" />Due within 7 days</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" />{t("schedules.stats.dueWithin7")}</p>
           </GlassCard>
           <GlassCard className="p-3 text-center">
             <p className="text-2xl font-bold text-green-600">{upcoming}</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" />Upcoming</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" />{t("schedules.stats.upcoming")}</p>
           </GlassCard>
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Maintenance schedules linked to specific assets. Statuses auto-refresh daily.</p>
-        <Button onClick={openNew} size="sm" disabled={assets.length === 0}><Plus className="h-4 w-4 mr-1" />Add Schedule</Button>
+        <p className="text-sm text-muted-foreground">{t("schedules.descriptionText")}</p>
+        <Button onClick={openNew} size="sm" disabled={assets.length === 0}><Plus className="h-4 w-4 mr-1" />{t("schedules.addSchedule")}</Button>
       </div>
 
       {assets.length === 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Add at least one asset in the Assets tab before creating schedules.
+          {t("dashboard.addAtLeastOneAsset")}
         </div>
       )}
 
       {isLoading ? (
-        <div className="text-center py-10 text-muted-foreground">Loading schedules…</div>
+        <div className="text-center py-10 text-muted-foreground">{t("schedules.loadingSchedules")}</div>
       ) : schedules.length === 0 ? (
         <div className="text-center py-16">
           <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-muted-foreground">No schedules yet. Create a schedule to track upcoming maintenance.</p>
+          <p className="text-muted-foreground">{t("schedules.noSchedules")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -974,18 +979,18 @@ function SchedulesTab() {
                     <p className="font-semibold text-sm">{s.title}</p>
                     <StatusBadge status={s.derived} />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Asset: <span className="text-foreground">{assetName(s.assetId)}</span></p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("dashboard.assetLabel")}: <span className="text-foreground">{assetName(s.assetId)}</span></p>
                   <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
-                    <span>Next due: <span className="text-foreground font-medium">{fmtDate(s.nextDueDate)}</span></span>
-                    {s.lastCompletedDate && <span>Last done: {fmtDate(s.lastCompletedDate)}</span>}
-                    {s.assignedTo && <span>Assigned: {s.assignedTo}</span>}
-                    <span>Frequency: {freqLabel(s.frequency)}</span>
+                    <span>{t("dashboard.nextDueLabel")}: <span className="text-foreground font-medium">{fmtDate(s.nextDueDate)}</span></span>
+                    {s.lastCompletedDate && <span>{t("dashboard.lastDoneLabel")}: {fmtDate(s.lastCompletedDate)}</span>}
+                    {s.assignedTo && <span>{t("dashboard.assignedLabel")}: {s.assignedTo}</span>}
+                    <span>{t("dashboard.frequencyLabel")}: {freqLabel(s.frequency)}</span>
                   </div>
                   {s.notes && <p className="text-xs text-muted-foreground mt-1 italic">{s.notes}</p>}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(s)}><Edit className="h-3 w-3" /></Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this schedule?")) deleteMutation.mutate(s.id); }}>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm(t("dashboard.deleteScheduleConfirm"))) deleteMutation.mutate(s.id); }}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -997,34 +1002,34 @@ function SchedulesTab() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editing ? "Edit Schedule" : "New Schedule"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? t("schedules.editSchedule") : t("schedules.newSchedule")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Asset *</Label>
+              <Label>{t("schedules.asset")}</Label>
               <Select value={form.assetId} onValueChange={v => setForm(f => ({ ...f, assetId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t("schedules.selectAsset")} /></SelectTrigger>
                 <SelectContent>
                   {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}{a.assetRef ? ` (${a.assetRef})` : ""}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Apply Template (optional — prefills title & frequency)</Label>
+              <Label>{t("schedules.applyTemplate")}</Label>
               <Select value={form.templateId || "_none"} onValueChange={v => { if (v !== "_none") applyTemplate(v); else setForm(f => ({ ...f, templateId: "" })); }}>
-                <SelectTrigger><SelectValue placeholder="Select template to prefill" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t("schedules.selectTemplatePrefill")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none">— None —</SelectItem>
-                  {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.type === "statutory" ? "Statutory" : "Non-statutory"})</SelectItem>)}
+                  <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
+                  {templates.map(tmpl => <SelectItem key={tmpl.id} value={tmpl.id}>{tmpl.name} ({tmpl.type === "statutory" ? t("templates.statutory") : t("templates.nonStatutory")})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Schedule Title *</Label>
+              <Label>{t("schedules.scheduleTitle")}</Label>
               <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Monthly AC Filter Change" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Frequency *</Label>
+                <Label>{t("schedules.frequency")}</Label>
                 <Select value={form.frequency} onValueChange={v => setForm(f => ({ ...f, frequency: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1034,50 +1039,50 @@ function SchedulesTab() {
               </div>
               {form.frequency === "custom" && (
                 <div>
-                  <Label>Interval (days)</Label>
+                  <Label>{t("schedules.intervalDays")}</Label>
                   <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} />
                 </div>
               )}
               <div>
-                <Label>Start Date *</Label>
+                <Label>{t("schedules.startDate")}</Label>
                 <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
               </div>
               <div>
-                <Label>Next Due Date {!editing && <span className="text-xs text-muted-foreground">(auto-calculated)</span>}</Label>
+                <Label>{t("schedules.nextDueDate")} {!editing && <span className="text-xs text-muted-foreground">({t("schedules.autoCalculated")})</span>}</Label>
                 <Input type="date" value={form.nextDueDate} onChange={e => setForm(f => ({ ...f, nextDueDate: e.target.value }))} />
-                {!editing && form.nextDueDate && <p className="text-xs text-muted-foreground mt-1">Calculated from start date + frequency. Override if needed.</p>}
+                {!editing && form.nextDueDate && <p className="text-xs text-muted-foreground mt-1">{t("schedules.calculatedNote")}</p>}
               </div>
               <div>
-                <Label>Last Completed</Label>
+                <Label>{t("schedules.lastCompleted")}</Label>
                 <Input type="date" value={form.lastCompletedDate} onChange={e => setForm(f => ({ ...f, lastCompletedDate: e.target.value }))} />
               </div>
               <div>
-                <Label>Assigned To</Label>
-                <Input value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} placeholder="Engineer or company" />
+                <Label>{t("schedules.assignedTo")}</Label>
+                <Input value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} placeholder={t("schedules.assignedPlaceholder")} />
               </div>
             </div>
             {editing && (
               <div>
-                <Label>Status</Label>
+                <Label>{t("assets.statusLabel")}</Label>
                 <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="scheduled">Scheduled</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="scheduled">{t("schedules.statusScheduled")}</SelectItem>
+                    <SelectItem value="completed">{t("schedules.statusCompleted")}</SelectItem>
+                    <SelectItem value="cancelled">{t("schedules.statusCancelled")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div>
-              <Label>Notes</Label>
+              <Label>{t("assets.notes")}</Label>
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t("dashboard.cancelBtn")}</Button>
             <Button onClick={handleSubmit} disabled={!form.assetId || !form.title || !form.startDate || isBusy}>
-              {isBusy ? "Saving…" : editing ? "Update" : "Create"}
+              {isBusy ? t("assets.saving") : editing ? t("assets.update") : t("assets.create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1090,6 +1095,7 @@ function SchedulesTab() {
 
 function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialStatusFilter?: string; initialWorkOrderId?: string }) {
   const { toast } = useToast();
+  const { t } = useTranslation("ppm");
   const { data: currentUser } = useQuery<{ id: string; username: string; role: string }>({ queryKey: ["/api/auth/me"] });
   const isAdmin = currentUser?.role === "admin";
 
@@ -1229,7 +1235,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
       setShowCreate(false);
       setWoForm(emptyWOForm());
-      toast({ title: "Work order created" });
+      toast({ title: t("workOrders.toast.workOrderCreated") });
     },
     onError: (error: unknown) => toastError(error, toast),
   });
@@ -1244,7 +1250,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       if (selectedWO && updated?.id === selectedWO.id) setSelectedWO(updated);
       setShowEditWO(false);
       setEditingWO(null);
-      toast({ title: "Work order updated" });
+      toast({ title: t("workOrders.toast.workOrderUpdated") });
     },
     onError: (error: unknown) => toastError(error, toast),
   });
@@ -1255,7 +1261,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
       setShowDetail(false);
       setSelectedWO(null);
-      toast({ title: "Work order deleted" });
+      toast({ title: t("workOrders.toast.workOrderDeleted") });
     },
     onError: (error: unknown) => toastError(error, toast),
   });
@@ -1264,7 +1270,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     mutationFn: (id: string) => apiRequest("POST", `/api/ppm/work-orders/${id}/duplicate`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
-      toast({ title: "Work order duplicated", description: "A copy has been added with status reset to Scheduled." });
+      toast({ title: t("workOrders.toast.workOrderDuplicated"), description: t("workOrders.toast.workOrderDuplicatedDesc") });
     },
     onError: (error: unknown) => toastError(error, toast),
   });
@@ -1278,11 +1284,11 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
       setSelectedWO(updated);
       if (updated.notificationSent) {
-        toast({ title: "Contractor assigned", description: "Notification email sent to contractor." });
+        toast({ title: t("workOrders.toast.contractorAssigned"), description: t("workOrders.toast.contractorAssignedEmail") });
       } else if (updated.assignedEmail) {
-        toast({ title: "Contractor assigned", description: "Assignment saved but email delivery failed. Check server logs.", variant: "destructive" });
+        toast({ title: t("workOrders.toast.contractorAssigned"), description: t("workOrders.toast.contractorAssignedEmailFailed"), variant: "destructive" });
       } else {
-        toast({ title: "Contractor assigned", description: "No email address provided — assignment saved without notification." });
+        toast({ title: t("workOrders.toast.contractorAssigned"), description: t("workOrders.toast.contractorAssignedNoEmail") });
       }
     },
     onError: (error: unknown) => toastError(error, toast),
@@ -1290,13 +1296,13 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 
   const deleteDocMutation = useMutation({
     mutationFn: ({ woId, docId }: { woId: string; docId: string }) => apiRequest("DELETE", `/api/ppm/work-orders/${woId}/documents/${docId}`),
-    onSuccess: () => { refetchDocs(); toast({ title: "Document removed" }); },
+    onSuccess: () => { refetchDocs(); toast({ title: t("workOrders.toast.documentRemoved") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
   const resendAlertMutation = useMutation({
     mutationFn: ({ woId, docId }: { woId: string; docId: string }) => apiRequest("POST", `/api/ppm/work-orders/${woId}/documents/${docId}/resend-alert`),
-    onSuccess: () => { refetchDocs(); toast({ title: "Expiry alert sent", description: "The alert email has been sent to the admin address." }); },
+    onSuccess: () => { refetchDocs(); toast({ title: t("workOrders.toast.expirySent"), description: t("workOrders.toast.expiryDesc") }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
@@ -1304,9 +1310,9 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     mutationFn: () => apiRequest("POST", "/api/ppm/documents/bulk-resend-alert").then(r => r.json()),
     onSuccess: (data: { count: number; message?: string }) => {
       if (data.count === 0) {
-        toast({ title: "No documents to alert", description: "There are no expired or expiring documents at this time." });
+        toast({ title: t("workOrders.toast.noDocumentsToAlert"), description: t("workOrders.toast.noDocumentsToAlertDesc") });
       } else {
-        toast({ title: "Bulk expiry alerts sent", description: `Alert email sent covering ${data.count} document${data.count !== 1 ? "s" : ""}.` });
+        toast({ title: t("workOrders.toast.bulkAlertsSent"), description: `Alert email sent covering ${data.count} document${data.count !== 1 ? "s" : ""}.` });
       }
     },
     onError: (error: unknown) => toastError(error, toast),
@@ -1316,7 +1322,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     mutationFn: () => apiRequest("POST", `/api/ppm/documents/bulk-resend-alerts`),
     onSuccess: (data: { documentsAlerted: number; contractorEmailsSent: number }) => {
       toast({
-        title: "Bulk alerts sent",
+        title: t("workOrders.toast.bulkAlertsMaySent"),
         description: `${data.documentsAlerted} document alert${data.documentsAlerted !== 1 ? "s" : ""} sent to admin${data.contractorEmailsSent > 0 ? `, ${data.contractorEmailsSent} contractor notification${data.contractorEmailsSent !== 1 ? "s" : ""} sent` : ""}.`,
       });
     },
@@ -1412,10 +1418,10 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       if (!docIssuedBy && fields.issuedBy) setDocIssuedBy(fields.issuedBy);
       if (!docReferenceNumber && fields.policyNumber) setDocReferenceNumber(fields.policyNumber);
       setDocAiExtracted(true);
-      toast({ title: 'Scan complete', description: 'Fields have been pre-filled — please verify before saving.' });
+      toast({ title: t("workOrders.toast.scanComplete"), description: t("workOrders.toast.scanCompleteDesc") });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unable to scan document';
-      toast({ title: 'Scan failed', description: msg, variant: 'destructive' });
+      toast({ title: t("workOrders.toast.scanFailed"), description: msg, variant: 'destructive' });
     } finally {
       setIsScanningDoc(false);
     }
@@ -1438,7 +1444,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       if (docFileType === "certificate") {
         queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
       }
-      toast({ title: "Document uploaded" });
+      toast({ title: t("workOrders.toast.documentUploaded") });
       setPendingDocFile(null);
       setDocAiExtracted(false);
       setDocExpiryDate("");
@@ -1462,25 +1468,25 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Track work order lifecycle from creation to completion and certificate upload.</p>
+        <p className="text-sm text-muted-foreground">{t("workOrders.descriptionText")}</p>
         <div className="flex items-center gap-2">
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setShowExportDialog(true)}>
-              <FileDown className="h-4 w-4 mr-1" />Export All
+              <FileDown className="h-4 w-4 mr-1" />{t("workOrders.exportAll")}
             </Button>
           )}
           <Button
             size="sm"
             variant="outline"
-            onClick={() => { if (confirm("Send a digest alert email covering all expired and expiring-soon PPM documents?")) bulkResendAlertMutation.mutate(); }}
+            onClick={() => { if (confirm(t("workOrders.confirmBulkAlert"))) bulkResendAlertMutation.mutate(); }}
             disabled={bulkResendAlertMutation.isPending}
-            title="Send expiry alert email for all expired or expiring-soon documents"
+            title={t("workOrders.sendAllExpiryAlerts")}
           >
             {bulkResendAlertMutation.isPending ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Bell className="h-4 w-4 mr-1" />}
-            Send All Expiry Alerts
+            {t("workOrders.sendAllExpiryAlerts")}
           </Button>
           <Button size="sm" onClick={() => { setWoForm(emptyWOForm()); setShowCreate(true); }}>
-            <Plus className="h-4 w-4 mr-1" />New Work Order
+            <Plus className="h-4 w-4 mr-1" />{t("workOrders.newWorkOrder")}
           </Button>
         </div>
       </div>
@@ -1489,29 +1495,29 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       <GlassCard className="p-3">
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
-            <Filter className="h-3 w-3" />Filters:
+            <Filter className="h-3 w-3" />{t("workOrders.filters")}
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="All statuses" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder={t("workOrders.allStatuses")} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="all">{t("workOrders.allStatuses")}</SelectItem>
               {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-              <SelectItem value="awaiting-cert">Awaiting Certificate</SelectItem>
+              <SelectItem value="awaiting-cert">{t("workOrders.awaitingCertificate")}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={filterAsset} onValueChange={setFilterAsset}>
-            <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="All assets" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder={t("workOrders.allAssets")} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Assets</SelectItem>
+              <SelectItem value="all">{t("workOrders.allAssets")}</SelectItem>
               {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterContractor || "all"} onValueChange={v => setFilterContractor(v === "all" ? "" : v)}>
             <SelectTrigger className="h-8 w-44 text-xs">
-              <SelectValue placeholder="All contractors" />
+              <SelectValue placeholder={t("workOrders.allContractors")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All contractors</SelectItem>
+              <SelectItem value="all">{t("workOrders.allContractors")}</SelectItem>
               {contractorOptions.map(opt => (
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
@@ -1519,7 +1525,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
           </Select>
           <div className="flex items-center gap-1">
             <Input type="date" className="h-8 w-36 text-xs" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
-            <span className="text-xs text-muted-foreground">to</span>
+            <span className="text-xs text-muted-foreground">{t("workOrders.to")}</span>
             <Input type="date" className="h-8 w-36 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
           </div>
           <Button
@@ -1528,7 +1534,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
             className={`h-8 text-xs gap-1 ${filterExpiringDocs ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-600" : ""}`}
             onClick={() => setFilterExpiringDocs(v => { const next = !v; try { localStorage.setItem('ppm_filterExpiringDocs', String(next)); } catch {} return next; })}
           >
-            <AlertTriangle className="h-3 w-3" />Expiring docs
+            <AlertTriangle className="h-3 w-3" />{t("workOrders.expiringDocs")}
           </Button>
           {isAdmin && (
             <Button
@@ -1536,16 +1542,16 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               variant="outline"
               className="h-8 text-xs gap-1"
               disabled={bulkResendAlertsMutation.isPending || !notifyOnDocumentExpiry}
-              title={notifyOnDocumentExpiry ? "Send expiry alert emails to admin and contractors for all expiring/expired documents" : "Expiry notifications are disabled in Settings"}
+              title={notifyOnDocumentExpiry ? t("workOrders.sendAllExpiryAlerts") : t("workOrders.expiryNotificationsDisabledShort")}
               onClick={() => bulkResendAlertsMutation.mutate()}
             >
               {bulkResendAlertsMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-              Resend All Alerts
+              {t("workOrders.resendAllAlerts")}
             </Button>
           )}
           {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo || filterExpiringDocs) && (
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterExpiringDocs(false); try { localStorage.setItem('ppm_filterExpiringDocs', 'false'); } catch {} }}>
-              <X className="h-3 w-3 mr-1" />Clear
+              <X className="h-3 w-3 mr-1" />{t("workOrders.clearFilters")}
             </Button>
           )}
         </div>
@@ -1553,23 +1559,23 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 
       {/* Table */}
       {woLoading ? (
-        <div className="text-center py-10 text-muted-foreground">Loading work orders…</div>
+        <div className="text-center py-10 text-muted-foreground">{t("workOrders.loadingWorkOrders")}</div>
       ) : sortedWOs.length === 0 ? (
         <div className="text-center py-16">
           <ClipboardCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-muted-foreground">{workOrders.length === 0 ? "No work orders yet. Create one to get started." : "No work orders match the current filters."}</p>
+          <p className="text-muted-foreground">{workOrders.length === 0 ? t("workOrders.noWorkOrders") : t("workOrders.noWorkOrdersFilter")}</p>
         </div>
       ) : (
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
-                <th className="text-left px-3 py-2 font-medium">Title</th>
-                <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Asset</th>
-                <th className="text-left px-3 py-2 font-medium">Status</th>
-                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Due</th>
-                <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Contractor</th>
-                <th className="text-left px-3 py-2 font-medium hidden xl:table-cell">Worker</th>
+                <th className="text-left px-3 py-2 font-medium">{t("workOrders.colTitle")}</th>
+                <th className="text-left px-3 py-2 font-medium hidden md:table-cell">{t("workOrders.colAsset")}</th>
+                <th className="text-left px-3 py-2 font-medium">{t("workOrders.colStatus")}</th>
+                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("workOrders.colDue")}</th>
+                <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">{t("workOrders.colContractor")}</th>
+                <th className="text-left px-3 py-2 font-medium hidden xl:table-cell">{t("workOrders.colWorker")}</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -1606,10 +1612,10 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                       )}
                     </div>
                     {hasCertAlert(wo) && (
-                      <span className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Certificate missing</span>
+                      <span className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{t("workOrders.certificateMissing")}</span>
                     )}
                     {wo.status === "overdue" && wo.missingDocsAlertedAt && (
-                      <span className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />No documents uploaded</span>
+                      <span className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{t("workOrders.noDocumentsUploaded")}</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{woScope(wo)}</td>
@@ -1631,16 +1637,16 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1">
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="View work order" onClick={e => { e.stopPropagation(); openDetail(wo); }}>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title={t("workOrders.viewWorkOrder")} onClick={e => { e.stopPropagation(); openDetail(wo); }}>
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title="Edit work order" onClick={e => { e.stopPropagation(); openEditWO(wo); }}>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title={t("workOrders.editWorkOrder")} onClick={e => { e.stopPropagation(); openEditWO(wo); }}>
                         <Edit className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title="Duplicate work order" disabled={duplicateWOMutation.isPending} onClick={e => { e.stopPropagation(); duplicateWOMutation.mutate(wo.id); }}>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title={t("workOrders.duplicateWorkOrder")} disabled={duplicateWOMutation.isPending} onClick={e => { e.stopPropagation(); duplicateWOMutation.mutate(wo.id); }}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title="Delete work order" disabled={deleteWOMutation.isPending} onClick={e => { e.stopPropagation(); if (confirm("Delete this work order and all its documents?")) deleteWOMutation.mutate(wo.id); }}>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title={t("workOrders.deleteWorkOrder")} disabled={deleteWOMutation.isPending} onClick={e => { e.stopPropagation(); if (confirm(t("workOrders.confirmDeleteWO"))) deleteWOMutation.mutate(wo.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -1658,8 +1664,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {contractorDetailTarget?.type === 'company'
-                ? <><Building2 className="h-4 w-4 text-blue-600" />Contractor Company</>
-                : <><User className="h-4 w-4 text-indigo-600" />Worker Details</>
+                ? <><Building2 className="h-4 w-4 text-blue-600" />{t("workOrders.contractorCompany")}</>
+                : <><User className="h-4 w-4 text-indigo-600" />{t("workOrders.workerDetails")}</>
               }
             </DialogTitle>
           </DialogHeader>
@@ -1700,14 +1706,14 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     </div>
                   )}
                   {detailCompany.industry && (
-                    <div className="text-xs text-muted-foreground pt-1 border-t">Industry: {detailCompany.industry}</div>
+                    <div className="text-xs text-muted-foreground pt-1 border-t">{t("workOrders.industry")} {detailCompany.industry}</div>
                   )}
                   {detailCompany.status && (
                     <Badge variant={detailCompany.status === 'approved' ? 'default' : 'secondary'} className="text-xs capitalize">{detailCompany.status}</Badge>
                   )}
                 </>
               ) : (
-                <p className="text-muted-foreground text-xs">No additional details available — contractor may have been entered manually.</p>
+                <p className="text-muted-foreground text-xs">{t("workOrders.noCompanyDetails")}</p>
               )}
             </div>
           )}
@@ -1715,7 +1721,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
           {contractorDetailTarget?.type === 'worker' && (
             <div className="space-y-3 text-sm">
               {isDetailWorkerLoading ? (
-                <div className="text-muted-foreground animate-pulse">Loading worker details…</div>
+                <div className="text-muted-foreground animate-pulse">{t("workOrders.loadingWorkerDetails")}</div>
               ) : detailWorker ? (
                 <>
                   <p className="font-semibold text-base">{detailWorker.firstName} {detailWorker.lastName}</p>
@@ -1741,26 +1747,26 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   <div className="border-t pt-2 space-y-1">
                     {detailWorker.cscsCard && (
                       <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">CSCS Card</span>
+                        <span className="text-muted-foreground">{t("workOrders.cscsCard")}</span>
                         <span className="font-medium">{detailWorker.cscsCard}</span>
                       </div>
                     )}
                     {detailWorker.cscsStatus && (
                       <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">CSCS Status</span>
+                        <span className="text-muted-foreground">{t("workOrders.cscsStatus")}</span>
                         <Badge variant={detailWorker.cscsStatus === 'valid' ? 'default' : 'secondary'} className="text-xs capitalize h-4">{detailWorker.cscsStatus}</Badge>
                       </div>
                     )}
                     {detailWorker.rightToWork && (
                       <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">Right to Work</span>
+                        <span className="text-muted-foreground">{t("workOrders.rightToWork")}</span>
                         <Badge variant={detailWorker.rightToWork === 'verified' ? 'default' : 'secondary'} className="text-xs capitalize h-4">{detailWorker.rightToWork}</Badge>
                       </div>
                     )}
                   </div>
                 </>
               ) : (
-                <p className="text-muted-foreground text-xs">Worker details not found — they may have been entered manually.</p>
+                <p className="text-muted-foreground text-xs">{t("workOrders.workerNotFound")}</p>
               )}
             </div>
           )}
@@ -1771,35 +1777,35 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Export Work Order Report</DialogTitle>
+            <DialogTitle>{t("workOrders.exportTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">Choose an optional date range and status filter to include in the report. Leave blank to export all work orders.</p>
+            <p className="text-sm text-muted-foreground">{t("workOrders.exportDesc")}</p>
             <div className="space-y-2">
-              <Label className="text-xs font-medium">Status</Label>
+              <Label className="text-xs font-medium">{t("workOrders.exportStatus")}</Label>
               <Select value={exportStatus} onValueChange={setExportStatus}>
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="All statuses" />
+                  <SelectValue placeholder={t("workOrders.allStatuses")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="all">{t("workOrders.allStatuses")}</SelectItem>
                   {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-medium">Due Date Range</Label>
+              <Label className="text-xs font-medium">{t("workOrders.exportDueDateRange")}</Label>
               <div className="flex items-center gap-2">
                 <Input type="date" className="h-9 text-sm flex-1" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)} />
-                <span className="text-xs text-muted-foreground">to</span>
+                <span className="text-xs text-muted-foreground">{t("workOrders.to")}</span>
                 <Input type="date" className="h-9 text-sm flex-1" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)} />
               </div>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowExportDialog(false)}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setShowExportDialog(false)}>{t("dashboard.cancelBtn")}</Button>
             <Button size="sm" onClick={handleExportAll}>
-              <FileDown className="h-4 w-4 mr-1" />Export PDF
+              <FileDown className="h-4 w-4 mr-1" />{t("workOrders.exportPdf")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1808,41 +1814,41 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       {/* Create Work Order Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>New Work Order</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("workOrders.newWorkOrderTitle")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Title *</Label>
-              <Input value={woForm.title} onChange={e => setWoForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual boiler service" />
+              <Label>{t("workOrders.titleLabel")}</Label>
+              <Input value={woForm.title} onChange={e => setWoForm(f => ({ ...f, title: e.target.value }))} placeholder={t("workOrders.titlePlaceholder")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Label>Scope</Label>
+                <Label>{t("workOrders.scope")}</Label>
                 <Select value={woForm.scope} onValueChange={v => setWoForm(f => ({ ...f, scope: v as "single-asset" | "group", assetId: "", groupId: "" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="single-asset">Single Asset</SelectItem>
-                    <SelectItem value="group">Asset Group (full system service)</SelectItem>
+                    <SelectItem value="single-asset">{t("workOrders.singleAsset")}</SelectItem>
+                    <SelectItem value="group">{t("workOrders.assetGroup")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {woForm.scope === "group" ? (
                 <div className="col-span-2">
-                  <Label>Asset Group</Label>
+                  <Label>{t("workOrders.assetGroupLabel")}</Label>
                   <Select value={woForm.groupId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, groupId: v === "_none" ? "" : v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select asset group" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("workOrders.selectAssetGroup")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none">— None —</SelectItem>
+                      <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                       {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               ) : (
                 <div>
-                  <Label>Asset</Label>
+                  <Label>{t("workOrders.assetLabel")}</Label>
                   <Select value={woForm.assetId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("schedules.selectAsset")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none">— None —</SelectItem>
+                      <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                       {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}{a.assetRef ? ` (${a.assetRef})` : ""}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -1850,22 +1856,22 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               )}
               {woForm.scope === "single-asset" && (
                 <div>
-                  <Label>Schedule (optional)</Label>
+                  <Label>{t("workOrders.scheduleOptional")}</Label>
                   <Select value={woForm.scheduleId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
-                    <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("workOrders.linkToSchedule")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none">— None —</SelectItem>
+                      <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                       {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               )}
               <div>
-                <Label>Due Date</Label>
+                <Label>{t("workOrders.dueDate")}</Label>
                 <Input type="date" value={woForm.dueDate} onChange={e => setWoForm(f => ({ ...f, dueDate: e.target.value }))} />
               </div>
               <div>
-                <Label>Status</Label>
+                <Label>{t("workOrders.statusLabel")}</Label>
                 <Select value={woForm.status} onValueChange={v => setWoForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1875,20 +1881,20 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               </div>
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea value={woForm.description} onChange={e => setWoForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Scope of work…" />
+              <Label>{t("workOrders.descriptionLabel")}</Label>
+              <Textarea value={woForm.description} onChange={e => setWoForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder={t("workOrders.descriptionPlaceholder")} />
             </div>
             <div>
-              <Label>Notes</Label>
+              <Label>{t("workOrders.notesLabel")}</Label>
               <Textarea value={woForm.notes} onChange={e => setWoForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="reqCert" checked={woForm.requiresCertificate} onChange={e => setWoForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
-              <Label htmlFor="reqCert" className="font-normal cursor-pointer">Requires service certificate upload</Label>
+              <Label htmlFor="reqCert" className="font-normal cursor-pointer">{t("workOrders.requiresCertificate")}</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>{t("dashboard.cancelBtn")}</Button>
             <Button
               onClick={() => createWOMutation.mutate({
                 ...woForm,
@@ -1898,7 +1904,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               })}
               disabled={!woForm.title || createWOMutation.isPending}
             >
-              {createWOMutation.isPending ? "Creating…" : "Create Work Order"}
+              {createWOMutation.isPending ? t("workOrders.creating") : t("workOrders.createWorkOrder")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1907,41 +1913,41 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       {/* Edit Work Order Dialog */}
       <Dialog open={showEditWO} onOpenChange={o => { setShowEditWO(o); if (!o) setEditingWO(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit Work Order</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("workOrders.editWorkOrderTitle")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Title *</Label>
-              <Input value={editWOForm.title} onChange={e => setEditWOForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual boiler service" />
+              <Label>{t("workOrders.titleLabel")}</Label>
+              <Input value={editWOForm.title} onChange={e => setEditWOForm(f => ({ ...f, title: e.target.value }))} placeholder={t("workOrders.titlePlaceholder")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Label>Scope</Label>
+                <Label>{t("workOrders.scope")}</Label>
                 <Select value={editWOForm.scope} onValueChange={v => setEditWOForm(f => ({ ...f, scope: v as "single-asset" | "group", assetId: "", groupId: "" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="single-asset">Single Asset</SelectItem>
-                    <SelectItem value="group">Asset Group (full system service)</SelectItem>
+                    <SelectItem value="single-asset">{t("workOrders.singleAsset")}</SelectItem>
+                    <SelectItem value="group">{t("workOrders.assetGroup")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {editWOForm.scope === "group" ? (
                 <div className="col-span-2">
-                  <Label>Asset Group</Label>
+                  <Label>{t("workOrders.assetGroupLabel")}</Label>
                   <Select value={editWOForm.groupId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, groupId: v === "_none" ? "" : v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select asset group" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("workOrders.selectAssetGroup")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none">— None —</SelectItem>
+                      <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                       {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               ) : (
                 <div>
-                  <Label>Asset</Label>
+                  <Label>{t("workOrders.assetLabel")}</Label>
                   <Select value={editWOForm.assetId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("schedules.selectAsset")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none">— None —</SelectItem>
+                      <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                       {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}{a.assetRef ? ` (${a.assetRef})` : ""}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -1949,22 +1955,22 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               )}
               {editWOForm.scope === "single-asset" && (
                 <div>
-                  <Label>Schedule (optional)</Label>
+                  <Label>{t("workOrders.scheduleOptional")}</Label>
                   <Select value={editWOForm.scheduleId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
-                    <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("workOrders.linkToSchedule")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none">— None —</SelectItem>
+                      <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                       {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               )}
               <div>
-                <Label>Due Date</Label>
+                <Label>{t("workOrders.dueDate")}</Label>
                 <Input type="date" value={editWOForm.dueDate} onChange={e => setEditWOForm(f => ({ ...f, dueDate: e.target.value }))} />
               </div>
               <div>
-                <Label>Status</Label>
+                <Label>{t("workOrders.statusLabel")}</Label>
                 <Select value={editWOForm.status} onValueChange={v => setEditWOForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1974,20 +1980,20 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               </div>
             </div>
             <div>
-              <Label>Description</Label>
-              <Textarea value={editWOForm.description} onChange={e => setEditWOForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Scope of work…" />
+              <Label>{t("workOrders.descriptionLabel")}</Label>
+              <Textarea value={editWOForm.description} onChange={e => setEditWOForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder={t("workOrders.descriptionPlaceholder")} />
             </div>
             <div>
-              <Label>Notes</Label>
+              <Label>{t("workOrders.notesLabel")}</Label>
               <Textarea value={editWOForm.notes} onChange={e => setEditWOForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="editReqCert" checked={editWOForm.requiresCertificate} onChange={e => setEditWOForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
-              <Label htmlFor="editReqCert" className="font-normal cursor-pointer">Requires service certificate upload</Label>
+              <Label htmlFor="editReqCert" className="font-normal cursor-pointer">{t("workOrders.requiresCertificate")}</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowEditWO(false); setEditingWO(null); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowEditWO(false); setEditingWO(null); }}>{t("dashboard.cancelBtn")}</Button>
             <Button
               disabled={!editWOForm.title || updateWOMutation.isPending}
               onClick={() => editingWO && updateWOMutation.mutate({
@@ -2000,7 +2006,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 }
               })}
             >
-              {updateWOMutation.isPending ? "Saving…" : "Save Changes"}
+              {updateWOMutation.isPending ? t("assets.saving") : t("workOrders.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2020,12 +2026,12 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   <WOStatusBadge status={effectiveWOStatus(selectedWO)} />
                   {hasCertAlert(selectedWO) && (
                     <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                      <AlertTriangle className="h-3 w-3" />Certificate missing
+                      <AlertTriangle className="h-3 w-3" />{t("workOrders.certificateMissing")}
                     </span>
                   )}
                   {hasMissingDocsAlert(selectedWO, woDocs.length) && (
                     <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                      <AlertTriangle className="h-3 w-3" />No documents uploaded
+                      <AlertTriangle className="h-3 w-3" />{t("workOrders.noDocumentsUploaded")}
                     </span>
                   )}
                   <a
@@ -2035,7 +2041,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     className="inline-flex items-center gap-1 text-xs text-muted-foreground border border-border rounded-md px-2 py-0.5 hover:bg-muted transition-colors ml-auto"
                   >
                     <Download className="h-3 w-3" />
-                    Export PDF
+                    {t("workOrders.exportPdf")}
                   </a>
                 </div>
               </SheetHeader>
@@ -2045,27 +2051,27 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 <div className="space-y-2 text-sm">
                   {selectedWO.description && <p className="text-muted-foreground">{selectedWO.description}</p>}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                    <span className="text-muted-foreground">{selectedWO.groupId ? "Asset Group" : "Asset"}</span>
+                    <span className="text-muted-foreground">{selectedWO.groupId ? t("workOrders.assetGroupLabel") : t("workOrders.assetLabel")}</span>
                     <span>{selectedWO.groupId ? groupName(selectedWO.groupId) : assetName(selectedWO.assetId)}</span>
-                    <span className="text-muted-foreground">Due Date</span><span>{fmtDate(selectedWO.dueDate)}</span>
-                    <span className="text-muted-foreground">Arrived on Site</span>
+                    <span className="text-muted-foreground">{t("workOrders.dueDate")}</span><span>{fmtDate(selectedWO.dueDate)}</span>
+                    <span className="text-muted-foreground">{t("workOrders.arrivedOnSite")}</span>
                     <span>
                       {selectedWO.arrivedAt
                         ? new Date(selectedWO.arrivedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
                         : "—"}
                     </span>
-                    <span className="text-muted-foreground">Completed</span><span>{fmtDate(selectedWO.completedDate)}</span>
+                    <span className="text-muted-foreground">{t("workOrders.completed")}</span><span>{fmtDate(selectedWO.completedDate)}</span>
                     {selectedWO.requiresCertificate && (
                       <>
-                        <span className="text-muted-foreground">Certificate</span>
-                        <span>{selectedWO.certificateUploadedAt ? `Uploaded ${fmtDate(selectedWO.certificateUploadedAt)}` : "Not yet uploaded"}</span>
+                        <span className="text-muted-foreground">{t("workOrders.certificate")}</span>
+                        <span>{selectedWO.certificateUploadedAt ? `${t("workOrders.uploaded")} ${fmtDate(selectedWO.certificateUploadedAt)}` : t("workOrders.notYetUploaded")}</span>
                       </>
                     )}
                   </div>
                   {selectedWO.notes && <p className="text-xs text-muted-foreground italic border-l-2 pl-2">{selectedWO.notes}</p>}
                   {selectedWO.completionNotes && (
                     <div className="rounded bg-green-50 border border-green-200 p-2">
-                      <p className="text-xs font-medium text-green-800">Completion Notes</p>
+                      <p className="text-xs font-medium text-green-800">{t("workOrders.completionNotes")}</p>
                       <p className="text-xs text-green-700 mt-1">{selectedWO.completionNotes}</p>
                     </div>
                   )}
@@ -2073,7 +2079,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 
                 {/* Change Status */}
                 <div className="space-y-2 border-t pt-4">
-                  <p className="text-sm font-semibold">Change Status</p>
+                  <p className="text-sm font-semibold">{t("workOrders.changeStatus")}</p>
                   <div className="flex flex-wrap gap-2">
                     {WO_STATUSES.map(s => (
                       <Button
@@ -2092,7 +2098,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 
                 {/* Assign Contractor */}
                 <div className="space-y-2 border-t pt-4">
-                  <p className="text-sm font-semibold flex items-center gap-1.5"><HardHat className="h-4 w-4" />Assign Contractor</p>
+                  <p className="text-sm font-semibold flex items-center gap-1.5"><HardHat className="h-4 w-4" />{t("workOrders.assignContractor")}</p>
                   {(() => {
                     const selectedCompany = contractors.find(c => c.id === assignForm.contractorCompanyId);
                     const companyClearance = selectedCompany ? getCompanyClearance((selectedCompany as any).documentsStatus) : { cleared: true, reasons: [] as string[] };
@@ -2109,10 +2115,10 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   <div className="space-y-2">
                     <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 px-2.5 py-1.5 text-[11px] text-blue-800 dark:text-blue-200 flex items-start gap-1.5">
                       <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                      <span>Only contractors with valid <strong>Public Liability</strong> &amp; <strong>Employers' Liability</strong> can be assigned. Workers must have Right to Work verified and site induction completed.</span>
+                      <span>{t("workOrders.complianceNote")}</span>
                     </div>
                     <div>
-                      <Label className="text-xs">Company</Label>
+                      <Label className="text-xs">{t("workOrders.companyLabel")}</Label>
                       <Select
                         value={assignForm.contractorCompanyId || "_none"}
                         onValueChange={v => {
@@ -2128,9 +2134,9 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                           setSelectedCompanyIdForWorkers(v === "_none" ? "" : v);
                         }}
                       >
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select company" /></SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t("workOrders.selectCompany")} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="_none">— None —</SelectItem>
+                          <SelectItem value="_none">{t("assets.noneOption")}</SelectItem>
                           {contractors.map(c => {
                             const clr = getCompanyClearance((c as any).documentsStatus);
                             return (
@@ -2153,7 +2159,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     </div>
                     {assignForm.contractorCompanyId && (
                       <div>
-                        <Label className="text-xs">Worker (optional)</Label>
+                        <Label className="text-xs">{t("workOrders.workerOptional")}</Label>
                         <Select
                           value={assignForm.contractorWorkerId || "_none"}
                           onValueChange={v => {
@@ -2166,9 +2172,9 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                             }));
                           }}
                         >
-                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select worker" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t("workOrders.selectWorker")} /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="_none">— Company only —</SelectItem>
+                            <SelectItem value="_none">{t("workOrders.companyOnly")}</SelectItem>
                             {companyWorkers.map(w => {
                               const wc = getWorkerClearance(w);
                               return (
@@ -2194,20 +2200,20 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                       <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-2.5 py-2">
                         <Lock className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" />
                         <div className="text-[11px] text-red-700 dark:text-red-300">
-                          <p className="font-semibold">Not cleared to work</p>
+                          <p className="font-semibold">{t("workOrders.notClearedToWork")}</p>
                           <ul className="list-disc pl-4 mt-0.5">
                             {(blockedByCompliance ? companyClearance.reasons : workerClearance.reasons).map((r, i) => (
                               <li key={i}>{r}</li>
                             ))}
                           </ul>
                           <Link href={blockedByWorker ? `/contractors?company=${assignForm.contractorCompanyId}` : "/contractors"} className="underline underline-offset-2 mt-1 inline-block">
-                            Open contractor profile to resolve →
+                            {t("workOrders.openContractorProfile")}
                           </Link>
                         </div>
                       </div>
                     )}
                     <div>
-                      <Label className="text-xs">Notification Email</Label>
+                      <Label className="text-xs">{t("workOrders.notificationEmail")}</Label>
                       <Input
                         className="h-8 text-xs"
                         type="email"
@@ -2226,7 +2232,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                             onClick={() => assignMutation.mutate({ id: selectedWO.id, data: assignForm })}
                           >
                             <Mail className="h-3.5 w-3.5 mr-1.5" />
-                            {assignMutation.isPending ? "Assigning…" : assignForm.assignedEmail ? "Assign & Notify" : "Assign (No Email)"}
+                            {assignMutation.isPending ? t("workOrders.assigning") : assignForm.assignedEmail ? t("workOrders.assignAndNotify") : t("workOrders.assignNoEmail")}
                           </Button>
                         </span>
                       </TooltipTrigger>
@@ -2236,7 +2242,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     </Tooltip>
                     {contractorLink && (
                       <p className="text-xs text-muted-foreground">
-                        Contractor link:{" "}
+                        {t("workOrders.contractorLink")}{" "}
                         <a
                           href={contractorLink}
                           target="_blank"
@@ -2254,16 +2260,16 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 
                 {/* Documents */}
                 <div className="space-y-2 border-t pt-4">
-                  <p className="text-sm font-semibold flex items-center gap-1.5"><FileText className="h-4 w-4" />Documents</p>
+                  <p className="text-sm font-semibold flex items-center gap-1.5"><FileText className="h-4 w-4" />{t("workOrders.documentsSection")}</p>
                   {!notifyOnDocumentExpiry && (
                     <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-3 py-2.5">
                       <BellOff className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                       <p className="text-xs text-amber-700 dark:text-amber-300">
-                        Expiry notifications are currently disabled. Alert buttons are inactive.{" "}
+                        {t("workOrders.expiryNotificationsDisabled")}{" "}
                         <Link href="/settings" className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-100">
-                          Go to Settings
+                          {t("workOrders.goToSettings")}
                         </Link>{" "}
-                        to enable them.
+                        {t("workOrders.toEnableThem")}.
                       </p>
                     </div>
                   )}
@@ -2271,13 +2277,13 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
                       <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-xs font-semibold text-red-700">Action required: no documents uploaded</p>
-                        <p className="text-xs text-red-600 mt-0.5">This work order is overdue and has no service reports, certificates, or photos. Please upload evidence of work carried out.</p>
+                        <p className="text-xs font-semibold text-red-700">{t("workOrders.actionRequiredNoDocs")}</p>
+                        <p className="text-xs text-red-600 mt-0.5">{t("workOrders.actionRequiredNoDocsDesc")}</p>
                       </div>
                     </div>
                   )}
                   {woDocs.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No documents uploaded yet.</p>
+                    <p className="text-xs text-muted-foreground">{t("workOrders.noDocumentsYet")}</p>
                   ) : (
                     <div className="space-y-1">
                       {woDocs.map(doc => {
@@ -2297,14 +2303,14 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                                 <Badge variant="secondary" className="text-xs shrink-0">{doc.fileType}</Badge>
                               )}
                               {isExpired && (
-                                <Badge className="bg-red-500 text-white text-xs shrink-0">Expired</Badge>
+                                <Badge className="bg-red-500 text-white text-xs shrink-0">{t("workOrders.expired")}</Badge>
                               )}
                               {isExpiringSoon && (
-                                <Badge className="bg-amber-500 text-white text-xs shrink-0">Expiring Soon</Badge>
+                                <Badge className="bg-amber-500 text-white text-xs shrink-0">{t("workOrders.expiringSoon")}</Badge>
                               )}
                               {scanPending && (
                                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                                  <Scan className="h-3 w-3" />Scan pending
+                                  <Scan className="h-3 w-3" />{t("workOrders.scanPending")}
                                 </span>
                               )}
                             </div>
@@ -2331,7 +2337,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                                     </span>
                                   </TooltipTrigger>
                                   <TooltipContent side="top">
-                                    <p className="text-xs">{notifyOnDocumentExpiry ? "Send expiry alert email now" : "Expiry notifications are disabled in Settings"}</p>
+                                    <p className="text-xs">{notifyOnDocumentExpiry ? t("workOrders.sendExpiryAlertNow") : t("workOrders.expiryNotificationsDisabledShort")}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}
@@ -2339,7 +2345,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                                onClick={() => { if (confirm("Delete this document?")) deleteDocMutation.mutate({ woId: selectedWO.id, docId: doc.id }); }}
+                                onClick={() => { if (confirm(t("workOrders.confirmDeleteDoc"))) deleteDocMutation.mutate({ woId: selectedWO.id, docId: doc.id }); }}
                               >
                                 <X className="h-3 w-3" />
                               </Button>
@@ -2347,13 +2353,13 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                           </div>
                           {(doc.expiryDate || doc.referenceNumber || doc.issuedBy) && (
                             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground pl-5">
-                              {doc.expiryDate && <span className={isExpired ? "text-red-600 dark:text-red-400 font-medium" : isExpiringSoon ? "text-amber-600 dark:text-amber-400 font-medium" : ""}>Expires: <span className={isExpired ? "text-red-700 dark:text-red-300" : isExpiringSoon ? "text-amber-700 dark:text-amber-300" : "text-foreground"}>{fmtDate(doc.expiryDate)}</span></span>}
-                              {doc.referenceNumber && <span>Ref: <span className="text-foreground">{doc.referenceNumber}</span></span>}
-                              {doc.issuedBy && <span>By: <span className="text-foreground">{doc.issuedBy}</span></span>}
+                              {doc.expiryDate && <span className={isExpired ? "text-red-600 dark:text-red-400 font-medium" : isExpiringSoon ? "text-amber-600 dark:text-amber-400 font-medium" : ""}>{t("workOrders.expires")} <span className={isExpired ? "text-red-700 dark:text-red-300" : isExpiringSoon ? "text-amber-700 dark:text-amber-300" : "text-foreground"}>{fmtDate(doc.expiryDate)}</span></span>}
+                              {doc.referenceNumber && <span>{t("workOrders.ref")} <span className="text-foreground">{doc.referenceNumber}</span></span>}
+                              {doc.issuedBy && <span>{t("workOrders.by")} <span className="text-foreground">{doc.issuedBy}</span></span>}
                               {doc.expiryDate && (
                                 doc.expiryAlertedAt
-                                  ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400"><Bell className="h-3 w-3" />Notified: <span className="text-green-800 dark:text-green-300 font-medium">{fmtDate(doc.expiryAlertedAt)}</span></span>
-                                  : <span className="flex items-center gap-1 text-muted-foreground/70"><Bell className="h-3 w-3" />Pending notification</span>
+                                  ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400"><Bell className="h-3 w-3" />{t("workOrders.notified")} <span className="text-green-800 dark:text-green-300 font-medium">{fmtDate(doc.expiryAlertedAt)}</span></span>
+                                  : <span className="flex items-center gap-1 text-muted-foreground/70"><Bell className="h-3 w-3" />{t("workOrders.pendingNotification")}</span>
                               )}
                             </div>
                           )}
@@ -2368,10 +2374,10 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                       <Select value={docFileType} onValueChange={setDocFileType}>
                         <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="certificate">Certificate</SelectItem>
-                          <SelectItem value="report">Report</SelectItem>
-                          <SelectItem value="photo">Photo</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="certificate">{t("workOrders.docTypeCertificate")}</SelectItem>
+                          <SelectItem value="report">{t("workOrders.docTypeReport")}</SelectItem>
+                          <SelectItem value="photo">{t("workOrders.docTypePhoto")}</SelectItem>
+                          <SelectItem value="other">{t("workOrders.docTypeOther")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Button
@@ -2382,7 +2388,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <Upload className="h-3.5 w-3.5 mr-1" />
-                        {pendingDocFile ? "Change File" : "Choose File"}
+                        {pendingDocFile ? t("workOrders.changeFile") : t("workOrders.chooseFile")}
                       </Button>
                       <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleDocFileSelect} />
                     </div>
@@ -2390,7 +2396,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                            Selected: <span className="font-medium text-foreground">{pendingDocFile.name}</span>
+                            {t("workOrders.selected")} <span className="font-medium text-foreground">{pendingDocFile.name}</span>
                           </p>
                           {/\.(pdf|jpg|jpeg|png)$/i.test(pendingDocFile.name) && (
                             <Button
@@ -2401,16 +2407,16 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                               onClick={scanPpmDocument}
                             >
                               {isScanningDoc ? (
-                                <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />Scanning…</>
+                                <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />{t("workOrders.scanning")}</>
                               ) : (
-                                <><Sparkles className="h-3.5 w-3.5 mr-1" />Scan with AI</>
+                                <><Sparkles className="h-3.5 w-3.5 mr-1" />{t("workOrders.scanWithAi")}</>
                               )}
                             </Button>
                           )}
                         </div>
                         <div className="grid grid-cols-1 gap-1.5">
                           <div>
-                            <Label className="text-xs text-muted-foreground">Expiry Date (optional)</Label>
+                            <Label className="text-xs text-muted-foreground">{t("workOrders.expiryDateOptional")}</Label>
                             <Input
                               type="date"
                               value={docExpiryDate}
@@ -2420,7 +2426,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                             />
                           </div>
                           <div>
-                            <Label className="text-xs text-muted-foreground">Reference / Document No. (optional)</Label>
+                            <Label className="text-xs text-muted-foreground">{t("workOrders.referenceOptional")}</Label>
                             <Input
                               type="text"
                               value={docReferenceNumber}
@@ -2431,7 +2437,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                             />
                           </div>
                           <div>
-                            <Label className="text-xs text-muted-foreground">Issued By (optional)</Label>
+                            <Label className="text-xs text-muted-foreground">{t("workOrders.issuedByOptional")}</Label>
                             <Input
                               type="text"
                               value={docIssuedBy}
@@ -2445,7 +2451,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                         {docAiExtracted && (
                           <div className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md px-3 py-2">
                             <Sparkles className="h-3.5 w-3.5 shrink-0" />
-                            AI-extracted — please verify the fields above before saving.
+                            {t("workOrders.aiExtracted")}
                           </div>
                         )}
                         <Button
@@ -2454,7 +2460,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                           disabled={uploadingDoc || isScanningDoc}
                           onClick={handleDocUpload}
                         >
-                          {uploadingDoc ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />Uploading…</> : <><Upload className="h-3.5 w-3.5 mr-1" />Upload Document</>}
+                          {uploadingDoc ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />{t("workOrders.uploading")}</> : <><Upload className="h-3.5 w-3.5 mr-1" />{t("workOrders.uploadDocument")}</>}
                         </Button>
                       </div>
                     )}
@@ -2468,10 +2474,10 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     variant="ghost"
                     className="text-destructive hover:text-destructive w-full"
                     disabled={deleteWOMutation.isPending}
-                    onClick={() => { if (confirm("Delete this work order and all its documents?")) deleteWOMutation.mutate(selectedWO.id); }}
+                    onClick={() => { if (confirm(t("workOrders.confirmDeleteWO"))) deleteWOMutation.mutate(selectedWO.id); }}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                    {deleteWOMutation.isPending ? "Deleting…" : "Delete Work Order"}
+                    {deleteWOMutation.isPending ? t("assets.deleting") : t("workOrders.deleteWorkOrderBtn")}
                   </Button>
                 </div>
               </div>
@@ -2487,6 +2493,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 
 export default function PPM() {
   const { toast } = useToast();
+  const { t } = useTranslation("ppm");
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
   const defaultTab = searchParams.get('highlight')
@@ -2538,7 +2545,7 @@ export default function PPM() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       setActiveTab("assets");
       toast({
-        title: "Demo data loaded",
+        title: t("page.demoDataLoaded"),
         description: result.message,
       });
     },
@@ -2556,7 +2563,7 @@ export default function PPM() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       setActiveTab("assets");
       toast({
-        title: "Demo data removed",
+        title: t("page.demoDataRemoved"),
         description: result.message,
       });
     },
@@ -2564,12 +2571,12 @@ export default function PPM() {
   });
 
   function handleLoadDemo() {
-    if (!isEmpty && !confirm("This will wipe all existing PPM data (assets, schedules, work orders) and reload the demo dataset. Continue?")) return;
+    if (!isEmpty && !confirm(t("page.confirmLoadDemo"))) return;
     demoDataMutation.mutate();
   }
 
   function handleDeleteDemo() {
-    if (!confirm("This will permanently delete ALL PPM assets, schedules, work orders and groups for this account. Templates are kept. Continue?")) return;
+    if (!confirm(t("page.confirmDeleteDemo"))) return;
     deleteDemoMutation.mutate();
   }
 
@@ -2580,9 +2587,9 @@ export default function PPM() {
           <div className="p-4 rounded-full bg-muted inline-flex mx-auto">
             <Wrench className="h-10 w-10 text-muted-foreground" />
           </div>
-          <h2 className="text-xl font-semibold">PPM Module Not Available</h2>
+          <h2 className="text-xl font-semibold">{t("page.moduleNotAvailableTitle")}</h2>
           <p className="text-muted-foreground">
-            The PPM module is not included in your current plan. Please contact ACS to upgrade.
+            {t("page.moduleNotAvailableDesc")}
           </p>
         </div>
       </div>
@@ -2598,7 +2605,7 @@ export default function PPM() {
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-bold">Planned Preventative Maintenance</h1>
+              <h1 className="text-2xl font-bold">{t("page.title")}</h1>
               {complianceScore !== null && (
                 <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${
                   complianceScore >= 80
@@ -2608,12 +2615,12 @@ export default function PPM() {
                     : "bg-red-50 text-red-700 border-red-200"
                 }`}>
                   <ShieldCheck className="h-3 w-3" />
-                  {complianceScore}% compliant
+                  {t("page.complianceScore", { score: complianceScore })}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
+              <p className="text-sm text-muted-foreground">{t("page.subtitle")}</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -2640,7 +2647,7 @@ export default function PPM() {
               className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60 hover:bg-destructive/5"
             >
               <Trash2 className="h-4 w-4" />
-              {deleteDemoMutation.isPending ? "Deleting…" : "Delete All Demo Data"}
+              {deleteDemoMutation.isPending ? t("page.deletingDemo") : t("page.deleteAllDemoData")}
             </Button>
           )}
           <Button
@@ -2651,7 +2658,7 @@ export default function PPM() {
             className={`gap-1.5 ${isEmpty ? "animate-pulse" : ""}`}
           >
             <Sparkles className="h-4 w-4" />
-            {demoDataMutation.isPending ? "Loading…" : "Load Demo Data"}
+            {demoDataMutation.isPending ? t("page.loadingDemo") : t("page.loadDemoData")}
           </Button>
         </div>
       </div>
@@ -2662,14 +2669,13 @@ export default function PPM() {
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
           <BellOff className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Automated notifications are currently disabled</p>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{t("page.notificationsDisabledTitle")}</p>
             <p className="text-xs text-amber-700 dark:text-amber-400">
-              The following alert types are suppressed until notifications are re-enabled:
-              overdue work order reminders, missing certificate alerts, missing document warnings, and document expiry notifications.{" "}
+              {t("page.notificationsDisabledDesc")}{" "}
               <Link href="/settings" className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">
-                Go to Notification Settings
+                {t("page.goToNotificationSettings")}
               </Link>{" "}
-              to turn them back on.
+              {t("page.toTurnOn")}
             </p>
           </div>
         </div>
@@ -2682,8 +2688,8 @@ export default function PPM() {
           <div className="flex items-center gap-3 px-4 py-2.5 mb-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
             <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
             <span>
-              <span className="font-semibold">{overdueCount} overdue work order{overdueCount !== 1 ? "s" : ""}</span>
-              {" "}— action required.
+              <span className="font-semibold">{overdueCount !== 1 ? t("page.overdueWorkOrdersPlural", { count: overdueCount }) : t("page.overdueWorkOrdersSingular", { count: overdueCount })}</span>
+              {" "}{t("page.actionRequired")}
             </span>
             <Button
               variant="ghost"
@@ -2691,7 +2697,7 @@ export default function PPM() {
               className="ml-auto h-7 text-red-700 hover:bg-red-100 text-xs"
               onClick={() => setActiveTab("work-orders")}
             >
-              View now →
+              {t("page.viewNow")}
             </Button>
           </div>
         );
@@ -2700,22 +2706,22 @@ export default function PPM() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="dashboard" className="flex items-center gap-1.5">
-            <LayoutDashboard className="h-4 w-4" />Dashboard
+            <LayoutDashboard className="h-4 w-4" />{t("page.tabs.dashboard")}
           </TabsTrigger>
           <TabsTrigger value="assets" className="flex items-center gap-1.5">
-            <Building2 className="h-4 w-4" />Assets
+            <Building2 className="h-4 w-4" />{t("page.tabs.assets")}
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex items-center gap-1.5">
-            <ClipboardList className="h-4 w-4" />Templates
+            <ClipboardList className="h-4 w-4" />{t("page.tabs.templates")}
           </TabsTrigger>
           <TabsTrigger value="schedules" className="flex items-center gap-1.5">
-            <CalendarClock className="h-4 w-4" />Schedules
+            <CalendarClock className="h-4 w-4" />{t("page.tabs.schedules")}
           </TabsTrigger>
           <TabsTrigger value="work-orders" className="flex items-center gap-1.5">
-            <ClipboardCheck className="h-4 w-4" />Work Orders
+            <ClipboardCheck className="h-4 w-4" />{t("page.tabs.workOrders")}
           </TabsTrigger>
           <TabsTrigger value="annual-planner" className="flex items-center gap-1.5">
-            <CalendarDays className="h-4 w-4" />Annual Planner
+            <CalendarDays className="h-4 w-4" />{t("page.tabs.annualPlanner")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard" className="mt-4"><PpmDashboard /></TabsContent>
