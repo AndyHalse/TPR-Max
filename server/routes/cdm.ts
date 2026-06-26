@@ -6,7 +6,7 @@ import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { EmailService } from '../emailService';
-import { eq, and, sql, inArray, isNotNull, lte } from 'drizzle-orm';
+import { eq, and, sql, inArray, isNotNull, lte, gte } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { reevaluateCompanyApproval } from '../utils/contractorCompliance';
 
@@ -158,7 +158,7 @@ app.get("/api/cdm/projects", requireAuth, async (req, res) => {
 app.get("/api/cdm/projects/export-pdf", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
-    const db = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db, siteContext } = await getScopedDb(req);
     const username = req.user!.username;
     const settingsContext = simpleDatabaseService.createCustomerContext(username, req.customerId!);
     const companySettings = await simpleDatabaseService.getCompanySettings(settingsContext);
@@ -194,11 +194,13 @@ app.get("/api/cdm/projects/export-pdf", requireAuth, async (req, res) => {
     const companyIdFilter = typeof req.query.companyId === 'string' && req.query.companyId ? req.query.companyId : null;
 
     // Build WHERE conditions for cdmProjects
-    const filterConditions: SQL<boolean>[] = [];
+    const siteFilter = scopedWhere(siteContext, isolatedSchema.cdmProjects);
+    const filterConditions: any[] = [];
     if (statusFilter) filterConditions.push(eq(isolatedSchema.cdmProjects.status, statusFilter));
     if (fromDate) filterConditions.push(gte(isolatedSchema.cdmProjects.startDate, fromDate));
     if (toDate) filterConditions.push(lte(isolatedSchema.cdmProjects.startDate, toDate));
     if (companyIdFilter) filterConditions.push(eq(isolatedSchema.cdmProjects.companyId, companyIdFilter));
+    if (siteFilter) filterConditions.push(siteFilter);
 
     const projectsBaseQuery = db.select().from(isolatedSchema.cdmProjects);
     const projectsFilteredQuery = filterConditions.length > 0
@@ -628,9 +630,9 @@ app.get("/api/cdm/projects/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const db = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db, siteContext } = await getScopedDb(req);
     const [project] = await db.select().from(isolatedSchema.cdmProjects)
-      .where(eq(isolatedSchema.cdmProjects.id, id));
+      .where(and(eq(isolatedSchema.cdmProjects.id, id), scopedWhere(siteContext, isolatedSchema.cdmProjects)));
     if (!project) return res.status(404).json({ error: "CDM project not found" });
     res.json(project);
   } catch (error) {
@@ -692,7 +694,7 @@ app.put("/api/cdm/projects/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const db = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db, siteContext } = await getScopedDb(req);
     const data = req.body;
     const updates: Record<string, any> = {};
     if (data.title !== undefined) updates.title = data.title;
@@ -730,7 +732,7 @@ app.put("/api/cdm/projects/:id", requireAuth, async (req, res) => {
     if (data.notes !== undefined) updates.notes = data.notes;
     const [project] = await db.update(isolatedSchema.cdmProjects)
       .set(updates)
-      .where(eq(isolatedSchema.cdmProjects.id, id))
+      .where(and(eq(isolatedSchema.cdmProjects.id, id), scopedWhere(siteContext, isolatedSchema.cdmProjects)))
       .returning();
     if (!project) return res.status(404).json({ error: "CDM project not found" });
     res.json(project);
@@ -745,9 +747,9 @@ app.delete("/api/cdm/projects/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const db = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db, siteContext } = await getScopedDb(req);
     await db.delete(isolatedSchema.cdmProjects)
-      .where(eq(isolatedSchema.cdmProjects.id, id));
+      .where(and(eq(isolatedSchema.cdmProjects.id, id), scopedWhere(siteContext, isolatedSchema.cdmProjects)));
     res.json({ success: true });
   } catch (error) {
     logger.error("Error deleting CDM project:", error);
@@ -760,7 +762,7 @@ app.patch("/api/cdm/projects/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const db = await customerDbService.getCustomerDatabase(req.customerId!);
+    const { db, siteContext } = await getScopedDb(req);
     const data = req.body;
     const updates: Record<string, any> = {};
     if (data.title !== undefined) updates.title = data.title;
@@ -798,7 +800,7 @@ app.patch("/api/cdm/projects/:id", requireAuth, async (req, res) => {
     if (data.welfareChanging !== undefined) updates.welfareChanging = data.welfareChanging;
     if (data.notes !== undefined) updates.notes = data.notes;
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: "No fields to update" });
-    const [project] = await db.update(isolatedSchema.cdmProjects).set(updates).where(eq(isolatedSchema.cdmProjects.id, id)).returning();
+    const [project] = await db.update(isolatedSchema.cdmProjects).set(updates).where(and(eq(isolatedSchema.cdmProjects.id, id), scopedWhere(siteContext, isolatedSchema.cdmProjects))).returning();
     if (!project) return res.status(404).json({ error: "CDM project not found" });
     res.json(project);
   } catch (error) {
