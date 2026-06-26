@@ -184,6 +184,14 @@ const requirePPMFeature = async (req: any, res: any, next: any) => {
         error: 'PPM module is not enabled for your account. Please contact support.'
       });
     }
+    // Ensure PPM-specific DB columns exist for this customer (idempotent, memoised per-process).
+    // Doing this here covers ALL authenticated PPM routes — including work-order routes that
+    // previously didn't call ensurePpmColumns, which would crash on scopedWhere if site_id
+    // hadn't been added yet (e.g. server restart followed by a deep-link to /ppm/work-orders).
+    if (req.customerId) {
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await ensurePpmColumns(custDb, context.customerId);
+    }
     next();
   } catch (error) {
     next(error);
@@ -842,7 +850,7 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
 
     const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
       .set({ contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail, accessToken: newAccessToken, accessTokenExpiresAt: newTokenExpiresAt })
-      .where(eq(isolatedSchema.ppmWorkOrders.id, id))
+      .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
       .returning();
 
     // Send notification email to the assigned contractor (only if email provided — explicit no-notification semantics if omitted)
