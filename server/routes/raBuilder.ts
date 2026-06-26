@@ -215,6 +215,7 @@ export function registerRaBuilderRoutes(app: Express): void {
         .insert(sharedRamsDocuments)
         .values({
           customerId: req.customerId!,
+          siteId: assessment.siteId || null,
           ramsIdRef,
           documentName: `${assessment.title} (RA Builder)`,
           documentUrl: `/ra-builder?open=${id}`,

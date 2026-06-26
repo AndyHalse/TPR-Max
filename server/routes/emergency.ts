@@ -2895,23 +2895,28 @@ ${evacuationPhotosData.length > 0 ? `
       const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
+      const { db: custDb, siteId: irSiteId, siteContext: irSiteCtx } = await getScopedDb(req);
+
       // Fetch all completed/cancelled evacuations from shared DB for this customer
+      // For enterprise customers, filter to the active site only.
       const completedEvacs = await db
         .select()
         .from(evacuations)
         .where(and(
           eq(evacuations.customerId, customerId),
+          ...(irSiteId ? [eq(evacuations.siteId, irSiteId)] : []),
           inArray(evacuations.status, ["completed", "cancelled"])
         ))
         .orderBy(desc(evacuations.completedAt));
-
-      const custDb = await customerDbService.getCustomerDatabase(customerId);
 
       // Get existing incident report records (keyed by evacuationId)
       const existingReports = await custDb
         .select()
         .from(isolatedSchema.incidentReports)
-        .where(eq(isolatedSchema.incidentReports.customerId, customerId));
+        .where(and(
+          eq(isolatedSchema.incidentReports.customerId, customerId),
+          scopedWhere(irSiteCtx, isolatedSchema.incidentReports)
+        ));
 
       // Build map — if duplicates exist for same evacuationId, keep the one with the oldest generatedAt
       const existingByEvacId = new Map<string, typeof existingReports[0]>();
@@ -2952,6 +2957,7 @@ ${evacuationPhotosData.length > 0 ? `
             const [inserted] = await custDb.insert(isolatedSchema.incidentReports).values({
               evacuationId: evac.evacuationId,
               customerId,
+              siteId: evac.siteId || null,
               isDrill: evac.isDrill || false,
               activatedBy: evac.activatedBy || null,
               startedAt: evac.startedAt ? new Date(evac.startedAt) : null,
@@ -2995,14 +3001,15 @@ ${evacuationPhotosData.length > 0 ? `
       const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
-      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: custDb, siteContext: irDelCtx } = await getScopedDb(req);
 
       const updated = await custDb
         .update(isolatedSchema.incidentReports)
         .set({ deletedAt: new Date() })
         .where(and(
           eq(isolatedSchema.incidentReports.id, id),
-          eq(isolatedSchema.incidentReports.customerId, customerId)
+          eq(isolatedSchema.incidentReports.customerId, customerId),
+          scopedWhere(irDelCtx, isolatedSchema.incidentReports)
         ))
         .returning();
 

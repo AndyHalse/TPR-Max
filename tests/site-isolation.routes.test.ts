@@ -268,6 +268,78 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
   }, 30_000);
 
   /**
+   * RA Builder by-id — Site B cannot read/update/delete Site A's RA by ID.
+   *
+   * Creates an assessment at Site A, then verifies Site B's agent gets 404
+   * on GET /api/ra-builder/assessments/:id, PUT /api/ra-builder/assessments/:id,
+   * and DELETE /api/ra-builder/assessments/:id for that ID.
+   *
+   * PROVE-IT-BITES: in server/routes/raBuilder.ts, on the GET /:id handler,
+   * change the .where() clause from:
+   *   and(eq(raBuilderAssessments.id, id), scopedWhere(siteContext, ...))
+   * to:
+   *   eq(raBuilderAssessments.id, id)
+   * and this test goes RED because Site B receives 200 for Site A's RA.
+   * Restore the scopedWhere → GREEN.
+   */
+  it("RA Builder by-id — Site B cannot GET/PUT/DELETE Site A's assessment", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+
+    // Create an assessment at Site A
+    const createRes = await agentA.post("/api/ra-builder/assessments").send({
+      title: `RA-ByID-SiteA-${ts}`,
+      description: "Site isolation by-id test",
+      type: "general",
+      status: "draft",
+      riskLevel: "low",
+      location: "ISO By-ID Location",
+      assessedBy: "ISO Tester",
+      assessmentDate: new Date().toISOString(),
+    });
+    expect(
+      [200, 201],
+      `Site A RA create must succeed (status ${createRes.status}): ${JSON.stringify(createRes.body)}`
+    ).toContain(createRes.status);
+    const raId: string | undefined = createRes.body?.id;
+    expect(raId, "RA create must return an id").toBeTruthy();
+    if (!raId) return;
+
+    // Site A can read its own assessment
+    const getResA = await agentA.get(`/api/ra-builder/assessments/${raId}`);
+    expect(
+      [200],
+      `Site A must be able to GET its own RA (status ${getResA.status})`
+    ).toContain(getResA.status);
+
+    // Site B must NOT be able to GET Site A's assessment by ID
+    const getResB = await agentB.get(`/api/ra-builder/assessments/${raId}`);
+    expect(
+      [403, 404],
+      `Site B must NOT GET Site A RA by id — cross-site leak! (status ${getResB.status}: ${JSON.stringify(getResB.body)})`
+    ).toContain(getResB.status);
+
+    // Site B must NOT be able to PUT (update) Site A's assessment
+    const putResB = await agentB.put(`/api/ra-builder/assessments/${raId}`).send({ title: "Hijacked" });
+    expect(
+      [403, 404],
+      `Site B must NOT PUT Site A RA by id — cross-site leak! (status ${putResB.status}: ${JSON.stringify(putResB.body)})`
+    ).toContain(putResB.status);
+
+    // Site B must NOT be able to DELETE Site A's assessment
+    const delResB = await agentB.delete(`/api/ra-builder/assessments/${raId}`);
+    expect(
+      [403, 404],
+      `Site B must NOT DELETE Site A RA by id — cross-site leak! (status ${delResB.status}: ${JSON.stringify(delResB.body)})`
+    ).toContain(delResB.status);
+
+    // Cleanup: Site A deletes its own assessment
+    await agentA.delete(`/api/ra-builder/assessments/${raId}`);
+  }, 30_000);
+
+  /**
    * Induction admin tokens — custom-filtered route (not using scopedWhere).
    *
    * This test validates the bespoke post-query filter in

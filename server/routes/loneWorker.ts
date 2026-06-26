@@ -122,6 +122,7 @@ async function processLoneWorkerSession(session: any, customerDb: any, now: Date
         await customerDb.insert(isolatedSchema.incidentReports).values({
           evacuationId: `lone-worker-${session.id}`,
           customerId: session.customerId,
+          siteId: session.siteId || null,
           isDrill: false,
           activatedBy: 'Lone Worker System (L3 Alert)',
           startedAt: new Date(session.startedAt),
