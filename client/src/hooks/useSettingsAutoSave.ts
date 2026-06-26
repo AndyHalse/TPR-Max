@@ -35,11 +35,15 @@ export function useSettingsAutoSave() {
     },
     onError: (error: any) => {
       const msg = error?.message || '';
-      const isAuthError = msg.toLowerCase().includes('authentication') || msg.toLowerCase().includes('unauthorized') || msg.includes('401');
+      const status = error?.status ?? 0;
+      const isAuthError = status === 401 || msg.toLowerCase().includes('authentication') || msg.toLowerCase().includes('unauthorized') || msg.includes('401');
+      const isAdminError = status === 403 || msg.toLowerCase().includes('administrator') || msg.toLowerCase().includes('forbidden');
       toast({
-        title: isAuthError ? "Session Expired" : "Auto-save Error",
+        title: isAuthError ? "Session Expired" : isAdminError ? "Admin Access Required" : "Auto-save Error",
         description: isAuthError
           ? "Your session has expired. Please refresh the page and log in again."
+          : isAdminError
+          ? "Only administrators can change these settings. Please contact your account admin."
           : "Failed to save settings. Please try again.",
         variant: "destructive",
       });

@@ -38,6 +38,7 @@ export default function SystemSettings() {
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role: string }>({
     queryKey: ["/api/auth/me"],
   });
+  const isAdmin = currentUser?.role === 'admin';
 
   const backupMutation = useMutation({
     mutationFn: async () => {
@@ -779,8 +780,17 @@ export default function SystemSettings() {
     <p className="text-sm text-variable mb-6">
       Disable unused features to simplify your interface and reduce complexity for your team.
     </p>
+
+    {!isAdmin && (
+      <div className="flex items-center gap-3 mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          Administrator access is required to change feature settings. Contact your account admin.
+        </p>
+      </div>
+    )}
     
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${!isAdmin ? 'opacity-60 pointer-events-none select-none' : ''}`}>
       {/* ── Core Navigation ───────────────────────────────── */}
       {/* Dashboard */}
       <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
