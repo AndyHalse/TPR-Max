@@ -1,9 +1,7 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { simpleDatabaseService } from '../simpleDatabaseService';
-import { customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
@@ -29,7 +27,7 @@ export function registerHelpdeskRoutes(app: Express): void {
 // GET /api/helpdesk/tickets — return all tickets, newest first
 app.get("/api/helpdesk/tickets", requireAuth, async (req, res) => {
   try {
-    const { db: custDb, siteId, siteContext } = await getScopedDb(req);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const rows = await custDb.select().from(isolatedSchema.helpDeskTickets)
       .where(scopedWhere(siteContext, isolatedSchema.helpDeskTickets))
       .orderBy(sql`${isolatedSchema.helpDeskTickets.createdAt} DESC`);
@@ -45,18 +43,19 @@ app.get("/api/helpdesk/tickets", requireAuth, async (req, res) => {
 app.post("/api/helpdesk/tickets", requireAuth, async (req, res) => {
   try {
     const parsed = isolatedSchema.insertHelpDeskTicketSchema.parse(req.body);
-    const { db: custDb, siteId } = await getScopedDb(req);
+    const { db: custDb, siteId, siteContext } = await getScopedDb(req);
 
-    // Base the next number on the highest existing HD-#### number, not the row count —
-    // counting rows reuses numbers after a delete. Retry up to 5 times on the off-chance
-    // two tickets are created at the same instant (the unique constraint rejects a clash).
+    // Base the next number on the highest existing HD-#### number within the active site
+    // (so each site has its own sequence for enterprise customers). Retry up to 5 times on
+    // the off-chance two tickets are created at the same instant (unique constraint rejects clash).
     let row;
     for (let attempt = 0; attempt < 5; attempt++) {
       const [maxRow] = await custDb
         .select({
           maxNum: sql<number>`COALESCE(MAX(NULLIF(regexp_replace(${isolatedSchema.helpDeskTickets.ticketNumber}, '\\D', '', 'g'), '')::int), 0)`,
         })
-        .from(isolatedSchema.helpDeskTickets);
+        .from(isolatedSchema.helpDeskTickets)
+        .where(scopedWhere(siteContext, isolatedSchema.helpDeskTickets));
       const nextNum = (maxRow?.maxNum ?? 0) + 1 + attempt;
       const ticketNumber = `HD-${String(nextNum).padStart(3, "0")}`;
       try {
@@ -82,13 +81,13 @@ app.post("/api/helpdesk/tickets", requireAuth, async (req, res) => {
 app.get("/api/helpdesk/tickets/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const [row] = await custDb.select().from(isolatedSchema.helpDeskTickets)
-      .where(eq(isolatedSchema.helpDeskTickets.id, id));
+      .where(and(eq(isolatedSchema.helpDeskTickets.id, id), scopedWhere(siteContext, isolatedSchema.helpDeskTickets)));
     if (!row) return res.status(404).json({ error: "Ticket not found" });
     res.json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("GET /api/helpdesk/tickets/:id", error);
     res.status(500).json({ error: "Failed to fetch help desk ticket" });
   }
@@ -113,15 +112,15 @@ app.put("/api/helpdesk/tickets/:id", requireAuth, async (req, res) => {
         updates.resolvedAt = null;
       }
     }
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const [row] = await custDb.update(isolatedSchema.helpDeskTickets)
       .set(updates)
-      .where(eq(isolatedSchema.helpDeskTickets.id, id))
+      .where(and(eq(isolatedSchema.helpDeskTickets.id, id), scopedWhere(siteContext, isolatedSchema.helpDeskTickets)))
       .returning();
     if (!row) return res.status(404).json({ error: "Ticket not found" });
     res.json(row);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("PUT /api/helpdesk/tickets/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update help desk ticket" });
   }
@@ -132,31 +131,35 @@ app.delete("/api/helpdesk/tickets/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    await custDb.delete(isolatedSchema.helpDeskTickets).where(eq(isolatedSchema.helpDeskTickets.id, id));
+    const { db: custDb, siteContext } = await getScopedDb(req);
+    const deleted = await custDb.delete(isolatedSchema.helpDeskTickets)
+      .where(and(eq(isolatedSchema.helpDeskTickets.id, id), scopedWhere(siteContext, isolatedSchema.helpDeskTickets)))
+      .returning({ id: isolatedSchema.helpDeskTickets.id });
+    if (deleted.length === 0) return res.status(404).json({ error: "Ticket not found" });
     res.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("DELETE /api/helpdesk/tickets/:id", error);
     res.status(500).json({ error: "Failed to delete help desk ticket" });
   }
 });
 
-// GET /api/helpdesk/stats — ticket counts grouped by status
+// GET /api/helpdesk/stats — ticket counts grouped by status (scoped to active site for enterprise)
 app.get("/api/helpdesk/stats", requireAuth, async (req, res) => {
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const { db: custDb, siteContext } = await getScopedDb(req);
     const rows = await custDb.select({
       status: isolatedSchema.helpDeskTickets.status,
       count: sql<number>`count(*)::int`,
     })
       .from(isolatedSchema.helpDeskTickets)
+      .where(scopedWhere(siteContext, isolatedSchema.helpDeskTickets))
       .groupBy(isolatedSchema.helpDeskTickets.status);
     const stats = Object.fromEntries(rows.map(r => [r.status, r.count]));
     const total = rows.reduce((sum, r) => sum + r.count, 0);
     res.json({ ...stats, total });
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error("GET /api/helpdesk/stats", error);
     res.status(500).json({ error: "Failed to fetch help desk stats" });
   }

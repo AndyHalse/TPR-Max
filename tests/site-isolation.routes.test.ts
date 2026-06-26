@@ -231,6 +231,67 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
     });
   }, 30_000);
 
+  /**
+   * Help Desk by-id — Site B cannot GET or PUT Site A's ticket by ID.
+   *
+   * Creates a ticket at Site A, then verifies Site B's agent gets 404
+   * on GET /api/helpdesk/tickets/:id and PUT /api/helpdesk/tickets/:id
+   * for that ID.
+   *
+   * PROVE-IT-BITES: in server/routes/helpdesk.ts, on the GET /:id handler,
+   * change the .where() clause from:
+   *   and(eq(helpDeskTickets.id, id), scopedWhere(siteContext, ...))
+   * to:
+   *   eq(helpDeskTickets.id, id)
+   * and this test goes RED because Site B receives 200 for Site A's ticket.
+   * Restore the scopedWhere → GREEN.
+   */
+  it("helpdesk by-id — Site B cannot GET or PUT Site A's ticket", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+
+    // Create a ticket at Site A
+    const createRes = await agentA.post("/api/helpdesk/tickets").send({
+      title: `HD-ByID-SiteA-${ts}`,
+      description: "Site isolation by-id test",
+      category: "it",
+      priority: "low",
+    });
+    expect(
+      [200, 201],
+      `Site A ticket create must succeed (status ${createRes.status}): ${JSON.stringify(createRes.body)}`
+    ).toContain(createRes.status);
+    const ticketId: string | undefined = createRes.body?.id;
+    expect(ticketId, "Ticket create must return an id").toBeTruthy();
+    if (!ticketId) return;
+
+    // Site A can read its own ticket
+    const getResA = await agentA.get(`/api/helpdesk/tickets/${ticketId}`);
+    expect(
+      [200],
+      `Site A must be able to GET its own ticket (status ${getResA.status})`
+    ).toContain(getResA.status);
+
+    // Site B must NOT be able to GET Site A's ticket by ID
+    const getResB = await agentB.get(`/api/helpdesk/tickets/${ticketId}`);
+    expect(
+      [403, 404],
+      `Site B must NOT GET Site A ticket by id — cross-site leak! (status ${getResB.status}: ${JSON.stringify(getResB.body)})`
+    ).toContain(getResB.status);
+
+    // Site B must NOT be able to PUT (update) Site A's ticket
+    const putResB = await agentB.put(`/api/helpdesk/tickets/${ticketId}`).send({ title: "Hijacked" });
+    expect(
+      [403, 404],
+      `Site B must NOT PUT Site A ticket by id — cross-site leak! (status ${putResB.status}: ${JSON.stringify(putResB.body)})`
+    ).toContain(putResB.status);
+
+    // Cleanup: Site A deletes its own ticket (admin role required)
+    await agentA.delete(`/api/helpdesk/tickets/${ticketId}`);
+  }, 30_000);
+
   it("PPM assets (POST /api/ppm/assets / GET /api/ppm/assets) — requires admin role", async () => {
     await expectIsolated({
       label: "ppm-assets",
