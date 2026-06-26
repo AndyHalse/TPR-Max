@@ -65,6 +65,25 @@ export async function seedEnterpriseTestCustomer(): Promise<SeedResult> {
   const pg = new PgClient({ connectionString: getDbUrl() });
   await pg.connect();
   try {
+    // ── Pre-test sweep ────────────────────────────────────────────────────────
+    // Remove any stale test-generated rows left over by a prior aborted run.
+    // Identified by stable description/location tags that only the test harness
+    // sets — never touches real demo/production data.
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".help_desk_tickets
+       WHERE description IN (
+         'ISO_HDISOTEST',
+         'ISOLATION_TEST_FLOOR'
+       )`
+    ).catch(() => {});
+
+    // RA Builder: clean orphaned assessments left by aborted runs
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".ra_builder_assessments
+       WHERE description = 'Site isolation by-id test'
+          OR location = 'ISO By-ID Location'`
+    ).catch(() => {});
+
     // Enable enterprise mode
     await pg.query(
       `UPDATE customers SET is_enterprise = TRUE WHERE id = $1`,
@@ -138,6 +157,28 @@ export async function cleanupEnterpriseTestCustomer(seed: SeedResult): Promise<v
   const pg = new PgClient({ connectionString: getDbUrl() });
   await pg.connect();
   try {
+    // Clean up test-generated data that does NOT cascade from the sites delete.
+    // Each table is cleaned before the sites rows are removed so FK constraints
+    // (if any) don't block the site deletes.
+    const schema = seed.customerSchema;
+    const siteIds = [seed.siteAId, seed.siteBId];
+
+    // Helpdesk tickets: rows inserted by seedHelpdeskTicketRaw use the
+    // description tag 'ISO_HDISOTEST' so they can be reliably deleted here.
+    await pg.query(
+      `DELETE FROM "${schema}".help_desk_tickets
+       WHERE description = 'ISO_HDISOTEST'
+          OR site_id = ANY($1::text[])`,
+      [siteIds]
+    ).catch(() => {});
+
+    // RA Builder assessments: clean by site_id for the current run's sites.
+    await pg.query(
+      `DELETE FROM "${schema}".ra_builder_assessments
+       WHERE site_id = ANY($1::text[])`,
+      [siteIds]
+    ).catch(() => {});
+
     // Revoke site_coordinator grants for the test sites first (explicit delete —
     // the FK cascade from sites should also cover this, but be explicit).
     await pg.query(
@@ -293,6 +334,89 @@ export async function cleanupRoleScopeUser(
       `DELETE FROM "${seed.customerSchema}".users WHERE id = $1`,
       [userId]
     );
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Insert a helpdesk ticket directly via SQL for a specific site, bypassing the
+ * server's auto-generated ticket_number (which has a schema-wide unique constraint
+ * that clashes with existing demo data in a shared dev DB).
+ *
+ * ticket_number uses a timestamp-based unique string (no HD-### format) so it
+ * never conflicts with real tickets.  description is always 'ISO_HDISOTEST' so
+ * cleanupEnterpriseTestCustomer can reliably delete these rows.
+ *
+ * Returns the inserted row id.
+ */
+export async function seedHelpdeskTicketRaw(
+  siteId: string,
+  title: string,
+): Promise<string> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const ticketNumber = `ISOTEST-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const res = await pg.query<{ id: string }>(
+      `INSERT INTO "${TEST_CUSTOMER_SCHEMA}".help_desk_tickets
+         (ticket_number, title, description, category, priority, status, site_id)
+       VALUES ($1, $2, 'ISO_HDISOTEST', 'it', 'medium', 'open', $3)
+       RETURNING id`,
+      [ticketNumber, title, siteId]
+    );
+    return res.rows[0].id;
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Delete a helpdesk ticket inserted by seedHelpdeskTicketRaw.
+ */
+export async function deleteHelpdeskTicketRaw(ticketId: string): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".help_desk_tickets WHERE id = $1`,
+      [ticketId]
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
+export async function ensureCdmProjectsColumns(): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const schema = TEST_CUSTOMER_SCHEMA;
+    const stmts = [
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS cpp_status TEXT NOT NULL DEFAULT 'not_prepared'`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS cpp_date TEXT`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS cpp_notes TEXT`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS pci_status TEXT NOT NULL DEFAULT 'not_prepared'`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS pci_date TEXT`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS pci_notes TEXT`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS hsf_status TEXT NOT NULL DEFAULT 'not_started'`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS hsf_date TEXT`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS hsf_notes TEXT`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS welfare_toilets BOOLEAN DEFAULT false`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS welfare_washing BOOLEAN DEFAULT false`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS welfare_rest_area BOOLEAN DEFAULT false`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS welfare_drinking_water BOOLEAN DEFAULT false`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS welfare_changing BOOLEAN DEFAULT false`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS notes TEXT`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS f10_alert_sent_at TIMESTAMP`,
+      `ALTER TABLE "${schema}".cdm_projects ADD COLUMN IF NOT EXISTS site_id VARCHAR`,
+    ];
+    for (const sql of stmts) {
+      try {
+        await pg.query(sql);
+      } catch {
+      }
+    }
   } finally {
     await pg.end();
   }

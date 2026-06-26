@@ -33,3 +33,44 @@ the extracted field value.
 ## sites table id is varchar, not uuid
 
 Cleanup queries must use `ANY($1::text[])`, not `ANY($1::uuid[])`.
+
+## List response shape normalization
+
+Routes return three different shapes — `expectIsolated` handles all:
+- Plain array: `Array.isArray(body)`
+- `{ items: [...] }` — most routes
+- `{ records: [...], total, page, pageSize }` — audit engine paginated response
+
+Fallback chain: `body?.items ?? body?.records ?? (Array.isArray(body) ? body : [])`.
+
+## Helpdesk ticket_number design flaw (schema-wide unique + per-site sequential)
+
+`help_desk_tickets.ticket_number` has a schema-wide UNIQUE constraint but the route
+generates per-site sequential numbers starting from 1 (HD-001, HD-002…).
+Dev/demo data occupies HD-001 through HD-008 across multiple sites; a 5-attempt retry
+loop is not enough to skip past them.
+
+**Fix for tests**: use `seedHelpdeskTicketRaw(siteId, title)` from
+`tests/helpers/seedEnterprise.ts` to insert tickets directly via SQL with a
+collision-safe `ISOTEST-{timestamp}-{rand}` ticket_number. Test only GET list and
+GET/PUT by-id isolation (not POST creation).
+
+**Cleanup**: match on `description = 'ISO_HDISOTEST'` (set by the helper) or
+`site_id = ANY([siteAId, siteBId])`. Pre-test sweep in `seedEnterpriseTestCustomer`
+deletes stale `ISO_HDISOTEST` rows so aborted runs don't pollute the next one.
+
+## RA Builder DELETE HTTP status quirk
+
+`DELETE /api/ra-builder/assessments/:id` uses `scopedWhere` so cross-site calls
+delete 0 rows (data isolation is correct), but the route always returns
+`{ success: true }` even when 0 rows are deleted.
+
+Test with a DATA-level assertion: verify Site A can still GET its record after
+Site B's DELETE attempt, rather than asserting [403, 404] on the HTTP status.
+
+## CDM projects schema migrations
+
+`cdm_projects` may be missing columns (cpp_status, pci_status, hsf_status,
+welfare_*, site_id, notes, f10_alert_sent_at) in a stale customer schema.
+Call `ensureCdmProjectsColumns()` at the start of the CDM test block; it runs
+`ALTER TABLE … ADD COLUMN IF NOT EXISTS` for each column (idempotent).
