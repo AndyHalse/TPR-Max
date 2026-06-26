@@ -2657,8 +2657,20 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           const r = await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE ${ptwConditions.join(' OR ')}`, ptwParams);
           deleted['permit_to_work'] = r.rowCount ?? 0;
         } catch (e) { logger.warn(`Clear sample: permit_to_work — ${(e as any).message}`); }
-        // Contractor pre-bookings — by company FK and by all test email domains
-        await del('contractor_prebookings', `WHERE company_id IN (${cP})`, companyIds);
+        // Contractor pre-bookings — by company name (contractor_prebookings has no company_id FK;
+        // it stores company_name as text) and by all test email domains.
+        // Companies are not deleted until Step 6, so this subquery is safe here in Step 3.
+        try {
+          const r = await pool.query(
+            `DELETE FROM "${schemaName}".contractor_prebookings ` +
+            `WHERE company_name IN (SELECT company_name FROM "${schemaName}".contractor_companies WHERE id IN (${cP}))`,
+            companyIds
+          );
+          deleted['contractor_prebookings'] = (deleted['contractor_prebookings'] ?? 0) + (r.rowCount ?? 0);
+        } catch (e) {
+          if ((e as any).code !== '42P01') failures.push(`contractor_prebookings: ${(e as any).message}`);
+          logger.warn(`Clear sample: contractor_prebookings (by company) — ${(e as any).message}`);
+        }
         await del('contractor_prebookings', `WHERE contact_email LIKE '%@example.com' OR contact_email LIKE '%@acsltd.eu' OR contact_email LIKE '%@test.example'`);
         await del('contractor_prebookings', `WHERE worker_email  LIKE '%@example.com' OR worker_email  LIKE '%@acsltd.eu' OR worker_email  LIKE '%@test.example'`);
         await del('contractor_prebookings', `WHERE qr_code LIKE 'CTPB-DEMO-%'`);
