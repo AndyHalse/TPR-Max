@@ -199,7 +199,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
   app.post("/api/contractor-workers/:id/lone-worker/start", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { db: customerDb, siteId } = await getScopedDb(req);
       const { id } = req.params;
       const cryptoMod = await import('crypto');
 
@@ -220,7 +220,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
       const gracePeriodMins = settings?.loneWorkerGracePeriodMins || 10;
       const deadline = new Date(Date.now() + intervalMins * 60000);
 
-      const [session] = await customerDb.insert(isolatedSchema.loneWorkerSessions).values({
+      const [session] = await customerDb.insert(isolatedSchema.loneWorkerSessions).values(withSiteId(siteId, {
         customerId,
         personId: id,
         personType: 'contractor',
@@ -229,7 +229,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
         intervalMins,
         gracePeriodMins,
         status: 'active',
-      }).returning();
+      })).returning();
 
       const token = mintLoneWorkerToken(cryptoMod);
       await customerDb.insert(isolatedSchema.loneWorkerTokens).values({
@@ -262,13 +262,16 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
   app.post("/api/contractor-workers/:id/lone-worker/end", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const endedBy = req.body?.endedBy || 'supervisor';
+      const siteFilter = scopedWhere(siteContext, isolatedSchema.loneWorkerSessions);
 
       await customerDb.update(isolatedSchema.loneWorkerSessions)
         .set({ status: 'ended_ok', endedAt: new Date(), endedBy })
-        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'contractor' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
+        .where(siteFilter
+          ? sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'contractor' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated') AND ${siteFilter}`
+          : sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'contractor' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
 
       await customerDb.update(isolatedSchema.contractorWorkers)
         .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
@@ -481,19 +484,21 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
   // GET /api/lone-worker/sessions — session log for Reports page (paginated)
   app.get("/api/lone-worker/sessions", requireAuth, async (req, res) => {
     try {
-      const customerId = req.customerId!;
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
+      const siteFilter = scopedWhere(siteContext, isolatedSchema.loneWorkerSessions);
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
       const offset = (page - 1) * limit;
 
       const [{ count }] = await customerDb
         .select({ count: sql<number>`count(*)::int` })
-        .from(isolatedSchema.loneWorkerSessions);
+        .from(isolatedSchema.loneWorkerSessions)
+        .where(siteFilter);
 
       const sessions = await customerDb
         .select()
         .from(isolatedSchema.loneWorkerSessions)
+        .where(siteFilter)
         .orderBy(sql`${isolatedSchema.loneWorkerSessions.startedAt} DESC`)
         .limit(limit)
         .offset(offset);
