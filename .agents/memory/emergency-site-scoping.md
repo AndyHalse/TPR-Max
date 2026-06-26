@@ -23,6 +23,37 @@ Use `resetSiteId = (req.session as any)?.activeSiteId ?? (validatedStaff as any)
 ## withSiteId helper
 `withSiteId(siteId, values)` — spreads siteId into insert values only when siteId is non-null. Safe for both enterprise (stamps siteId) and non-enterprise (no-op, null siteId ignored).
 
-**Why:** Without site scoping, an enterprise customer's Fire Marshal at Site A could trigger an evacuation that enrolled or checked out people at Site B — a life-safety defect.
+## Dual-auth routes (session + FM header)
+For routes that support both regular session auth and Fire Marshal URL ID auth (like GET /api/muster-points/stats), derive siteId separately for each path:
+```ts
+let statsSiteId: string | null = null;
+if (fireMarshalId) {
+  const result = await databaseService.findFireMarshalByUrlId(fireMarshalId);
+  statsSiteId = (result.marshal as any).siteId || null;
+} else {
+  statsSiteId = (req.session as any)?.activeSiteId ?? null;
+}
+// then: musterSiteId ? eq(table.siteId, musterSiteId) : undefined
+```
 
-**How to apply:** Any new route that reads or writes people/evacuation data in an enterprise context must either use `getScopedDb(req)` + `scopedWhere` (for session-authenticated routes) or derive siteId from the marshal's staff record (for token routes).
+## Evacuation-scoped reads in public monitor endpoints
+For public endpoints that authenticate via evacuationId+customerId (e.g. GET /api/emergency/monitor/:evacuationId), scope evacuationZones reads to the evacuation's own siteId:
+```ts
+const evacSiteId: string | null = (evac as any).siteId || null;
+// in query: .where(evacSiteId ? eq(evacuationZones.siteId, evacSiteId) : undefined)
+```
+
+## GET /api/evacuation/status (session-authenticated)
+Filter evacuations by both customerId AND activeSiteId for enterprise:
+```ts
+const statusActiveSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+.where(and(
+  eq(evacuations.status, 'active'),
+  eq(evacuations.customerId, customerId),
+  statusActiveSiteId ? eq(evacuations.siteId, statusActiveSiteId) : undefined
+))
+```
+
+**Why:** Without site scoping, an enterprise customer's Fire Marshal at Site A could trigger an evacuation that enrolled or checked out people at Site B — a life-safety defect. Admin users at Site B would also see Site A's muster points in the dashboard.
+
+**How to apply:** Any new route that reads or writes people/evacuation data in an enterprise context must either use `getScopedDb(req)` + `scopedWhere` (for session-authenticated routes) or derive siteId from the marshal's staff record (for token routes). For dual-auth routes, handle each path separately.

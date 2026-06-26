@@ -878,14 +878,16 @@ export function registerEmergencyRoutes(app: Express): void {
       }
 
       logger.info(`Checking evacuation status for customer: ${customerId}`);
+      const statusActiveSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
 
-      // Check for active evacuations for the customer only
+      // Check for active evacuations for the customer only (site-scoped for enterprise)
       const activeEvacuations = await db
         .select()
         .from(evacuations)
         .where(and(
           eq(evacuations.status, 'active'),
-          eq(evacuations.customerId, customerId)
+          eq(evacuations.customerId, customerId),
+          statusActiveSiteId ? eq(evacuations.siteId, statusActiveSiteId) : undefined
         ))
         .orderBy(desc(evacuations.startedAt))
         .limit(1);
@@ -3477,11 +3479,14 @@ ${evacuationPhotosData.length > 0 ? `
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const settings = await databaseService.getCompanySettings(context);
 
+      const monitorEvacSiteId: string | null = (evac as any).siteId || null;
       const [currentVisitors, checkedInStaff, contractorCompanies, zones] = await Promise.all([
         databaseService.getCurrentVisitors(context),
         databaseService.getCheckedInStaff(context),
         databaseService.getAllContractorCompanies(context),
-        custDb.select().from(isolatedSchema.evacuationZones).orderBy(isolatedSchema.evacuationZones.displayOrder),
+        custDb.select().from(isolatedSchema.evacuationZones)
+          .where(monitorEvacSiteId ? eq(isolatedSchema.evacuationZones.siteId, monitorEvacSiteId) : undefined)
+          .orderBy(isolatedSchema.evacuationZones.displayOrder),
       ]);
 
       const zoneMap = new Map(zones.map(z => [z.id, { id: z.id, name: z.name, color: z.color }]));
@@ -3684,11 +3689,14 @@ ${evacuationPhotosData.length > 0 ? `
       const custDb = await customerDbService.getCustomerDatabase(foundCustomerId);
       const settings = await databaseService.getCompanySettings(context);
 
+      const incidentMonitorSiteId: string | null = (evac as any).siteId || null;
       const [currentVisitors, checkedInStaff, contractorCompanies, zones, sweepRecords] = await Promise.all([
         databaseService.getCurrentVisitors(context),
         databaseService.getCheckedInStaff(context),
         databaseService.getAllContractorCompanies(context),
-        custDb.select().from(isolatedSchema.evacuationZones).orderBy(isolatedSchema.evacuationZones.displayOrder),
+        custDb.select().from(isolatedSchema.evacuationZones)
+          .where(incidentMonitorSiteId ? eq(isolatedSchema.evacuationZones.siteId, incidentMonitorSiteId) : undefined)
+          .orderBy(isolatedSchema.evacuationZones.displayOrder),
         custDb.select().from(isolatedSchema.zoneSweeps)
           .where(eq(isolatedSchema.zoneSweeps.evacuationId, evac.evacuationId))
           .orderBy(desc(isolatedSchema.zoneSweeps.sweptAt)),
@@ -3849,11 +3857,14 @@ ${evacuationPhotosData.length > 0 ? `
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
       const points = await customerDb
         .select()
         .from(isolatedSchema.musterPoints)
-        .where(eq(isolatedSchema.musterPoints.isActive, true))
+        .where(and(
+          eq(isolatedSchema.musterPoints.isActive, true),
+          scopedWhere(siteContext, isolatedSchema.musterPoints)
+        ))
         .orderBy(isolatedSchema.musterPoints.displayOrder);
 
       res.json(points);
@@ -3868,6 +3879,7 @@ ${evacuationPhotosData.length > 0 ? `
     try {
       // Support both regular auth and Fire Marshal URL ID auth
       let customerId: string | null = null;
+      let statsSiteId: string | null = null;
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       
       if (fireMarshalId) {
@@ -3877,20 +3889,25 @@ ${evacuationPhotosData.length > 0 ? `
           return res.status(401).json({ error: "Invalid Fire Marshal link" });
         }
         customerId = result.customerId;
+        statsSiteId = (result.marshal as any).siteId || null;
       } else if (req.customerId) {
         // Regular session authentication
         customerId = req.customerId;
+        statsSiteId = (req.session as any)?.activeSiteId ?? null;
       } else {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
-      // Get all active muster points
+      // Get active muster points — site-scoped for enterprise multi-site
       const points = await customerDb
         .select()
         .from(isolatedSchema.musterPoints)
-        .where(eq(isolatedSchema.musterPoints.isActive, true))
+        .where(and(
+          eq(isolatedSchema.musterPoints.isActive, true),
+          statsSiteId ? eq(isolatedSchema.musterPoints.siteId, statsSiteId) : undefined
+        ))
         .orderBy(isolatedSchema.musterPoints.displayOrder);
 
       // Get active evacuation if any
@@ -3977,7 +3994,7 @@ ${evacuationPhotosData.length > 0 ? `
       const { id } = req.params;
       const { name, displayOrder, isActive } = req.body;
 
-      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: customerDb, siteContext: putSiteCtx } = await getScopedDb(req);
       
       const [updatedPoint] = await customerDb
         .update(isolatedSchema.musterPoints)
@@ -3987,7 +4004,10 @@ ${evacuationPhotosData.length > 0 ? `
           isActive,
           updatedAt: new Date()
         })
-        .where(eq(isolatedSchema.musterPoints.id, id))
+        .where(and(
+          eq(isolatedSchema.musterPoints.id, id),
+          scopedWhere(putSiteCtx, isolatedSchema.musterPoints)
+        ))
         .returning();
 
       if (!updatedPoint) {
@@ -4010,11 +4030,14 @@ ${evacuationPhotosData.length > 0 ? `
       }
 
       const { id } = req.params;
-      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const { db: customerDb, siteContext: delSiteCtx } = await getScopedDb(req);
       
       await customerDb
         .delete(isolatedSchema.musterPoints)
-        .where(eq(isolatedSchema.musterPoints.id, id));
+        .where(and(
+          eq(isolatedSchema.musterPoints.id, id),
+          scopedWhere(delSiteCtx, isolatedSchema.musterPoints)
+        ));
 
       res.json({ success: true });
     } catch (error) {
@@ -4760,12 +4783,15 @@ ${evacuationPhotosData.length > 0 ? `
       }
       
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      
+      const tokenMusterSiteId: string | null = (marshal as any).siteId || null;
+
       const [currentVisitors, checkedInStaff, contractorCompanies, zones] = await Promise.all([
         databaseService.getCurrentVisitors(context),
         databaseService.getCheckedInStaff(context),
         databaseService.getAllContractorCompanies(context),
-        custDb.select().from(isolatedSchema.evacuationZones).orderBy(isolatedSchema.evacuationZones.displayOrder),
+        custDb.select().from(isolatedSchema.evacuationZones)
+          .where(tokenMusterSiteId ? eq(isolatedSchema.evacuationZones.siteId, tokenMusterSiteId) : undefined)
+          .orderBy(isolatedSchema.evacuationZones.displayOrder),
       ]);
 
       // Build zone lookup map

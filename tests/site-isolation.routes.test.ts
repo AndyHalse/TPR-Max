@@ -1882,4 +1882,74 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
     ).toContain(getResB.status);
   }, 60_000);
 
+  /**
+   * Emergency muster points — GET /api/muster-points list isolation.
+   *
+   * Before the fix in server/routes/emergency.ts, GET /api/muster-points
+   * did not call getScopedDb / scopedWhere; it returned all muster points for
+   * the customer regardless of active site.  The POST (create) already used
+   * withSiteId, so Site A points had a siteId stamp — they were just not
+   * filtered on read.
+   *
+   * PROVE-IT-BITES: in server/routes/emergency.ts GET /api/muster-points,
+   * remove the `scopedWhere(siteContext, isolatedSchema.musterPoints)` from
+   * the .where() clause → Site B receives Site A's muster point in its list
+   * → RED.  Restore → GREEN.
+   */
+  it("emergency muster points — GET /api/muster-points list isolation", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+    const markerA = `ISO-MP-A-${ts}`;
+
+    // Create a muster point at Site A (POST already stamps siteId via withSiteId)
+    const createRes = await agentA.post("/api/muster-points").send({
+      name: markerA,
+      displayOrder: 999,
+    });
+    expect(
+      [200, 201],
+      `Site A muster point create must succeed (status ${createRes.status}): ${JSON.stringify(createRes.body)}`
+    ).toContain(createRes.status);
+    const mpId: string | undefined = createRes.body?.id;
+    expect(mpId, "Muster point create must return an id").toBeTruthy();
+    if (!mpId) return;
+
+    try {
+      // Site A must see its own muster point in the list
+      const listA = await agentA.get("/api/muster-points");
+      expect([200], `Site A list status (${listA.status})`).toContain(listA.status);
+      const itemsA: { name?: string }[] = Array.isArray(listA.body) ? listA.body : [];
+      expect(
+        itemsA.some((p) => p.name === markerA),
+        `Site A must see its own muster point (marker=${markerA})`
+      ).toBe(true);
+
+      // Site B must NOT see Site A's muster point
+      const listB = await agentB.get("/api/muster-points");
+      expect([200], `Site B list status (${listB.status})`).toContain(listB.status);
+      const itemsB: { name?: string }[] = Array.isArray(listB.body) ? listB.body : [];
+      expect(
+        itemsB.some((p) => p.name === markerA),
+        `Site B must NOT see Site A muster point — cross-site leak! (marker=${markerA})`
+      ).toBe(false);
+
+      // Site B must NOT be able to update Site A's muster point
+      const putResB = await agentB.put(`/api/muster-points/${mpId}`).send({
+        name: "Hijacked",
+        displayOrder: 999,
+        isActive: true,
+      });
+      // Route returns 404 when scopedWhere prevents the match
+      expect(
+        [403, 404],
+        `Site B must NOT update Site A muster point (status ${putResB.status}: ${JSON.stringify(putResB.body)})`
+      ).toContain(putResB.status);
+    } finally {
+      // Site A cleans up its own muster point
+      await agentA.delete(`/api/muster-points/${mpId}`);
+    }
+  }, 30_000);
+
 });
