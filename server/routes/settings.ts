@@ -857,10 +857,14 @@ export function registerSettingsRoutes(
 
   app.post("/api/invitations", requireAuth, async (req, res) => {
     try {
-      if (req.user!.role !== "admin") {
+      if (!["admin", "manager"].includes(req.user!.role)) {
         return res.status(403).json({ error: "Administrator access required" });
       }
       const validatedData = insertUserInvitationSchema.omit({ token: true, expires: true, createdAt: true, used: true }).parse(req.body);
+      // Managers cannot invite admin-level users
+      if (req.user!.role === "manager" && validatedData.role === "admin") {
+        return res.status(403).json({ error: "Managers cannot invite administrator accounts" });
+      }
       
       const invContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const invCustomerDb = await customerDbService.getCustomerDatabase(invContext.customerId);
@@ -928,7 +932,7 @@ export function registerSettingsRoutes(
 
   app.get("/api/invitations", requireAuth, async (req, res) => {
     try {
-      if (req.user!.role !== "admin") {
+      if (!["admin", "manager"].includes(req.user!.role)) {
         return res.status(403).json({ error: "Administrator access required" });
       }
       const invListContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
@@ -1036,7 +1040,7 @@ export function registerSettingsRoutes(
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      if (req.user!.role !== "admin") {
+      if (!["admin", "manager"].includes(req.user!.role)) {
         return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
@@ -1089,8 +1093,12 @@ export function registerSettingsRoutes(
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      if (req.user!.role !== "admin") {
+      if (!["admin", "manager"].includes(req.user!.role)) {
         return res.status(403).json({ error: "Administrator access required" });
+      }
+      // Managers cannot create admin-level accounts
+      if (req.user!.role === "manager" && role === "admin") {
+        return res.status(403).json({ error: "Managers cannot create administrator accounts" });
       }
       const context = { customerId: req.customerId };
 
@@ -1167,7 +1175,7 @@ export function registerSettingsRoutes(
       
       const isEditingSelf = id === String((req as any).userId);
 
-      if (!isEditingSelf && req.user!.role !== "admin") {
+      if (!isEditingSelf && !["admin", "manager"].includes(req.user!.role)) {
         return res.status(403).json({ error: "Administrator access required to edit other users" });
       }
 
@@ -1233,7 +1241,7 @@ export function registerSettingsRoutes(
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      if (req.user!.role !== "admin") {
+      if (!["admin", "manager"].includes(req.user!.role)) {
         return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
