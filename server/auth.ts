@@ -30,6 +30,46 @@ function b64urlDecode(str: string): Buffer {
 const JWT_HEADER = b64urlEncode(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
 const SESSION_TOKEN_TTL = 24 * 60 * 60; // 24 hours in seconds
 
+// ---------------------------------------------------------------------------
+// Platform-admin Bearer token helpers.
+// The platform admin login returns a signed token stored in localStorage.
+// All /platform-admin/* requests send it as x-pa-token.
+// This is independent of the session cookie and survives main-app logins
+// that call req.session.regenerate(), which would otherwise destroy the
+// platformAdminId stored in the shared session.
+// ---------------------------------------------------------------------------
+const PA_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+
+export function signPlatformAdminToken(adminId: string): string {
+  const secret = process.env.SESSION_SECRET || 'dev-secret';
+  const payload = b64urlEncode(Buffer.from(JSON.stringify({
+    adminId,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + PA_TOKEN_TTL,
+  })));
+  const sigInput = `${JWT_HEADER}.${payload}`;
+  const sig = b64urlEncode(crypto.createHmac('sha256', secret).update(sigInput).digest());
+  return `${sigInput}.${sig}`;
+}
+
+export function verifyPlatformAdminToken(token: string): { adminId: string } {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid PA token format');
+  const [header, payload, sig] = parts;
+  const secret = process.env.SESSION_SECRET || 'dev-secret';
+  const expectedSig = b64urlEncode(
+    crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest()
+  );
+  const sigBuf = Buffer.from(sig);
+  const expectedSigBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedSigBuf.length || !crypto.timingSafeEqual(sigBuf, expectedSigBuf)) {
+    throw new Error('Invalid PA token signature');
+  }
+  const data = JSON.parse(b64urlDecode(payload).toString());
+  if (data.exp < Math.floor(Date.now() / 1000)) throw new Error('PA token expired');
+  return { adminId: data.adminId };
+}
+
 export function signSessionToken(userId: string, customerId: string): string {
   const secret = process.env.SESSION_SECRET || 'dev-secret';
   const payload = b64urlEncode(Buffer.from(JSON.stringify({
@@ -1154,15 +1194,40 @@ export class PlatformAdminAuthService {
 }
 
 /**
- * Middleware to check if platform admin is authenticated
+ * Middleware to check if platform admin is authenticated.
+ *
+ * Accepts EITHER:
+ *  1. req.session.platformAdminId  (cookie session — legacy / same-browser as main app)
+ *  2. x-pa-token header            (signed Bearer token stored in localStorage —
+ *                                   survives main-app session.regenerate() calls)
+ *
+ * The token approach is preferred because it cannot be wiped by the main app's
+ * login flow, which calls req.session.regenerate() and could clear platformAdminId
+ * from the shared session cookie.
  */
 export function requirePlatformAdmin(req: Request, res: Response, next: NextFunction) {
+  // 1. Try the x-pa-token header first (token-based auth, immune to session conflicts)
+  const paTokenHeader = req.headers['x-pa-token'] as string | undefined;
+  if (paTokenHeader) {
+    try {
+      const { adminId } = verifyPlatformAdminToken(paTokenHeader);
+      // Hydrate session field so downstream handlers that read req.session.platformAdminId still work
+      if (req.session) req.session.platformAdminId = adminId;
+      logger.info('✅ SECURITY: requirePlatformAdmin passed via x-pa-token:', { adminId });
+      return next();
+    } catch (tokenErr) {
+      logger.info('🚨 SECURITY: requirePlatformAdmin x-pa-token invalid:', { error: (tokenErr as Error).message });
+      // Fall through to session check
+    }
+  }
+
+  // 2. Fall back to session cookie
   if (!req.session || !req.session.platformAdminId) {
-    logger.info('🚨 SECURITY: requirePlatformAdmin failed - no platform admin session');
+    logger.info('🚨 SECURITY: requirePlatformAdmin failed - no platform admin session or token');
     return res.status(401).json({ error: 'Platform admin authentication required' });
   }
   
-  logger.info('✅ SECURITY: requirePlatformAdmin passed:', {
+  logger.info('✅ SECURITY: requirePlatformAdmin passed via session:', {
     platformAdminId: req.session.platformAdminId,
     sessionId: req.sessionID
   });

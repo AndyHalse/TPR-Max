@@ -521,6 +521,8 @@ export default function PlatformAdminDashboard() {
       return response.json();
     },
     onSuccess: () => {
+      // Clear the platform-admin Bearer token from localStorage
+      try { localStorage.removeItem('pa_token'); } catch { /* ignore */ }
       queryClient.clear();
       window.location.href = "/platform-admin/login";
     },

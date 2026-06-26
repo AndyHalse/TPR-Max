@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 import sgMail from '@sendgrid/mail';
 import { eq, sql, desc, and, gte, isNull, ne } from 'drizzle-orm';
 import { z } from 'zod';
-import { requirePlatformAdmin, requireSuperAdmin } from '../auth';
+import { requirePlatformAdmin, requireSuperAdmin, signPlatformAdminToken } from '../auth';
 import { CustomerDatabaseService, customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { clearCustomerEnterpriseCache } from '../enterpriseRoles';
@@ -292,8 +292,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
           logger.info(`Platform admin OTP verified and session created: ${admin.username} (ID: ${admin.id})`);
 
+          // Generate a signed platform-admin Bearer token (stored in localStorage by the
+          // frontend). This token is independent of the session cookie and survives
+          // main-app session regeneration that would otherwise clear platformAdminId.
+          const paToken = signPlatformAdminToken(admin.id);
+
           res.json({
             success: true,
+            paToken,
             admin: {
               id: admin.id,
               username: admin.username,
@@ -327,8 +333,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
   /**
    * Get Current Platform Admin
+   * requirePlatformAdmin handles both session cookie and x-pa-token header,
+   * and hydrates req.session.platformAdminId before the handler runs.
    */
-  app.get("/platform-admin/auth/me", async (req, res) => {
+  app.get("/platform-admin/auth/me", requirePlatformAdmin, async (req, res) => {
     if (!req.session.platformAdminId) {
       return res.status(401).json({ error: "Not authenticated" });
     }

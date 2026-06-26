@@ -63,6 +63,11 @@ export default function PlatformAdminLogin() {
     },
     onSuccess: (data) => {
       clearSessionToken();
+      // Store the platform-admin Bearer token in localStorage so it survives
+      // main-app session.regenerate() calls and doesn't get wiped by shared cookie.
+      if (data.paToken) {
+        try { localStorage.setItem('pa_token', data.paToken); } catch { /* ignore */ }
+      }
       toast({ title: "Verified", description: `Welcome back, ${data.admin.firstName}!` });
       window.location.href = "/platform-admin/dashboard";
     },

@@ -92,6 +92,16 @@ export async function apiRequest(
     if (sessionToken && !isPlatformAdmin) {
       headers['Authorization'] = `Bearer ${sessionToken}`;
     }
+
+    // Send the platform-admin Bearer token for all /platform-admin/ requests.
+    // This token (stored in localStorage) is immune to main-app session.regenerate()
+    // calls that would otherwise wipe platformAdminId from the shared session cookie.
+    if (isPlatformAdmin) {
+      try {
+        const paToken = localStorage.getItem('pa_token');
+        if (paToken) headers['x-pa-token'] = paToken;
+      } catch { /* ignore — localStorage unavailable */ }
+    }
     
     // Add CSRF token for non-safe methods
     if (isMutating) {
@@ -152,8 +162,15 @@ export const getQueryFn: <T>(options: {
       const url = queryKey[0] as string;
       const fetchHeaders: Record<string, string> = {};
       const sessionToken = getSessionToken();
-      if (sessionToken && !url.startsWith('/platform-admin/')) {
+      const isPA = url.startsWith('/platform-admin/');
+      if (sessionToken && !isPA) {
         fetchHeaders['Authorization'] = `Bearer ${sessionToken}`;
+      }
+      if (isPA) {
+        try {
+          const paToken = localStorage.getItem('pa_token');
+          if (paToken) fetchHeaders['x-pa-token'] = paToken;
+        } catch { /* ignore */ }
       }
       const res = await fetch(url, {
         credentials: "include",
