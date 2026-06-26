@@ -5,7 +5,7 @@ import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import * as isolatedSchema from '../isolatedSchema';
 import { EmailService } from '../emailService';
-import { eq, desc, isNull, and, sql } from 'drizzle-orm';
+import { eq, desc, isNull, and, ne, sql } from 'drizzle-orm';
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
 import { logger } from '../utils/logger';
 import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
@@ -233,12 +233,12 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── GET compliance status ─────────────────────────────────────────────────
   app.get('/api/fire-risk-assessments/status', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
 
       const fras = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-        .where(isNull(isolatedSchema.fireRiskAssessments.deletedAt))
+        .where(and(isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)))
         .orderBy(desc(isolatedSchema.fireRiskAssessments.assessmentDate));
 
       const current = fras.find(f => f.status !== 'superseded') || null;
@@ -297,20 +297,22 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── GET outstanding actions across ALL FRAs ───────────────────────────────
   app.get('/api/fire-risk-assessments/actions/outstanding', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteId } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
 
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const siteFilter = siteId ? `AND f.site_id = $1` : '';
       const rows = await pool.query(`
         SELECT a.*, f.title as fra_title
         FROM "${schemaName}".fra_action_items a
         JOIN "${schemaName}".fire_risk_assessments f ON f.id = a.fra_id
         WHERE a.completed_at IS NULL AND a.deleted_at IS NULL AND f.deleted_at IS NULL
+          ${siteFilter}
         ORDER BY
           CASE a.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
           a.due_date ASC NULLS LAST
-      `);
+      `, siteId ? [siteId] : []);
 
       res.json(rows.rows);
     } catch (err) {
@@ -322,13 +324,14 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── GET single FRA ────────────────────────────────────────────────────────
   app.get('/api/fire-risk-assessments/:id', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
       const [fra] = await custDb.select().from(isolatedSchema.fireRiskAssessments)
         .where(and(
           eq(isolatedSchema.fireRiskAssessments.id, req.params.id),
           isNull(isolatedSchema.fireRiskAssessments.deletedAt),
+          scopedWhere(siteContext, isolatedSchema.fireRiskAssessments),
         ));
       if (!fra) return res.status(404).json({ error: 'FRA not found' });
       res.json(fra);
@@ -341,7 +344,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── POST create FRA — Fix 1 role, Fix 7 validation ───────────────────────
   app.post('/api/fire-risk-assessments', requireAuth, requireManager, async (req, res) => {
     try {
-      const { db: custDb, siteId } = await getScopedDb(req);
+      const { db: custDb, siteId, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
 
@@ -363,11 +366,14 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
 
       const status = computeFraStatus(body.nextReviewDate);
 
-      await custDb.execute(sql.raw(`
-        UPDATE ${schemaName}.fire_risk_assessments
-        SET status = 'superseded', updated_at = NOW()
-        WHERE status != 'superseded' AND deleted_at IS NULL
-      `));
+      // Auto-supersede: only within the same site, not across all sites
+      await custDb.update(isolatedSchema.fireRiskAssessments)
+        .set({ status: 'superseded', updatedAt: new Date() })
+        .where(and(
+          ne(isolatedSchema.fireRiskAssessments.status, 'superseded'),
+          isNull(isolatedSchema.fireRiskAssessments.deletedAt),
+          scopedWhere(siteContext, isolatedSchema.fireRiskAssessments),
+        ));
 
       const [created] = await custDb.insert(isolatedSchema.fireRiskAssessments).values(withSiteId(siteId, {
         title: body.title || 'Fire Risk Assessment',
@@ -391,7 +397,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── PUT update FRA — Fix 1 role, Fix 7 validation ────────────────────────
   app.put('/api/fire-risk-assessments/:id', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
 
@@ -412,7 +418,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       }
 
       const [before] = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), isNull(isolatedSchema.fireRiskAssessments.deletedAt)));
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
       if (!before) return res.status(404).json({ error: 'FRA not found' });
 
       const updates: Record<string, any> = { updatedAt: new Date() };
@@ -429,7 +435,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
 
       const [updated] = await custDb.update(isolatedSchema.fireRiskAssessments)
         .set(updates)
-        .where(eq(isolatedSchema.fireRiskAssessments.id, req.params.id))
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)))
         .returning();
 
       if (!updated) return res.status(404).json({ error: 'FRA not found' });
@@ -444,26 +450,26 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── DELETE FRA — Fix 1 role, Fix 2 soft-delete, Fix 3 audit, Fix 10 promote
   app.delete('/api/fire-risk-assessments/:id', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
 
       const [before] = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), isNull(isolatedSchema.fireRiskAssessments.deletedAt)));
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
       if (!before) return res.status(404).json({ error: 'FRA not found' });
 
       const wasActive = before.status !== 'superseded';
 
       await custDb.update(isolatedSchema.fireRiskAssessments)
         .set({ deletedAt: new Date(), deletedBy: req.user!.username, updatedAt: new Date() })
-        .where(eq(isolatedSchema.fireRiskAssessments.id, req.params.id));
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.id), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
 
       await writeFraAudit(custDb, schemaName, req.params.id, null, 'deleted', req.user!.username, { title: before.title, assessmentDate: before.assessmentDate });
 
-      // Fix 10: promote the most recent remaining FRA if the deleted one was active
+      // Fix 10: promote the most recent remaining FRA — scoped per site so Site A deletion doesn't affect Site B
       if (wasActive) {
         const remaining = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-          .where(isNull(isolatedSchema.fireRiskAssessments.deletedAt))
+          .where(and(isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)))
           .orderBy(desc(isolatedSchema.fireRiskAssessments.assessmentDate))
           .limit(1);
         if (remaining[0]) {
@@ -484,9 +490,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── GET action items for a specific FRA — Fix 11 pagination ──────────────
   app.get('/api/fire-risk-assessments/:fraId/actions', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
+      const [parentFra] = await custDb.select({ id: isolatedSchema.fireRiskAssessments.id })
+        .from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.fraId), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
+      if (!parentFra) return res.status(404).json({ error: 'FRA not found' });
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
 
       const limit = Math.min(parseInt(String(req.query.limit ?? '200'), 10), 500);
@@ -514,9 +524,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── POST create action item — Fix 1 role, Fix 3 audit, Fix 6 escape ───────
   app.post('/api/fire-risk-assessments/:fraId/actions', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
+      const [parentFra] = await custDb.select({ id: isolatedSchema.fireRiskAssessments.id })
+        .from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.fraId), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
+      if (!parentFra) return res.status(404).json({ error: 'FRA not found' });
 
       const body = req.body as any;
       if (!body.description?.trim()) {
@@ -565,9 +579,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── PUT update action item — Fix 1 role, Fix 5 priority validate + escalate
   app.put('/api/fire-risk-assessments/:fraId/actions/:actionId', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
+      const [parentFra] = await custDb.select({ id: isolatedSchema.fireRiskAssessments.id })
+        .from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.fraId), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
+      if (!parentFra) return res.status(404).json({ error: 'FRA not found' });
 
       const body = req.body as any;
       const actionId = parseInt(req.params.actionId, 10);
@@ -637,9 +655,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── PATCH mark action complete — Fix 1 role, Fix 4 use req.user ──────────
   app.patch('/api/fire-risk-assessments/:fraId/actions/:actionId/complete', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
+      const [parentFra] = await custDb.select({ id: isolatedSchema.fireRiskAssessments.id })
+        .from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.fraId), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
+      if (!parentFra) return res.status(404).json({ error: 'FRA not found' });
 
       const body = req.body as any;
       const actionId = parseInt(req.params.actionId, 10);
@@ -673,9 +695,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── PATCH reopen a completed action — Fix 10 ─────────────────────────────
   app.patch('/api/fire-risk-assessments/:fraId/actions/:actionId/reopen', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
+      const [parentFra] = await custDb.select({ id: isolatedSchema.fireRiskAssessments.id })
+        .from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.fraId), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
+      if (!parentFra) return res.status(404).json({ error: 'FRA not found' });
 
       const actionId = parseInt(req.params.actionId, 10);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
@@ -698,9 +724,13 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
   // ── DELETE action item (soft-delete) — Fix 10 ────────────────────────────
   app.delete('/api/fire-risk-assessments/:fraId/actions/:actionId', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraTables(custDb, schemaName);
+      const [parentFra] = await custDb.select({ id: isolatedSchema.fireRiskAssessments.id })
+        .from(isolatedSchema.fireRiskAssessments)
+        .where(and(eq(isolatedSchema.fireRiskAssessments.id, req.params.fraId), isNull(isolatedSchema.fireRiskAssessments.deletedAt), scopedWhere(siteContext, isolatedSchema.fireRiskAssessments)));
+      if (!parentFra) return res.status(404).json({ error: 'FRA not found' });
 
       const actionId = parseInt(req.params.actionId, 10);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
