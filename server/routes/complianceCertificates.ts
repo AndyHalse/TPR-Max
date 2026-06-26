@@ -88,6 +88,8 @@ async function ensureTables(custDb: any, schemaName: string) {
   // Bring existing tenant schemas up to date (idempotent)
   await custDb.execute(`ALTER TABLE ${schemaName}.compliance_certificates
     ADD COLUMN IF NOT EXISTS expiry_alert_phase TEXT`);
+  await custDb.execute(`ALTER TABLE ${schemaName}.compliance_certificates
+    ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
 
   bootstrappedSchemas.add(schemaName);
 }
@@ -221,13 +223,13 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── GET all certificates ────────────────────────────────────────────────────
   app.get('/api/compliance-certificates', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureTables(custDb, schemaName);
 
-      let query = custDb.select().from(isolatedSchema.complianceCertificates)
-        .where(isNull(isolatedSchema.complianceCertificates.deletedAt));
-      const certs = await query.orderBy(isolatedSchema.complianceCertificates.createdAt) as any[];
+      const certs = await custDb.select().from(isolatedSchema.complianceCertificates)
+        .where(and(isNull(isolatedSchema.complianceCertificates.deletedAt), scopedWhere(siteContext, isolatedSchema.complianceCertificates)))
+        .orderBy(isolatedSchema.complianceCertificates.createdAt) as any[];
       res.json(certs.reverse());
     } catch (err) {
       logger.error('GET /api/compliance-certificates', err);
@@ -238,10 +240,10 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── GET certificates for a specific type ───────────────────────────────────
   app.get('/api/compliance-certificates/by-type/:typeId', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { typeId } = req.params;
       const certs = await custDb.select().from(isolatedSchema.complianceCertificates)
-        .where(and(eq(isolatedSchema.complianceCertificates.certificateTypeId, typeId), isNull(isolatedSchema.complianceCertificates.deletedAt)))
+        .where(and(eq(isolatedSchema.complianceCertificates.certificateTypeId, typeId), isNull(isolatedSchema.complianceCertificates.deletedAt), scopedWhere(siteContext, isolatedSchema.complianceCertificates)))
         .orderBy(isolatedSchema.complianceCertificates.createdAt) as any[];
       res.json(certs.reverse());
     } catch (err) {
@@ -253,14 +255,14 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── GET status summary ──────────────────────────────────────────────────────
   app.get('/api/compliance-certificates/status-summary', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureTables(custDb, schemaName);
 
       const types = await custDb.select().from(isolatedSchema.complianceCertificateTypes)
         .where(eq(isolatedSchema.complianceCertificateTypes.isActive, true)) as any[];
       const certs = await custDb.select().from(isolatedSchema.complianceCertificates)
-        .where(and(eq(isolatedSchema.complianceCertificates.isCurrent, true), isNull(isolatedSchema.complianceCertificates.deletedAt))) as any[];
+        .where(and(eq(isolatedSchema.complianceCertificates.isCurrent, true), isNull(isolatedSchema.complianceCertificates.deletedAt), scopedWhere(siteContext, isolatedSchema.complianceCertificates))) as any[];
       const certsByType: Record<string, any> = {};
       for (const c of certs) certsByType[c.certificateTypeId] = c;
 
@@ -292,7 +294,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // requests. File upload is handled as a second step via /:id/upload.
   app.post('/api/compliance-certificates', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext, siteId } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureTables(custDb, schemaName);
 
@@ -316,9 +318,10 @@ export function registerComplianceCertificateRoutes(app: Express): void {
           .set({ isCurrent: false })
           .where(and(
             eq(isolatedSchema.complianceCertificates.certificateTypeId, certificateTypeId),
-            eq(isolatedSchema.complianceCertificates.isCurrent, true)
+            eq(isolatedSchema.complianceCertificates.isCurrent, true),
+            scopedWhere(siteContext, isolatedSchema.complianceCertificates),
           ));
-        const [row] = await tx.insert(isolatedSchema.complianceCertificates).values({
+        const [row] = await tx.insert(isolatedSchema.complianceCertificates).values(withSiteId(siteId, {
           certificateTypeId,
           certificateType: certType.certificateType,
           issueDate,
@@ -334,7 +337,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
           uploadedBy: req.user!.id,
           notes: notes || null,
           isCurrent: true,
-        }).returning();
+        })).returning();
         return row;
       });
       evaluateSiteBackground(req.customerId!, (created as any)?.siteId);
@@ -348,9 +351,9 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── POST upload document to existing record ─────────────────────────────────
   app.post('/api/compliance-certificates/:id/upload', requireAuth, requireComplianceCertificatesFeature, upload.single('file'), async (req: any, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
-      const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates).where(eq(isolatedSchema.complianceCertificates.id, id)) as any[];
+      const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates).where(and(eq(isolatedSchema.complianceCertificates.id, id), scopedWhere(siteContext, isolatedSchema.complianceCertificates))) as any[];
       if (!cert) return res.status(404).json({ error: 'Certificate not found' });
 
       let fileUrl = cert.documentUrl || '';
@@ -387,9 +390,9 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── GET download certificate document ──────────────────────────────────────
   app.get('/api/compliance-certificates/:id/download', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
-      const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates).where(eq(isolatedSchema.complianceCertificates.id, id)) as any[];
+      const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates).where(and(eq(isolatedSchema.complianceCertificates.id, id), scopedWhere(siteContext, isolatedSchema.complianceCertificates))) as any[];
       if (!cert || !cert.documentUrl) return res.status(404).json({ error: 'Document not found' });
       res.redirect(cert.documentUrl);
     } catch (err) {
@@ -401,7 +404,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── PATCH edit a certificate record ─────────────────────────────────────────
   app.patch('/api/compliance-certificates/:id', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureTables(custDb, schemaName);
 
@@ -409,7 +412,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
       const { issueDate, expiryDate, referenceNumber, issuedBy, issuingCompany, notes } = req.body;
 
       const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates)
-        .where(eq(isolatedSchema.complianceCertificates.id, id)) as any[];
+        .where(and(eq(isolatedSchema.complianceCertificates.id, id), scopedWhere(siteContext, isolatedSchema.complianceCertificates))) as any[];
       if (!cert) return res.status(404).json({ error: 'Certificate not found' });
 
       if (!issueDate) return res.status(400).json({ error: 'Issue date is required' });
@@ -448,10 +451,10 @@ export function registerComplianceCertificateRoutes(app: Express): void {
   // ─── DELETE (soft delete) certificate ────────────────────────────────────────
   app.delete('/api/compliance-certificates/:id', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates)
-        .where(eq(isolatedSchema.complianceCertificates.id, id)) as any[];
+        .where(and(eq(isolatedSchema.complianceCertificates.id, id), scopedWhere(siteContext, isolatedSchema.complianceCertificates))) as any[];
       if (!cert) return res.status(404).json({ error: 'Certificate not found' });
 
       await custDb.update(isolatedSchema.complianceCertificates)
@@ -464,7 +467,8 @@ export function registerComplianceCertificateRoutes(app: Express): void {
           .where(and(
             eq(isolatedSchema.complianceCertificates.certificateTypeId, cert.certificateTypeId),
             isNull(isolatedSchema.complianceCertificates.deletedAt),
-            ne(isolatedSchema.complianceCertificates.id, id)
+            ne(isolatedSchema.complianceCertificates.id, id),
+            scopedWhere(siteContext, isolatedSchema.complianceCertificates),
           ))
           .orderBy(isolatedSchema.complianceCertificates.createdAt) as any[];
         if (prev.length > 0) {
@@ -505,14 +509,14 @@ export function registerComplianceCertificateRoutes(app: Express): void {
             .catch(() => []) as any[];
 
           for (const certType of types) {
-            const [cert] = await custDb.select().from(isolatedSchema.complianceCertificates)
+            const certRows = await custDb.select().from(isolatedSchema.complianceCertificates)
               .where(and(
                 eq(isolatedSchema.complianceCertificates.certificateTypeId, certType.id),
                 eq(isolatedSchema.complianceCertificates.isCurrent, true),
                 isNull(isolatedSchema.complianceCertificates.deletedAt)
               )).catch(() => []) as any[];
 
-            if (!cert) continue;
+            for (const cert of certRows) {
             const dueDate = getEffectiveDueDate(cert);
             if (!dueDate) continue;   // genuinely no expiry/next-due — nothing to alert on
 
@@ -581,6 +585,7 @@ export function registerComplianceCertificateRoutes(app: Express): void {
                 .where(eq(isolatedSchema.complianceCertificates.id, cert.id));
               setImmediate(() => logger.info(`📧 [Cert Cron] ${newPhase} alert sent for "${certType.displayName}" (customer ${customer.id})`));
             }
+            } // end cert loop
           }
         } catch (custErr) {
           logger.error(`[Cert Cron] Error for customer ${customer.id}:`, custErr);

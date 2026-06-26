@@ -1115,6 +1115,19 @@ const addLoneWorkerSessionColumnsMigration: Migration = {
   }
 };
 
+const addComplianceCertsSiteIdMigration: Migration = {
+  version: '20260626_003_compliance_certs_site_id',
+  description: 'Add site_id column to compliance_certificates table for multi-site scope filtering',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE compliance_certificates ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+      logger.info('✅ compliance_certificates.site_id column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ compliance_certificates.site_id: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
 const addReportsSiteIdColumnMigration: Migration = {
   version: '20260626_002_reports_site_id',
   description: 'Add site_id column to reports table for multi-site scope filtering',
@@ -1152,4 +1165,5 @@ export const missingTablesMigrations = [
   fixOrphanedStaffSiteIdsMigration,
   addLoneWorkerSessionColumnsMigration,
   addReportsSiteIdColumnMigration,
+  addComplianceCertsSiteIdMigration,
 ];
