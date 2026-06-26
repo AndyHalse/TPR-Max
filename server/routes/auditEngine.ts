@@ -714,10 +714,9 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.get('/api/audits/records/:id', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const [record] = await custDb.select().from(isolatedSchema.auditRecords)
-        .where(eq(isolatedSchema.auditRecords.id, req.params.id));
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)));
       if (!record) return res.status(404).json({ error: 'Audit record not found' });
       const items = await custDb.select().from(isolatedSchema.auditRecordItems)
         .where(eq(isolatedSchema.auditRecordItems.auditId, req.params.id))
@@ -735,8 +734,7 @@ export function registerAuditEngineRoutes(app: Express): void {
   app.put('/api/audits/records/:id', requireAuth, async (req, res) => {
     try {
       if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       // Fix 3: Strip read-only/server-computed fields before parsing to prevent score tampering.
       const { overallScore: _s, passed: _p, status: _st, conductedAt: _ca,
               accessToken: _at, accessTokenExpiresAt: _ate,
@@ -744,7 +742,7 @@ export function registerAuditEngineRoutes(app: Express): void {
       const parsed = isolatedSchema.insertAuditRecordSchema.partial().parse(safeBody);
       const [record] = await custDb.update(isolatedSchema.auditRecords)
         .set({ ...parsed, updatedAt: new Date() })
-        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), isNull(isolatedSchema.auditRecords.deletedAt)))
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), isNull(isolatedSchema.auditRecords.deletedAt), scopedWhere(siteContext, isolatedSchema.auditRecords)))
         .returning();
       if (!record) return res.status(404).json({ error: 'Audit record not found' });
       res.json(record);
@@ -757,10 +755,9 @@ export function registerAuditEngineRoutes(app: Express): void {
   app.delete('/api/audits/records/:id', requireAuth, async (req, res) => {
     try {
       if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const [existing] = await custDb.select().from(isolatedSchema.auditRecords)
-        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), isNull(isolatedSchema.auditRecords.deletedAt)));
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), isNull(isolatedSchema.auditRecords.deletedAt), scopedWhere(siteContext, isolatedSchema.auditRecords)));
       if (!existing) return res.status(404).json({ error: 'Audit record not found' });
       // Fix 1: Block deletion of completed audits.
       if (existing.status === 'completed') {
@@ -784,10 +781,9 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.post('/api/audits/records/:id/start', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const [record] = await custDb.select().from(isolatedSchema.auditRecords)
-        .where(eq(isolatedSchema.auditRecords.id, req.params.id));
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)));
       if (!record) return res.status(404).json({ error: 'Audit record not found' });
       if (record.status !== 'scheduled' && record.status !== 'overdue') {
         return res.status(400).json({ error: `Cannot start an audit with status: ${record.status}` });
@@ -825,10 +821,9 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.post('/api/audits/records/:id/submit', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const [record] = await custDb.select().from(isolatedSchema.auditRecords)
-        .where(eq(isolatedSchema.auditRecords.id, req.params.id));
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)));
       if (!record) return res.status(404).json({ error: 'Audit record not found' });
       const items = await custDb.select().from(isolatedSchema.auditRecordItems)
         .where(eq(isolatedSchema.auditRecordItems.auditId, req.params.id));
@@ -891,13 +886,12 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.get('/api/audits/records/:id/token', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const token = `${context.customerId}.${randomBytes(24).toString('hex')}`;
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const token = `${req.customerId}.${randomBytes(24).toString('hex')}`;
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const [record] = await custDb.update(isolatedSchema.auditRecords)
         .set({ accessToken: token, accessTokenExpiresAt: expiresAt, updatedAt: new Date() })
-        .where(eq(isolatedSchema.auditRecords.id, req.params.id))
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)))
         .returning();
       if (!record) return res.status(404).json({ error: 'Audit record not found' });
       res.json({ token, expiresAt });
@@ -911,15 +905,15 @@ export function registerAuditEngineRoutes(app: Express): void {
   app.post('/api/audits/records/:id/send-link', requireAuth, async (req, res) => {
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { staffEmail, staffName } = req.body;
       if (!staffEmail) return res.status(400).json({ error: 'Staff email is required' });
 
-      const token = `${context.customerId}.${randomBytes(24).toString('hex')}`;
+      const token = `${req.customerId}.${randomBytes(24).toString('hex')}`;
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const [record] = await custDb.update(isolatedSchema.auditRecords)
         .set({ accessToken: token, accessTokenExpiresAt: expiresAt, updatedAt: new Date() })
-        .where(eq(isolatedSchema.auditRecords.id, req.params.id))
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)))
         .returning();
       if (!record) return res.status(404).json({ error: 'Audit record not found' });
 
@@ -973,8 +967,11 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.put('/api/audits/records/:id/items/:itemId', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const [parentAudit] = await custDb.select({ id: isolatedSchema.auditRecords.id })
+        .from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)));
+      if (!parentAudit) return res.status(404).json({ error: 'Audit record not found' });
       const { response, note, photoUrl, photoFileName } = req.body;
       const [item] = await custDb.update(isolatedSchema.auditRecordItems)
         .set({ response, note, photoUrl, photoFileName })
@@ -995,8 +992,11 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.get('/api/audits/records/:id/actions', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const [parentAudit] = await custDb.select({ id: isolatedSchema.auditRecords.id })
+        .from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)));
+      if (!parentAudit) return res.status(404).json({ error: 'Audit record not found' });
       const actions = await custDb.select().from(isolatedSchema.auditCorrectiveActions)
         .where(and(
           eq(isolatedSchema.auditCorrectiveActions.auditId, req.params.id),
@@ -1013,8 +1013,11 @@ export function registerAuditEngineRoutes(app: Express): void {
   app.post('/api/audits/records/:id/actions', requireAuth, async (req, res) => {
     try {
       if (!isMgr(req)) return res.status(403).json({ error: 'Manager or Admin role required.' });
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const [parentAudit] = await custDb.select({ id: isolatedSchema.auditRecords.id })
+        .from(isolatedSchema.auditRecords)
+        .where(and(eq(isolatedSchema.auditRecords.id, req.params.id), scopedWhere(siteContext, isolatedSchema.auditRecords)));
+      if (!parentAudit) return res.status(404).json({ error: 'Audit record not found' });
       const parsed = isolatedSchema.insertAuditCorrectiveActionSchema.parse({ ...req.body, auditId: req.params.id });
       const [action] = await custDb.insert(isolatedSchema.auditCorrectiveActions).values(parsed).returning();
       res.status(201).json(action);
@@ -1115,8 +1118,8 @@ export function registerAuditEngineRoutes(app: Express): void {
 
   app.get('/api/audits/summary', requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const siteFilter = scopedWhere(siteContext, isolatedSchema.auditRecords);
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const ninetyDaysAgo = new Date(today); ninetyDaysAgo.setDate(today.getDate() - 90);
       const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -1124,16 +1127,17 @@ export function registerAuditEngineRoutes(app: Express): void {
       // Fix 8: Use DB aggregation instead of loading all rows into JS.
       const [{ totalScheduled }] = await custDb.select({ totalScheduled: count() })
         .from(isolatedSchema.auditRecords)
-        .where(and(eq(isolatedSchema.auditRecords.status, 'scheduled'), isNull(isolatedSchema.auditRecords.deletedAt)));
+        .where(and(eq(isolatedSchema.auditRecords.status, 'scheduled'), isNull(isolatedSchema.auditRecords.deletedAt), siteFilter));
       const [{ overdueCount }] = await custDb.select({ overdueCount: count() })
         .from(isolatedSchema.auditRecords)
-        .where(and(eq(isolatedSchema.auditRecords.status, 'overdue'), isNull(isolatedSchema.auditRecords.deletedAt)));
+        .where(and(eq(isolatedSchema.auditRecords.status, 'overdue'), isNull(isolatedSchema.auditRecords.deletedAt), siteFilter));
       const [{ completedThisMonth }] = await custDb.select({ completedThisMonth: count() })
         .from(isolatedSchema.auditRecords)
         .where(and(
           eq(isolatedSchema.auditRecords.status, 'completed'),
           gte(isolatedSchema.auditRecords.conductedAt, firstOfMonth),
-          isNull(isolatedSchema.auditRecords.deletedAt)
+          isNull(isolatedSchema.auditRecords.deletedAt),
+          siteFilter
         ));
       const [{ openActions }] = await custDb.select({ openActions: count() })
         .from(isolatedSchema.auditCorrectiveActions)
@@ -1149,7 +1153,8 @@ export function registerAuditEngineRoutes(app: Express): void {
         .where(and(
           eq(isolatedSchema.auditRecords.status, 'completed'),
           gte(isolatedSchema.auditRecords.conductedAt, ninetyDaysAgo),
-          isNull(isolatedSchema.auditRecords.deletedAt)
+          isNull(isolatedSchema.auditRecords.deletedAt),
+          siteFilter
         ));
       const [{ last90Passed }] = await custDb.select({ last90Passed: count() })
         .from(isolatedSchema.auditRecords)
@@ -1157,19 +1162,20 @@ export function registerAuditEngineRoutes(app: Express): void {
           eq(isolatedSchema.auditRecords.status, 'completed'),
           eq(isolatedSchema.auditRecords.passed, true),
           gte(isolatedSchema.auditRecords.conductedAt, ninetyDaysAgo),
-          isNull(isolatedSchema.auditRecords.deletedAt)
+          isNull(isolatedSchema.auditRecords.deletedAt),
+          siteFilter
         ));
       const passRate = Number(last90Total) > 0
         ? Math.round((Number(last90Passed) / Number(last90Total)) * 100)
         : 0;
 
       const recentAudits = await custDb.select().from(isolatedSchema.auditRecords)
-        .where(and(eq(isolatedSchema.auditRecords.status, 'completed'), isNull(isolatedSchema.auditRecords.deletedAt)))
+        .where(and(eq(isolatedSchema.auditRecords.status, 'completed'), isNull(isolatedSchema.auditRecords.deletedAt), siteFilter))
         .orderBy(desc(isolatedSchema.auditRecords.conductedAt))
         .limit(10);
 
       const upcomingAudits = await custDb.select().from(isolatedSchema.auditRecords)
-        .where(and(eq(isolatedSchema.auditRecords.status, 'scheduled'), isNull(isolatedSchema.auditRecords.deletedAt)))
+        .where(and(eq(isolatedSchema.auditRecords.status, 'scheduled'), isNull(isolatedSchema.auditRecords.deletedAt), siteFilter))
         .orderBy(isolatedSchema.auditRecords.scheduledDate)
         .limit(10);
 
