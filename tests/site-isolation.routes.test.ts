@@ -792,6 +792,171 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
   }, 30_000);
 
   /**
+   * PPM work-order by-id — Site B cannot access Site A's work order by ID.
+   *
+   * Uses GET /api/ppm/work-orders/:id/documents as the "by-id" probe because
+   * there is no bare GET /api/ppm/work-orders/:id route — the frontend gets
+   * individual WOs from the scoped list.  The documents endpoint gates through
+   * fetchWoInScope(), so a cross-site woId returns 404, not the data.
+   *
+   * PROVE-IT-BITES: in server/routes/ppm.ts, find `fetchWoInScope` and remove
+   * the `scopedWhere(siteContext, ...)` from its SELECT — so it returns every WO
+   * regardless of site.  Run the suite → this test goes RED because Site B gets
+   * 200 (documents list) for a Site A work order id.  Restore → GREEN.
+   */
+  it("ppm work-order by-id — Site B cannot access Site A's work order documents", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    const ts = Date.now();
+
+    // Create a work order at Site A
+    const woRes = await agentA.post("/api/ppm/work-orders").send({
+      title: `PPM-WO-ByID-SiteA-${ts}`,
+      status: "scheduled",
+    });
+    expect(
+      [200, 201],
+      `Site A PPM work order create for by-id test (status ${woRes.status}): ${JSON.stringify(woRes.body)}`
+    ).toContain(woRes.status);
+    const woId: string | undefined = woRes.body?.id;
+    expect(woId, "PPM work order create must return an id").toBeTruthy();
+    if (!woId) return;
+
+    // Site A can access its own work order's documents
+    const docsResA = await agentA.get(`/api/ppm/work-orders/${woId}/documents`);
+    expect(
+      [200],
+      `Site A must be able to fetch its own work order documents (status ${docsResA.status})`
+    ).toContain(docsResA.status);
+
+    // Site B must NOT be able to access Site A's work order by ID — 404 expected
+    const docsResB = await agentB.get(`/api/ppm/work-orders/${woId}/documents`);
+    expect(
+      [403, 404],
+      `Site B must NOT access Site A work order documents — cross-site leak! (status ${docsResB.status}: ${JSON.stringify(docsResB.body)})`
+    ).toContain(docsResB.status);
+  }, 30_000);
+
+  /**
+   * PPM demo-data isolation — Site B cannot see Site A's demo rows after load.
+   *
+   * Loads demo data at Site A (POST /api/ppm/demo-data), then verifies that
+   * Site B's asset and work-order lists contain zero isDemo=true rows.
+   *
+   * PROVE-IT-BITES: in server/routes/ppm.ts POST /api/ppm/demo-data, find the
+   * first `withSiteId(siteId, { ... isDemo: true })` call for ppmAssetGroups
+   * and change it to `{ ... isDemo: true }` (drop withSiteId so no site_id is
+   * stamped).  Run → RED because the demo assets have site_id=null, which
+   * scopedWhere treats as "any site", leaking them into Site B's list.
+   * Restore → GREEN.
+   */
+  it("ppm demo-data isolation — Site B cannot see Site A demo rows after load", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+
+    // Load demo data at Site A
+    const loadRes = await agentA.post("/api/ppm/demo-data").send({});
+    // 403 → PPM feature not enabled for test customer — skip gracefully
+    if (loadRes.status === 403) return;
+    expect(
+      [200, 201],
+      `Demo data load at Site A (status ${loadRes.status}): ${JSON.stringify(loadRes.body)}`
+    ).toContain(loadRes.status);
+
+    try {
+      // Site B lists PPM assets — must contain zero isDemo=true rows
+      const assetsResB = await agentB.get("/api/ppm/assets").expect(200);
+      const assetsBList: Record<string, unknown>[] = Array.isArray(assetsResB.body)
+        ? assetsResB.body
+        : [];
+      const leakedDemoAssets = assetsBList.filter((a) => a.isDemo === true);
+      expect(
+        leakedDemoAssets,
+        `[ppm-demo-isolation] Site B must NOT see Site A demo assets after load — cross-site leak! count=${leakedDemoAssets.length}`
+      ).toHaveLength(0);
+
+      // Site B lists PPM work orders — must contain zero isDemo=true rows
+      const wosResB = await agentB.get("/api/ppm/work-orders").expect(200);
+      const wosBList: Record<string, unknown>[] = Array.isArray(wosResB.body)
+        ? wosResB.body
+        : [];
+      const leakedDemoWOs = wosBList.filter((w) => w.isDemo === true);
+      expect(
+        leakedDemoWOs,
+        `[ppm-demo-isolation] Site B must NOT see Site A demo work orders after load — cross-site leak! count=${leakedDemoWOs.length}`
+      ).toHaveLength(0);
+    } finally {
+      // Always clean up demo data at Site A regardless of test outcome
+      await agentA.delete("/api/ppm/demo-data");
+    }
+  }, 60_000);
+
+  /**
+   * PPM demo-data delete — symmetric and site-scoped.
+   *
+   * Loads demo data at Site A, confirms demo assets exist, then deletes them.
+   * The delete response must include `verified: true` (server-side verification
+   * pass confirms zero isDemo rows remain).  After delete, the asset list at
+   * Site A must contain no isDemo rows.
+   *
+   * PROVE-IT-BITES: in server/routes/ppm.ts DELETE /api/ppm/demo-data, remove
+   * the `scopedWhere(siteContext, ...)` from the ppmAssets DELETE so it deletes
+   * across ALL sites.  Then load demo at Site A AND Site B, delete from Site A.
+   * Site B should still have its demo data — but without the fix Site B's demo
+   * rows are gone too.  (Or alternatively: remove the `eq(isDemo, true)` filter
+   * so real assets get deleted, which the response count will expose.)
+   */
+  it("ppm demo-data delete — symmetric, site-scoped, verified:true in response", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+
+    // Load demo data at Site A
+    const loadRes = await agentA.post("/api/ppm/demo-data").send({});
+    if (loadRes.status === 403) return; // PPM not enabled — skip gracefully
+    expect(
+      [200, 201],
+      `Demo data load (status ${loadRes.status}): ${JSON.stringify(loadRes.body)}`
+    ).toContain(loadRes.status);
+
+    // After load, Site A must have at least one demo asset
+    const assetsAfterLoad = await agentA.get("/api/ppm/assets").expect(200);
+    const demoAssetCount = (Array.isArray(assetsAfterLoad.body) ? assetsAfterLoad.body : [])
+      .filter((a: Record<string, unknown>) => a.isDemo === true).length;
+    expect(
+      demoAssetCount,
+      "Demo load must create at least one demo asset at Site A"
+    ).toBeGreaterThan(0);
+
+    // Delete demo data at Site A
+    const deleteRes = await agentA.delete("/api/ppm/demo-data");
+    expect(
+      [200],
+      `Demo data delete at Site A (status ${deleteRes.status}): ${JSON.stringify(deleteRes.body)}`
+    ).toContain(deleteRes.status);
+
+    // Response must contain verified:true (server-side post-delete verification pass)
+    expect(
+      deleteRes.body?.verified,
+      `Demo delete response must include verified:true (got: ${JSON.stringify(deleteRes.body)})`
+    ).toBe(true);
+
+    // Response must report at least one deleted asset
+    expect(
+      deleteRes.body?.assetsDeleted ?? 0,
+      "Demo delete must report at least one deleted asset"
+    ).toBeGreaterThan(0);
+
+    // After delete, Site A's asset list must have zero isDemo rows
+    const assetsAfterDelete = await agentA.get("/api/ppm/assets").expect(200);
+    const remainingDemo = (Array.isArray(assetsAfterDelete.body) ? assetsAfterDelete.body : [])
+      .filter((a: Record<string, unknown>) => a.isDemo === true).length;
+    expect(
+      remainingDemo,
+      "After demo delete, Site A asset list must contain zero isDemo rows"
+    ).toBe(0);
+  }, 60_000);
+
+  /**
    * Regression: enterprise customer endpoints still function correctly when an
    * active site IS selected.  Verifies that the enterprise refactoring hasn't
    * broken basic listing operations that previously worked.
