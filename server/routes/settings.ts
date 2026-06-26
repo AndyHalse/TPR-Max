@@ -654,7 +654,7 @@ export function registerSettingsRoutes(
 
   app.put("/api/settings", requireAuth, async (req, res) => {
     try {
-      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      if (!["admin", "manager"].includes(req.user!.role)) return res.status(403).json({ error: "Administrator access required" });
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
       
       // Never overwrite sensitive credential fields with empty strings — omit them if blank
@@ -1017,7 +1017,7 @@ export function registerSettingsRoutes(
       if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      if (req.user!.role !== "admin") {
+      if (!["admin", "manager"].includes(req.user!.role)) {
         return res.status(403).json({ error: "Administrator access required" });
       }
       const context = { customerId: req.customerId };
@@ -1320,7 +1320,7 @@ export function registerSettingsRoutes(
 
   app.put("/api/settings/job-titles", requireAuth, async (req, res) => {
     try {
-      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      if (!["admin", "manager"].includes(req.user!.role)) return res.status(403).json({ error: "Administrator access required" });
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);

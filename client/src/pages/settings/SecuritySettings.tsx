@@ -439,7 +439,8 @@ export default function SecuritySettings() {
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
               <strong>Standard User</strong> — can view and manage visitors, staff, and reports but cannot change system settings or manage other users.<br /><br />
-              <strong>Administrator</strong> — full access including settings, user management, and all system configuration.
+              <strong>Manager</strong> — can change feature toggles and general settings, but cannot manage users or access sensitive credentials.<br /><br />
+              <strong>Administrator</strong> — full access including all settings, user management, and system configuration.
             </TooltipContent>
           </Tooltip>
         </div>
@@ -449,6 +450,7 @@ export default function SecuritySettings() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="user">Standard User</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
             <SelectItem value="admin">Administrator</SelectItem>
             <SelectItem value="security">Security</SelectItem>
             <SelectItem value="fire_marshal">Fire Marshal</SelectItem>
@@ -528,6 +530,7 @@ export default function SecuritySettings() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="user">Standard User</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
             <SelectItem value="admin">Administrator</SelectItem>
             <SelectItem value="security">Security</SelectItem>
             <SelectItem value="fire_marshal">Fire Marshal</SelectItem>
@@ -676,6 +679,7 @@ export default function SecuritySettings() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="user">Standard User</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
             <SelectItem value="admin">Administrator</SelectItem>
             <SelectItem value="security">Security</SelectItem>
             <SelectItem value="fire_marshal">Fire Marshal</SelectItem>
@@ -826,6 +830,7 @@ export default function SecuritySettings() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="user">Standard User</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
             <SelectItem value="admin">Administrator</SelectItem>
             <SelectItem value="security">Security</SelectItem>
             <SelectItem value="fire_marshal">Fire Marshal</SelectItem>

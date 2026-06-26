@@ -38,7 +38,7 @@ export default function SystemSettings() {
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role: string }>({
     queryKey: ["/api/auth/me"],
   });
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
 
   const backupMutation = useMutation({
     mutationFn: async () => {
