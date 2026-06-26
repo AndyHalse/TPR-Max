@@ -41,11 +41,15 @@ export interface ResolvedGrants {
    */
   allowedSiteIds: string[] | 'all';
   /**
-   * Site IDs where this user has explicit user-management power
-   * (site_coordinator with canManageSiteUsers=true).
+   * Site IDs where this user may manage site users.
+   * Derived from the customer's site_management_style:
+   *   central     → [] (HQ only; site_coordinators cannot self-manage)
+   *   independent → all site_coordinator site IDs (every coordinator manages their own)
    * enterprise_admin gets [] because their full access is expressed via allowedSiteIds='all'.
    */
   canManageSiteIds: string[];
+  /** The customer's site management style — surfaced for UI context. */
+  siteManagementStyle?: string;
 }
 
 // Extend Express Request so downstream handlers can read grants without re-querying.
@@ -57,6 +61,41 @@ declare global {
   }
 }
 
+// ── Customer enterprise settings cache ────────────────────────────────────────
+// Caches { isEnterprise, siteManagementStyle } per customerId so we don't
+// hit the management DB on every site-scoped request.
+// Invalidated by clearCustomerEnterpriseCache() whenever platform-admin changes
+// the enterprise flag or the site management style.
+
+interface CustomerEnterpriseSettings {
+  isEnterprise: boolean;
+  siteManagementStyle: string;
+}
+
+const customerEnterpriseCache = new Map<string, CustomerEnterpriseSettings>();
+
+export function clearCustomerEnterpriseCache(customerId: string): void {
+  customerEnterpriseCache.delete(customerId);
+}
+
+async function fetchCustomerEnterpriseSettings(customerId: string): Promise<CustomerEnterpriseSettings> {
+  const cached = customerEnterpriseCache.get(customerId);
+  if (cached) return cached;
+
+  const [row] = await managementDb
+    .select({ isEnterprise: customers.isEnterprise, siteManagementStyle: customers.siteManagementStyle })
+    .from(customers)
+    .where(eq(customers.id, customerId))
+    .limit(1);
+
+  const result: CustomerEnterpriseSettings = {
+    isEnterprise: row?.isEnterprise ?? false,
+    siteManagementStyle: row?.siteManagementStyle ?? 'central',
+  };
+  customerEnterpriseCache.set(customerId, result);
+  return result;
+}
+
 // ── Grant resolution ───────────────────────────────────────────────────────────
 
 /**
@@ -66,6 +105,10 @@ declare global {
  * - area_manager      → sites whose area_id is in the user's granted areas
  * - site_coordinator  → explicit site(s) only
  * - no grants         → { roles: [], allowedSiteIds: [] }
+ *
+ * canManageSiteIds is derived from the customer's site_management_style:
+ *   central     → [] (site-coordinators have no self-management power)
+ *   independent → all site_coordinator siteIds (every coordinator manages their own)
  *
  * Grants are additive — union of all grants forms the effective scope.
  * Called by both requireEnterpriseRole() and siteScope.ts.
@@ -84,13 +127,14 @@ export async function resolveEnterpriseGrants(
   // it is cleaner to resolve correctly rather than relying on that gate).
   if (userRole === 'admin') {
     try {
-      const custRows = await managementDb
-        .select({ isEnterprise: customers.isEnterprise })
-        .from(customers)
-        .where(eq(customers.id, customerId))
-        .limit(1);
-      if (custRows[0]?.isEnterprise) {
-        return { roles: ['enterprise_admin'], allowedSiteIds: 'all', canManageSiteIds: [] };
+      const settings = await fetchCustomerEnterpriseSettings(customerId);
+      if (settings.isEnterprise) {
+        return {
+          roles: ['enterprise_admin'],
+          allowedSiteIds: 'all',
+          canManageSiteIds: [],
+          siteManagementStyle: settings.siteManagementStyle,
+        };
       }
       // Not an enterprise customer — fall through to the grants-based resolution,
       // which will return empty (non-enterprise customers have no site_user_roles).
@@ -109,14 +153,24 @@ export async function resolveEnterpriseGrants(
       .where(eq(isolatedSchema.siteUserRoles.userId, userId));
 
     if (grants.length === 0) {
-      return { roles: [], allowedSiteIds: [] };
+      return { roles: [], allowedSiteIds: [], canManageSiteIds: [] };
     }
 
     const roles = [...new Set(grants.map(g => g.role as EnterpriseRole))];
 
+    // Fetch customer enterprise settings for management style (cached).
+    // Default to 'central' on error (fail-closed: self-management off unless opted in).
+    let siteManagementStyle = 'central';
+    try {
+      const settings = await fetchCustomerEnterpriseSettings(customerId);
+      siteManagementStyle = settings.siteManagementStyle;
+    } catch {
+      siteManagementStyle = 'central';
+    }
+
     // enterprise_admin → unrestricted; canManageSiteIds unused (they use allowedSiteIds='all')
     if (roles.includes('enterprise_admin')) {
-      return { roles, allowedSiteIds: 'all', canManageSiteIds: [] };
+      return { roles, allowedSiteIds: 'all', canManageSiteIds: [], siteManagementStyle };
     }
 
     const allowedSet = new Set<string>();
@@ -137,12 +191,17 @@ export async function resolveEnterpriseGrants(
       .filter(g => g.role === 'site_coordinator' && g.siteId)
       .forEach(g => allowedSet.add(g.siteId!));
 
-    // canManageSiteIds: site_coordinator grants that have explicit user-management power
-    const canManageSiteIds = grants
-      .filter(g => g.role === 'site_coordinator' && g.canManageSiteUsers && g.siteId)
+    // canManageSiteIds: site-coordinator user-management power is governed by the
+    // customer's site_management_style, NOT the legacy per-grant canManageSiteUsers flag.
+    //   central     → no site-level user management (HQ only)
+    //   independent → every site_coordinator manages their own site(s)
+    const coordinatorSiteIds = grants
+      .filter(g => g.role === 'site_coordinator' && g.siteId)
       .map(g => g.siteId!);
 
-    return { roles, allowedSiteIds: [...allowedSet], canManageSiteIds };
+    const canManageSiteIds = siteManagementStyle === 'independent' ? coordinatorSiteIds : [];
+
+    return { roles, allowedSiteIds: [...allowedSet], canManageSiteIds, siteManagementStyle };
   } catch (err) {
     logger.error('[enterpriseRoles] resolveEnterpriseGrants error:', err);
     // Fail closed on error.

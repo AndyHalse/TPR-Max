@@ -96,8 +96,10 @@ interface Area {
 interface MyGrants {
   roles: string[];
   allowedSiteIds: string[] | "all";
-  /** Site IDs where this user has explicit user-management power (site_coordinator with canManageSiteUsers). */
+  /** Site IDs where this user may manage site users (derived from siteManagementStyle). */
   canManageSiteIds?: string[];
+  /** Customer's site management style: 'central' | 'independent' */
+  siteManagementStyle?: string;
 }
 
 interface SiteUser {
@@ -442,11 +444,13 @@ function SiteUsersDialog({
   onOpenChange,
   site,
   canManage,
+  myGrants,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   site: Site;
   canManage: boolean;
+  myGrants?: MyGrants;
 }) {
   const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
@@ -692,6 +696,24 @@ function SiteUsersDialog({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Management style context banner for site coordinators */}
+          {myGrants?.roles.includes("site_coordinator") &&
+           !myGrants?.roles.includes("enterprise_admin") &&
+           !myGrants?.roles.includes("area_manager") && (
+            <div className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs border ${
+              myGrants?.siteManagementStyle === "independent"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300"
+                : "bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-800/50 dark:border-slate-700 dark:text-slate-400"
+            }`}>
+              <span className="mt-0.5 flex-shrink-0">{myGrants?.siteManagementStyle === "independent" ? "✓" : "ℹ"}</span>
+              <span>
+                {myGrants?.siteManagementStyle === "independent"
+                  ? "You can manage the users for your site(s)."
+                  : "User management is handled centrally by head office."}
+              </span>
             </div>
           )}
 
@@ -1084,6 +1106,7 @@ function SiteCard({
         onOpenChange={setUsersOpen}
         site={site}
         canManage={siteCanManage}
+        myGrants={myGrants}
       />
     </>
   );

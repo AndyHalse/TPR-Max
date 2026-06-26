@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { requirePlatformAdmin, requireSuperAdmin } from '../auth';
 import { CustomerDatabaseService, customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
+import { clearCustomerEnterpriseCache } from '../enterpriseRoles';
 import { db } from '../db';
 import * as sharedSchema from '@shared/schema';
 import { customerOnboardingRequestSchema, type CustomerOnboardingRequest } from '@shared/schema';
@@ -877,6 +878,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       if (!updated) return res.status(404).json({ success: false, error: 'Customer not found' });
 
+      clearCustomerEnterpriseCache(customerId);
+
       const adminId = req.session.platformAdminId!;
       const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
       await writeAudit({
@@ -912,6 +915,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
         .returning();
 
       if (!updated) return res.status(404).json({ success: false, error: 'Customer not found' });
+
+      clearCustomerEnterpriseCache(customerId);
 
       const adminId = req.session.platformAdminId!;
       const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);
