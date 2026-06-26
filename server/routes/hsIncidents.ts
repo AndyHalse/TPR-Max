@@ -252,7 +252,7 @@ export function registerHsIncidentRoutes(app: Express): void {
   // PUT update incident
   app.put('/api/hs-incidents/:id', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureHsIncidentsTable(custDb, schemaName);
 
@@ -324,12 +324,12 @@ export function registerHsIncidentRoutes(app: Express): void {
       if (body.photoUrl !== undefined) updates.photoUrl = body.photoUrl || null;
 
       const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)));
       if (!beforeRow) return res.status(404).json({ error: 'Incident not found' });
 
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set(updates)
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id))
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)))
         .returning();
 
       if (!updated) return res.status(404).json({ error: 'Incident not found' });
@@ -344,15 +344,15 @@ export function registerHsIncidentRoutes(app: Express): void {
   // DELETE incident — managers/admins only; full audit entry written before deletion
   app.delete('/api/hs-incidents/:id', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureHsIncidentsTable(custDb, schemaName);
       const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)));
       if (!beforeRow) return res.status(404).json({ error: 'Incident not found' });
       await writeIncidentAudit(custDb, req, 'delete', req.params.id, beforeRow, null);
       await custDb.delete(isolatedSchema.hsIncidents)
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)));
       res.json({ success: true });
     } catch (err) {
       logger.error('Error deleting H&S incident:', err);
@@ -363,14 +363,14 @@ export function registerHsIncidentRoutes(app: Express): void {
   // PATCH resolve a Good Spot or Positive Action
   app.patch('/api/hs-incidents/:id/resolve', requireAuth, requireBbsFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { resolvedBy, resolutionNotes } = req.body as { resolvedBy: string; resolutionNotes: string };
       const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)));
       if (!beforeRow) return res.status(404).json({ error: 'Record not found' });
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set({ resolved: true, resolvedBy: resolvedBy || null, resolvedAt: new Date(), resolutionNotes: resolutionNotes || null, updatedAt: new Date() })
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id))
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)))
         .returning();
       if (!updated) return res.status(404).json({ error: 'Record not found' });
       await writeIncidentAudit(custDb, req, 'resolve', req.params.id, beforeRow, updated);
@@ -384,14 +384,14 @@ export function registerHsIncidentRoutes(app: Express): void {
   // PATCH mark as reported to HSE — managers/admins only (legal action)
   app.patch('/api/hs-incidents/:id/riddor-reported', requireAuth, requireManager, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { reference } = req.body as { reference: string };
       const [beforeRow] = await custDb.select().from(isolatedSchema.hsIncidents)
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)));
       if (!beforeRow) return res.status(404).json({ error: 'Incident not found' });
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set({ riddorReportedAt: new Date(), riddorReference: reference, updatedAt: new Date() })
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id))
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)))
         .returning();
       if (!updated) return res.status(404).json({ error: 'Incident not found' });
       await writeIncidentAudit(custDb, req, 'riddor_reported', req.params.id, beforeRow, updated);
@@ -405,12 +405,12 @@ export function registerHsIncidentRoutes(app: Express): void {
   // GET PDF report for a single incident
   app.get('/api/hs-incidents/:id/pdf', requireAuth, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureHsIncidentsTable(custDb, schemaName);
 
       const [incident] = await custDb.select().from(isolatedSchema.hsIncidents)
-        .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
+        .where(and(eq(isolatedSchema.hsIncidents.id, req.params.id), scopedWhere(siteContext, isolatedSchema.hsIncidents)));
       if (!incident) return res.status(404).json({ error: 'Incident not found' });
 
       const settingsRows = await custDb.execute(sql.raw(`SELECT company_name, address FROM ${schemaName}.company_settings LIMIT 1`));
