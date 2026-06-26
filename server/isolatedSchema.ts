@@ -1830,6 +1830,7 @@ export const reports = pgTable("reports", {
   emailSent: boolean("email_sent").default(false),
   emailSentAt: timestamp("email_sent_at"),
   data: text("data"),
+  siteId: varchar("site_id"),
 });
 
 // Create insert schemas without customerId

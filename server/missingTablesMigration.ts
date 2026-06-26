@@ -1115,6 +1115,19 @@ const addLoneWorkerSessionColumnsMigration: Migration = {
   }
 };
 
+const addReportsSiteIdColumnMigration: Migration = {
+  version: '20260626_002_reports_site_id',
+  description: 'Add site_id column to reports table for multi-site scope filtering',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+      logger.info('✅ reports.site_id column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ reports.site_id: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -1138,4 +1151,5 @@ export const missingTablesMigrations = [
   addWorkerDbsRequiredColumnMigration,
   fixOrphanedStaffSiteIdsMigration,
   addLoneWorkerSessionColumnsMigration,
+  addReportsSiteIdColumnMigration,
 ];

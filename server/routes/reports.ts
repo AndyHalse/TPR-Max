@@ -9,7 +9,7 @@ import { EmailService, emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, sql, desc, and, gte, lte } from 'drizzle-orm';
 import { db } from '../db';
-import { getScopedDb } from '../siteScope';
+import { getScopedDb, scopedWhere, SiteContext } from '../siteScope';
 
 export function registerReportRoutes(app: Express): void {
 
@@ -226,8 +226,9 @@ export function registerReportRoutes(app: Express): void {
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const customerReports = await custDb.select().from(isolatedSchema.reports);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const customerReports = await custDb.select().from(isolatedSchema.reports)
+        .where(scopedWhere(siteContext, isolatedSchema.reports));
       res.json(customerReports);
     } catch (error) {
       logger.error("Error fetching reports:", error);
@@ -241,21 +242,19 @@ export function registerReportRoutes(app: Express): void {
   ] as const;
 
   async function buildModuleReportData(
-    customerId: string,
+    custDb: any,
+    siteContext: SiteContext,
     reportType: string,
     fromDate: Date,
     toDate: Date,
-    siteId: string | null = null,
   ): Promise<{ data: any; summaryCount: string; summaryNote: string }> {
-    const custDb = await customerDbService.getCustomerDatabase(customerId);
     const inRange = (col: any) => and(gte(col, fromDate), lte(col, toDate));
-    const withSite = (col: any, rangeCol: any) => siteId
-      ? and(inRange(rangeCol), eq(col, siteId))
-      : inRange(rangeCol);
+    const withSite = (rangeCol: any, table: { siteId: any }) =>
+      and(inRange(rangeCol), scopedWhere(siteContext, table));
 
     if (reportType === 'health_safety') {
       const rows = await custDb.select().from(isolatedSchema.hsIncidents)
-        .where(withSite(isolatedSchema.hsIncidents.siteId, isolatedSchema.hsIncidents.incidentDate));
+        .where(withSite(isolatedSchema.hsIncidents.incidentDate, isolatedSchema.hsIncidents));
       const incidents  = rows.filter(r => r.recordType === 'incident').length;
       const nearMisses = rows.filter(r => r.recordType === 'near_miss').length;
       const goodSpots  = rows.filter(r => r.recordType === 'good_spot').length;
@@ -271,7 +270,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'fire_risk') {
       const rows = await custDb.select().from(isolatedSchema.fireRiskAssessments)
-        .where(withSite(isolatedSchema.fireRiskAssessments.siteId, isolatedSchema.fireRiskAssessments.assessmentDate));
+        .where(withSite(isolatedSchema.fireRiskAssessments.assessmentDate, isolatedSchema.fireRiskAssessments));
       const now = new Date();
       const overdue = rows.filter(r => r.nextReviewDate && new Date(r.nextReviewDate) < now).length;
       return {
@@ -283,7 +282,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'permit_to_work') {
       const rows = await custDb.select().from(isolatedSchema.permitToWork)
-        .where(withSite(isolatedSchema.permitToWork.siteId, isolatedSchema.permitToWork.createdAt));
+        .where(withSite(isolatedSchema.permitToWork.createdAt, isolatedSchema.permitToWork));
       const active = rows.filter(r => r.status === 'active' || r.status === 'authorised' || r.status === 'approved').length;
       const closed = rows.filter(r => r.status === 'closed').length;
       return {
@@ -295,7 +294,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'risk_assessments') {
       const rows = await custDb.select().from(isolatedSchema.raBuilderAssessments)
-        .where(withSite(isolatedSchema.raBuilderAssessments.siteId, isolatedSchema.raBuilderAssessments.assessmentDate));
+        .where(withSite(isolatedSchema.raBuilderAssessments.assessmentDate, isolatedSchema.raBuilderAssessments));
       const now = new Date();
       const dueReview = rows.filter(r => r.nextReviewDate && new Date(r.nextReviewDate) < now).length;
       const approved  = rows.filter(r => r.status === 'approved').length;
@@ -308,7 +307,7 @@ export function registerReportRoutes(app: Express): void {
 
     if (reportType === 'ppm_compliance') {
       const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
-        .where(withSite(isolatedSchema.ppmWorkOrders.siteId, isolatedSchema.ppmWorkOrders.dueDate));
+        .where(withSite(isolatedSchema.ppmWorkOrders.dueDate, isolatedSchema.ppmWorkOrders));
       const now = new Date();
       const completed = rows.filter(r => r.status === 'completed' || !!(r as any).completedDate).length;
       const overdue   = rows.filter(r => r.status !== 'completed' && !(r as any).completedDate && r.dueDate && new Date(r.dueDate) < now).length;
@@ -322,7 +321,7 @@ export function registerReportRoutes(app: Express): void {
 
     // audit_inspection
     const rows = await custDb.select().from(isolatedSchema.auditRecords)
-      .where(withSite(isolatedSchema.auditRecords.siteId, isolatedSchema.auditRecords.conductedAt));
+      .where(withSite(isolatedSchema.auditRecords.conductedAt, isolatedSchema.auditRecords));
     const passed    = rows.filter(r => r.passed === true).length;
     const completed = rows.filter(r => r.status === 'completed').length;
     return {
@@ -341,6 +340,7 @@ export function registerReportRoutes(app: Express): void {
         return res.status(403).json({ error: 'Admin access required' });
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
+      const { db: custDb, siteId: genSiteId, siteContext } = await getScopedDb(req);
       
       const { reportType, dateFrom, dateTo } = req.body;
       
@@ -415,14 +415,12 @@ export function registerReportRoutes(app: Express): void {
         avgDuration = `${withGaps.length} with gaps`;
         snapshotData = JSON.stringify({ type: 'compliance_gap', companies });
       } else if (MODULE_REPORT_TYPES.includes(reportType as any)) {
-        const reportGenSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
-        const built = await buildModuleReportData(context.customerId, reportType, fromDate, toDate, reportGenSiteId);
+        const built = await buildModuleReportData(custDb, siteContext, reportType, fromDate, toDate);
         totalVisitors = built.summaryCount;
         avgDuration   = built.summaryNote;
         snapshotData  = JSON.stringify(built.data);
       }
       
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const [report] = await custDb.insert(isolatedSchema.reports)
         .values({
           reportType,
@@ -432,6 +430,7 @@ export function registerReportRoutes(app: Express): void {
           avgDuration,
           emailSent: false,
           emailSentAt: null,
+          siteId: genSiteId,
           ...(snapshotData ? { data: snapshotData } : {}),
         })
         .returning();
@@ -459,9 +458,9 @@ export function registerReportRoutes(app: Express): void {
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const customerReports = await custDb.select().from(isolatedSchema.reports);
-      const report = customerReports.find(r => r.id === id);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const [report] = await custDb.select().from(isolatedSchema.reports)
+        .where(and(eq(isolatedSchema.reports.id, id), scopedWhere(siteContext, isolatedSchema.reports)));
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -523,8 +522,7 @@ export function registerReportRoutes(app: Express): void {
         if (report.data) {
           reportData = JSON.parse(report.data);
         } else {
-          const emailSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
-          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo, emailSiteId);
+          const rebuilt = await buildModuleReportData(custDb, siteContext, report.reportType, rangeFrom, rangeTo);
           reportData = rebuilt.data;
         }
       } else {
@@ -560,9 +558,9 @@ export function registerReportRoutes(app: Express): void {
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const customerReports = await custDb.select().from(isolatedSchema.reports);
-      const report = customerReports.find(r => r.id === id);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const [report] = await custDb.select().from(isolatedSchema.reports)
+        .where(and(eq(isolatedSchema.reports.id, id), scopedWhere(siteContext, isolatedSchema.reports)));
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -658,8 +656,7 @@ export function registerReportRoutes(app: Express): void {
         if (report.data) {
           reportData = JSON.parse(report.data);
         } else {
-          const downloadSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
-          const rebuilt = await buildModuleReportData(context.customerId, report.reportType, rangeFrom, rangeTo, downloadSiteId);
+          const rebuilt = await buildModuleReportData(custDb, siteContext, report.reportType, rangeFrom, rangeTo);
           reportData = rebuilt.data;
         }
       } else {
@@ -1051,7 +1048,8 @@ export function registerReportRoutes(app: Express): void {
 
       if (req.customerId) {
         try {
-          const bookingsCount = await db
+          const diagCustDb = await customerDbService.getCustomerDatabase(req.customerId);
+          const bookingsCount = await diagCustDb
             .select({ count: sql`count(*)` })
             .from(isolatedSchema.roomBookings);
           
