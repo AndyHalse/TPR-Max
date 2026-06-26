@@ -91,7 +91,14 @@ export class DatabaseService {
     return await db
       .select()
       .from(isolatedSchema.staff)
-      .where(siteId ? eq(isolatedSchema.staff.siteId, siteId) : undefined)
+      .where(
+        siteId
+          ? or(
+              eq(isolatedSchema.staff.siteId, siteId),
+              isNull(isolatedSchema.staff.siteId)
+            )
+          : undefined
+      )
       .orderBy(asc(isolatedSchema.staff.lastName), asc(isolatedSchema.staff.firstName));
   }
 

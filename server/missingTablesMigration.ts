@@ -1067,6 +1067,29 @@ const addWorkerDbsRequiredColumnMigration: Migration = {
   }
 };
 
+const fixOrphanedStaffSiteIdsMigration: Migration = {
+  version: '20260626_002_fix_orphaned_staff_site_ids',
+  description: 'Set site_id = NULL on staff records whose site_id does not match any row in the sites table (cleans up stale site references so staff appear in enterprise site lists)',
+  async up(db: any) {
+    try {
+      const result = await db.execute(`
+        UPDATE staff
+        SET site_id = NULL
+        WHERE site_id IS NOT NULL
+          AND site_id NOT IN (SELECT id FROM sites)
+      `);
+      const count = result?.rowCount ?? result?.count ?? 0;
+      if (count > 0) {
+        logger.info(`✅ Cleared orphaned site_id on ${count} staff record(s)`);
+      } else {
+        logger.info('✅ No orphaned staff site_id values found');
+      }
+    } catch (err: any) {
+      logger.warn(`⚠️ fix_orphaned_staff_site_ids: ${(err?.message || '').substring(0, 120)}`);
+    }
+  }
+};
+
 const addLoneWorkerSessionColumnsMigration: Migration = {
   version: '20260626_001_lone_worker_session_columns',
   description: 'Add check_ins_completed, escalations_fired, and site_id columns to lone_worker_sessions for customers where the table pre-existed without them',
@@ -1113,5 +1136,6 @@ export const missingTablesMigrations = [
   addStaffDbsRequiredColumnMigration,
   createStaffNotesTableMigration,
   addWorkerDbsRequiredColumnMigration,
+  fixOrphanedStaffSiteIdsMigration,
   addLoneWorkerSessionColumnsMigration,
 ];
