@@ -154,7 +154,7 @@ async function buildPortfolioComplianceSnapshot(
   const title = 'Portfolio Compliance Snapshot';
 
   // Load sites
-  const allSites = await db.select().from(iso.sites).where(eq(iso.sites.isActive, true));
+  const allSites = await db.select().from(iso.sites).where(eq(iso.sites.status, 'active'));
   const sites = allowedSiteIds === 'all' ? allSites : allSites.filter((s: any) => allowedSiteIds.includes(s.id));
 
   if (sites.length === 0) {
@@ -382,7 +382,7 @@ async function buildExpiryForecast(
   const title = `Expiry Forecast — Next ${days} Days`;
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + days);
 
-  const allSites = await db.select({ id: iso.sites.id, name: iso.sites.name }).from(iso.sites).where(eq(iso.sites.isActive, true));
+  const allSites = await db.select({ id: iso.sites.id, name: iso.sites.name }).from(iso.sites).where(eq(iso.sites.status, 'active'));
   const siteMap = new Map(allSites.map((s: any) => [s.id, s.name]));
   const siteIds = allowedSiteIds === 'all' ? allSites.map((s: any) => s.id) : allowedSiteIds;
 
@@ -453,7 +453,7 @@ async function buildPpmPerformance(
 ): Promise<{ title: string; html: string }> {
   const title = 'PPM Performance Report';
 
-  const allSites = await db.select({ id: iso.sites.id, name: iso.sites.name }).from(iso.sites).where(eq(iso.sites.isActive, true));
+  const allSites = await db.select({ id: iso.sites.id, name: iso.sites.name }).from(iso.sites).where(eq(iso.sites.status, 'active'));
   const siteMap = new Map(allSites.map((s: any) => [s.id, s.name]));
   const siteIds = allowedSiteIds === 'all' ? allSites.map((s: any) => s.id) : allowedSiteIds;
 
