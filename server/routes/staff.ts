@@ -1834,7 +1834,7 @@ export function registerStaffRoutes(app: Express): void {
   app.post("/api/staff/:id/lone-worker/start", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { db: customerDb, siteId } = await getScopedDb(req);
       const { id } = req.params;
       const cryptoMod = await import('crypto');
 
@@ -1846,7 +1846,8 @@ export function registerStaffRoutes(app: Express): void {
       const settings = await getLoneWorkerSettings({ db: customerDb });
       if (!settings?.loneWorkerEnabled) return res.status(400).json({ error: 'Lone Worker Protection is not enabled for this organisation' });
 
-      // Guard against duplicate active sessions
+      // Guard against duplicate active sessions — intentionally customer-wide (not site-scoped) so
+      // a worker can never have two concurrent lone-worker sessions across any site.
       const [existingSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
         .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'staff' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`)
         .limit(1);
@@ -1856,7 +1857,7 @@ export function registerStaffRoutes(app: Express): void {
       const gracePeriodMins = settings?.loneWorkerGracePeriodMins || 10;
       const deadline = new Date(Date.now() + intervalMins * 60000);
 
-      const [session] = await customerDb.insert(isolatedSchema.loneWorkerSessions).values({
+      const [session] = await customerDb.insert(isolatedSchema.loneWorkerSessions).values(withSiteId(siteId, {
         customerId,
         personId: id,
         personType: 'staff',
@@ -1865,7 +1866,7 @@ export function registerStaffRoutes(app: Express): void {
         intervalMins,
         gracePeriodMins,
         status: 'active',
-      }).returning();
+      })).returning();
 
       const token = mintLoneWorkerToken(cryptoMod);
       await customerDb.insert(isolatedSchema.loneWorkerTokens).values({
@@ -1897,14 +1898,16 @@ export function registerStaffRoutes(app: Express): void {
   // POST /api/staff/:id/lone-worker/end
   app.post("/api/staff/:id/lone-worker/end", requireAuth, async (req, res) => {
     try {
-      const customerId = req.customerId!;
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { db: customerDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const endedBy = req.body?.endedBy || 'supervisor';
+      const siteFilter = scopedWhere(siteContext, isolatedSchema.loneWorkerSessions);
 
       await customerDb.update(isolatedSchema.loneWorkerSessions)
         .set({ status: 'ended_ok', endedAt: new Date(), endedBy })
-        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'staff' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
+        .where(siteFilter
+          ? sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'staff' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated') AND ${siteFilter}`
+          : sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'staff' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
 
       await customerDb.update(isolatedSchema.staff)
         .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
