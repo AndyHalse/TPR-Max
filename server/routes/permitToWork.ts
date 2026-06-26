@@ -368,10 +368,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── GET single permit ───────────────────────────────────────────────────────
   app.get('/api/ptw/:id', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork)
-        .where(eq(isolatedSchema.permitToWork.id, id));
+        .where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       const checklist = await custDb.select().from(isolatedSchema.permitChecklist)
         .where(eq(isolatedSchema.permitChecklist.permitId, id))
@@ -388,10 +388,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PUT update permit (draft only) ─────────────────────────────────────────
   app.put('/api/ptw/:id', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork)
-        .where(eq(isolatedSchema.permitToWork.id, id));
+        .where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'draft') return res.status(400).json({ error: 'Only draft permits can be edited.' });
 
@@ -412,11 +412,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH update checklist item ─────────────────────────────────────────────
   app.patch('/api/ptw/:id/checklist/:checklistItemId', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id, checklistItemId } = req.params;
       const { response, notes } = req.body;
       const [permit] = await custDb.select({ status: isolatedSchema.permitToWork.status }).from(isolatedSchema.permitToWork)
-        .where(eq(isolatedSchema.permitToWork.id, id));
+        .where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'draft' && (permit as any).status !== 'submitted') {
         return res.status(400).json({ error: 'Checklist can only be updated in draft or submitted status.' });
@@ -447,10 +447,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── POST regenerate checklist ────────────────────────────────────────────
   app.post('/api/ptw/:id/checklist/regenerate', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork)
-        .where(eq(isolatedSchema.permitToWork.id, id));
+        .where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
 
       const existing = await custDb.select({ id: isolatedSchema.permitChecklist.id })
@@ -486,10 +486,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH submit ────────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/submit', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork)
-        .where(eq(isolatedSchema.permitToWork.id, id));
+        .where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'draft') return res.status(400).json({ error: 'Permit must be in draft to submit.' });
 
@@ -554,10 +554,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH authorise ─────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/authorise', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork)
-        .where(eq(isolatedSchema.permitToWork.id, id));
+        .where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'submitted') return res.status(400).json({ error: 'Permit must be submitted to authorise.' });
       if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can authorise permits.' });
@@ -584,11 +584,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH reject ────────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/reject', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const { rejectionReason } = req.body;
       if (!rejectionReason) return res.status(400).json({ error: 'Rejection reason is required.' });
-      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'submitted') return res.status(400).json({ error: 'Only submitted permits can be rejected.' });
       if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can reject permits.' });
@@ -607,9 +607,9 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH activate ──────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/activate', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
-      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'authorised') return res.status(400).json({ error: 'Permit must be authorised before activation.' });
       if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can activate permits.' });
@@ -633,11 +633,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH suspend ───────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/suspend', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const { suspensionReason } = req.body;
       if (!suspensionReason) return res.status(400).json({ error: 'Suspension reason is required.' });
-      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'active') return res.status(400).json({ error: 'Only active permits can be suspended.' });
       if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can suspend permits.' });
@@ -656,9 +656,9 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH resume ────────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/resume', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
-      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'suspended') return res.status(400).json({ error: 'Permit must be suspended to resume.' });
       if (req.user!.role !== 'admin' && req.user!.role !== 'manager') return res.status(403).json({ error: 'Only managers or admins can resume permits.' });
@@ -679,10 +679,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH close ─────────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/close', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const { closureNotes, workCompletedSatisfactorily } = req.body;
-      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'active' && (permit as any).status !== 'suspended') {
         return res.status(400).json({ error: 'Permit must be active or suspended to close.' });
@@ -702,11 +702,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── PATCH cancel ────────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/cancel', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const { cancellationReason } = req.body;
       if (!cancellationReason?.trim()) return res.status(400).json({ error: 'Cancellation reason is required.' });
-      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       const terminatedStatuses = ['completed', 'expired', 'cancelled'];
       if (terminatedStatuses.includes((permit as any).status)) return res.status(400).json({ error: 'Permit cannot be cancelled in its current state.' });
@@ -733,8 +733,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // ─── Attachments ─────────────────────────────────────────────────────────────
   app.get('/api/ptw/:id/attachments', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
+      const [permit] = await custDb.select({ id: isolatedSchema.permitToWork.id }).from(isolatedSchema.permitToWork)
+        .where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
+      if (!permit) return res.status(404).json({ error: 'Permit not found' });
       const attachments = await custDb.select().from(isolatedSchema.permitAttachments)
         .where(eq(isolatedSchema.permitAttachments.permitId, id));
       res.json(attachments);
@@ -746,9 +749,9 @@ export function registerPermitToWorkRoutes(app: Express): void {
 
   app.post('/api/ptw/:id/attachments', requireAuth, requirePermitToWorkFeature, upload.single('file'), async (req: any, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
-      const [permit] = await custDb.select({ status: isolatedSchema.permitToWork.status }).from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select({ status: isolatedSchema.permitToWork.status }).from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status === 'expired' || (permit as any).status === 'cancelled') {
         return res.status(400).json({ error: 'Cannot attach documents to expired or cancelled permits.' });
@@ -787,9 +790,9 @@ export function registerPermitToWorkRoutes(app: Express): void {
 
   app.delete('/api/ptw/:id/attachments/:attachmentId', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id, attachmentId } = req.params;
-      const [permit] = await custDb.select({ status: isolatedSchema.permitToWork.status }).from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+      const [permit] = await custDb.select({ status: isolatedSchema.permitToWork.status }).from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'draft' && (permit as any).status !== 'submitted') {
         return res.status(400).json({ error: 'Attachments can only be deleted in draft or submitted status.' });
@@ -809,10 +812,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
   // PATCH /api/ptw/:id/archive — archive an expired/cancelled/completed permit
   app.patch('/api/ptw/:id/archive', requireAuth, requirePermitToWorkFeature, async (req: any, res) => {
     try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { db: custDb, siteContext } = await getScopedDb(req);
       const { id } = req.params;
       const [permit] = await custDb.select({ id: isolatedSchema.permitToWork.id, status: isolatedSchema.permitToWork.status, permitNumber: isolatedSchema.permitToWork.permitNumber })
-        .from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
+        .from(isolatedSchema.permitToWork).where(and(eq(isolatedSchema.permitToWork.id, id), scopedWhere(siteContext, isolatedSchema.permitToWork)));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       const archivable = ['expired', 'cancelled', 'completed'];
       if (!archivable.includes((permit as any).status)) {
