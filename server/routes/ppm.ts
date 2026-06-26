@@ -2475,7 +2475,9 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
         const wids = workers.map(w => w.id);
 
         if (wids.length > 0) {
-          // Worker children — delete before workers
+          // Worker children — delete before workers.
+          // Must include every table with a notNull workerId FK to contractorWorkers,
+          // otherwise the DELETE contractor_workers will fail with a FK violation.
           for (const table of [
             isolatedSchema.workerNotes,
             isolatedSchema.workerCompetencies,
@@ -2484,6 +2486,9 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
             isolatedSchema.workerCertifications,
             isolatedSchema.workerDocumentAssignments,
             isolatedSchema.workerDocumentAcceptances,
+            isolatedSchema.localLabourRecords,
+            isolatedSchema.co2EmissionsData,
+            isolatedSchema.contractorVisits,
           ] as any[]) {
             try {
               await custDb.delete(table).where(inArray(table.workerId, wids));
