@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -64,6 +65,7 @@ const emptyForm: MemberFormData = {
 };
 
 export default function Members() {
+  const { t } = useTranslation('members');
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -87,11 +89,11 @@ export default function Members() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      toast({ title: "Success", description: "Member created successfully" });
+      toast({ title: t('toasts.createdSuccess') });
       closeDialog();
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create member", variant: "destructive" });
+      toast({ title: t('toasts.createFailed'), variant: "destructive" });
     },
   });
 
@@ -102,11 +104,11 @@ export default function Members() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      toast({ title: "Success", description: "Member updated successfully" });
+      toast({ title: t('toasts.updatedSuccess') });
       closeDialog();
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update member", variant: "destructive" });
+      toast({ title: t('toasts.updateFailed'), variant: "destructive" });
     },
   });
 
@@ -117,10 +119,10 @@ export default function Members() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      toast({ title: "Success", description: "Member removed successfully" });
+      toast({ title: t('toasts.removedSuccess') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to remove member", variant: "destructive" });
+      toast({ title: t('toasts.removeFailed'), variant: "destructive" });
     },
   });
 
@@ -141,7 +143,7 @@ export default function Members() {
       if (context?.previousMembers) {
         queryClient.setQueryData(["/api/members"], context.previousMembers);
       }
-      toast({ title: "Error", description: "Failed to check in member", variant: "destructive" });
+      toast({ title: t('toasts.checkInFailed'), variant: "destructive" });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
@@ -168,7 +170,7 @@ export default function Members() {
       if (context?.previousMembers) {
         queryClient.setQueryData(["/api/members"], context.previousMembers);
       }
-      toast({ title: "Error", description: "Failed to check out member", variant: "destructive" });
+      toast({ title: t('toasts.checkOutFailed'), variant: "destructive" });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
@@ -210,7 +212,7 @@ export default function Members() {
         reader.readAsDataURL(file);
       });
     } catch (readError: any) {
-      toast({ title: "Error", description: "Could not read the file. Please try selecting it again.", variant: "destructive" });
+      toast({ title: t('toasts.fileReadError'), variant: "destructive" });
       return;
     }
 
@@ -220,10 +222,10 @@ export default function Members() {
       const { objectPath } = await res.json();
       setUploadedPhoto(objectPath);
       setFormData(prev => ({ ...prev, photoUrl: objectPath }));
-      toast({ title: "Success", description: "Photo uploaded successfully!" });
+      toast({ title: t('toasts.photoUploadSuccess') });
     } catch (error: any) {
       console.error("Photo upload error:", error?.message || String(error));
-      toast({ title: "Error", description: "Failed to upload photo", variant: "destructive" });
+      toast({ title: t('toasts.photoUploadFailed'), variant: "destructive" });
     } finally {
       setUploading(false);
     }
@@ -271,7 +273,7 @@ export default function Members() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      toast({ title: "Error", description: "First name and last name are required", variant: "destructive" });
+      toast({ title: t('toasts.nameRequired'), variant: "destructive" });
       return;
     }
     if (editingMember) {
@@ -329,14 +331,14 @@ export default function Members() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 flex-shrink-0" />
-          <h1 className="text-xl sm:text-2xl font-bold text-fixed">Members</h1>
-          <Badge variant="secondary" className="ml-1 flex-shrink-0">{members.length} total</Badge>
+          <h1 className="text-xl sm:text-2xl font-bold text-fixed">{t('title')}</h1>
+          <Badge variant="secondary" className="ml-1 flex-shrink-0">{t('totalCount', { count: members.length })}</Badge>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             onClick={() => setShowQRScanner(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
-            title="Scan a member QR code to check in / out"
+            title={t('scanQrTitle')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
@@ -347,8 +349,8 @@ export default function Members() {
           </Button>
           <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-1.5 text-sm px-3 sm:px-4">
             <UserPlus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Member</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">{t('addMember')}</span>
+            <span className="sm:hidden">{t('addMember')}</span>
           </Button>
         </div>
       </div>
@@ -357,7 +359,7 @@ export default function Members() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-variable" />
           <Input
-            placeholder="Search members..."
+            placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -390,17 +392,17 @@ export default function Members() {
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Users className="h-16 w-16 text-variable mb-4 opacity-50" />
             <h3 className="text-lg font-semibold text-fixed mb-2">
-              {searchTerm ? "No members found" : "No members yet"}
+              {searchTerm ? t('noMembersFound') : t('noMembersYet')}
             </h3>
             <p className="text-variable mb-6">
               {searchTerm
-                ? "Try a different search term"
-                : "Add your first member to get started"}
+                ? t('tryDifferentSearch')
+                : t('addFirstMember')}
             </p>
             {!searchTerm && (
               <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-2">
                 <UserPlus className="h-4 w-4" />
-                Add Member
+                {t('addMember')}
               </Button>
             )}
           </div>
@@ -425,13 +427,13 @@ export default function Members() {
                     <span className="font-semibold text-fixed text-sm leading-tight">{member.firstName} {member.lastName}</span>
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${membershipTypeColors[member.membershipType || "full"]}`}>{(member.membershipType || "full").toUpperCase()}</span>
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColors[member.membershipStatus || "active"]}`}>{(member.membershipStatus || "active").toUpperCase()}</span>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${member.isCheckedIn ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{member.isCheckedIn ? 'On Site' : 'Off Site'}</span>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${member.isCheckedIn ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{member.isCheckedIn ? t('common:onSite') : t('common:offSite')}</span>
                   </div>
                   <div className="flex items-center gap-x-3 text-[11px] text-variable mt-0.5">
-                    {member.membershipNumber && <span>No: {member.membershipNumber}</span>}
+                    {member.membershipNumber && <span>{t('membershipNoLabel', { number: member.membershipNumber })}</span>}
                     {member.expiryDate && (
                       <span className={isExpired(member.expiryDate) ? 'text-red-500 font-medium' : ''}>
-                        Exp: {formatDate(member.expiryDate)}
+                        {t('expiryLabel', { date: formatDate(member.expiryDate) })}
                       </span>
                     )}
                   </div>
@@ -441,11 +443,11 @@ export default function Members() {
                   <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => openEditDialog(member)}><Edit className="h-3.5 w-3.5" /></Button>
                   {member.isCheckedIn ? (
                     <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-medium text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
-                      <UserX className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Check Out</span>
+                      <UserX className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">{t('common:checkOut')}</span>
                     </Button>
                   ) : (
                     <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-medium text-green-600 border-green-300 hover:bg-green-50" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending}>
-                      <UserCheck className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Check In</span>
+                      <UserCheck className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">{t('common:checkIn')}</span>
                     </Button>
                   )}
                 </div>
@@ -481,14 +483,14 @@ export default function Members() {
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
                         member.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {member.isCheckedIn ? 'On Site' : 'Off Site'}
+                        {member.isCheckedIn ? t('common:onSite') : t('common:offSite')}
                       </span>
                     </div>
                     {member.email && (
                       <p className="text-variable text-xs truncate">{member.email}</p>
                     )}
                     <p className="text-variable text-xs">
-                      {member.membershipNumber ? `No: ${member.membershipNumber}` : 'No membership number'}
+                      {member.membershipNumber ? t('membershipNoLabel', { number: member.membershipNumber }) : t('noMembershipNumber')}
                       {member.membershipId && <span className="text-variable/60"> | {member.membershipId}</span>}
                     </p>
                   </div>
@@ -504,7 +506,7 @@ export default function Members() {
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
                       isExpired(member.expiryDate) ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                     }`}>
-                      {isExpired(member.expiryDate) ? 'EXPIRED' : `Exp: ${formatDate(member.expiryDate)}`}
+                      {isExpired(member.expiryDate) ? t('expired') : t('expiryLabel', { date: formatDate(member.expiryDate) })}
                     </span>
                   )}
                 </div>
@@ -529,7 +531,7 @@ export default function Members() {
                       disabled={checkOutMutation.isPending}
                     >
                       <UserX className="h-4 w-4 mr-1.5" />
-                      Check Out
+                      {t('common:checkOut')}
                     </Button>
                   ) : (
                     <Button
@@ -540,7 +542,7 @@ export default function Members() {
                       disabled={checkInMutation.isPending}
                     >
                       <UserCheck className="h-4 w-4 mr-1.5" />
-                      Check In
+                      {t('common:checkIn')}
                     </Button>
                   )}
                 </div>
@@ -553,11 +555,11 @@ export default function Members() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingMember ? "Edit Member" : "Add Member"}</DialogTitle>
+            <DialogTitle>{editingMember ? t('editMember') : t('addMember')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-fixed">Photo</Label>
+              <Label className="text-fixed">{t('common:photo')}</Label>
               {/* Hidden file inputs — one for gallery, one for camera */}
               <input
                 type="file"
@@ -594,14 +596,14 @@ export default function Members() {
                   >
                     <X size={14} />
                   </Button>
-                  <p className="text-sm text-variable">Photo uploaded</p>
+                  <p className="text-sm text-variable">{t('photoUploaded')}</p>
                   <div className="flex justify-center gap-2 mt-2">
                     <label htmlFor="member-photo-upload" className="cursor-pointer text-xs text-blue-600 hover:underline">
-                      Change
+                      {t('change')}
                     </label>
                     <span className="text-xs text-slate-400">·</span>
                     <label htmlFor="member-photo-camera" className="cursor-pointer text-xs text-blue-600 hover:underline">
-                      Retake
+                      {t('retake')}
                     </label>
                   </div>
                 </div>
@@ -610,7 +612,7 @@ export default function Members() {
                   {uploading ? (
                     <div className="text-center">
                       <Upload className="mx-auto h-8 w-8 text-blue-500 mb-2 animate-pulse" />
-                      <p className="text-sm text-blue-600">Uploading...</p>
+                      <p className="text-sm text-blue-600">{t('uploading')}</p>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-6">
@@ -618,13 +620,13 @@ export default function Members() {
                         <div className="rounded-full p-2 bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
                           <CloudUpload className="h-6 w-6 text-variable" />
                         </div>
-                        <p className="text-xs text-variable">Upload</p>
+                        <p className="text-xs text-variable">{t('upload')}</p>
                       </label>
                       <label htmlFor="member-photo-camera" className="flex flex-col items-center gap-1 cursor-pointer group">
                         <div className="rounded-full p-2 bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
                           <Camera className="h-6 w-6 text-variable" />
                         </div>
-                        <p className="text-xs text-variable">Take Photo</p>
+                        <p className="text-xs text-variable">{t('takePhoto')}</p>
                       </label>
                     </div>
                   )}
@@ -634,7 +636,7 @@ export default function Members() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-fixed">First Name *</Label>
+                <Label className="text-fixed">{t('firstName')} *</Label>
                 <Input
                   value={formData.firstName}
                   onChange={(e) => updateField("firstName", e.target.value)}
@@ -643,7 +645,7 @@ export default function Members() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-fixed">Last Name *</Label>
+                <Label className="text-fixed">{t('lastName')} *</Label>
                 <Input
                   value={formData.lastName}
                   onChange={(e) => updateField("lastName", e.target.value)}
@@ -654,7 +656,7 @@ export default function Members() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-fixed">Email</Label>
+              <Label className="text-fixed">{t('common:email')}</Label>
               <Input
                 type="email"
                 value={formData.email}
@@ -664,7 +666,7 @@ export default function Members() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-fixed">Phone Number</Label>
+              <Label className="text-fixed">{t('phoneNumber')}</Label>
               <Input
                 value={formData.phoneNumber}
                 onChange={(e) => updateField("phoneNumber", e.target.value)}
@@ -674,40 +676,40 @@ export default function Members() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-fixed">Membership Type</Label>
+                <Label className="text-fixed">{t('membershipType')}</Label>
                 <select
                   value={formData.membershipType}
                   onChange={(e) => updateField("membershipType", e.target.value)}
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                 >
-                  <option value="">Select type</option>
-                  <option value="full">Full</option>
-                  <option value="associate">Associate</option>
-                  <option value="junior">Junior</option>
-                  <option value="honorary">Honorary</option>
-                  <option value="social">Social</option>
-                  <option value="temporary">Temporary</option>
+                  <option value="">{t('selectType')}</option>
+                  <option value="full">{t('typeFull')}</option>
+                  <option value="associate">{t('typeAssociate')}</option>
+                  <option value="junior">{t('typeJunior')}</option>
+                  <option value="honorary">{t('typeHonorary')}</option>
+                  <option value="social">{t('typeSocial')}</option>
+                  <option value="temporary">{t('typeTemporary')}</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label className="text-fixed">Membership Status</Label>
+                <Label className="text-fixed">{t('membershipStatus')}</Label>
                 <select
                   value={formData.membershipStatus}
                   onChange={(e) => updateField("membershipStatus", e.target.value)}
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                 >
-                  <option value="">Select status</option>
-                  <option value="active">Active</option>
-                  <option value="expired">Expired</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="pending">Pending</option>
+                  <option value="">{t('selectStatus')}</option>
+                  <option value="active">{t('common:active')}</option>
+                  <option value="expired">{t('statusExpired')}</option>
+                  <option value="suspended">{t('statusSuspended')}</option>
+                  <option value="pending">{t('common:pending')}</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-fixed">Membership Number</Label>
+                <Label className="text-fixed">{t('membershipNumber')}</Label>
                 <Input
                   value={formData.membershipNumber}
                   onChange={(e) => updateField("membershipNumber", e.target.value)}
@@ -715,7 +717,7 @@ export default function Members() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-fixed">Membership ID</Label>
+                <Label className="text-fixed">{t('membershipId')}</Label>
                 <Input
                   value={formData.membershipId}
                   onChange={(e) => updateField("membershipId", e.target.value)}
@@ -726,7 +728,7 @@ export default function Members() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-fixed">Join Date</Label>
+                <Label className="text-fixed">{t('joinDate')}</Label>
                 <Input
                   type="date"
                   value={formData.joinDate}
@@ -734,7 +736,7 @@ export default function Members() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-fixed">Expiry Date</Label>
+                <Label className="text-fixed">{t('expiryDate')}</Label>
                 <Input
                   type="date"
                   value={formData.expiryDate}
@@ -744,7 +746,7 @@ export default function Members() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-fixed">Notes</Label>
+              <Label className="text-fixed">{t('common:notes')}</Label>
               <Input
                 value={formData.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
@@ -763,13 +765,13 @@ export default function Members() {
                     disabled={deleteMutation.isPending}
                   >
                     <Trash2 className="h-4 w-4 mr-1.5" />
-                    Delete Member
+                    {t('deleteMember')}
                   </Button>
                 )}
               </div>
               <div className="flex gap-3">
                 <Button type="button" variant="outline" onClick={closeDialog}>
-                  Cancel
+                  {t('common:cancel')}
                 </Button>
                 <Button
                   type="submit"
@@ -777,10 +779,10 @@ export default function Members() {
                   disabled={createMutation.isPending || updateMutation.isPending}
                 >
                   {createMutation.isPending || updateMutation.isPending
-                    ? "Saving..."
+                    ? t('common:saving')
                     : editingMember
-                    ? "Update Member"
-                    : "Add Member"}
+                    ? t('updateMember')
+                    : t('addMember')}
                 </Button>
               </div>
             </div>

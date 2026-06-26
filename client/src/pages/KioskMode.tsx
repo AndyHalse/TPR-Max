@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest, objectUrl } from "@/lib/queryClient";
@@ -19,6 +20,7 @@ import { createPortal } from "react-dom";
 import VisitInstructionsModal from "@/components/VisitInstructionsModal";
 
 export default function KioskMode() {
+  const { t } = useTranslation('kiosk');
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin" | "staff-search">("main");
@@ -47,7 +49,7 @@ export default function KioskMode() {
     },
     onError: (error: any) => {
       toast({
-        title: "Could not update check-in",
+        title: t('staffCheckin'),
         description: error?.message || "Please try again or see reception.",
         variant: "destructive",
       });
@@ -645,9 +647,9 @@ export default function KioskMode() {
         <div className="max-w-3xl w-full mx-auto space-y-4 sm:space-y-6 flex-1 flex flex-col">
           <div className="text-center flex-shrink-0">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-fixed mb-1 sm:mb-2 select-none">
-              Staff Check-In
+              {t('staffCheckin')}
             </h2>
-            <p className="text-variable text-base sm:text-lg">Find your name below</p>
+            <p className="text-variable text-base sm:text-lg">{t('findYourName')}</p>
           </div>
 
           <GlassCard solid className="flex-1 flex flex-col overflow-hidden">
@@ -656,7 +658,7 @@ export default function KioskMode() {
                 <div className="mx-4 p-6 rounded-xl border-2 bg-green-50 border-green-400 text-center w-full max-w-xs">
                   <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
                   <h3 className="text-2xl font-bold text-green-700 mb-1">
-                    {checkinSuccess.company === "Checked out" ? "Goodbye!" : "Welcome!"}
+                    {checkinSuccess.company === "Checked out" ? t('goodbye') : t('welcome')}
                   </h3>
                   <p className="text-xl font-semibold text-gray-900">{checkinSuccess.name}</p>
                   <p className="text-sm text-green-700 font-medium mt-3">✓ {checkinSuccess.company}</p>
@@ -674,7 +676,7 @@ export default function KioskMode() {
                     >
                       {staffSearchQuery
                         ? <span className="tracking-wide">{staffSearchQuery}</span>
-                        : <span className="text-muted-foreground font-normal">Tap your name on the keyboard below…</span>
+                        : <span className="text-muted-foreground font-normal">{t('tapName')}</span>
                       }
                       <span className="ml-0.5 inline-block w-0.5 h-6 bg-fixed/70 animate-pulse" aria-hidden />
                     </div>
@@ -685,7 +687,7 @@ export default function KioskMode() {
                         className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-fixed"
                         data-testid="button-staff-search-clear"
                       >
-                        Clear
+                        {t('common:clear')}
                       </button>
                     )}
                   </div>
@@ -719,7 +721,7 @@ export default function KioskMode() {
                       className="flex-[3] h-12 sm:h-14 rounded-lg bg-white border border-white/80 text-sm sm:text-base font-medium text-fixed shadow-sm active:scale-95 active:bg-variable/10 transition-all"
                       data-testid="key-space"
                     >
-                      Space
+                      {t('space')}
                     </button>
                     <button
                       type="button"
@@ -737,11 +739,11 @@ export default function KioskMode() {
                 <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
                   {staffSearchQuery.trim().length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
-                      Start typing your name above to find yourself.
+                      {t('startTyping')}
                     </div>
                   ) : filtered.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
-                      {allStaff.length === 0 ? "No staff members on file." : "No matches — try a different name."}
+                      {allStaff.length === 0 ? t('noStaffOnFile') : t('noMatches')}
                     </div>
                   ) : (
                     filtered.map((s) => {
@@ -770,7 +772,7 @@ export default function KioskMode() {
                                 : "bg-gray-100 text-gray-600 border border-gray-200"
                             }`}
                           >
-                            {isIn ? "Checked In" : "Not checked in"}
+                            {isIn ? t('common:checkedIn') : t('notCheckedIn')}
                           </span>
                         </button>
                       );
@@ -786,7 +788,7 @@ export default function KioskMode() {
                     data-testid="button-staff-search-back"
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
+                    {t('common:back')}
                   </Button>
                   <button
                     type="button"
@@ -794,7 +796,7 @@ export default function KioskMode() {
                     className="text-sm font-medium text-variable underline underline-offset-4 py-2 sm:ml-auto"
                     data-testid="button-staff-search-scan-instead"
                   >
-                    Scan QR instead
+                    {t('scanQrInstead')}
                   </button>
                 </div>
               </>
@@ -833,9 +835,9 @@ export default function KioskMode() {
               onClick={() => setLocation("/")}
               style={{ cursor: 'default' }}
             >
-              QR Code Scanner
+              {t('qrCodeScanner')}
             </h2>
-            <p className="text-variable text-base sm:text-lg lg:text-xl">Scan any QR pass — visitor, contractor, or staff</p>
+            <p className="text-variable text-base sm:text-lg lg:text-xl">{t('scanAnyPass')}</p>
           </div>
 
           <GlassCard solid className="overflow-hidden flex-1 flex flex-col justify-center">
@@ -852,7 +854,7 @@ export default function KioskMode() {
               {cameraState === "starting" && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
                   <Loader2 className="w-10 h-10 text-white animate-spin" />
-                  <p className="text-white text-base font-medium">Starting camera…</p>
+                  <p className="text-white text-base font-medium">{t('startingCamera')}</p>
                 </div>
               )}
 
@@ -863,7 +865,7 @@ export default function KioskMode() {
                   torchOn={torchOn}
                   torchSupported={torchSupported}
                   onToggleTorch={toggleTorch}
-                  label="Point camera at QR code — scans automatically"
+                  label={t('pointCamera')}
                 />
               )}
 
@@ -871,7 +873,7 @@ export default function KioskMode() {
               {cameraState === "processing" && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
                   <Loader2 className="w-12 h-12 text-blue-400 animate-spin" />
-                  <p className="text-white text-base font-medium">Processing…</p>
+                  <p className="text-white text-base font-medium">{t('processing')}</p>
                 </div>
               )}
 
@@ -879,9 +881,9 @@ export default function KioskMode() {
               {cameraState === "error" && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 px-6 text-center">
                   <Camera className="w-12 h-12 text-gray-400" />
-                  <p className="text-white text-sm">{cameraError || "Camera unavailable"}</p>
+                  <p className="text-white text-sm">{cameraError || t('cameraUnavailable')}</p>
                   <Button size="sm" onClick={startCamera} className="bg-blue-600 hover:bg-blue-700 text-white">
-                    Try Again
+                    {t('tryAgain')}
                   </Button>
                 </div>
               )}
@@ -891,13 +893,13 @@ export default function KioskMode() {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/85">
                   <div className="mx-4 p-6 rounded-xl border-2 bg-green-50 border-green-400 text-center w-full max-w-xs">
                     <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
-                    <h3 className="text-2xl font-bold text-green-700 mb-1">Welcome!</h3>
+                    <h3 className="text-2xl font-bold text-green-700 mb-1">{t('welcome')}</h3>
                     <p className="text-xl font-semibold text-gray-900">{checkinSuccess.name}</p>
                     {checkinSuccess.company && (
                       <p className="text-sm text-gray-600 mt-0.5">{checkinSuccess.company}</p>
                     )}
-                    <p className="text-sm text-green-700 font-medium mt-3">✓ Checked in successfully</p>
-                    <p className="text-xs text-gray-500 mt-2">Your visitor pass will appear shortly…</p>
+                    <p className="text-sm text-green-700 font-medium mt-3">✓ {t('checkedInSuccessfully')}</p>
+                    <p className="text-xs text-gray-500 mt-2">{t('passSoon')}</p>
                   </div>
                 </div>
               )}
@@ -911,13 +913,13 @@ export default function KioskMode() {
                       : <LogOut className="w-10 h-10 text-orange-600 mx-auto mb-2" />
                     }
                     <h3 className={`text-xl font-bold mb-1 ${staffCheckResult.action === 'checkin' ? 'text-green-700' : 'text-orange-700'}`}>
-                      {staffCheckResult.action === 'checkin' ? 'Checked In' : 'Checked Out'}
+                      {staffCheckResult.action === 'checkin' ? t('common:checkedIn') : t('common:checkedOut')}
                     </h3>
                     <p className="text-lg font-semibold text-gray-800">
                       {staffCheckResult.staff?.firstName} {staffCheckResult.staff?.lastName}
                     </p>
                     <p className="text-sm text-gray-600">{staffCheckResult.staff?.department}</p>
-                    <p className="text-xs text-gray-500 mt-2">Closing automatically…</p>
+                    <p className="text-xs text-gray-500 mt-2">{t('closingAuto')}</p>
                   </div>
                 </div>
               )}
@@ -940,11 +942,11 @@ export default function KioskMode() {
 
             {/* Manual fallback + back button */}
             <div className="p-4 space-y-3">
-              <p className="text-xs text-center text-muted-foreground">Or enter the code manually if scanning fails</p>
+              <p className="text-xs text-center text-muted-foreground">{t('manualFallback')}</p>
               <div className="flex gap-3">
                 <Input
                   type="text"
-                  placeholder="Paste or type QR code…"
+                  placeholder={t('pasteQrCode')}
                   value={scannedCode}
                   onChange={(e) => setScannedCode(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && scannedCode.trim()) handleQrScan(scannedCode.trim()); }}
@@ -957,13 +959,13 @@ export default function KioskMode() {
                   className="gradient-blue text-white"
                   data-testid="button-scan-qr"
                 >
-                  Go
+                  {t('go')}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => { setActiveSection("main"); setScannedCode(""); }}
                 >
-                  Back
+                  {t('common:back')}
                 </Button>
               </div>
             </div>
@@ -1020,9 +1022,9 @@ export default function KioskMode() {
           onClick={() => setLocation("/")}
           style={{ cursor: 'default' }}
         >
-          Welcome to {settings?.companyName || 'TechCorp Ltd'}
+          {t('welcomeTo', { name: settings?.companyName || 'TechCorp Ltd' })}
         </h2>
-        <p className="text-muted-foreground text-xs sm:text-base">Please select your check-in option below</p>
+        <p className="text-muted-foreground text-xs sm:text-base">{t('selectOption')}</p>
         {kioskSite && (
           <div className="flex items-center justify-center gap-1.5 mt-1">
             <Building2 size={12} className="text-muted-foreground" />
@@ -1047,8 +1049,8 @@ export default function KioskMode() {
                 <QrCode className="text-white w-7 h-7" />
               </div>
               <div className="text-left min-w-0">
-                <h3 className="text-base font-bold text-foreground">QR Scanner</h3>
-                <p className="text-muted-foreground text-sm leading-tight">Scan to check in or check out</p>
+                <h3 className="text-base font-bold text-foreground">{t('qrScanner')}</h3>
+                <p className="text-muted-foreground text-sm leading-tight">{t('qrScannerDesc')}</p>
               </div>
               <div className="ml-auto text-muted-foreground">›</div>
             </GlassCard>
@@ -1064,8 +1066,8 @@ export default function KioskMode() {
                 <UserPlus className="text-white w-7 h-7" />
               </div>
               <div className="text-left min-w-0">
-                <h3 className="text-base font-bold text-foreground">Manual Check-In</h3>
-                <p className="text-muted-foreground text-sm leading-tight">Walk-in visitor entry</p>
+                <h3 className="text-base font-bold text-foreground">{t('manualCheckin')}</h3>
+                <p className="text-muted-foreground text-sm leading-tight">{t('manualCheckinDesc')}</p>
               </div>
               <div className="ml-auto text-muted-foreground">›</div>
             </GlassCard>
@@ -1081,8 +1083,8 @@ export default function KioskMode() {
                 <BadgeInfo className="text-white w-7 h-7" />
               </div>
               <div className="text-left min-w-0">
-                <h3 className="text-base font-bold text-foreground">Staff Check-In</h3>
-                <p className="text-muted-foreground text-sm leading-tight">Scan your employee ID</p>
+                <h3 className="text-base font-bold text-foreground">{t('staffCheckin')}</h3>
+                <p className="text-muted-foreground text-sm leading-tight">{t('staffCheckinDesc')}</p>
               </div>
               <div className="ml-auto text-muted-foreground">›</div>
             </GlassCard>
@@ -1093,7 +1095,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("staff-search")}
             data-testid="button-staff-no-badge"
           >
-            No badge? Find my name
+            {t('noBadgeFindName')}
           </button>
         </div>
 
@@ -1120,8 +1122,8 @@ export default function KioskMode() {
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">QR Scanner</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm">Scan to check in or check out</p>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">{t('qrScanner')}</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">{t('qrScannerDesc')}</p>
             </GlassCard>
           </div>
 
@@ -1134,8 +1136,8 @@ export default function KioskMode() {
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 gradient-blue rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Manual Check-In</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm">Walk-in visitor entry</p>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">{t('manualCheckin')}</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">{t('manualCheckinDesc')}</p>
             </GlassCard>
           </div>
 
@@ -1145,8 +1147,8 @@ export default function KioskMode() {
                 <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                   <BadgeInfo className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
                 </div>
-                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Staff Check-In</h3>
-                <p className="text-muted-foreground text-xs sm:text-sm">Scan your employee ID</p>
+                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">{t('staffCheckin')}</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm">{t('staffCheckinDesc')}</p>
               </GlassCard>
             </div>
             <button
@@ -1155,7 +1157,7 @@ export default function KioskMode() {
               className="mt-2 text-center text-sm font-medium text-variable underline underline-offset-4 py-2"
               data-testid="button-staff-no-badge-tablet"
             >
-              No badge? Find my name
+              {t('noBadgeFindName')}
             </button>
           </div>
         </div>
@@ -1217,8 +1219,8 @@ export default function KioskMode() {
                 />
               </div>
             )}
-            <h2 className="text-fixed text-2xl font-bold text-center">What is the reason for your visit?</h2>
-            <p className="text-variable text-sm mt-1 text-center">Select the option that best describes your visit today</p>
+            <h2 className="text-fixed text-2xl font-bold text-center">{t('reasonTitle')}</h2>
+            <p className="text-variable text-sm mt-1 text-center">{t('reasonDesc')}</p>
           </div>
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="grid grid-cols-2 gap-4 max-w-2xl w-full mx-auto">
@@ -1246,7 +1248,7 @@ export default function KioskMode() {
                   <span className="font-bold text-slate-800 text-xl leading-tight">{reason.label}</span>
                   {reason.requireHsAcceptance && (
                     <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                      H&amp;S acceptance required
+                      {t('hsRequired')}
                     </span>
                   )}
                 </button>
@@ -1264,7 +1266,7 @@ export default function KioskMode() {
               }}
               className="flex-1 py-3 text-variable hover:text-fixed text-sm font-medium transition-colors"
             >
-              Skip — continue without selecting
+              {t('skipReason')}
             </button>
             <button
               onClick={() => {
@@ -1274,7 +1276,7 @@ export default function KioskMode() {
               }}
               className="py-3 px-5 bg-white/70 hover:bg-white text-fixed text-sm font-medium rounded-xl transition-colors shadow-sm"
             >
-              Cancel
+              {t('common:cancel')}
             </button>
           </div>
         </div>,

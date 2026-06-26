@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
@@ -121,6 +122,7 @@ const CATEGORY_ICONS: Record<string, any> = {
 // ── SentLinksSection ─────────────────────────────────────────────────────
 
 function SentLinksSection() {
+  const { t } = useTranslation('inductionSettings');
   const { toast } = useToast();
   const { data: tokens, isLoading, refetch } = useQuery<InductionTokenRow[]>({
     queryKey: ['/api/induction/admin/tokens'],
@@ -128,8 +130,8 @@ function SentLinksSection() {
 
   const resetMutation = useMutation({
     mutationFn: (tokenId: string) => apiRequest('POST', `/api/induction/admin/tokens/${tokenId}/reset-attempts`),
-    onSuccess: () => { toast({ title: 'Quiz Reset', description: 'The person can now retake the quiz.' }); refetch(); },
-    onError: () => toast({ title: 'Reset Failed', description: 'Could not reset quiz attempts.', variant: 'destructive' }),
+    onSuccess: () => { toast({ title: t('sentLinks.quizReset'), description: t('sentLinks.quizResetDesc') }); refetch(); },
+    onError: () => toast({ title: t('sentLinks.resetFailed'), description: t('sentLinks.resetFailedDesc'), variant: 'destructive' }),
   });
 
   const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -137,53 +139,53 @@ function SentLinksSection() {
 
   if (isLoading) return (
     <Card>
-      <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />Sent Induction Links</CardTitle></CardHeader>
-      <CardContent className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</CardContent>
+      <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />{t('sentLinks.title')}</CardTitle></CardHeader>
+      <CardContent className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> {t('common:loading')}</CardContent>
     </Card>
   );
 
   if (!tokens?.length) return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />Sent Induction Links</CardTitle>
-        <CardDescription>Links sent to contractors, staff and visitors appear here.</CardDescription>
+        <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />{t('sentLinks.title')}</CardTitle>
+        <CardDescription>{t('sentLinks.linksDesc')}</CardDescription>
       </CardHeader>
-      <CardContent className="text-sm text-muted-foreground text-center py-6">No links sent yet.</CardContent>
+      <CardContent className="text-sm text-muted-foreground text-center py-6">{t('sentLinks.noLinks')}</CardContent>
     </Card>
   );
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />Sent Induction Links</CardTitle>
-        <CardDescription>Recent induction links. Use "Reset Quiz" if someone has used all their attempts.</CardDescription>
+        <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />{t('sentLinks.title')}</CardTitle>
+        <CardDescription>{t('sentLinks.desc')}</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y">
-          {tokens.map(t => {
-            const attempts = t.quizAttempts ?? 0;
-            const locked = attempts >= 5 && !t.quizPassed;
-            const exp = isExpired(t.expiresAt);
+          {tokens.map(tok => {
+            const attempts = tok.quizAttempts ?? 0;
+            const locked = attempts >= 5 && !tok.quizPassed;
+            const exp = isExpired(tok.expiresAt);
             return (
-              <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
+              <div key={tok.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm truncate">{t.personName}</span>
-                    <Badge variant="outline" className="text-xs capitalize">{t.personType}</Badge>
-                    {t.quizPassed && <Badge className="text-xs bg-green-100 text-green-800 border-green-200">Passed {t.quizScore}%</Badge>}
-                    {locked && <Badge className="text-xs bg-red-100 text-red-800 border-red-200 flex items-center gap-1"><Lock className="w-3 h-3" />Locked</Badge>}
-                    {exp && !t.quizPassed && <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200">Expired</Badge>}
+                    <span className="font-medium text-sm truncate">{tok.personName}</span>
+                    <Badge variant="outline" className="text-xs capitalize">{tok.personType}</Badge>
+                    {tok.quizPassed && <Badge className="text-xs bg-green-100 text-green-800 border-green-200">{t('sentLinks.passed', { score: tok.quizScore })}</Badge>}
+                    {locked && <Badge className="text-xs bg-red-100 text-red-800 border-red-200 flex items-center gap-1"><Lock className="w-3 h-3" />{t('sentLinks.locked')}</Badge>}
+                    {exp && !tok.quizPassed && <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200">{t('sentLinks.expired')}</Badge>}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t.personEmail} · Sent {fmt(t.createdAt)} · {attempts}/5 attempts</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{tok.personEmail} · {t('sentLinks.sent')} {fmt(tok.createdAt)} · {t('sentLinks.attempts', { count: attempts })}</p>
                 </div>
                 {attempts >= 5 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button size="sm" variant="outline"
                         className={`text-xs shrink-0 ${locked ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                        onClick={() => resetMutation.mutate(t.id)} disabled={resetMutation.isPending}>
+                        onClick={() => resetMutation.mutate(tok.id)} disabled={resetMutation.isPending}>
                         {resetMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RotateCcw className="w-3 h-3 mr-1" />}
-                        Reset Quiz
+                        {t('sentLinks.resetQuiz')}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">Clears the attempt count so this person can retake the quiz. Use this if they've used all 5 attempts but still need to complete the induction.</TooltipContent>
@@ -209,6 +211,7 @@ interface RoleCardProps {
 }
 
 const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySettings }: RoleCardProps) => {
+  const { t } = useTranslation('inductionSettings');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -302,8 +305,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   // ── Mutations ──
   const saveScenesMutation = useMutation({
     mutationFn: async () => { const r = await apiRequest('PUT', `/api/induction/settings/${roleType}/scenes`, { scenes: editedScenes }); return r.json(); },
-    onSuccess: () => { toast({ title: 'Slides saved', description: 'Slide content updated successfully.' }); refetchSlides(); },
-    onError: (err: any) => toast({ title: 'Error saving slides', description: err?.detail || err?.message, variant: 'destructive' }),
+    onSuccess: () => { toast({ title: t('toasts.slidesSaved'), description: t('toasts.slidesSavedDesc') }); refetchSlides(); },
+    onError: (err: any) => toast({ title: t('toasts.errorSavingSlides'), description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const [uploadingSlideIdx, setUploadingSlideIdx] = useState<number | null>(null);
@@ -335,11 +338,11 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       apiRequest('PUT', `/api/induction/settings/${roleType}/scenes`, { scenes: updatedScenes })
         .then(() => refetchSlides())
         .catch(() => {});
-      toast({ title: 'Photo uploaded', description: 'Custom photo saved — it will appear on this slide when you generate.' });
+      toast({ title: t('toasts.photoUploaded'), description: t('toasts.photoUploadedDesc') });
     },
     onError: (err: any) => {
       setUploadingSlideIdx(null);
-      toast({ title: 'Photo upload failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+      toast({ title: t('toasts.photoUploadFailed'), description: err?.message || t('toasts.pleaseTryAgain'), variant: 'destructive' });
     },
   });
 
@@ -348,8 +351,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       const r = await apiRequest('POST', '/api/induction/checkpoints', { label: cpForm.label.trim(), content: cpForm.content.trim(), orderIndex: cpData?.checkpoints?.length ?? 0 });
       return r.json();
     },
-    onSuccess: () => { toast({ title: 'Checkpoint created' }); setCpForm({ label: '', content: '' }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
-    onError: (err: any) => toast({ title: 'Error creating checkpoint', description: err?.detail || err?.message, variant: 'destructive' }),
+    onSuccess: () => { toast({ title: t('toasts.checkpointCreated') }); setCpForm({ label: '', content: '' }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
+    onError: (err: any) => toast({ title: t('toasts.errorCreatingCheckpoint'), description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const updateCpMutation = useMutation({
@@ -358,8 +361,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       const r = await apiRequest('PUT', `/api/induction/checkpoints/${editingCp.id}`, { label: editCpForm.label.trim(), content: editCpForm.content.trim() });
       return r.json();
     },
-    onSuccess: () => { toast({ title: 'Checkpoint updated' }); setEditingCp(null); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
-    onError: (err: any) => toast({ title: 'Error updating checkpoint', description: err?.detail || err?.message, variant: 'destructive' }),
+    onSuccess: () => { toast({ title: t('toasts.checkpointUpdated') }); setEditingCp(null); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
+    onError: (err: any) => toast({ title: t('toasts.errorUpdatingCheckpoint'), description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const uploadCpPhotoMutation = useMutation({
@@ -371,10 +374,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] });
-      toast({ title: 'Photo saved', description: 'Checkpoint photo updated.' });
+      toast({ title: t('toasts.photoSaved'), description: t('toasts.photoSavedDesc') });
       setUploadingCpPhotoId(null);
     },
-    onError: () => { toast({ title: 'Photo upload failed', variant: 'destructive' }); setUploadingCpPhotoId(null); },
+    onError: () => { toast({ title: t('toasts.photoUploadFailed'), variant: 'destructive' }); setUploadingCpPhotoId(null); },
   });
 
   const addQuestionMutation = useMutation({
@@ -383,13 +386,13 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       return r.json();
     },
     onSuccess: () => {
-      toast({ title: 'Question added' });
+      toast({ title: t('toasts.questionAdded') });
       setQForm({ questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'A', explanation: '', category: 'General Safety' });
       setShowAddQuestion(false);
       queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
       onQuestionsRefetch();
     },
-    onError: (err: any) => toast({ title: 'Failed to add question', description: err?.detail || err?.message, variant: 'destructive' }),
+    onError: (err: any) => toast({ title: t('toasts.failedAddQuestion'), description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const updateQuestionMutation = useMutation({
@@ -399,12 +402,12 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       return r.json();
     },
     onSuccess: () => {
-      toast({ title: 'Question updated' });
+      toast({ title: t('toasts.questionUpdated') });
       setEditingQId(null);
       queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
       onQuestionsRefetch();
     },
-    onError: (err: any) => toast({ title: 'Failed to update question', description: err?.detail || err?.message, variant: 'destructive' }),
+    onError: (err: any) => toast({ title: t('toasts.failedUpdateQuestion'), description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const deleteQuestionMutation = useMutation({
@@ -416,7 +419,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
       onQuestionsRefetch();
     },
-    onError: (err: any) => toast({ title: 'Failed to delete question', description: err?.detail || err?.message, variant: 'destructive' }),
+    onError: (err: any) => toast({ title: t('toasts.failedDeleteQuestion'), description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   const toggleCpMutation = useMutation({
@@ -428,8 +431,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
 
   const deleteCpMutation = useMutation({
     mutationFn: async (id: string) => { const r = await apiRequest('DELETE', `/api/induction/checkpoints/${id}`); return r.json(); },
-    onSuccess: () => { toast({ title: 'Checkpoint deleted' }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
-    onError: (err: any) => toast({ title: 'Error deleting checkpoint', description: err?.detail || err?.message, variant: 'destructive' }),
+    onSuccess: () => { toast({ title: t('toasts.checkpointDeleted') }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
+    onError: (err: any) => toast({ title: t('toasts.errorDeletingCheckpoint'), description: err?.detail || err?.message, variant: 'destructive' }),
   });
 
   // ── Helpers ──
@@ -468,7 +471,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         setGenerationStatus(sd);
         if (sd.status === 'done') {
           stopPolling();
-          toast({ title: 'Induction Generated', description: sd.message });
+          toast({ title: t('toasts.inductionGenerated'), description: sd.message });
           queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
           queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
           queryClient.invalidateQueries({ queryKey: ['/api/induction/settings', roleType, 'scenes'] });
@@ -476,7 +479,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           refetchSlides();
         } else if (sd.status === 'failed') {
           stopPolling();
-          toast({ title: 'Generation Failed', description: sd.error || 'Please try again.', variant: 'destructive' });
+          toast({ title: t('toasts.generationFailed'), description: sd.error || t('toasts.pleaseTryAgain'), variant: 'destructive' });
         }
       } catch {}
     }, 3000);
@@ -494,22 +497,22 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         startPolling();
       } else if (data.error) {
         setGenerationStatus({ status: 'failed', step: 0, totalSteps: 5, message: data.error, error: data.error });
-        toast({ title: 'Generation Failed', description: data.error, variant: 'destructive' });
+        toast({ title: t('toasts.generationFailed'), description: data.error, variant: 'destructive' });
       }
     } catch (error: any) {
       const msg = error?.message || 'Could not start generation. Please try again.';
       setGenerationStatus({ status: 'failed', step: 0, totalSteps: 5, message: msg, error: msg });
-      toast({ title: 'Generation Failed', description: msg, variant: 'destructive' });
+      toast({ title: t('toasts.generationFailed'), description: msg, variant: 'destructive' });
     }
   };
 
   const handleVideoFileSelect = (file: File) => {
     const allowed = ['video/mp4', 'video/quicktime', 'video/webm'];
     if (!allowed.includes(file.type) && !file.name.match(/\.(mp4|mov|webm)$/i)) {
-      toast({ title: 'Invalid file type', description: 'Please select an MP4, MOV, or WebM video file.', variant: 'destructive' }); return;
+      toast({ title: t('toasts.invalidFileType'), description: t('toasts.invalidFileTypeDesc'), variant: 'destructive' }); return;
     }
     if (file.size > 500 * 1024 * 1024) {
-      toast({ title: 'File too large', description: 'Maximum video size is 500 MB.', variant: 'destructive' }); return;
+      toast({ title: t('toasts.fileTooLarge'), description: t('toasts.fileTooLargeDesc'), variant: 'destructive' }); return;
     }
     setIsUploading(true); setUploadProgress(0);
     const formData = new FormData();
@@ -523,13 +526,13 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         setCurrentCustomVideoUrl(data.url);
         setVideoSource('custom_upload');
         queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
-        toast({ title: 'Video uploaded', description: 'Your custom induction video has been saved.' });
+        toast({ title: t('toasts.videoUploaded'), description: t('toasts.videoUploadedDesc') });
       } else {
         const err = JSON.parse(xhr.responseText || '{}');
-        toast({ title: 'Upload failed', description: err.error || 'Please try again.', variant: 'destructive' });
+        toast({ title: t('toasts.uploadFailed'), description: err.error || t('toasts.pleaseTryAgain'), variant: 'destructive' });
       }
     });
-    xhr.addEventListener('error', () => { setIsUploading(false); toast({ title: 'Upload failed', description: 'Network error — please try again.', variant: 'destructive' }); });
+    xhr.addEventListener('error', () => { setIsUploading(false); toast({ title: t('toasts.uploadFailed'), description: t('toasts.networkError'), variant: 'destructive' }); });
     xhr.open('POST', '/api/induction/upload-video'); xhr.withCredentials = true;
     const sessionToken = sessionStorage.getItem('session_token');
     if (sessionToken) xhr.setRequestHeader('Authorization', `Bearer ${sessionToken}`);
@@ -544,8 +547,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       await apiRequest('DELETE', `/api/induction/upload-video?roleType=${roleType}`, undefined);
       setCurrentCustomVideoUrl(null); setVideoSource('ai_generated');
       queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
-      toast({ title: 'Video removed', description: 'The custom video has been removed.' });
-    } catch (err: any) { toast({ title: 'Failed to remove video', description: err?.detail || err?.message, variant: 'destructive' }); }
+      toast({ title: t('toasts.videoRemoved'), description: t('toasts.videoRemovedDesc') });
+    } catch (err: any) { toast({ title: t('toasts.failedRemoveVideo'), description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsDeletingVideo(false); }
   };
 
@@ -555,11 +558,11 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       const response = await apiRequest('POST', `/api/induction/generate-questions/${roleType}`, {});
       const data = await response.json();
       if (data.success) {
-        toast({ title: 'Questions Updated', description: `Generated ${data.questionsGenerated} new questions` });
+        toast({ title: t('toasts.questionsUpdated'), description: t('toasts.questionsUpdatedDesc', { count: data.questionsGenerated }) });
         queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
         onQuestionsRefetch();
-      } else toast({ title: 'Failed', description: data.error || 'Could not regenerate questions', variant: 'destructive' });
-    } catch (error: any) { toast({ title: 'Failed', description: error?.message || 'Could not regenerate questions', variant: 'destructive' }); }
+      } else toast({ title: t('toasts.failed'), description: data.error || t('toasts.couldNotRegenerateQuestions'), variant: 'destructive' });
+    } catch (error: any) { toast({ title: t('toasts.failed'), description: error?.message || t('toasts.couldNotRegenerateQuestions'), variant: 'destructive' }); }
     finally { setIsRegeneratingQuestions(false); }
   };
 
@@ -569,13 +572,13 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       const response = await fetch(`/api/induction/questions/cleanup?roleType=${roleType}&nuclear=true`, { method: 'DELETE', credentials: 'include' });
       const data = await response.json();
       if (data.success) {
-        toast({ title: 'Questions Cleared', description: 'All questions removed — regenerate to get fresh ones.' });
+        toast({ title: t('toasts.questionsCleared'), description: t('toasts.questionsClearedDesc') });
         queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
         onQuestionsRefetch();
       } else {
-        toast({ title: 'Failed to clear questions', description: data.error, variant: 'destructive' });
+        toast({ title: t('toasts.failedClearQuestions'), description: data.error, variant: 'destructive' });
       }
-    } catch (err: any) { toast({ title: 'Failed to clear questions', description: err?.detail || err?.message, variant: 'destructive' }); }
+    } catch (err: any) { toast({ title: t('toasts.failedClearQuestions'), description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsCleaningUp(false); }
   };
 
@@ -584,8 +587,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     try {
       await apiRequest('PATCH', `/api/induction/settings/${roleType}/toggle`, { kioskEnabled: enabled });
       queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
-      toast({ title: enabled ? 'Kiosk induction enabled' : 'Kiosk induction disabled' });
-    } catch (err: any) { setKioskEnabled(prev); toast({ title: 'Failed to update kiosk setting', description: err?.detail || err?.message, variant: 'destructive' }); }
+      toast({ title: enabled ? t('toasts.kioskEnabled') : t('toasts.kioskDisabled') });
+    } catch (err: any) { setKioskEnabled(prev); toast({ title: t('toasts.failedUpdateKiosk'), description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsTogglingKiosk(false); }
   };
 
@@ -596,7 +599,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     try {
       await apiRequest('PATCH', `/api/induction/settings/${roleType}/toggle`, { failureFeedbackLevel: value });
       queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
-    } catch (err: any) { setFailureFeedbackLevel(prev); toast({ title: 'Failed to save feedback level', description: err?.detail || err?.message, variant: 'destructive' }); }
+    } catch (err: any) { setFailureFeedbackLevel(prev); toast({ title: t('toasts.failedSaveFeedback'), description: err?.detail || err?.message, variant: 'destructive' }); }
     finally { setIsSavingFeedbackLevel(false); }
   };
 
@@ -606,7 +609,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   };
 
   const handleSendLink = async () => {
-    if (!sendName.trim() || !sendEmail.trim()) { toast({ title: 'Missing details', description: 'Please enter a name and email address', variant: 'destructive' }); return; }
+    if (!sendName.trim() || !sendEmail.trim()) { toast({ title: t('toasts.missingDetails'), description: t('toasts.missingDetailsDesc'), variant: 'destructive' }); return; }
     setIsSendingLink(true);
     try {
       const personType = roleType === 'visitor' ? 'visitor' : roleType === 'staff' ? 'staff' : 'contractor';
@@ -618,9 +621,9 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       }
       const response = await apiRequest('POST', '/api/induction/send', body);
       const data = await response.json();
-      if (data.message) { toast({ title: 'Induction link sent', description: `Email sent to ${sendEmail}` }); handleCloseSendDialog(false); }
-      else toast({ title: 'Failed', description: data.error || 'Could not send link', variant: 'destructive' });
-    } catch (error: any) { toast({ title: 'Failed', description: error?.message || 'Could not send link', variant: 'destructive' }); }
+      if (data.message) { toast({ title: t('toasts.inductionLinkSent'), description: t('toasts.inductionLinkSentDesc', { email: sendEmail }) }); handleCloseSendDialog(false); }
+      else toast({ title: t('toasts.failed'), description: data.error || t('toasts.couldNotSendLink'), variant: 'destructive' });
+    } catch (error: any) { toast({ title: t('toasts.failed'), description: error?.message || t('toasts.couldNotSendLink'), variant: 'destructive' }); }
     finally { setIsSendingLink(false); }
   };
 
@@ -633,11 +636,11 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         <div className="flex items-start gap-3 mb-5">
           <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-fixed">Induction Content</h3>
-            <p className="text-xs text-variable mt-0.5">Choose how inductees receive the safety content — AI-generated slides or your own MP4 video. Fill in the Site Details above before generating.</p>
+            <h3 className="text-base font-semibold text-fixed">{t('inductionContent.title')}</h3>
+            <p className="text-xs text-variable mt-0.5">{t('inductionContent.desc')}</p>
           </div>
           <Badge className={hasVideo ? 'bg-green-600 text-white shrink-0' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 shrink-0'}>
-            {hasVideo ? <><CheckCircle className="h-3 w-3 mr-1" />Ready</> : 'Not Generated'}
+            {hasVideo ? <><CheckCircle className="h-3 w-3 mr-1" />{t('inductionContent.ready')}</> : t('inductionContent.notGenerated')}
           </Badge>
         </div>
 
@@ -647,7 +650,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <TooltipTrigger asChild>
               <button type="button" onClick={() => setVideoSource('ai_generated')}
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${videoSource === 'ai_generated' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-medium' : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-blue-300'}`}>
-                <Sparkles className="h-4 w-4" />AI-Generated Slides
+                <Sparkles className="h-4 w-4" />{t('inductionContent.aiSlides')}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs text-xs">The AI writes a UK HSE-compliant script, builds interactive slides, and generates a knowledge quiz — all tailored to your site details. You can edit slides and add real site photos afterwards.</TooltipContent>
@@ -656,7 +659,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <TooltipTrigger asChild>
               <button type="button" onClick={() => setVideoSource('custom_upload')}
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${videoSource === 'custom_upload' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-medium' : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-purple-300'}`}>
-                <Upload className="h-4 w-4" />Upload MP4 Video
+                <Upload className="h-4 w-4" />{t('inductionContent.uploadMp4')}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs text-xs">Use your own pre-recorded induction video (MP4, MOV or WebM, max 500 MB). Inductees watch the video then take the AI-generated quiz. Ideal if you already have a professional recording.</TooltipContent>
@@ -672,7 +675,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                   <div className="flex items-center gap-2 min-w-0">
                     <Film className="h-4 w-4 text-purple-600 shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Custom video uploaded</p>
+                      <p className="text-sm font-medium text-purple-900 dark:text-purple-100">{t('inductionContent.customVideoUploaded')}</p>
                       <p className="text-xs text-purple-600 dark:text-purple-400 truncate">{currentCustomVideoUrl.split('/').pop()}</p>
                     </div>
                   </div>
@@ -683,18 +686,18 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                         const { token } = await res.json();
                         window.open(`/induction-preview/${roleType}?pt=${token}`, '_blank');
                       } catch {
-                        toast({ title: 'Could not open preview — please try again', variant: 'destructive' });
+                        toast({ title: t('toasts.couldNotOpenPreview'), variant: 'destructive' });
                       }
                     }} className="gap-1 text-xs">
-                      <Eye className="h-3 w-3" />Preview
+                      <Eye className="h-3 w-3" />{t('inductionContent.preview')}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={handleRemoveVideo} disabled={isDeletingVideo} className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950">
                       {isDeletingVideo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                      <span className="ml-1 text-xs">Remove</span>
+                      <span className="ml-1 text-xs">{t('inductionContent.remove')}</span>
                     </Button>
                   </div>
                 </div>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-center gap-1"><AlertTriangle className="h-3 w-3 shrink-0" />Uploading a new video will replace the existing one</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-center gap-1"><AlertTriangle className="h-3 w-3 shrink-0" />{t('inductionContent.videoReplaceWarning')}</p>
               </div>
             )}
             <div
@@ -713,8 +716,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
               ) : (
                 <>
                   <Upload className="h-8 w-8 text-purple-400 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{currentCustomVideoUrl ? 'Upload replacement video' : 'Drop video here or click to browse'}</p>
-                  <p className="text-xs text-muted-foreground mt-1">MP4, MOV, or WebM — max 500 MB</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{currentCustomVideoUrl ? t('inductionContent.uploadReplacement') : t('inductionContent.dropVideo')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('inductionContent.videoFormats')}</p>
                 </>
               )}
             </div>
@@ -752,34 +755,34 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
               </div>
             ) : generationStatus.status === 'failed' ? (
               <div className="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
-                <div className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-600" /><p className="text-sm font-medium text-red-900 dark:text-red-200">Generation Failed</p></div>
+                <div className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-600" /><p className="text-sm font-medium text-red-900 dark:text-red-200">{t('inductionContent.generationFailed')}</p></div>
                 {generationStatus.error && <p className="text-xs text-red-700 dark:text-red-300 mt-1 ml-6">{generationStatus.error}</p>}
-                <p className="text-xs text-red-600 dark:text-red-400 mt-2 ml-6">Click "Generate Induction" below to try again.</p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-2 ml-6">{t('inductionContent.retryHint')}</p>
               </div>
             ) : hasVideo ? (
               <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-green-900 dark:text-green-100"><CheckCircle className="inline h-4 w-4 mr-1 text-green-600 dark:text-green-400" />Slides Ready</p>
+                    <p className="text-sm font-medium text-green-900 dark:text-green-100"><CheckCircle className="inline h-4 w-4 mr-1 text-green-600 dark:text-green-400" />{t('inductionContent.slidesReady')}</p>
                     <p className="text-xs text-green-700 dark:text-green-300">
                       <Clock className="inline h-3 w-3 mr-1" />
                       {settings?.videoDurationMinutes ? `~${settings.videoDurationMinutes} min · ` : ''}
                       {settings?.generatedAt ? `Generated ${new Date(settings.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Ready to preview'}
                     </p>
                     {settings?.questionsGenerated && (
-                      <p className="text-xs text-green-600 dark:text-green-400"><CheckCircle className="inline h-3 w-3 mr-1" />{questions.length > 0 ? `${questions.length} quiz questions ready` : 'Quiz questions generated'}</p>
+                      <p className="text-xs text-green-600 dark:text-green-400"><CheckCircle className="inline h-3 w-3 mr-1" />{questions.length > 0 ? t('inductionContent.quizQuestionsReady', { count: questions.length }) : t('inductionContent.quizQuestionsGenerated')}</p>
                     )}
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     <Button variant="outline" size="sm" onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')} className="gap-1">
-                      <Eye className="h-3 w-3" />Preview
+                      <Eye className="h-3 w-3" />{t('inductionContent.preview')}
                     </Button>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-300">No induction generated yet. Fill in Site Details (Step 1 above), then click "Generate Induction" to create a UK HSE-compliant induction.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('inductionContent.noInductionYet')}</p>
               </div>
             )}
 
@@ -787,7 +790,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button onClick={handleGenerateVideo} disabled={isGenerating} className="flex items-center gap-2">
-                    {isGenerating ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Generating...</> : <><Sparkles className="h-4 w-4" />{hasVideo ? 'Regenerate Induction' : 'Generate Induction'}</>}
+                    {isGenerating ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />{t('inductionContent.generating')}</> : <><Sparkles className="h-4 w-4" />{hasVideo ? t('inductionContent.regenerateInduction') : t('inductionContent.generateInduction')}</>}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs text-xs">{hasVideo ? 'Rewrites the slides and quiz using the latest Site Details. Your existing slide edits and site photos will be replaced — export a PDF first if you want to keep them.' : 'Generates a full set of interactive slides and a knowledge quiz for this role type, using the Site Details filled in above. Takes 1–2 minutes.'}</TooltipContent>
@@ -803,32 +806,32 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-blue-600" />
-                <p className="text-sm font-semibold text-fixed">Slide Editor</p>
-                <span className="text-xs text-variable hidden sm:inline">— edit text or add real site photos to each slide</span>
+                <p className="text-sm font-semibold text-fixed">{t('inductionContent.slideEditor')}</p>
+                <span className="text-xs text-variable hidden sm:inline">{t('inductionContent.editTextDesc')}</span>
               </div>
               <Button size="sm" variant="outline" onClick={() => saveScenesMutation.mutate()} disabled={saveScenesMutation.isPending || editedScenes.length === 0}>
-                <Check className="w-3.5 h-3.5 mr-1.5" />{saveScenesMutation.isPending ? 'Saving…' : 'Save Slides'}
+                <Check className="w-3.5 h-3.5 mr-1.5" />{saveScenesMutation.isPending ? t('common:saving') : t('inductionContent.saveSlides')}
               </Button>
             </div>
             {/* Hazard photos callout — helps Andy find the per-slide upload feature */}
             <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
               <ImageIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-medium text-amber-800 dark:text-amber-200">Make it specific to your site</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Add photos of real hazards on your site — a low beam, a loading bay, a chemical store, a slippery floor. Expand any slide below, click <strong>Upload Photo</strong>, and your real photo replaces the AI-generated image. This makes the induction genuine to your workplace, not generic.</p>
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200">{t('inductionContent.makeItSpecific')}</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{t('inductionContent.sitePhotoDesc')}</p>
               </div>
             </div>
-            {slidesLoading && <div className="text-center py-6 text-sm text-variable">Loading slides…</div>}
+            {slidesLoading && <div className="text-center py-6 text-sm text-variable">{t('inductionContent.loadingSlides')}</div>}
             {slidesError && (
               <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                Could not load slides. <button className="underline ml-1" onClick={() => refetchSlides()}>Try again</button>
+                {t('inductionContent.couldNotLoadSlides')} <button className="underline ml-1" onClick={() => refetchSlides()}>{t('inductionContent.tryAgain')}</button>
               </div>
             )}
             {!slidesLoading && !slidesError && editedScenes.length === 0 && (
               <div className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                 <Layers className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm text-variable">No slides yet — generate the induction first.</p>
+                <p className="text-sm text-variable">{t('inductionContent.noSlides')}</p>
               </div>
             )}
             {editedScenes.length > 0 && (
@@ -847,32 +850,32 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                     {expandedScene === idx && (
                       <div className="px-4 pb-4 pt-2 space-y-3 border-t border-gray-100 dark:border-gray-700/50">
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-variable">Slide Title</Label>
+                          <Label className="text-xs font-medium text-variable">{t('inductionContent.slideTitle')}</Label>
                           <Input value={scene.title} onChange={(e) => setEditedScenes(prev => prev.map((s, i) => i === idx ? { ...s, title: e.target.value } : s))} className="text-sm" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-variable">Content</Label>
+                          <Label className="text-xs font-medium text-variable">{t('inductionContent.content')}</Label>
                           <Textarea value={scene.content} onChange={(e) => setEditedScenes(prev => prev.map((s, i) => i === idx ? { ...s, content: e.target.value } : s))} rows={4} className="text-sm" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-variable">Site Photo (optional)</Label>
+                          <Label className="text-xs font-medium text-variable">{t('inductionContent.sitePhoto')}</Label>
                           <div className="flex items-center gap-3">
                             {scene.imageUrl ? (
                               <div className="flex items-center gap-2">
                                 <img src={`/objects${scene.imageUrl}`} alt="Slide photo" className="w-20 h-14 object-cover rounded-lg border" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                                 <Button variant="outline" size="sm" className="text-red-600 border-red-200" onClick={() => setEditedScenes(prev => prev.map((s, i) => i === idx ? { ...s, imageUrl: undefined } : s))}>
-                                  <X className="w-3.5 h-3.5 mr-1" />Remove
+                                  <X className="w-3.5 h-3.5 mr-1" />{t('inductionContent.remove')}
                                 </Button>
                               </div>
                             ) : (
                               <Button variant="outline" size="sm" disabled={uploadingSlideIdx === idx} onClick={() => photoInputRefs.current[idx]?.click()}>
-                                <Upload className="w-3.5 h-3.5 mr-1.5" />{uploadingSlideIdx === idx ? 'Uploading…' : 'Upload Photo'}
+                                <Upload className="w-3.5 h-3.5 mr-1.5" />{uploadingSlideIdx === idx ? t('inductionContent.uploadingPhoto') : 'Upload Photo'}
                               </Button>
                             )}
                             <input ref={(el) => { photoInputRefs.current[idx] = el; }} type="file" accept="image/*" className="hidden"
                               onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadSlidePictureMutation.mutate({ sceneIdx: idx, file }); e.target.value = ''; }} />
                           </div>
-                          <p className="text-xs text-variable">Real site photos replace AI-generated images — makes the induction genuinely specific to your site.</p>
+                          <p className="text-xs text-variable">{t('inductionContent.realSitePhotos')}</p>
                         </div>
                       </div>
                     )}
@@ -889,8 +892,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         <div className="flex items-start gap-3 mb-5">
           <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-fixed">Knowledge Questions</h3>
-            <p className="text-xs text-variable mt-0.5">AI-generated scenario-based quiz. 80% pass mark required for compliance.</p>
+            <h3 className="text-base font-semibold text-fixed">{t('questions.title')}</h3>
+            <p className="text-xs text-variable mt-0.5">{t('questions.desc')}</p>
           </div>
           <Badge variant="secondary" className="shrink-0">{questions.length} question{questions.length !== 1 ? 's' : ''}</Badge>
         </div>
@@ -898,8 +901,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         {/* ── On-fail feedback level ── */}
         <div className="mb-5 flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-fixed">On fail, show inductee</p>
-            <p className="text-xs text-variable mt-0.5">Controls what information is shown after a failed quiz attempt.</p>
+            <p className="text-xs font-medium text-fixed">{t('questions.onFailShow')}</p>
+            <p className="text-xs text-variable mt-0.5">{t('questions.onFailDesc')}</p>
           </div>
           <select
             value={failureFeedbackLevel}
@@ -907,9 +910,9 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             disabled={isSavingFeedbackLevel}
             className="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-background shrink-0 min-w-[170px]"
           >
-            <option value="score_only">Score only</option>
-            <option value="questions_topics">Which questions they missed</option>
-            <option value="topics_rewatch">Missed questions + rewatch links</option>
+            <option value="score_only">{t('questions.scoreOnly')}</option>
+            <option value="questions_topics">{t('questions.questionsMissed')}</option>
+            <option value="topics_rewatch">{t('questions.missedAndRewatch')}</option>
           </select>
         </div>
 
@@ -918,7 +921,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <TooltipTrigger asChild>
               <Button size="sm" variant="outline" onClick={handleRegenerateQuestions} disabled={isRegeneratingQuestions} className="gap-1 text-xs">
                 {isRegeneratingQuestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                {questions.length > 0 ? 'Regenerate Questions' : 'Generate Questions'}
+                {questions.length > 0 ? t('questions.regenerate') : t('questions.generate')}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs text-xs">{questions.length > 0 ? 'Replaces all existing questions with a fresh set generated from the current induction slides. Any manual edits to questions will be lost.' : 'Creates a set of scenario-based multiple-choice questions from the induction slides. Requires slides to be generated first.'}</TooltipContent>
@@ -926,7 +929,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setShowAddQuestion(v => !v)}>
-                <Plus className="h-3 w-3" />Add Question Manually
+                <Plus className="h-3 w-3" />{t('questions.addManually')}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs text-xs">Write your own question to match a specific hazard, your uploaded video, or any site-specific requirement. Questions are saved immediately and appear in the quiz.</TooltipContent>
@@ -935,7 +938,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button size="sm" variant="outline" onClick={handleCleanupQuestions} disabled={isCleaningUp} className="gap-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950">
-                  {isCleaningUp ? <Loader2 className="h-3 w-3 animate-spin text-red-600" /> : <Trash2 className="h-3 w-3" />}Clear All
+                  {isCleaningUp ? <Loader2 className="h-3 w-3 animate-spin text-red-600" /> : <Trash2 className="h-3 w-3" />}{t('questions.clearAll')}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs text-xs">Permanently removes all quiz questions for this role type. Inductees will not be tested until you generate a new set.</TooltipContent>
@@ -1013,15 +1016,15 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                               ))}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-variable shrink-0">Correct:</span>
+                              <span className="text-xs text-variable shrink-0">{t('questions.correct')}</span>
                               <select value={editQForm.correctAnswer} onChange={e => setEditQForm(f => ({ ...f, correctAnswer: e.target.value as any }))} className="text-xs border rounded px-2 py-1 bg-background">
                                 {['A', 'B', 'C', 'D'].map(o => <option key={o} value={o}>{o}</option>)}
                               </select>
-                              <Input value={editQForm.explanation} onChange={e => setEditQForm(f => ({ ...f, explanation: e.target.value }))} placeholder="Explanation (optional)" className="text-xs flex-1" />
+                              <Input value={editQForm.explanation} onChange={e => setEditQForm(f => ({ ...f, explanation: e.target.value }))} placeholder={t('questions.explanation')} className="text-xs flex-1" />
                             </div>
                             <div className="flex gap-1.5">
-                              <Button size="sm" className="text-xs h-7 px-2" onClick={() => updateQuestionMutation.mutate()} disabled={updateQuestionMutation.isPending}><Check className="w-3 h-3 mr-1" />Save</Button>
-                              <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => setEditingQId(null)}><X className="w-3 h-3 mr-1" />Cancel</Button>
+                              <Button size="sm" className="text-xs h-7 px-2" onClick={() => updateQuestionMutation.mutate()} disabled={updateQuestionMutation.isPending}><Check className="w-3 h-3 mr-1" />{t('questions.saveQuestion')}</Button>
+                              <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => setEditingQId(null)}><X className="w-3 h-3 mr-1" />{t('common:cancel')}</Button>
                             </div>
                           </div>
                         ) : (
@@ -1054,7 +1057,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                               <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingQId(q.id); setEditQForm({ questionText: q.questionText, optionA: q.optionA || '', optionB: q.optionB || '', optionC: (q as any).optionC || '', optionD: (q as any).optionD || '', correctAnswer: (q.correctAnswer as any) || 'A', explanation: q.explanation || '', category: q.category || 'General Safety' }); }}>
                                 <Edit2 className="w-3 h-3" />
                               </Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => { if (confirm('Delete this question?')) deleteQuestionMutation.mutate(q.id); }}>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => { if (confirm(t('questions.deleteConfirm'))) deleteQuestionMutation.mutate(q.id); }}>
                                 <Trash2 className="w-3 h-3" />
                               </Button>
                             </div>
@@ -1075,42 +1078,42 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         <div className="flex items-start gap-3 mb-5">
           <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">4</span>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-fixed">Walk-around Checkpoints</h3>
-            <p className="text-xs text-variable mt-0.5">QR-code stations around your site — inductees scan each one to confirm they've visited key safety points.</p>
+            <h3 className="text-base font-semibold text-fixed">{t('checkpoints.title')}</h3>
+            <p className="text-xs text-variable mt-0.5">{t('checkpoints.desc')}</p>
           </div>
-          <Badge variant="outline" className="shrink-0 text-xs border-green-400 text-green-700 dark:text-green-400">Optional</Badge>
+          <Badge variant="outline" className="shrink-0 text-xs border-green-400 text-green-700 dark:text-green-400">{t('checkpoints.optional')}</Badge>
         </div>
 
         <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg mb-4 flex items-start gap-2">
           <ImageIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-blue-700 dark:text-blue-400">Each checkpoint can have a <strong>photo of the actual location</strong> — a fire exit, an assembly point, a first aid station. The photo is shown when the inductee scans the QR code. Upload it from the checkpoint row once created.</p>
+          <p className="text-xs text-blue-700 dark:text-blue-400" dangerouslySetInnerHTML={{ __html: t('checkpoints.photoHint') }} />
         </div>
         <div className="border border-dashed border-blue-300 dark:border-blue-700 rounded-xl p-4 mb-4 space-y-3">
-          <p className="text-sm font-medium text-fixed">Add New Checkpoint</p>
+          <p className="text-sm font-medium text-fixed">{t('checkpoints.addNew')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-variable">Checkpoint Label *</Label>
+              <Label className="text-xs font-medium text-variable">{t('checkpoints.labelField')}</Label>
               <Input value={cpForm.label} onChange={(e) => setCpForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Assembly Point A, Fire Exit East, Welfare Block" className="text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-variable">Information Shown on Scan</Label>
-              <Input value={cpForm.content} onChange={(e) => setCpForm(f => ({ ...f, content: e.target.value }))} placeholder="e.g. This is the primary assembly point for fire evacuation." className="text-sm" />
+              <Label className="text-xs font-medium text-variable">{t('checkpoints.infoField')}</Label>
+              <Input value={cpForm.content} onChange={(e) => setCpForm(f => ({ ...f, content: e.target.value }))} placeholder={t('checkpoints.infoPlaceholder')} className="text-sm" />
             </div>
           </div>
           <Button size="sm" onClick={() => createCpMutation.mutate()} disabled={!cpForm.label.trim() || createCpMutation.isPending}>
-            <Plus className="w-3.5 h-3.5 mr-1.5" />{createCpMutation.isPending ? 'Creating…' : 'Create Checkpoint'}
+            <Plus className="w-3.5 h-3.5 mr-1.5" />{createCpMutation.isPending ? t('checkpoints.creating') : t('checkpoints.create')}
           </Button>
         </div>
 
         {cpError ? (
           <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            Could not load checkpoints. <button className="underline ml-1" onClick={() => refetchCpData()}>Try again</button>
+            {t('checkpoints.couldNotLoad')} <button className="underline ml-1" onClick={() => refetchCpData()}>{t('inductionContent.tryAgain')}</button>
           </div>
         ) : !cpData?.checkpoints?.length ? (
           <div className="text-center py-6 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
             <QrCode className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm text-variable">No checkpoints yet. Create your first one above.</p>
+            <p className="text-sm text-variable">{t('checkpoints.noCheckpoints')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -1123,8 +1126,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                       <Input value={editCpForm.content} onChange={(e) => setEditCpForm(f => ({ ...f, content: e.target.value }))} placeholder="Information text" className="text-sm" />
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => updateCpMutation.mutate()} disabled={updateCpMutation.isPending}><Check className="w-3.5 h-3.5 mr-1" />Save</Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingCp(null)}><X className="w-3.5 h-3.5 mr-1" />Cancel</Button>
+                      <Button size="sm" onClick={() => updateCpMutation.mutate()} disabled={updateCpMutation.isPending}><Check className="w-3.5 h-3.5 mr-1" />{t('checkpoints.saveCheckpoint')}</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingCp(null)}><X className="w-3.5 h-3.5 mr-1" />{t('checkpoints.cancelEdit')}</Button>
                     </div>
                   </div>
                 ) : (
@@ -1134,7 +1137,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                         <div className="flex items-center gap-2 mb-1">
                           <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
                           <p className="font-semibold text-fixed text-sm">{cp.label}</p>
-                          <Badge variant={cp.isActive ? 'default' : 'secondary'} className="text-xs">{cp.isActive ? 'Active' : 'Inactive'}</Badge>
+                          <Badge variant={cp.isActive ? 'default' : 'secondary'} className="text-xs">{cp.isActive ? t('checkpoints.active') : t('checkpoints.inactive')}</Badge>
                           {cp.imageUrl && <Badge variant="secondary" className="text-xs gap-1"><ImageIcon className="w-3 h-3" />Photo</Badge>}
                         </div>
                         {cp.content && <p className="text-xs text-variable ml-8">{cp.content}</p>}
@@ -1165,7 +1168,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
-                              onClick={() => { if (confirm(`Delete checkpoint "${cp.label}"?`)) deleteCpMutation.mutate(cp.id); }}>
+                              onClick={() => { if (confirm(t('checkpoints.deleteConfirm', { label: cp.label }))) deleteCpMutation.mutate(cp.id); }}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </TooltipTrigger>
@@ -1180,22 +1183,22 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                           <img src={`/objects${cp.imageUrl}`} alt={cp.label} className="w-20 h-14 object-cover rounded border" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           <div className="space-y-1">
                             <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={() => cpPhotoInputRefs.current[cp.id]?.click()}>
-                              <Upload className="w-3 h-3 mr-1" />Replace Photo
+                              <Upload className="w-3 h-3 mr-1" />{t('checkpoints.replacePhoto')}
                             </Button>
                             <Button variant="outline" size="sm" className="text-xs h-7 px-2 text-red-600 border-red-200" onClick={async () => { await apiRequest('PUT', `/api/induction/checkpoints/${cp.id}`, { imageUrl: null }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); }}>
-                              <X className="w-3 h-3 mr-1" />Remove
+                              <X className="w-3 h-3 mr-1" />{t('checkpoints.removePhoto')}
                             </Button>
                           </div>
                         </div>
                       ) : (
                         <Button variant="outline" size="sm" className="text-xs h-7 px-2 gap-1" onClick={() => cpPhotoInputRefs.current[cp.id]?.click()} disabled={uploadingCpPhotoId === cp.id}>
                           {uploadingCpPhotoId === cp.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
-                          Add Site Photo
+                          {t('checkpoints.addSitePhoto')}
                         </Button>
                       )}
                       <input ref={el => { cpPhotoInputRefs.current[cp.id] = el; }} type="file" accept="image/*" className="hidden"
                         onChange={e => { const file = e.target.files?.[0]; if (file) { setUploadingCpPhotoId(cp.id); uploadCpPhotoMutation.mutate({ id: cp.id, file }); } e.target.value = ''; }} />
-                      {!cp.imageUrl && <p className="text-xs text-variable">Photo shows on the scan page (optional)</p>}
+                      {!cp.imageUrl && <p className="text-xs text-variable">{t('checkpoints.photoOptional')}</p>}
                     </div>
                   </div>
                 )}
@@ -1206,13 +1209,13 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                         <QRCodeImage data={getQrUrl(cp.qrToken)} size={160} alt={`QR code for ${cp.label}`} />
                       </div>
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-fixed">Print and affix at: <strong>{cp.label}</strong></p>
+                        <p className="text-sm font-medium text-fixed">{t('checkpoints.printAffix')} <strong>{cp.label}</strong></p>
                         <p className="text-xs text-variable break-all bg-gray-100 dark:bg-slate-800 px-2 py-1 rounded font-mono">{getQrUrl(cp.qrToken)}</p>
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => window.open(getQrUrl(cp.qrToken), '_blank')}>
-                            <Eye className="w-3.5 h-3.5 mr-1.5" />Open Scan Page
+                            <Eye className="w-3.5 h-3.5 mr-1.5" />{t('checkpoints.openScanPage')}
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => window.print()}>Print QR</Button>
+                          <Button size="sm" variant="outline" onClick={() => window.print()}>{t('checkpoints.printQr')}</Button>
                         </div>
                       </div>
                     </div>
@@ -1236,36 +1239,36 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         <div className="flex items-start gap-3 mb-5">
           <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">5</span>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-fixed">Delivery &amp; Records</h3>
-            <p className="text-xs text-variable mt-0.5">Control how inductees receive this induction and track completion records.</p>
+            <h3 className="text-base font-semibold text-fixed">{t('delivery.title')}</h3>
+            <p className="text-xs text-variable mt-0.5">{t('delivery.desc')}</p>
           </div>
         </div>
 
         {/* Kiosk toggle */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg mb-4 space-y-3">
-          <div className="flex items-center gap-2"><Monitor className="h-4 w-4 text-slate-600 dark:text-slate-400" /><h4 className="font-medium text-sm text-fixed">Kiosk Check-in Integration</h4></div>
+          <div className="flex items-center gap-2"><Monitor className="h-4 w-4 text-slate-600 dark:text-slate-400" /><h4 className="font-medium text-sm text-fixed">{t('delivery.kioskTitle')}</h4></div>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor={`kiosk-toggle-${roleType}`} className="text-sm font-normal cursor-pointer">Show induction during walk-in check-in</Label>
+              <Label htmlFor={`kiosk-toggle-${roleType}`} className="text-sm font-normal cursor-pointer">{t('delivery.kioskLabel')}</Label>
               <p className="text-xs text-muted-foreground">
                 {kioskEnabled ? `${getRoleDisplayName(roleType)} must complete induction before checking in at the kiosk` : `Induction is optional — ${getRoleDisplayName(roleType).toLowerCase()} can check in without it`}
               </p>
             </div>
             <Switch id={`kiosk-toggle-${roleType}`} checked={kioskEnabled} onCheckedChange={handleKioskToggle} disabled={isTogglingKiosk || !hasVideo} />
           </div>
-          {!hasVideo && <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />Generate an induction first to enable kiosk integration</p>}
+          {!hasVideo && <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{t('delivery.generateFirst')}</p>}
         </div>
 
         {/* Hazard reporting toggle */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg mb-4 space-y-3">
-          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-orange-500" /><h4 className="font-medium text-sm text-fixed">Walk-around Hazard Reporting</h4></div>
+          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-orange-500" /><h4 className="font-medium text-sm text-fixed">{t('delivery.hazardReportTitle')}</h4></div>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor={`hazard-report-toggle-${roleType}`} className="text-sm font-normal cursor-pointer">Allow hazard reports at checkpoints</Label>
+              <Label htmlFor={`hazard-report-toggle-${roleType}`} className="text-sm font-normal cursor-pointer">{t('delivery.hazardReportLabel')}</Label>
               <p className="text-xs text-muted-foreground">
                 {(companySettings as any)?.inductionAllowHazardReport !== false
-                  ? 'Inductees can photo-report hazards they spot during the walk-around'
-                  : 'Hazard reporting is disabled — inductees can only confirm checkpoint visits'}
+                  ? t('delivery.hazardReportEnabled')
+                  : t('delivery.hazardReportDisabled')}
               </p>
             </div>
             <Switch
@@ -1275,9 +1278,9 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                 try {
                   await apiRequest('PUT', '/api/settings', { inductionAllowHazardReport: v });
                   queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
-                  toast({ title: v ? 'Hazard reporting enabled' : 'Hazard reporting disabled' });
+                  toast({ title: v ? t('toasts.hazardReportingEnabled') : t('toasts.hazardReportingDisabled') });
                 } catch {
-                  toast({ title: 'Failed to update setting', variant: 'destructive' });
+                  toast({ title: t('toasts.failedUpdateSetting'), variant: 'destructive' });
                 }
               }}
             />
@@ -1289,32 +1292,32 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           <Tooltip>
             <TooltipTrigger asChild>
               <DialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 mb-4"><Send className="h-4 w-4" />Send Induction Link by Email</Button>
+                <Button variant="outline" className="flex items-center gap-2 mb-4"><Send className="h-4 w-4" />{t('delivery.sendLink')}</Button>
               </DialogTrigger>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs text-xs">Sends a secure, time-limited link to a specific person so they can complete this induction remotely — before arriving on site or from any device.</TooltipContent>
           </Tooltip>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-blue-600" />Send {getRoleDisplayName(roleType)} Induction Link</DialogTitle>
+              <DialogTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-blue-600" />{t('delivery.sendDialogTitle', { role: getRoleDisplayName(roleType) })}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
               {!hasVideo && videoSource === 'ai_generated' && (
                 <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
                   <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div><p className="font-medium">No induction generated yet</p><p className="text-xs mt-0.5 text-amber-700">The recipient will see a placeholder. Generate first for the best experience.</p></div>
+                  <div><p className="font-medium">{t('delivery.noInductionWarning')}</p><p className="text-xs mt-0.5 text-amber-700">{t('delivery.noInductionWarningDesc')}</p></div>
                 </div>
               )}
-              <p className="text-sm text-muted-foreground">Select a {roleType === 'contractor' ? 'worker' : roleType === 'staff' ? 'staff member' : 'visitor'} or enter details manually. They'll receive a secure link to complete the induction remotely.</p>
+              <p className="text-sm text-muted-foreground">{t('delivery.dialogIntro', { type: roleType === 'contractor' ? 'worker' : roleType === 'staff' ? 'staff member' : 'visitor' })}</p>
               {!manualMode ? (
                 <div className="space-y-2">
-                  <Label>Select {roleType === 'contractor' ? 'Worker' : roleType === 'staff' ? 'Staff Member' : 'Visitor'}</Label>
-                  <Input placeholder="Search by name, company or email…" value={personFilter} onChange={e => setPersonFilter(e.target.value)} className="text-sm" />
+                  <Label>{t('delivery.selectPerson', { type: roleType === 'contractor' ? 'Worker' : roleType === 'staff' ? 'Staff Member' : 'Visitor' })}</Label>
+                  <Input placeholder={t('delivery.searchPerson')} value={personFilter} onChange={e => setPersonFilter(e.target.value)} className="text-sm" />
                   <div className="border rounded-lg max-h-48 overflow-y-auto">
                     {peopleLoading ? (
                       <div className="py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
                     ) : filteredPeople.length === 0 ? (
-                      <div className="py-6 text-center text-sm text-muted-foreground">{personFilter ? 'No results match your search' : `No ${roleType === 'contractor' ? 'workers' : roleType === 'staff' ? 'staff' : 'visitors'} found`}</div>
+                      <div className="py-6 text-center text-sm text-muted-foreground">{personFilter ? t('delivery.noResults') : t('delivery.noPeople', { type: roleType === 'contractor' ? 'workers' : roleType === 'staff' ? 'staff' : 'visitors' })}</div>
                     ) : filteredPeople.map(person => (
                       <button key={person.id} type="button" onClick={() => { setSelectedPersonId(person.id); setSendName(person.name); setSendEmail(person.email); }}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors border-b dark:border-gray-700 last:border-b-0 ${selectedPersonId === person.id ? 'bg-blue-100 dark:bg-blue-900 border-l-2 border-l-blue-500' : ''}`}>
@@ -1330,25 +1333,25 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                       <div className="text-green-700 dark:text-green-300 text-xs">{sendEmail || <span className="text-amber-600 dark:text-amber-400">No email on file — cannot send</span>}</div>
                     </div>
                   )}
-                  <button type="button" onClick={() => setManualMode(true)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Or enter details manually →</button>
+                  <button type="button" onClick={() => setManualMode(true)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">{t('delivery.enterManually')}</button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label>Full Name</Label>
+                    <Label>{t('delivery.nameField')}</Label>
                     <Input placeholder="e.g. Jane Smith" value={sendName} onChange={e => setSendName(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Email Address</Label>
+                    <Label>{t('delivery.emailField')}</Label>
                     <Input type="email" placeholder="e.g. jane@example.com" value={sendEmail} onChange={e => setSendEmail(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSendLink(); }} />
                   </div>
-                  <button type="button" onClick={() => { setManualMode(false); setSendName(''); setSendEmail(''); setSelectedPersonId(null); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">← Back to person picker</button>
+                  <button type="button" onClick={() => { setManualMode(false); setSendName(''); setSendEmail(''); setSelectedPersonId(null); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">{t('delivery.backToList')}</button>
                 </div>
               )}
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => handleCloseSendDialog(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => handleCloseSendDialog(false)}>{t('common:cancel')}</Button>
                 <Button onClick={handleSendLink} disabled={isSendingLink || !sendName.trim() || !sendEmail.trim()}>
-                  {isSendingLink ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</> : <><Send className="h-4 w-4 mr-2" />Send Link</>}
+                  {isSendingLink ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('delivery.sending')}</> : <><Send className="h-4 w-4 mr-2" />{t('delivery.sendLinkBtn')}</>}
                 </Button>
               </div>
             </div>
@@ -1419,6 +1422,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
 // ── Main Page ─────────────────────────────────────────────────────────────
 
 export default function InductionSettings() {
+  const { t } = useTranslation('inductionSettings');
   const [activeRole, setActiveRole] = useState<'visitor' | 'staff' | 'contractor'>('contractor');
   const queryClient = useQueryClient();
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -1570,7 +1574,7 @@ export default function InductionSettings() {
         {/* Header */}
         <div className="space-y-1">
           <h1 className="text-xl sm:text-3xl font-bold flex items-center gap-2">
-            Health &amp; Safety Induction Builder
+            {t('title')}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -1584,7 +1588,7 @@ export default function InductionSettings() {
               </TooltipContent>
             </Tooltip>
           </h1>
-          <p className="text-muted-foreground text-sm">Create professional, site-specific, UK HSE-compliant inductions for contractors, staff and visitors.</p>
+          <p className="text-muted-foreground text-sm">{t('subtitle')}</p>
         </div>
 
         {/* ── Step 0: Quick Start ── */}
@@ -1597,15 +1601,15 @@ export default function InductionSettings() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
-                    <h2 className="text-base font-bold text-blue-900 dark:text-blue-100">New here? Generate a complete draft in one click</h2>
+                    <h2 className="text-base font-bold text-blue-900 dark:text-blue-100">{t('quickStart.title')}</h2>
                   </div>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">Creates slides <em>and</em> quiz questions for all three roles at once — takes about 2 minutes. You review, add site photos, and preview before anyone sees it.</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">{t('quickStart.desc')}</p>
                 </div>
                 <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto">
                   <Button onClick={handleQuickStart} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 whitespace-nowrap">
-                    <Sparkles className="h-4 w-4" />Generate complete draft induction
+                    <Sparkles className="h-4 w-4" />{t('quickStart.generateDraft')}
                   </Button>
-                  <button onClick={() => setQs(prev => ({ ...prev, dismissed: true }))} className="text-xs text-blue-500 dark:text-blue-400 hover:underline text-center">I'll set it up manually</button>
+                  <button onClick={() => setQs(prev => ({ ...prev, dismissed: true }))} className="text-xs text-blue-500 dark:text-blue-400 hover:underline text-center">{t('quickStart.setUpManually')}</button>
                 </div>
               </div>
             )}
@@ -1614,12 +1618,12 @@ export default function InductionSettings() {
             {qs.phase === 'fill_details' && (
               <div className="px-6 py-5 space-y-4">
                 <div>
-                  <h2 className="text-base font-bold text-blue-900 dark:text-blue-100 flex items-center gap-2"><Info size={16} className="text-blue-600" />Just the essentials to get started</h2>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-0.5">Fill these in and the AI will write site-specific, HSE-compliant content straight away. You can add more detail in Step 1 afterwards.</p>
+                  <h2 className="text-base font-bold text-blue-900 dark:text-blue-100 flex items-center gap-2"><Info size={16} className="text-blue-600" />{t('quickStart.essentialsTitle')}</h2>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-0.5">{t('quickStart.essentialsDesc')}</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-blue-800 dark:text-blue-200">Company / Site Name *</Label>
+                    <Label className="text-xs font-semibold text-blue-800 dark:text-blue-200">{t('quickStart.companyName')}</Label>
                     <Input
                       value={qs.form.siteName}
                       onChange={e => setQs(prev => ({ ...prev, form: { ...prev.form, siteName: e.target.value } }))}
@@ -1629,7 +1633,7 @@ export default function InductionSettings() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-blue-800 dark:text-blue-200">Industry / Sector *</Label>
+                    <Label className="text-xs font-semibold text-blue-800 dark:text-blue-200">{t('quickStart.industry')}</Label>
                     <Input
                       value={qs.form.industry}
                       onChange={e => setQs(prev => ({ ...prev, form: { ...prev.form, industry: e.target.value } }))}
@@ -1638,7 +1642,7 @@ export default function InductionSettings() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-blue-800 dark:text-blue-200">Key Site Hazards</Label>
+                    <Label className="text-xs font-semibold text-blue-800 dark:text-blue-200">{t('quickStart.siteHazards')}</Label>
                     <Input
                       value={qs.form.hazards}
                       onChange={e => setQs(prev => ({ ...prev, form: { ...prev.form, hazards: e.target.value } }))}
@@ -1653,9 +1657,9 @@ export default function InductionSettings() {
                     disabled={!qs.form.siteName.trim() && !qs.form.industry.trim()}
                     className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
                   >
-                    <Sparkles className="h-4 w-4" />Generate now
+                    <Sparkles className="h-4 w-4" />{t('quickStart.generateNow')}
                   </Button>
-                  <Button variant="outline" onClick={() => setQs(prev => ({ ...prev, phase: 'idle' }))}>Back</Button>
+                  <Button variant="outline" onClick={() => setQs(prev => ({ ...prev, phase: 'idle' }))}>{t('common:back')}</Button>
                 </div>
               </div>
             )}
@@ -1667,12 +1671,12 @@ export default function InductionSettings() {
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">{qs.message || 'Starting generation…'}</p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Generating slides and questions for all three roles. This takes about 2 minutes — don't close this tab.</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">{t('quickStart.generatingDesc')}</p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-blue-700 dark:text-blue-300">
-                    <span>Overall progress</span>
+                    <span>{t('quickStart.overallProgress')}</span>
                     <span>{qs.percent}%</span>
                   </div>
                   <div className="w-full bg-blue-100 dark:bg-blue-900 rounded-full h-2.5">
@@ -1700,15 +1704,15 @@ export default function InductionSettings() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-green-900 dark:text-green-100">Draft created — now review before sending</p>
-                    <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">The AI has written a starting point. Work through the steps below: <strong>check the slides</strong>, add real site photos, <strong>read the quiz questions</strong>, then hit <strong>Preview</strong> before sharing with anyone. Quality comes from your review.</p>
+                    <p className="text-sm font-bold text-green-900 dark:text-green-100">{t('quickStart.draftCreated')}</p>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">{t('quickStart.draftCreatedDesc')}</p>
                   </div>
-                  <button onClick={() => setQs(prev => ({ ...prev, dismissed: true }))} className="text-xs text-green-600 dark:text-green-400 hover:underline whitespace-nowrap shrink-0 self-start sm:self-auto">Dismiss</button>
+                  <button onClick={() => setQs(prev => ({ ...prev, dismissed: true }))} className="text-xs text-green-600 dark:text-green-400 hover:underline whitespace-nowrap shrink-0 self-start sm:self-auto">{t('quickStart.dismiss')}</button>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(['visitor', 'staff', 'contractor'] as const).map(r => (
                     <button key={r} onClick={() => setActiveRole(r)} className="text-xs px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900 transition-colors font-medium">
-                      <Eye className="inline h-3 w-3 mr-1" />Review {ROLE_LABELS[r]}
+                      <Eye className="inline h-3 w-3 mr-1" />{t('quickStart.reviewRole', { role: ROLE_LABELS[r] })}
                     </button>
                   ))}
                 </div>
@@ -1721,15 +1725,15 @@ export default function InductionSettings() {
                 <div className="flex items-start gap-3">
                   <XCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-semibold text-red-900 dark:text-red-200">Generation failed</p>
+                    <p className="text-sm font-semibold text-red-900 dark:text-red-200">{t('quickStart.generationFailed')}</p>
                     <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">{qs.error || 'Something went wrong. Please try again.'}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={runQuickStartGeneration} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 text-sm">
-                    <RefreshCw className="h-3.5 w-3.5" />Retry
+                    <RefreshCw className="h-3.5 w-3.5" />{t('quickStart.retryBtn')}
                   </Button>
-                  <Button variant="outline" onClick={() => setQs(prev => ({ ...prev, phase: 'idle' }))} className="text-sm">Start over</Button>
+                  <Button variant="outline" onClick={() => setQs(prev => ({ ...prev, phase: 'idle' }))} className="text-sm">{t('quickStart.startOver')}</Button>
                 </div>
               </div>
             )}
@@ -1742,8 +1746,8 @@ export default function InductionSettings() {
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
               <div>
-                <h2 className="text-base font-semibold text-fixed">AI Model</h2>
-                <p className="text-xs text-variable mt-0.5">Choose which AI model generates the induction slides and quiz questions for all roles.</p>
+                <h2 className="text-base font-semibold text-fixed">{t('aiModel.title')}</h2>
+                <p className="text-xs text-variable mt-0.5">{t('aiModel.desc')}</p>
               </div>
             </div>
             <div className="w-full sm:w-80 shrink-0 space-y-2">
@@ -1752,7 +1756,7 @@ export default function InductionSettings() {
                 onValueChange={(v) => handleInputChange('openaiModel', v)}
               >
                 <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50">
-                  <SelectValue placeholder="Select AI model" />
+                  <SelectValue placeholder={t('aiModel.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_openai_header" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default pointer-events-none">── OpenAI ──</SelectItem>
@@ -1797,13 +1801,13 @@ export default function InductionSettings() {
             <div className="flex items-center gap-3">
               <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
               <div>
-                <h2 className="text-base font-semibold text-fixed">Site Details</h2>
-                <p className="text-xs text-variable">Injected into every AI-generated induction — required for genuine CDM 2015 / HSE compliance.</p>
+                <h2 className="text-base font-semibold text-fixed">{t('siteDetails.title')}</h2>
+                <p className="text-xs text-variable">{t('siteDetails.desc')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {(currentSettings?.inductionHazards || currentSettings?.siteAddress) && (
-                <Badge variant="secondary" className="text-xs text-green-700 dark:text-green-400 hidden sm:flex">Configured</Badge>
+                <Badge variant="secondary" className="text-xs text-green-700 dark:text-green-400 hidden sm:flex">{t('siteDetails.configured')}</Badge>
               )}
               {siteOpen ? <ChevronUp className="w-5 h-5 text-variable" /> : <ChevronDown className="w-5 h-5 text-variable" />}
             </div>
@@ -1812,39 +1816,39 @@ export default function InductionSettings() {
             <div className="px-6 pb-6 border-t border-white/10 dark:border-slate-700/30">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">Industry / Sector</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.industry')}</Label>
                   <Input value={(currentSettings as any)?.inductionIndustry || ''} onChange={(e) => handleInputChange('inductionIndustry', e.target.value)} placeholder="e.g. Construction, Engineering, Manufacturing" />
                   <p className="text-xs text-variable">Tailors AI content to your sector's specific risks and regulations.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">Site Address</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.siteAddress')}</Label>
                   <Input value={currentSettings?.siteAddress || ''} onChange={(e) => handleInputChange('siteAddress', e.target.value)} placeholder="e.g. Unit 4, Industrial Park, Birmingham, B1 1AA" />
                   <p className="text-xs text-variable">Shown to inductees during the induction.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">Site-Specific Hazards</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.siteHazards')}</Label>
                   <Textarea value={(currentSettings as any)?.inductionHazards || ''} onChange={(e) => handleInputChange('inductionHazards', e.target.value)} rows={3} placeholder="e.g. Heavy plant movement, deep excavations, overhead power lines, asbestos risk in older buildings" />
                   <p className="text-xs text-variable">List hazards unique to your site — CDM 2015 requirement.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">PPE Requirements</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.ppeRequirements')}</Label>
                   <Textarea value={(currentSettings as any)?.inductionPpe || ''} onChange={(e) => handleInputChange('inductionPpe', e.target.value)} rows={3} placeholder="e.g. Hard hat, hi-vis vest, steel-toecap boots, gloves at all times on site" />
                   <p className="text-xs text-variable">Mandatory PPE per HSE PPE Regulations 1992 (amended 2022).</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">Emergency Assembly Point</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.assemblyPoint')}</Label>
                   <Input value={currentSettings?.assemblyPoint || ''} onChange={(e) => handleInputChange('assemblyPoint', e.target.value)} placeholder="e.g. Car park next to the main gate, Muster Point A" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">First Aid Location &amp; Contact</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.firstAid')}</Label>
                   <Input value={currentSettings?.firstAidLocation || ''} onChange={(e) => handleInputChange('firstAidLocation', e.target.value)} placeholder="e.g. Site office, south wall — John Smith 07700 900123" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">Emergency Contact</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.emergencyContact')}</Label>
                   <Input value={currentSettings?.emergencyContact || ''} onChange={(e) => handleInputChange('emergencyContact', e.target.value)} placeholder="e.g. Site Manager — Sarah Jones 07700 900456" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-sm font-medium text-fixed">Additional Site Rules</Label>
+                  <Label className="text-sm font-medium text-fixed">{t('siteDetails.additionalRules')}</Label>
                   <Textarea value={(currentSettings as any)?.inductionSiteRules || ''} onChange={(e) => handleInputChange('inductionSiteRules', e.target.value)} rows={3} placeholder="e.g. No phones on the factory floor, 10 mph speed limit, permit to work required for hot works, no smoking on site" />
                   <p className="text-xs text-variable">Any rules specific to your site beyond standard H&amp;S — embedded verbatim into the AI induction.</p>
                 </div>
@@ -1852,7 +1856,7 @@ export default function InductionSettings() {
               <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-blue-700 dark:text-blue-400 flex items-start gap-1.5">
                   <Info size={13} className="mt-0.5 shrink-0" />
-                  Fields auto-save as you type and apply to all role types. After updating, click "Regenerate Induction" in the relevant role tab to include the new details.
+                  {t('siteDetails.autoSaveNote')}
                 </p>
               </div>
             </div>
@@ -1861,19 +1865,19 @@ export default function InductionSettings() {
 
         {/* ── Role Tabs (Steps 2–5) ── */}
         <div>
-          <p className="text-sm text-muted-foreground mb-3">Steps 2–5 are role-specific — select a role to build and manage that induction:</p>
+          <p className="text-sm text-muted-foreground mb-3">{t('roleTabsDesc')}</p>
           <Tabs value={activeRole} onValueChange={(v) => setActiveRole(v as any)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="visitor" className="flex items-center gap-2">
-                <Users className="h-4 w-4" /><span className="hidden sm:inline">Visitors</span>
+                <Users className="h-4 w-4" /><span className="hidden sm:inline">{t('roleVisitors')}</span>
                 {visitorQuestions.length > 0 && <Badge variant="secondary" className="text-xs px-1.5 hidden sm:flex">{visitorQuestions.length}</Badge>}
               </TabsTrigger>
               <TabsTrigger value="staff" className="flex items-center gap-2">
-                <Users className="h-4 w-4" /><span className="hidden sm:inline">Staff</span>
+                <Users className="h-4 w-4" /><span className="hidden sm:inline">{t('roleStaff')}</span>
                 {staffQuestions.length > 0 && <Badge variant="secondary" className="text-xs px-1.5 hidden sm:flex">{staffQuestions.length}</Badge>}
               </TabsTrigger>
               <TabsTrigger value="contractor" className="flex items-center gap-2">
-                <HardHat className="h-4 w-4" /><span className="hidden sm:inline">Contractors</span>
+                <HardHat className="h-4 w-4" /><span className="hidden sm:inline">{t('roleContractors')}</span>
                 {contractorQuestions.length > 0 && <Badge variant="secondary" className="text-xs px-1.5 hidden sm:flex">{contractorQuestions.length}</Badge>}
               </TabsTrigger>
             </TabsList>
@@ -1898,31 +1902,31 @@ export default function InductionSettings() {
         {/* About / Compliance */}
         <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-4 w-4 text-amber-700 dark:text-amber-400" />About UK HSE Compliance</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-4 w-4 text-amber-700 dark:text-amber-400" />{t('compliance.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-amber-900 dark:text-amber-100">
-            <p>Inductions are AI-generated using your site details and industry context, designed to meet <strong>UK Health &amp; Safety Executive (HSE)</strong> requirements.</p>
+            <p>{t('compliance.desc')}</p>
             <div className="grid sm:grid-cols-2 gap-2 text-xs">
               <div className="space-y-1">
-                <p className="font-semibold">All inductions cover:</p>
+                <p className="font-semibold">{t('compliance.allCover')}</p>
                 <ul className="space-y-0.5 ml-2">
-                  <li>• Welcome &amp; site orientation</li>
-                  <li>• UK legal framework (HASAWA 1974)</li>
-                  <li>• Your site-specific PPE requirements</li>
-                  <li>• Hazard identification &amp; control</li>
+                  <li>• {t('compliance.item1')}</li>
+                  <li>• {t('compliance.item2')}</li>
+                  <li>• {t('compliance.item3')}</li>
+                  <li>• {t('compliance.item4')}</li>
                 </ul>
               </div>
               <div className="space-y-1">
-                <p className="font-semibold">Plus role-specific:</p>
+                <p className="font-semibold">{t('compliance.roleSpecific')}</p>
                 <ul className="space-y-0.5 ml-2">
-                  <li>• Emergency procedures &amp; evacuation</li>
-                  <li>• Incident &amp; near-miss reporting</li>
-                  <li>• Contractor: Permit to Work / CDM 2015</li>
-                  <li>• Staff: DSE, ergonomics, wellbeing</li>
+                  <li>• {t('compliance.item5')}</li>
+                  <li>• {t('compliance.item6')}</li>
+                  <li>• {t('compliance.item7')}</li>
+                  <li>• {t('compliance.item8')}</li>
                 </ul>
               </div>
             </div>
-            <p className="text-xs text-amber-700 dark:text-amber-400 pt-1">Knowledge assessment: scenario-based questions, 80% pass mark required. All completions are logged for your audit trail.</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 pt-1">{t('compliance.assessmentNote')}</p>
           </CardContent>
         </Card>
       </div>
