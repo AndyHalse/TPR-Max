@@ -906,6 +906,63 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260626_063_compliance_tables',
+      description: 'Add compliance_items, compliance_snapshots and compliance_alerts tables for Enterprise compliance dashboard',
+      async up(db: any) {
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS compliance_items (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+              site_id VARCHAR NOT NULL,
+              category TEXT NOT NULL,
+              source_table TEXT NOT NULL,
+              source_id VARCHAR NOT NULL,
+              status TEXT NOT NULL,
+              severity TEXT NOT NULL,
+              expires_at DATE,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+          `);
+          logger.info('✅ [063] compliance_items table created');
+        } catch (err: any) {
+          logger.info(`⚠️ [063] compliance_items: ${err.message?.substring(0, 80)}`);
+        }
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS compliance_snapshots (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+              site_id VARCHAR,
+              date DATE NOT NULL,
+              overall_score INTEGER NOT NULL,
+              category_scores JSONB NOT NULL DEFAULT '{}',
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+          `);
+          logger.info('✅ [063] compliance_snapshots table created');
+        } catch (err: any) {
+          logger.info(`⚠️ [063] compliance_snapshots: ${err.message?.substring(0, 80)}`);
+        }
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS compliance_alerts (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+              site_id VARCHAR NOT NULL,
+              category TEXT NOT NULL,
+              severity TEXT NOT NULL,
+              title TEXT NOT NULL,
+              detail JSONB NOT NULL DEFAULT '{}',
+              status TEXT NOT NULL DEFAULT 'open',
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              resolved_at TIMESTAMPTZ
+            )
+          `);
+          logger.info('✅ [063] compliance_alerts table created');
+        } catch (err: any) {
+          logger.info(`⚠️ [063] compliance_alerts: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

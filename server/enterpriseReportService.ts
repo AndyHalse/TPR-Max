@@ -164,10 +164,16 @@ async function buildPortfolioComplianceSnapshot(
   const siteIds = sites.map((s: any) => s.id);
 
   // Latest snapshot per site (last row by date)
-  const snapshots = await db
-    .select()
-    .from(iso.complianceSnapshots)
-    .where(and(inArray(iso.complianceSnapshots.siteId!, siteIds)));
+  let snapshots: any[] = [];
+  try {
+    snapshots = await db
+      .select()
+      .from(iso.complianceSnapshots)
+      .where(and(inArray(iso.complianceSnapshots.siteId!, siteIds)));
+  } catch {
+    // Table may not exist yet (migration pending) — proceed with empty snapshots
+    snapshots = [];
+  }
 
   const snapshotBySite = new Map<string, any>();
   for (const snap of snapshots) {
@@ -178,13 +184,19 @@ async function buildPortfolioComplianceSnapshot(
   }
 
   // Open critical items per site
-  const critItems = await db
-    .select()
-    .from(iso.complianceItems)
-    .where(and(
-      inArray(iso.complianceItems.siteId, siteIds),
-      eq(iso.complianceItems.severity, 'critical'),
-    ));
+  let critItems: any[] = [];
+  try {
+    critItems = await db
+      .select()
+      .from(iso.complianceItems)
+      .where(and(
+        inArray(iso.complianceItems.siteId, siteIds),
+        eq(iso.complianceItems.severity, 'critical'),
+      ));
+  } catch {
+    // Table may not exist yet (migration pending) — proceed with empty list
+    critItems = [];
+  }
 
   const critBySite = new Map<string, number>();
   for (const ci of critItems) {
@@ -249,10 +261,15 @@ async function buildSingleSiteReport(
   const siteName = site?.name ?? siteId;
   const title = `Site Compliance Report — ${siteName}`;
 
-  const items = await db
-    .select()
-    .from(iso.complianceItems)
-    .where(eq(iso.complianceItems.siteId, siteId));
+  let items: any[] = [];
+  try {
+    items = await db
+      .select()
+      .from(iso.complianceItems)
+      .where(eq(iso.complianceItems.siteId, siteId));
+  } catch {
+    items = [];
+  }
 
   const byCategory = new Map<string, any[]>();
   for (const item of items) {
@@ -369,13 +386,20 @@ async function buildExpiryForecast(
   const siteMap = new Map(allSites.map((s: any) => [s.id, s.name]));
   const siteIds = allowedSiteIds === 'all' ? allSites.map((s: any) => s.id) : allowedSiteIds;
 
-  const items = siteIds.length === 0 ? [] : await db
-    .select()
-    .from(iso.complianceItems)
-    .where(and(
-      inArray(iso.complianceItems.siteId, siteIds as string[]),
-      lte(iso.complianceItems.expiresAt, cutoff.toISOString().slice(0, 10)),
-    ));
+  let items: any[] = [];
+  if (siteIds.length > 0) {
+    try {
+      items = await db
+        .select()
+        .from(iso.complianceItems)
+        .where(and(
+          inArray(iso.complianceItems.siteId, siteIds as string[]),
+          lte(iso.complianceItems.expiresAt, cutoff.toISOString().slice(0, 10)),
+        ));
+    } catch {
+      items = [];
+    }
+  }
 
   // Contractor doc expirations
   const contractorDocs = await db
@@ -575,13 +599,18 @@ async function buildAuditTrailExport(
 ): Promise<{ title: string; html: string }> {
   const title = 'Audit Trail Export';
 
-  const alerts = await db
-    .select()
-    .from(iso.complianceAlerts)
-    .where(and(
-      gte(iso.complianceAlerts.createdAt, dateFrom),
-      lte(iso.complianceAlerts.createdAt, dateTo),
-    ));
+  let alerts: any[] = [];
+  try {
+    alerts = await db
+      .select()
+      .from(iso.complianceAlerts)
+      .where(and(
+        gte(iso.complianceAlerts.createdAt, dateFrom),
+        lte(iso.complianceAlerts.createdAt, dateTo),
+      ));
+  } catch {
+    alerts = [];
+  }
 
   const emails = await db
     .select()

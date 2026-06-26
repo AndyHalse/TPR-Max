@@ -120,12 +120,13 @@ export function registerEnterpriseReportRoutes(app: Application) {
           companyName,
         );
       } catch (genErr: any) {
-        logger.error('[enterpriseReports] generation failed:', genErr.message);
+        const errMsg = genErr instanceof Error ? genErr.message : String(genErr);
+        logger.error('[enterpriseReports] generation failed', { error: errMsg, stack: genErr?.stack });
         await db
           .update(iso.enterpriseReports)
-          .set({ status: 'failed', errorMessage: genErr.message, completedAt: new Date() })
+          .set({ status: 'failed', errorMessage: errMsg, completedAt: new Date() })
           .where(eq(iso.enterpriseReports.id, reportId));
-        return res.status(500).json({ error: 'Report generation failed', detail: genErr.message });
+        return res.status(500).json({ error: 'Report generation failed', detail: errMsg });
       }
 
       // Update DB record
