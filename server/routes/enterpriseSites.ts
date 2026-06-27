@@ -8,6 +8,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, ne, and, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
+import { geocodePostcode, geocodePostcodesBulk } from '../geocodeService';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 
@@ -157,14 +158,31 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
   });
 
   // ── Create site ────────────────────────────────────────────────────────────
+  const PROPERTY_TYPES = ['office', 'retail', 'industrial', 'warehouse', 'mixed_use', 'residential', 'other'] as const;
+
   const createSiteSchema = z.object({
     name: z.string().min(1).max(200),
     reference: z.string().max(50).optional().nullable(),
     address: z.string().max(500).optional().nullable(),
+    addressLine2: z.string().max(500).optional().nullable(),
+    city: z.string().max(200).optional().nullable(),
+    county: z.string().max(200).optional().nullable(),
     postcode: z.string().max(20).optional().nullable(),
     region: z.string().max(100).optional().nullable(),
     areaId: z.string().optional().nullable(),
     status: z.enum(['active', 'onboarding', 'archived']).default('active'),
+    siteContactName: z.string().max(200).optional().nullable(),
+    siteContactRole: z.string().max(200).optional().nullable(),
+    siteContactPhone: z.string().max(50).optional().nullable(),
+    siteContactEmail: z.string().email().max(255).optional().nullable(),
+    accessNotes: z.string().max(1000).optional().nullable(),
+    propertyType: z.enum(PROPERTY_TYPES).optional().nullable(),
+    clientName: z.string().max(200).optional().nullable(),
+    managingSurveyor: z.string().max(200).optional().nullable(),
+    floorArea: z.string().max(200).optional().nullable(),
+    unitCount: z.number().int().nonnegative().optional().nullable(),
+    what3words: z.string().max(60).optional().nullable(),
+    mapLink: z.string().max(500).optional().nullable(),
   });
 
   app.post('/api/enterprise/sites', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
@@ -184,17 +202,42 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         reference = `SITE-${String(count.length + 1).padStart(3, '0')}`;
       }
 
+      // Geocode postcode for estate map (non-fatal — a failure never blocks the save)
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      if (body.data.postcode) {
+        const coords = await geocodePostcode(body.data.postcode).catch(() => null);
+        if (coords) { latitude = coords.lat; longitude = coords.lng; }
+      }
+
       const [created] = await custDb
         .insert(isolatedSchema.sites)
         .values({
           name: body.data.name,
           reference,
           address: body.data.address ?? null,
+          addressLine2: body.data.addressLine2 ?? null,
+          city: body.data.city ?? null,
+          county: body.data.county ?? null,
           postcode: body.data.postcode ?? null,
           region: body.data.region ?? null,
           areaId: body.data.areaId ?? null,
           status: body.data.status,
           isDefault: false,
+          latitude,
+          longitude,
+          siteContactName: body.data.siteContactName ?? null,
+          siteContactRole: body.data.siteContactRole ?? null,
+          siteContactPhone: body.data.siteContactPhone ?? null,
+          siteContactEmail: body.data.siteContactEmail ?? null,
+          accessNotes: body.data.accessNotes ?? null,
+          propertyType: body.data.propertyType ?? null,
+          clientName: body.data.clientName ?? null,
+          managingSurveyor: body.data.managingSurveyor ?? null,
+          floorArea: body.data.floorArea ?? null,
+          unitCount: body.data.unitCount ?? null,
+          what3words: body.data.what3words ?? null,
+          mapLink: body.data.mapLink ?? null,
         })
         .returning();
 
@@ -291,10 +334,25 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     name: z.string().min(1).max(200).optional(),
     reference: z.string().max(50).optional().nullable(),
     address: z.string().max(500).optional().nullable(),
+    addressLine2: z.string().max(500).optional().nullable(),
+    city: z.string().max(200).optional().nullable(),
+    county: z.string().max(200).optional().nullable(),
     postcode: z.string().max(20).optional().nullable(),
     region: z.string().max(100).optional().nullable(),
     areaId: z.string().optional().nullable(),
     status: z.enum(['active', 'onboarding', 'archived']).optional(),
+    siteContactName: z.string().max(200).optional().nullable(),
+    siteContactRole: z.string().max(200).optional().nullable(),
+    siteContactPhone: z.string().max(50).optional().nullable(),
+    siteContactEmail: z.string().email().max(255).optional().nullable(),
+    accessNotes: z.string().max(1000).optional().nullable(),
+    propertyType: z.enum(PROPERTY_TYPES).optional().nullable(),
+    clientName: z.string().max(200).optional().nullable(),
+    managingSurveyor: z.string().max(200).optional().nullable(),
+    floorArea: z.string().max(200).optional().nullable(),
+    unitCount: z.number().int().nonnegative().optional().nullable(),
+    what3words: z.string().max(60).optional().nullable(),
+    mapLink: z.string().max(500).optional().nullable(),
   });
 
   app.patch('/api/enterprise/sites/:id', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
@@ -324,6 +382,18 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
         updateValues.archivedAt = null;
       }
 
+      // Re-geocode when postcode is being changed
+      if ('postcode' in body.data) {
+        if (body.data.postcode) {
+          const coords = await geocodePostcode(body.data.postcode).catch(() => null);
+          updateValues.latitude = coords?.lat ?? null;
+          updateValues.longitude = coords?.lng ?? null;
+        } else {
+          updateValues.latitude = null;
+          updateValues.longitude = null;
+        }
+      }
+
       const [updated] = await custDb
         .update(isolatedSchema.sites)
         .set(updateValues)
@@ -338,6 +408,49 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       }
       logger.error('[enterprise/sites] PATCH site error:', err);
       return res.status(500).json({ error: 'Failed to update site' });
+    }
+  });
+
+  // ── Backfill geocoding for sites missing coordinates ──────────────────────
+  app.post('/api/enterprise/sites/geocode-missing', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const needsGeo = await custDb
+        .select({ id: isolatedSchema.sites.id, postcode: isolatedSchema.sites.postcode })
+        .from(isolatedSchema.sites)
+        .where(
+          and(
+            sql`${isolatedSchema.sites.postcode} is not null`,
+            sql`(${isolatedSchema.sites.latitude} is null or ${isolatedSchema.sites.longitude} is null)`,
+          ),
+        );
+
+      if (needsGeo.length === 0) {
+        return res.json({ updated: 0, skipped: 0 });
+      }
+
+      const postcodes = needsGeo.map(s => s.postcode!);
+      const geocoded = await geocodePostcodesBulk(postcodes);
+
+      let updated = 0;
+      let skipped = 0;
+
+      for (const site of needsGeo) {
+        const coords = geocoded.get(site.postcode!);
+        if (!coords) { skipped++; continue; }
+        await custDb
+          .update(isolatedSchema.sites)
+          .set({ latitude: coords.lat, longitude: coords.lng })
+          .where(eq(isolatedSchema.sites.id, site.id));
+        updated++;
+      }
+
+      return res.json({ updated, skipped });
+    } catch (err) {
+      logger.error('[enterprise/sites] geocode-missing error:', err);
+      return res.status(500).json({ error: 'Geocoding backfill failed' });
     }
   });
 

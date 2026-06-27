@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   Building2, ArrowLeft, AlertTriangle, CheckCircle2, FileText,
   HardHat, Wrench, ClipboardList, ExternalLink, ShieldCheck,
-  MapPin, Globe, Calendar,
+  MapPin, Globe, Calendar, Phone, Mail, User,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -17,9 +17,26 @@ interface SiteInfo {
   id: string;
   name: string;
   address: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  county: string | null;
   postcode: string | null;
   region: string | null;
   status: string;
+  siteContactName: string | null;
+  siteContactRole: string | null;
+  siteContactPhone: string | null;
+  siteContactEmail: string | null;
+  accessNotes: string | null;
+  propertyType: string | null;
+  clientName: string | null;
+  managingSurveyor: string | null;
+  floorArea: string | null;
+  unitCount: number | null;
+  what3words: string | null;
+  mapLink: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface SiteCompliance {
@@ -376,6 +393,91 @@ export default function EnterpriseSiteDetail() {
             </div>
           </div>
         </div>
+
+        {/* Site details panel */}
+        {site && (() => {
+          const hasProfile = !!(site.addressLine2 || site.city || site.county ||
+            site.siteContactName || site.siteContactPhone || site.siteContactEmail ||
+            site.accessNotes || site.propertyType || site.clientName ||
+            site.managingSurveyor || site.floorArea || site.unitCount != null ||
+            site.what3words || site.mapLink);
+          return (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Site Details</h2>
+              {!hasProfile ? (
+                <p className="text-xs text-slate-400 italic">No site details added yet — use Edit on the Sites page.</p>
+              ) : (
+                <div className="space-y-4">
+                  {(site.addressLine2 || site.city || site.county) && (
+                    <div className="space-y-0.5 text-sm">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Address</p>
+                      {site.address && <p className="text-slate-700 dark:text-slate-300">{site.address}</p>}
+                      {site.addressLine2 && <p className="text-slate-700 dark:text-slate-300">{site.addressLine2}</p>}
+                      {(site.city || site.county) && <p className="text-slate-700 dark:text-slate-300">{[site.city, site.county].filter(Boolean).join(", ")}</p>}
+                      {site.postcode && <p className="text-slate-700 dark:text-slate-300">{site.postcode}</p>}
+                      {site.region && <p className="text-xs text-slate-400 mt-0.5">{site.region}</p>}
+                    </div>
+                  )}
+                  {(site.siteContactName || site.siteContactPhone || site.siteContactEmail || site.accessNotes) && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">On-site Contact</p>
+                      {site.siteContactName && (
+                        <p className="text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <User size={12} className="text-slate-400 shrink-0" />
+                          {site.siteContactName}{site.siteContactRole ? ` · ${site.siteContactRole}` : ""}
+                        </p>
+                      )}
+                      {site.siteContactPhone && (
+                        <a href={`tel:${site.siteContactPhone}`} className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1.5 hover:underline">
+                          <Phone size={12} className="shrink-0" />{site.siteContactPhone}
+                        </a>
+                      )}
+                      {site.siteContactEmail && (
+                        <a href={`mailto:${site.siteContactEmail}`} className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1.5 hover:underline">
+                          <Mail size={12} className="shrink-0" />{site.siteContactEmail}
+                        </a>
+                      )}
+                      {site.accessNotes && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded p-2">{site.accessNotes}</p>
+                      )}
+                    </div>
+                  )}
+                  {(site.propertyType || site.clientName || site.managingSurveyor || site.floorArea || site.unitCount != null) && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Property</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
+                        {site.propertyType && (
+                          <Badge variant="secondary" className="text-xs capitalize">{site.propertyType.replace(/_/g, " ")}</Badge>
+                        )}
+                        {site.clientName && <span>Client: {site.clientName}</span>}
+                        {site.managingSurveyor && <span>Surveyor: {site.managingSurveyor}</span>}
+                        {site.floorArea && <span>Area: {site.floorArea}</span>}
+                        {site.unitCount != null && <span>Units: {site.unitCount}</span>}
+                      </div>
+                    </div>
+                  )}
+                  {(site.what3words || site.mapLink || site.postcode) && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Wayfinding</p>
+                      <div className="flex flex-wrap gap-3">
+                        {site.what3words && (
+                          <a href={`https://what3words.com/${site.what3words.replace(/^\/\/\//, "")}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                            <ExternalLink size={11} />///{site.what3words.replace(/^\/\/\//, "")}
+                          </a>
+                        )}
+                        {(site.mapLink || site.postcode) && (
+                          <a href={site.mapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(site.postcode ?? site.name ?? "")}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                            <ExternalLink size={11} />Open in maps
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Tab bar */}
         <div className="flex gap-0 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">

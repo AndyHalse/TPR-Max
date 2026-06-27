@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -210,77 +212,7 @@ function daysUntil(iso: string | null | undefined): number | null {
   return Math.ceil(ms / 86_400_000);
 }
 
-// ── Scotland Estate Map ─────────────────────────────────────────────────────────
-// Pure SVG – no external map library.
-// Viewport 400 × 500. Linear projection:
-//   x = (lon + 7.7) / 7.0 × 400   (lon range −7.7 → −0.7)
-//   y = (61.0 − lat) / 6.5 × 500  (lat range 54.5 → 61.0)
-
-const SCOTLAND_OUTLINE =
-  "M302,425 L326,402 L297,385 L291,362 L293,341 L320,296 " +
-  "L326,254 L250,257 L198,271 L210,240 L231,222 L268,181 " +
-  "L239,185 L187,194 L154,182 L141,219 L145,239 L115,252 " +
-  "L113,286 L107,310 L127,353 L110,437 L157,443 L153,469 " +
-  "L234,456 Z";
-
-const MAP_REGION_COORDS: Record<string, [number, number]> = {
-  glasgow:                 [197, 395],
-  edinburgh:               [258, 388],
-  aberdeen:                [320, 296],
-  dundee:                  [270, 349],
-  inverness:               [199, 271],
-  stirling:                [215, 375],
-  perth:                   [244, 354],
-  falkirk:                 [224, 384],
-  ayr:                     [175, 426],
-  ayrshire:                [175, 426],
-  "south ayrshire":        [170, 435],
-  kilmarnock:              [185, 420],
-  lothian:                 [258, 388],
-  "west lothian":          [240, 390],
-  "east lothian":          [275, 390],
-  midlothian:              [258, 395],
-  fife:                    [285, 365],
-  grampian:                [310, 280],
-  highland:                [175, 255],
-  highlands:               [175, 255],
-  tayside:                 [260, 350],
-  strathclyde:             [185, 400],
-  lanarkshire:             [215, 405],
-  "south lanarkshire":     [220, 410],
-  "north lanarkshire":     [210, 395],
-  renfrewshire:            [185, 405],
-  moray:                   [255, 263],
-  argyll:                  [140, 370],
-  "argyll and bute":       [135, 365],
-  dumfries:                [234, 456],
-  "dumfries and galloway": [210, 460],
-  borders:                 [295, 430],
-  "scottish borders":      [295, 430],
-  central:                 [215, 385],
-  "central scotland":      [215, 385],
-};
-
-function getSiteMapCoords(siteName: string, region: string | null): [number, number] | null {
-  const text = `${siteName} ${region ?? ""}`.toLowerCase();
-  if (text.includes("glasgow"))    return MAP_REGION_COORDS.glasgow;
-  if (text.includes("aberdeen"))   return MAP_REGION_COORDS.aberdeen;
-  if (text.includes("edinburgh"))  return MAP_REGION_COORDS.edinburgh;
-  if (text.includes("dundee"))     return MAP_REGION_COORDS.dundee;
-  if (text.includes("inverness"))  return MAP_REGION_COORDS.inverness;
-  if (text.includes("stirling"))   return MAP_REGION_COORDS.stirling;
-  if (text.includes("perth"))      return MAP_REGION_COORDS.perth;
-  if (text.includes("falkirk"))    return MAP_REGION_COORDS.falkirk;
-  if (text.includes("kilmarnock")) return MAP_REGION_COORDS.kilmarnock;
-  if (text.includes("ayr"))        return MAP_REGION_COORDS.ayr;
-  if (region) {
-    const rl = region.toLowerCase();
-    for (const [key, coords] of Object.entries(MAP_REGION_COORDS)) {
-      if (rl === key || rl.includes(key) || key.includes(rl)) return coords;
-    }
-  }
-  return null;
-}
+// ── Estate Map ───────────────────────────────────────────────────────────────────
 
 function mapPinColor(score: number): string {
   if (score >= 90) return "#16a34a";
@@ -295,9 +227,28 @@ interface GeoSite {
   region: string | null;
   postcode: string | null;
   status: string;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  propertyType: string | null;
 }
 
-function ScotlandEstateMap({
+function FitBounds({ positions }: { positions: Array<[number, number]> }) {
+  const map = useMap();
+  useEffect(() => {
+    if (positions.length > 0) {
+      const lats = positions.map(p => p[0]);
+      const lngs = positions.map(p => p[1]);
+      map.fitBounds(
+        [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+        { padding: [40, 40] },
+      );
+    }
+  }, [map, positions.length]);
+  return null;
+}
+
+function UKEstateMap({
   complianceSites,
   geoSites,
   noData,
@@ -308,7 +259,7 @@ function ScotlandEstateMap({
   noData: boolean;
   onPinClick: (siteId: string) => void;
 }) {
-  const [hovered, setHovered] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const geoMap = useMemo(() => {
     const m = new Map<string, GeoSite>();
@@ -319,86 +270,101 @@ function ScotlandEstateMap({
   const sitePins = useMemo(() => {
     return complianceSites.flatMap((cs) => {
       const geo = geoMap.get(cs.siteId);
-      if (!geo) return [];
-      const coords = getSiteMapCoords(geo.name, geo.region);
-      if (!coords) return [];
-      return [{ ...cs, siteLabelName: geo.name, x: coords[0], y: coords[1] }];
+      if (!geo || geo.latitude == null || geo.longitude == null) return [];
+      return [{ ...cs, siteLabelName: geo.name, lat: geo.latitude, lng: geo.longitude }];
     });
   }, [complianceSites, geoMap]);
 
+  const unplotted = useMemo(() => {
+    return geoSites.filter(s => s.latitude == null || s.longitude == null);
+  }, [geoSites]);
+
+  const replotMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/enterprise/sites/geocode-missing", {});
+      if (!res.ok) throw new Error("Failed");
+      return res.json() as Promise<{ updated: number; skipped: number }>;
+    },
+    onSuccess: (data: { updated: number; skipped: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/sites"] });
+      toast({ title: `Re-plotted ${data.updated} site${data.updated !== 1 ? "s" : ""}` });
+    },
+    onError: () => toast({ title: "Re-plot failed", variant: "destructive" }),
+  });
+
+  const positions: Array<[number, number]> = sitePins.map(p => [p.lat, p.lng]);
+
   const MAP_LEGEND = [
-    { label: "≥ 90 %", color: "#16a34a" },
-    { label: "≥ 70 %", color: "#d97706" },
-    { label: "≥ 50 %", color: "#ea580c" },
-    { label: "< 50 %",  color: "#dc2626" },
+    { label: "≥ 90%", color: "#16a34a" },
+    { label: "≥ 70%", color: "#d97706" },
+    { label: "≥ 50%", color: "#ea580c" },
+    { label: "< 50%",  color: "#dc2626" },
   ];
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <svg
-        viewBox="0 0 400 500"
-        width="100%"
-        style={{ maxWidth: 300 }}
-        aria-label="Scotland estate compliance map"
-        role="img"
-      >
-        <rect width="400" height="500" fill="#dbeafe" rx="6" />
-        <path d={SCOTLAND_OUTLINE} fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1.5" strokeLinejoin="round" />
-        <line x1="153" y1="469" x2="302" y2="425" stroke="#94a3b8" strokeWidth="0.8" strokeDasharray="4 3" opacity="0.5" />
-        {sitePins.map((pin) => {
-          const color = noData ? "#94a3b8" : mapPinColor(pin.score);
-          const isHov = hovered === pin.siteId;
-          return (
-            <g
-              key={pin.siteId}
-              style={{ cursor: "pointer" }}
-              onClick={() => onPinClick(pin.siteId)}
-              onMouseEnter={() => setHovered(pin.siteId)}
-              onMouseLeave={() => setHovered(null)}
-            >
-              <circle cx={pin.x} cy={pin.y} r={isHov ? 12 : 9} fill={color} stroke="white" strokeWidth="2.5" />
-              <text x={pin.x} y={pin.y + 3.5} textAnchor="middle" fontSize="7.5" fontWeight="700" fill="white" style={{ pointerEvents: "none" }}>
-                {noData ? "—" : pin.score}
-              </text>
-              {isHov && (
-                <g style={{ pointerEvents: "none" }}>
-                  <rect
-                    x={pin.x - 42}
-                    y={pin.y - 28}
-                    width="84"
-                    height="14"
-                    rx="3"
-                    fill="white"
-                    fillOpacity="0.9"
-                    stroke="#cbd5e1"
-                    strokeWidth="0.5"
-                  />
-                  <text x={pin.x} y={pin.y - 18} textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#1e293b">
-                    {pin.siteLabelName}
-                  </text>
-                </g>
-              )}
-            </g>
-          );
-        })}
-        {noData && sitePins.length === 0 && (
-          <text x="200" y="460" textAnchor="middle" fontSize="10" fill="#94a3b8" fontStyle="italic">
-            Run evaluation to see compliance scores
-          </text>
-        )}
-      </svg>
-      <div className="flex items-center gap-3 flex-wrap justify-center">
-        {MAP_LEGEND.map((l) => (
-          <span key={l.label} className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ background: l.color }} />
-            {l.label}
-          </span>
-        ))}
-      </div>
-      {sitePins.length === 0 && geoSites.length > 0 && !noData && (
-        <p className="text-[11px] text-slate-400 text-center px-4">
-          Add a region to your sites to plot them on the map.
-        </p>
+    <div className="space-y-3">
+      {sitePins.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+          <p className="text-xs text-slate-400">Add a postcode to your sites to plot them on the estate map.</p>
+          <Button size="sm" variant="outline" onClick={() => replotMutation.mutate()} disabled={replotMutation.isPending}>
+            <RefreshCw size={12} className={`mr-1.5 ${replotMutation.isPending ? "animate-spin" : ""}`} />
+            Re-plot estate
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div style={{ height: 320, borderRadius: 8, overflow: "hidden", position: "relative", zIndex: 0 }}>
+            <MapContainer center={[54.5, -3.5] as [number, number]} zoom={5} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              />
+              {positions.length > 0 && <FitBounds positions={positions} />}
+              {sitePins.map((pin) => (
+                <CircleMarker
+                  key={pin.siteId}
+                  center={[pin.lat, pin.lng]}
+                  radius={14}
+                  pathOptions={{
+                    color: "#ffffff",
+                    fillColor: noData ? "#94a3b8" : mapPinColor(pin.score),
+                    fillOpacity: 1,
+                    weight: 2.5,
+                  }}
+                  eventHandlers={{ click: () => onPinClick(pin.siteId) }}
+                >
+                  <LeafletTooltip>
+                    <span style={{ fontWeight: 600 }}>{pin.siteLabelName}</span>
+                    {!noData && <span style={{ marginLeft: 4 }}>{pin.score}%</span>}
+                  </LeafletTooltip>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          </div>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              {MAP_LEGEND.map((l) => (
+                <span key={l.label} className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ background: l.color }} />
+                  {l.label}
+                </span>
+              ))}
+            </div>
+            <Button size="sm" variant="ghost" className="text-xs gap-1 h-6 px-2" onClick={() => replotMutation.mutate()} disabled={replotMutation.isPending}>
+              <RefreshCw size={10} className={replotMutation.isPending ? "animate-spin" : ""} />
+              Re-plot
+            </Button>
+          </div>
+        </>
+      )}
+      {unplotted.length > 0 && (
+        <div className="text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2 space-y-0.5">
+          <p className="font-medium text-slate-500 dark:text-slate-400 mb-1">Not yet plotted — add a postcode and re-plot:</p>
+          {unplotted.slice(0, 5).map(s => (
+            <p key={s.id}>· {s.name}{s.postcode ? ` (${s.postcode})` : " — no postcode"}</p>
+          ))}
+          {unplotted.length > 5 && <p>… and {unplotted.length - 5} more</p>}
+        </div>
       )}
     </div>
   );
@@ -963,7 +929,7 @@ export default function EnterpriseCompliance() {
               <p className="text-xs text-muted-foreground">Click a pin to open that site's detail</p>
             </CardHeader>
             <CardContent>
-              <ScotlandEstateMap
+              <UKEstateMap
                 complianceSites={sites ?? []}
                 geoSites={geoSites}
                 noData={noData}

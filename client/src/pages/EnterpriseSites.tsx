@@ -959,16 +959,21 @@ function SiteCard({
         {/* Site details */}
         <div className="px-4 py-3 space-y-1.5 flex-1">
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {(site.address || site.postcode) && (
+            {(site.address || site.postcode || (site as any).city) && (
               <span className="flex items-center gap-1">
                 <MapPin size={11} className="flex-shrink-0" />
-                <span className="truncate">{[site.address, site.postcode].filter(Boolean).join(", ")}</span>
+                <span className="truncate">{[site.address, (site as any).city, site.postcode].filter(Boolean).join(", ")}</span>
               </span>
             )}
             {site.region && (
               <span className="flex items-center gap-1">
                 <Globe size={11} className="flex-shrink-0" />
                 <span>{site.region}</span>
+              </span>
+            )}
+            {(site as any).propertyType && (
+              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 capitalize">
+                {((site as any).propertyType as string).replace(/_/g, " ")}
               </span>
             )}
             {area && (
@@ -1134,10 +1139,28 @@ function SiteFormDialog({
   const [name, setName]           = useState(site?.name ?? "");
   const [reference, setReference] = useState(site?.reference ?? "");
   const [address, setAddress]     = useState(site?.address ?? "");
+  const [addressLine2, setAddressLine2] = useState((site as any)?.addressLine2 ?? "");
+  const [city, setCity]           = useState((site as any)?.city ?? "");
+  const [county, setCounty]       = useState((site as any)?.county ?? "");
   const [postcode, setPostcode]   = useState(site?.postcode ?? "");
   const [region, setRegion]       = useState(site?.region ?? "");
   const [areaId, setAreaId]       = useState(site?.areaId ?? "none");
   const [status, setStatus]       = useState<string>(site?.status ?? "active");
+  // On-site contact
+  const [siteContactName, setSiteContactName]   = useState((site as any)?.siteContactName ?? "");
+  const [siteContactRole, setSiteContactRole]   = useState((site as any)?.siteContactRole ?? "");
+  const [siteContactPhone, setSiteContactPhone] = useState((site as any)?.siteContactPhone ?? "");
+  const [siteContactEmail, setSiteContactEmail] = useState((site as any)?.siteContactEmail ?? "");
+  const [accessNotes, setAccessNotes]           = useState((site as any)?.accessNotes ?? "");
+  // Property profile
+  const [propertyType, setPropertyType]         = useState<string>((site as any)?.propertyType ?? "");
+  const [clientName, setClientName]             = useState((site as any)?.clientName ?? "");
+  const [managingSurveyor, setManagingSurveyor] = useState((site as any)?.managingSurveyor ?? "");
+  const [floorArea, setFloorArea]               = useState((site as any)?.floorArea ?? "");
+  const [unitCount, setUnitCount]               = useState((site as any)?.unitCount != null ? String((site as any).unitCount) : "");
+  // Wayfinding
+  const [what3words, setWhat3words] = useState((site as any)?.what3words ?? "");
+  const [mapLink, setMapLink]       = useState((site as any)?.mapLink ?? "");
 
   // Admin fields (create-only)
   const [adminFirstName, setAdminFirstName] = useState("");
@@ -1225,14 +1248,30 @@ function SiteFormDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
+    const parsedUnitCount = unitCount.trim() ? (parseInt(unitCount.trim(), 10) || null) : null;
     mutation.mutate({
-      name:      name.trim(),
-      reference: reference.trim() || null,
-      address:   address.trim()   || null,
-      postcode:  postcode.trim()  || null,
-      region:    region.trim()    || null,
-      areaId:    areaId === "none" ? null : areaId,
+      name:             name.trim(),
+      reference:        reference.trim()        || null,
+      address:          address.trim()          || null,
+      addressLine2:     addressLine2.trim()     || null,
+      city:             city.trim()             || null,
+      county:           county.trim()           || null,
+      postcode:         postcode.trim()         || null,
+      region:           region.trim()           || null,
+      areaId:           areaId === "none" ? null : areaId,
       status,
+      siteContactName:  siteContactName.trim()  || null,
+      siteContactRole:  siteContactRole.trim()  || null,
+      siteContactPhone: siteContactPhone.trim() || null,
+      siteContactEmail: siteContactEmail.trim() || null,
+      accessNotes:      accessNotes.trim()      || null,
+      propertyType:     propertyType            || null,
+      clientName:       clientName.trim()       || null,
+      managingSurveyor: managingSurveyor.trim() || null,
+      floorArea:        floorArea.trim()        || null,
+      unitCount:        parsedUnitCount,
+      what3words:       what3words.trim()       || null,
+      mapLink:          mapLink.trim()          || null,
     });
   };
 
@@ -1265,13 +1304,28 @@ function SiteFormDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="site-address">Address</Label>
+            <Label htmlFor="site-address">Address line 1</Label>
             <Input id="site-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street address" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="site-address2">Address line 2</Label>
+            <Input id="site-address2" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} placeholder="Unit, floor, building name…" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="site-city">Town / City</Label>
+              <Input id="site-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="London" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="site-county">County</Label>
+              <Input id="site-county" value={county} onChange={(e) => setCounty(e.target.value)} placeholder="Greater London" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="site-postcode">Postcode</Label>
               <Input id="site-postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="SW1A 1AA" />
+              <p className="text-xs text-muted-foreground">The postcode places this site on the Estate Map — please fill it in.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="site-region">Region</Label>
@@ -1292,6 +1346,89 @@ function SiteFormDialog({
               </Select>
             </div>
           )}
+
+          {/* ── On-site Contact ─────────────────────────── */}
+          <div className="border-t border-border/60 pt-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">On-site Contact</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-name">Contact name</Label>
+                <Input id="contact-name" value={siteContactName} onChange={(e) => setSiteContactName(e.target.value)} placeholder="Jane Smith" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-role">Role</Label>
+                <Input id="contact-role" value={siteContactRole} onChange={(e) => setSiteContactRole(e.target.value)} placeholder="Facilities Manager" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-phone">Phone</Label>
+                <Input id="contact-phone" type="tel" value={siteContactPhone} onChange={(e) => setSiteContactPhone(e.target.value)} placeholder="020 7946 0000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-email">Email</Label>
+                <Input id="contact-email" type="email" value={siteContactEmail} onChange={(e) => setSiteContactEmail(e.target.value)} placeholder="jane@example.com" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="access-notes">Access / opening-hours notes</Label>
+              <Input id="access-notes" value={accessNotes} onChange={(e) => setAccessNotes(e.target.value)} placeholder="Mon–Fri 07:00–19:00, security entrance on left…" />
+            </div>
+          </div>
+
+          {/* ── Property ─────────────────────────────────── */}
+          <div className="border-t border-border/60 pt-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Property</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="property-type">Property type</Label>
+                <Select value={propertyType || "none"} onValueChange={(v) => setPropertyType(v === "none" ? "" : v)}>
+                  <SelectTrigger id="property-type"><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not specified</SelectItem>
+                    <SelectItem value="office">Office</SelectItem>
+                    <SelectItem value="retail">Retail</SelectItem>
+                    <SelectItem value="industrial">Industrial</SelectItem>
+                    <SelectItem value="warehouse">Warehouse</SelectItem>
+                    <SelectItem value="mixed_use">Mixed-use</SelectItem>
+                    <SelectItem value="residential">Residential</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="client-name">Client / landlord</Label>
+                <Input id="client-name" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Acme Ltd" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="surveyor">Managing surveyor</Label>
+                <Input id="surveyor" value={managingSurveyor} onChange={(e) => setManagingSurveyor(e.target.value)} placeholder="Jones Lang LaSalle" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="floor-area">Floor area</Label>
+                <Input id="floor-area" value={floorArea} onChange={(e) => setFloorArea(e.target.value)} placeholder="12,000 sq ft" />
+              </div>
+            </div>
+            <div className="space-y-1.5 w-1/3">
+              <Label htmlFor="unit-count">Units</Label>
+              <Input id="unit-count" type="number" min="0" value={unitCount} onChange={(e) => setUnitCount(e.target.value)} placeholder="0" />
+            </div>
+          </div>
+
+          {/* ── Wayfinding ───────────────────────────────── */}
+          <div className="border-t border-border/60 pt-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Wayfinding</p>
+            <div className="space-y-1.5">
+              <Label htmlFor="what3words">what3words</Label>
+              <Input id="what3words" value={what3words} onChange={(e) => setWhat3words(e.target.value)} placeholder="word.word.word" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="map-link">Map link</Label>
+              <Input id="map-link" value={mapLink} onChange={(e) => setMapLink(e.target.value)} placeholder="https://maps.google.com/…" />
+            </div>
+          </div>
 
           {/* ── Site Administrator (create-only) ─────────── */}
           {!isEdit && (

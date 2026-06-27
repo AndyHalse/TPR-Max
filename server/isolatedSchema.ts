@@ -42,6 +42,28 @@ export const sites = pgTable("sites", {
   loginSlug: text("login_slug"),
   createdAt: timestamp("created_at").defaultNow(),
   archivedAt: timestamp("archived_at"),
+  // Structured address (address = line 1)
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  county: text("county"),
+  // Geocoded coordinates (derived from postcode server-side — never client-supplied)
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  // On-site contact
+  siteContactName: text("site_contact_name"),
+  siteContactRole: text("site_contact_role"),
+  siteContactPhone: text("site_contact_phone"),
+  siteContactEmail: text("site_contact_email"),
+  accessNotes: text("access_notes"),
+  // Property profile
+  propertyType: text("property_type"), // office|retail|industrial|warehouse|mixed_use|residential|other
+  clientName: text("client_name"),
+  managingSurveyor: text("managing_surveyor"),
+  floorArea: text("floor_area"), // free text, e.g. "12,000 sq ft"
+  unitCount: integer("unit_count"),
+  // Wayfinding
+  what3words: text("what3words"),
+  mapLink: text("map_link"),
 });
 
 export const insertSiteSchema = createInsertSchema(sites).omit({ id: true, createdAt: true });

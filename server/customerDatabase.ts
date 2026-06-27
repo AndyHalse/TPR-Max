@@ -1222,6 +1222,24 @@ export class CustomerDatabaseService {
     try {
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS login_slug TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".site_user_roles ADD COLUMN IF NOT EXISTS can_manage_site_users BOOLEAN NOT NULL DEFAULT FALSE`);
+      // Rich site profile + geocoding columns (added for estate map feature)
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS address_line2 TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS city TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS county TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS site_contact_name TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS site_contact_role TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS site_contact_phone TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS site_contact_email TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS access_notes TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS property_type TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS client_name TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS managing_surveyor TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS floor_area DOUBLE PRECISION`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS unit_count INTEGER`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS what3words TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS map_link TEXT`);
       logger.info(`✅ Enterprise site columns ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Enterprise site columns migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
