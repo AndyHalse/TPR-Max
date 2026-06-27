@@ -4246,8 +4246,8 @@ ${evacuationPhotosData.length > 0 ? `
       // Get customer database connection
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
-      // Resolve site scope for muster reset — use session for admin, marshal's siteId for token
-      const resetSiteId: string | null = (req.session as any)?.activeSiteId ?? (validatedStaff as any)?.siteId ?? null;
+      // Resolve site scope — this is a public FM-token route (no session); use the marshal's own siteId
+      const resetSiteId: string | null = (marshal as any)?.siteId ?? null;
       
       // Get all checked-in staff — filtered to active site for enterprise
       const checkedInStaff = await customerDb
