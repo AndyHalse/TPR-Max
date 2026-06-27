@@ -2923,26 +2923,26 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn(`Clear sample: audit engine — ${(e as any).message}`); }
 
       // ── Permit to Work sample data cleanup ─────────────────────────────────
-      // New-style demo permits: identified by DEMO- prefix in permit_number
+      // Catches:
+      //  • permit_number LIKE 'DEMO-%'      — named sample permits (DEMO-HOT-*, DEMO-WAH-*, etc.)
+      //  • permit_number LIKE 'PTW-DEMO-%'  — batch demo permits seeded by Load Demo Data
+      //  • id LIKE 'ptw-demo-%'             — explicit demo IDs (belt-and-braces)
+      //  • work_location = 'ISO Test Area'  — permits created by site-isolation test runs
       try {
-        const demoPtwRes = await pool.query(`SELECT id FROM "${schemaName}".permit_to_work WHERE permit_number LIKE 'DEMO-%'`);
-        if (demoPtwRes.rows.length > 0) {
-          const demoPtwIds: string[] = demoPtwRes.rows.map((r: any) => r.id);
-          const pP = inP(demoPtwIds);
-          try { await pool.query(`DELETE FROM "${schemaName}".permit_checklist WHERE permit_id IN (${pP})`, demoPtwIds); } catch (_) { /* table may not exist */ }
-          try { await pool.query(`DELETE FROM "${schemaName}".permit_attachments WHERE permit_id IN (${pP})`, demoPtwIds); } catch (_) { /* table may not exist */ }
-          await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE id IN (${pP})`, demoPtwIds);
-          deleted['permit_to_work_demo'] = demoPtwIds.length;
-        }
-        // Also delete permits with demo-prefixed IDs (belt-and-braces)
-        const demoPtwIdRes = await pool.query(`SELECT id FROM "${schemaName}".permit_to_work WHERE id LIKE 'ptw-demo-%'`);
-        if (demoPtwIdRes.rows.length > 0) {
-          const extraIds: string[] = demoPtwIdRes.rows.map((r: any) => r.id);
-          const eP = inP(extraIds);
-          try { await pool.query(`DELETE FROM "${schemaName}".permit_checklist WHERE permit_id IN (${eP})`, extraIds); } catch (_) { /* table may not exist */ }
-          try { await pool.query(`DELETE FROM "${schemaName}".permit_attachments WHERE permit_id IN (${eP})`, extraIds); } catch (_) { /* table may not exist */ }
-          await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE id IN (${eP})`, extraIds);
-          deleted['permit_to_work_demo'] = (deleted['permit_to_work_demo'] ?? 0) + extraIds.length;
+        const ptwSweepRes = await pool.query(
+          `SELECT id FROM "${schemaName}".permit_to_work
+           WHERE permit_number LIKE 'DEMO-%'
+              OR permit_number LIKE 'PTW-DEMO-%'
+              OR id            LIKE 'ptw-demo-%'
+              OR work_location = 'ISO Test Area'`
+        );
+        if (ptwSweepRes.rows.length > 0) {
+          const ptwIds: string[] = ptwSweepRes.rows.map((r: any) => r.id);
+          const pP = inP(ptwIds);
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_checklist WHERE permit_id IN (${pP})`, ptwIds); } catch (_) { /* table may not exist */ }
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_attachments WHERE permit_id IN (${pP})`, ptwIds); } catch (_) { /* table may not exist */ }
+          await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE id IN (${pP})`, ptwIds);
+          deleted['permit_to_work_demo'] = ptwIds.length;
         }
         logger.info(`✅ Permit to Work demo data cleared`);
       } catch (e) { logger.warn(`Clear sample: permit_to_work demo — ${(e as any).message}`); }
@@ -2956,8 +2956,17 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn(`Clear sample: fire_risk_assessments — ${(e as any).message}`); }
 
       // ── H&S Incidents sample data cleanup ──────────────────────────────────
+      // Catches:
+      //  • id LIKE 'hs-demo-%'          — incidents seeded by Load Demo Data
+      //  • location = 'ISO Test Area'   — incidents created by site-isolation test runs
+      //  • title LIKE 'HS-ByID-%'       — by-id isolation test incidents
       try {
-        const demoHsRes = await pool.query(`SELECT id FROM "${schemaName}".hs_incidents WHERE id LIKE 'hs-demo-%'`);
+        const demoHsRes = await pool.query(
+          `SELECT id FROM "${schemaName}".hs_incidents
+           WHERE id LIKE 'hs-demo-%'
+              OR location = 'ISO Test Area'
+              OR title LIKE 'HS-ByID-%'`
+        );
         if (demoHsRes.rows.length > 0) {
           const hsIds: string[] = demoHsRes.rows.map((r: any) => r.id);
           await pool.query(`DELETE FROM "${schemaName}".hs_incidents WHERE id IN (${inP(hsIds)})`, hsIds);
@@ -2982,6 +2991,31 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         await del('room_bookings', `WHERE id LIKE 'booking-demo-%'`);
         logger.info(`✅ Meeting Rooms demo data cleared`);
       } catch (e) { logger.warn(`Clear sample: meeting_rooms — ${(e as any).message}`); }
+
+      // ── PPM Assets sample data cleanup ─────────────────────────────────────
+      // Catches PPM assets created by site-isolation test runs (location = 'ISO Test Room').
+      // Load Demo Data does not seed PPM assets, so this is purely a test-data sweep.
+      try {
+        await del('ppm_tasks',  `WHERE asset_id IN (SELECT id FROM "${schemaName}".ppm_assets WHERE location = 'ISO Test Room')`);
+        await del('ppm_assets', `WHERE location = 'ISO Test Room'`);
+        logger.info(`✅ PPM Assets test data cleared`);
+      } catch (e) { logger.warn(`Clear sample: ppm_assets — ${(e as any).message}`); }
+
+      // ── CDM Projects isolation-test cleanup ────────────────────────────────
+      // Step 3 removes CDM projects linked to demo contractor companies (by FK).
+      // Isolation tests create CDM projects with a fresh non-demo company, so they
+      // escape the FK sweep.  Catch them by the sentinel location used in tests.
+      try {
+        const isoCdmRes = await pool.query(
+          `SELECT id FROM "${schemaName}".cdm_projects WHERE location = 'ISO Test Site'`
+        );
+        if (isoCdmRes.rows.length > 0) {
+          const cdmIds: string[] = isoCdmRes.rows.map((r: any) => r.id);
+          await pool.query(`DELETE FROM "${schemaName}".cdm_projects WHERE id IN (${inP(cdmIds)})`, cdmIds);
+          deleted['cdm_projects_iso'] = cdmIds.length;
+        }
+        logger.info(`✅ CDM Projects isolation test data cleared`);
+      } catch (e) { logger.warn(`Clear sample: cdm_projects (iso) — ${(e as any).message}`); }
 
       if (failures.length > 0) {
         return res.status(500).json({ error: 'Some records could not be cleared', failures, deleted });
