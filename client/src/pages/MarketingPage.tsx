@@ -105,6 +105,15 @@ import musterReadinessImg from "@assets/image_1774977346503.png";
 import musterActiveImg from "@assets/image_1774977371147.png";
 import fireMarshalMobileImg from "@assets/image_1774977602704.png";
 
+function ScreenCaption({ what, why }: { what: string; why: string }) {
+  return (
+    <div className="mt-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-4 py-3">
+      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{what}</p>
+      <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">{why}</p>
+    </div>
+  );
+}
+
 export default function MarketingPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -521,8 +530,8 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Muster Before & During Section */}
-      <section className="py-16 bg-gradient-to-b from-red-50 to-orange-50 dark:from-slate-900 dark:to-slate-800">
+      {/* Muster section — moved below after One Platform Solution */}
+      {false && <section className="py-16 bg-gradient-to-b from-red-50 to-orange-50 dark:from-slate-900 dark:to-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <Badge className="mb-4 bg-red-600 text-white">
@@ -620,7 +629,7 @@ export default function MarketingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Stats Strip */}
       <section className="py-12 bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
@@ -768,6 +777,118 @@ export default function MarketingPage() {
                 <div className="h-10 w-10 rounded-lg bg-[#2460A9]/10 flex items-center justify-center mx-auto mb-3">
                   <Icon className="h-5 w-5 text-[#2460A9]" />
                 </div>
+                <div className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{title}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Muster Before & During Section */}
+      <section className="py-16 bg-gradient-to-b from-red-50 to-orange-50 dark:from-slate-900 dark:to-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-red-600 text-white">
+              <Siren className="h-3 w-3 mr-1" />
+              Real Screens. Real Emergencies.
+            </Badge>
+            <p className="text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto mb-6 italic">
+              You'll spend almost every day in the routine above. But the day it counts most is the one you can't predict — so TPR is built for that too.
+            </p>
+            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+              Emergency Mustering & Evacuation Roll Call —{" "}
+              <span className="text-red-600">Complete Accountability</span> Before & During an Emergency
+            </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              TPR keeps your Fire Marshals informed at all times. Pre-loaded with permanent
+              bookmarked links that work instantly — no login, no delay, no app download needed.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8 items-start mb-12">
+            {/* Readiness screenshot */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Normal Operations — Emergency Readiness</span>
+              </div>
+              <div className="relative">
+                <img
+                  src={musterReadinessImg}
+                  alt="TPR Emergency Muster - Readiness view showing Fire Marshal links, zones and on-site counts"
+                  className="rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 w-full"
+                />
+                <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                  LIVE
+                </div>
+              </div>
+              <ScreenCaption
+                what="The Fire Marshal's everyday view — 46 people on site across 6 zones."
+                why="Bookmarked once on any phone. Loads instantly without logging in. Always current."
+              />
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white">46</div>
+                  <div className="text-xs text-slate-500">On Site</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700">
+                  <div className="text-2xl font-bold" style={{ color: "#2460A9" }}>6</div>
+                  <div className="text-xs text-slate-500">Zones</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-purple-600">2</div>
+                  <div className="text-xs text-slate-500">Marshals</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active emergency screenshot */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-red-600 animate-pulse"></div>
+                <span className="text-sm font-semibold text-red-600 uppercase tracking-wide">Emergency Active — Evacuation in Progress</span>
+              </div>
+              <div className="relative">
+                <img
+                  src={musterActiveImg}
+                  alt="TPR Emergency Muster - Active emergency showing zone selection, fire marshal links, and send alert button"
+                  className="rounded-xl shadow-xl border-2 border-red-400 dark:border-red-600 w-full"
+                />
+                <div className="absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                  <Siren className="w-3 h-3" />
+                  EMERGENCY
+                </div>
+              </div>
+              <ScreenCaption
+                what="The same screen the moment an alarm sounds — zone selector and one-tap alert now live."
+                why="No app download, no password reset. Fire Marshals tap their bookmark and they're in."
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center border border-red-200 dark:border-red-800">
+                  <div className="text-sm font-semibold text-red-700 dark:text-red-400">Zone Targeting</div>
+                  <div className="text-xs text-slate-500 mt-1">Alert only affected zones</div>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center border border-red-200 dark:border-red-800">
+                  <div className="text-sm font-semibold text-red-700 dark:text-red-400">One-Tap Alert</div>
+                  <div className="text-xs text-slate-500 mt-1">Email all personnel instantly</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Key muster features */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { icon: MapPin, title: "Up to 16 Zones", desc: "Colour-coded evacuation zones with interactive floor plan placement", color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800" },
+              { icon: Smartphone, title: "Fire Marshal Mobile", desc: "Permanent URLs open instantly on any phone — no app, no login required", color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-200 dark:border-orange-800" },
+              { icon: Mail, title: "Targeted Alerts", desc: "Email only personnel in affected zones — plus all Fire Marshals automatically", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800" },
+              { icon: UserCheck, title: "Digital Roll-Call", desc: "One-tap mark safe for staff, visitors, contractors and members on-site", color: "text-green-600", bg: "bg-green-50 dark:bg-green-900/20", border: "border-green-200 dark:border-green-800" },
+              { icon: Accessibility, title: "PEEP Support", desc: "Persons needing evacuation assistance automatically flagged and sorted to the top — amber alert shown to Fire Marshals instantly", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200 dark:border-amber-800" },
+            ].map(({ icon: Icon, title, desc, color, bg, border }) => (
+              <div key={title} className={`rounded-xl p-5 border ${bg} ${border}`}>
+                <Icon className={`h-6 w-6 ${color} mb-3`} />
                 <div className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{title}</div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</div>
               </div>
@@ -1361,6 +1482,10 @@ export default function MarketingPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 rounded-xl"></div>
                 </div>
+                <ScreenCaption
+                  what="Live count of every visitor, contractor, and staff member on site right now."
+                  why="One screen replaces the morning safety briefing — spot anomalies before they become problems."
+                />
               </div>
             </TabsContent>
 
@@ -1445,6 +1570,10 @@ export default function MarketingPage() {
                     data-testid="img-visitor-management"
                   />
                 </div>
+                <ScreenCaption
+                  what="The pre-booking diary: upcoming visits, check-in status, and host names at a glance."
+                  why="Visitors get an invitation email with a QR code. Arrival takes seconds at a kiosk or front desk."
+                />
               </div>
             </TabsContent>
 
@@ -1519,6 +1648,10 @@ export default function MarketingPage() {
                     data-testid="img-meeting-rooms"
                   />
                 </div>
+                <ScreenCaption
+                  what="Room calendar grid — capacity, amenities, and booking status at a glance."
+                  why="Staff book rooms in seconds. Double-bookings are blocked. No-shows release the room automatically."
+                />
               </div>
             </TabsContent>
 
@@ -1593,6 +1726,10 @@ export default function MarketingPage() {
                     data-testid="img-staff-management"
                   />
                 </div>
+                <ScreenCaption
+                  what="Unified staff list with photos, check-in status, and department — updated as people arrive and leave."
+                  why="One record per person covers site access, compliance documents, and emergency roll-call."
+                />
               </div>
             </TabsContent>
 
@@ -1678,6 +1815,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Thermal card printer connected to TPR — badges print the moment sign-in is complete."
+                  why="Photo, name, host, and date on every card. Visitor badges expire automatically at end of day."
+                />
               </div>
             </TabsContent>
 
@@ -1770,6 +1911,10 @@ export default function MarketingPage() {
                     data-testid="img-contractor-management"
                   />
                 </div>
+                <ScreenCaption
+                  what="Contractor company list with compliance status, active workers, and certificate expiry dates."
+                  why="Red or amber flags surface instantly so your team can act before a contractor arrives without the right paperwork."
+                />
               </div>
             </TabsContent>
 
@@ -1908,6 +2053,10 @@ export default function MarketingPage() {
                       </div>
                     </div>
                   </div>
+                  <ScreenCaption
+                    what="What the contractor sees: their company's compliance checklist and live document status."
+                    why="They upload directly. You review and approve. No emails back and forth, no chasing."
+                  />
 
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 text-center border border-teal-200 dark:border-teal-800">
@@ -2007,6 +2156,10 @@ export default function MarketingPage() {
                     data-testid="img-ai-compliance"
                   />
                 </div>
+                <ScreenCaption
+                  what="AI-generated induction video with slides covering your specific site rules and hazards."
+                  why="Built from your own content in minutes. Plays on any device and logs completion automatically."
+                />
               </div>
             </TabsContent>
 
@@ -2112,6 +2265,10 @@ export default function MarketingPage() {
                       data-testid="img-emergency-readiness"
                     />
                   </div>
+                  <ScreenCaption
+                    what="The Fire Marshal's steady-state view — who is on site, which zones, and how many."
+                    why="Permanent URL. Works on any phone. Zero login friction when it matters most."
+                  />
                   {/* Active emergency state */}
                   <div className="relative">
                     <div className="flex items-center gap-2 mb-2">
@@ -2125,6 +2282,10 @@ export default function MarketingPage() {
                       data-testid="img-emergency-active"
                     />
                   </div>
+                  <ScreenCaption
+                    what="The same page during an active emergency — zone filter, alert button, and roll-call live."
+                    why="One tap emails everyone in the affected zone. PEEP names appear at the top automatically."
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -2194,6 +2355,10 @@ export default function MarketingPage() {
                     data-testid="img-time-attendance"
                   />
                 </div>
+                <ScreenCaption
+                  what="Time and attendance report: hours worked per person, shift by shift."
+                  why="Feeds straight into payroll export. Contractor billing accurate to the minute."
+                />
               </div>
             </TabsContent>
 
@@ -2292,6 +2457,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="CO2 dashboard: contractor commute emissions tracked against a sustainability score."
+                  why="Calculated from UK postcode pairs. Ready for ESG reporting without a separate tool."
+                />
               </div>
             </TabsContent>
 
@@ -2366,6 +2535,10 @@ export default function MarketingPage() {
                     data-testid="img-reports-analytics"
                   />
                 </div>
+                <ScreenCaption
+                  what="Cross-module analytics: visitor trends, contractor hours, and compliance rates in one view."
+                  why="Every report can be exported or emailed on a schedule — no manual pulling."
+                />
               </div>
             </TabsContent>
 
@@ -2480,6 +2653,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="RAMS document list with approval status and expiry date per contractor."
+                  why="Contractors submit via the portal. You approve here. Expired documents trigger automatic alerts."
+                />
               </div>
             </TabsContent>
 
@@ -2658,6 +2835,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="PPM planner: upcoming maintenance tasks, asset register, and completion tracking."
+                  why="Scheduled jobs are automatically created from your asset list. Nothing falls through the cracks."
+                />
               </div>
             </TabsContent>
 
@@ -2780,6 +2961,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="CDM 2015 project dashboard: duty holder register, F10 notification status, and competency checks."
+                  why="Keeps your HSE notification, duty holder records, and competency evidence all in one place."
+                />
               </div>
             </TabsContent>
 
@@ -2926,6 +3111,10 @@ export default function MarketingPage() {
                       ))}
                     </div>
                   </div>
+                  <ScreenCaption
+                    what="Safety engagement register: incidents, near misses, good spots, and positive actions in one list."
+                    why="RIDDOR classifications tracked automatically. Good Spots rising as incidents fall proves a healthy safety culture."
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -3025,6 +3214,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="FRA register with risk rating, assessor details, and next review date — overdue ones flagged red."
+                  why="One record per premises. Overdue assessments flag immediately — ready for Fire Service inspection."
+                />
               </div>
             </TabsContent>
 
@@ -3115,6 +3308,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Certificate register: 14 statutory types with expiry countdown, document storage, and renewal alerts."
+                  why="Every certificate in one place. Automatic alerts before anything lapses — no manual diary-keeping."
+                />
               </div>
             </TabsContent>
 
@@ -3211,6 +3408,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Digital permit-to-work: 7 permit types, 7-stage lifecycle, YES/NO/N/A checklists."
+                  why="Authorisation segregation enforced — requester can't approve their own permit. Full audit trail included."
+                />
               </div>
             </TabsContent>
 
@@ -3359,6 +3560,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Employee lifecycle from offer letter through to offboarding — all in one record."
+                  why="Appraisals, training, absence, and right-to-work checks alongside the person's site access record."
+                />
               </div>
             </TabsContent>
 
@@ -3501,6 +3706,10 @@ export default function MarketingPage() {
                     </div>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Risk assessment builder: hazards, controls, and likelihood × severity scoring."
+                  why="Six assessment types. Produced in minutes, signed off digitally, stored permanently."
+                />
               </div>
             </TabsContent>
 
@@ -3613,6 +3822,10 @@ export default function MarketingPage() {
                     <span className="text-emerald-700 font-semibold">New templates added monthly</span>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Pre-built H&S document templates ready to customise for your site."
+                  why="Frameworks for COSHH, manual handling, lone working, and more — drafted to UK standards."
+                />
               </div>
             </TabsContent>
 
@@ -3715,6 +3928,10 @@ export default function MarketingPage() {
                     <span className="text-indigo-700 font-semibold">No app install needed</span>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Microsoft Teams notification: visitor arrived, host alerted in their Teams channel."
+                  why="No tab-switching. Host gets an instant ping and can welcome the visitor straight away."
+                />
               </div>
             </TabsContent>
 
@@ -3833,6 +4050,10 @@ export default function MarketingPage() {
                     <span className="text-violet-700 font-semibold">15-min sync cycle</span>
                   </div>
                 </div>
+                <ScreenCaption
+                  what="Outlook calendar event synced to TPR — visitor pre-registered automatically from the invite."
+                  why="Diary entries become pre-registrations. Nothing to log twice."
+                />
               </div>
             </TabsContent>
 
@@ -3967,10 +4188,10 @@ export default function MarketingPage() {
                       ))}
                     </div>
                   </div>
-                  {/* Caption */}
-                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-                    Enterprise Admin Console — real-time compliance scoring across your entire site portfolio
-                  </p>
+                  <ScreenCaption
+                    what="Multi-site estate view: compliance scores, on-site counts, and alerts across all locations."
+                    why="Directors see the whole picture. Site managers see only their site. Access is role-controlled."
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -4297,6 +4518,31 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      {/* Social Proof Section */}
+      <section className="py-20 bg-gradient-to-b from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+            <Building2 className="h-3 w-3 mr-1" />
+            Real Deployments
+          </Badge>
+          <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
+            See TPR working on a real site.
+          </h2>
+          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto mb-8">
+            TPR is live across UK sites ranging from warehouses and construction projects to schools, councils, and leisure centres. Book a demo and we'll show you the platform running on a real customer's environment — not a sandbox.
+          </p>
+          <Button
+            size="lg"
+            onClick={() => scrollToSection("contact")}
+            className="text-white px-10 text-lg shadow-lg hover:shadow-xl transition-shadow"
+            style={{ backgroundColor: "#2460A9" }}
+          >
+            Book a Free Demo
+            <ArrowRight className="h-5 w-5 ml-2" />
+          </Button>
+          {/* Customer quotes and case studies — coming soon */}
+        </div>
+      </section>
 
       {/* Pricing Section */}
       <section id="pricing" className="py-20 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 scroll-mt-24">
