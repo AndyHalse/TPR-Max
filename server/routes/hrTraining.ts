@@ -24,8 +24,8 @@ function trainingStatus(expiryDate: string | null): 'valid' | 'expiring_soon' | 
 
 export function registerHrTrainingRoutes(app: Express): void {
 
-  // GET /api/staff/:staffId/training
-  app.get('/api/staff/:staffId/training', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/staff/:staffId/training — admin/hr_admin only
+  app.get('/api/staff/:staffId/training', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -104,8 +104,8 @@ export function registerHrTrainingRoutes(app: Express): void {
     }
   });
 
-  // GET /api/training/matrix
-  app.get('/api/training/matrix', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/training/matrix — admin/hr_admin only
+  app.get('/api/training/matrix', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 
@@ -138,8 +138,8 @@ export function registerHrTrainingRoutes(app: Express): void {
     }
   });
 
-  // GET /api/training/expiring
-  app.get('/api/training/expiring', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/training/expiring — admin/hr_admin only
+  app.get('/api/training/expiring', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -159,8 +159,8 @@ export function registerHrTrainingRoutes(app: Express): void {
     }
   });
 
-  // GET /api/training/requirements
-  app.get('/api/training/requirements', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/training/requirements — admin/hr_admin only
+  app.get('/api/training/requirements', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(`SELECT * FROM "${schemaName}".training_requirements ORDER BY course_name`);

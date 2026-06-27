@@ -13,8 +13,8 @@ async function getPool(customerId: string) {
 
 export function registerHrAppraisalRoutes(app: Express): void {
 
-  // GET /api/staff/:staffId/appraisals
-  app.get('/api/staff/:staffId/appraisals', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/staff/:staffId/appraisals — admin/hr_admin only
+  app.get('/api/staff/:staffId/appraisals', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const appraisals = await pool.query(
@@ -131,8 +131,8 @@ export function registerHrAppraisalRoutes(app: Express): void {
     }
   });
 
-  // GET /api/appraisals/due — staff with overdue/upcoming reviews
-  app.get('/api/appraisals/due', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/appraisals/due — admin/hr_admin only
+  app.get('/api/appraisals/due', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 

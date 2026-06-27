@@ -311,6 +311,11 @@ export default function Layout({ children }: LayoutProps) {
       const allowedRoles = ['admin', 'manager', 'hr_admin'];
       if (!user?.role || !allowedRoles.includes(user.role)) return false;
     }
+    // HR module is restricted to admin / hr_admin (sensitive personal & health data)
+    if (item.path === '/hr') {
+      const allowedRoles = ['admin', 'hr_admin'];
+      if (!user?.role || !allowedRoles.includes(user.role)) return false;
+    }
     if (!settings) return (item as any).alwaysVisible;
     if (item.featureKey) {
       // Admins always see the Settings page — they must never be locked out

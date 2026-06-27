@@ -15,8 +15,8 @@ async function getPool(customerId: string) {
 
 export function registerHrLeaveRoutes(app: Express): void {
 
-  // GET /api/staff/:staffId/leave
-  app.get('/api/staff/:staffId/leave', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/staff/:staffId/leave — admin/hr_admin only
+  app.get('/api/staff/:staffId/leave', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -264,8 +264,8 @@ export function registerHrLeaveRoutes(app: Express): void {
     }
   });
 
-  // GET /api/leave/overlap-check
-  app.get('/api/leave/overlap-check', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/leave/overlap-check — admin/hr_admin only (reveals other staff names/dates)
+  app.get('/api/leave/overlap-check', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { start, end, excludeStaffId } = req.query as Record<string, string>;

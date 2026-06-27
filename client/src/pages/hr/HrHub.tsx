@@ -130,6 +130,7 @@ const CARD_TOOLTIPS: Record<string, string> = {
   "Training expiring (30 days)": "Mandatory training and certifications that will expire within the next 30 days. Renew before they lapse to stay compliant.",
   "Appraisals due (30 days)": "Performance reviews scheduled to take place within the next 30 days.",
   "Pending leave approvals": "Leave requests that line managers still need to approve or decline.",
+  "On site right now": "Staff currently checked in on site with no check-out yet.",
 };
 
 type DashboardResp = {
@@ -168,6 +169,10 @@ type CompanySettings = Record<string, any>;
 
 export default function HrHub() {
   const [, navigate] = useLocation();
+
+  const { data: currentUser } = useQuery<{ role?: string }>({
+    queryKey: ["/api/auth/me"],
+  });
 
   const { data: stats } = useQuery<{ total: number; active: number }>({
     queryKey: ["/api/staff/stats"],
@@ -317,6 +322,21 @@ export default function HrHub() {
     );
   }
 
+  if (currentUser && !['admin', 'hr_admin'].includes(currentUser.role || '')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+        <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
+          <Lock className="w-8 h-8 text-slate-400" />
+        </div>
+        <h2 className="text-xl font-bold text-fixed mb-2">HR Module — Restricted</h2>
+        <p className="text-sm text-variable max-w-sm">
+          This area is restricted to HR administrators. Please contact your system administrator
+          if you need access.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={200}>
     <div className="space-y-6 p-3 sm:p-6">
@@ -415,7 +435,7 @@ export default function HrHub() {
             <h3 className="text-sm font-semibold text-fixed">Today</h3>
             <span className="text-xs text-variable">
               {(dashboard.today_date ? new Date(dashboard.today_date + "T00:00:00") : new Date())
-                .toLocaleDateString(undefined, {
+                .toLocaleDateString('en-GB', {
                   weekday: "long",
                   day: "numeric",
                   month: "long",

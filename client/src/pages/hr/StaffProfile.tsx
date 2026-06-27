@@ -900,6 +900,11 @@ export default function StaffProfile() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
 
+  const { data: currentUser } = useQuery<{ role?: string }>({
+    queryKey: ["/api/auth/me"],
+  });
+  const isHrAdmin = ['admin', 'hr_admin'].includes(currentUser?.role || '');
+
   const { data: staffList = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff"],
     queryFn: () => safeFetch("/api/staff"),
@@ -956,32 +961,32 @@ export default function StaffProfile() {
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "employment"}>
         <TabsList className="w-full flex-wrap h-auto gap-1">
           <TabsTrigger value="employment" className="text-xs"><Briefcase className="h-3 w-3 mr-1" />Employment</TabsTrigger>
-          <TabsTrigger value="rtw" className="text-xs"><Shield className="h-3 w-3 mr-1" />Right to Work</TabsTrigger>
-          <TabsTrigger value="dbs" className="text-xs"><Shield className="h-3 w-3 mr-1" />DBS &amp; Safeguarding</TabsTrigger>
-          <TabsTrigger value="training" className="text-xs"><BookOpen className="h-3 w-3 mr-1" />Training</TabsTrigger>
-          <TabsTrigger value="leave" className="text-xs"><Calendar className="h-3 w-3 mr-1" />Leave</TabsTrigger>
-          <TabsTrigger value="absence" className="text-xs"><Activity className="h-3 w-3 mr-1" />Absence</TabsTrigger>
-          <TabsTrigger value="documents" className="text-xs"><FileText className="h-3 w-3 mr-1" />Documents</TabsTrigger>
+          {isHrAdmin && <TabsTrigger value="rtw" className="text-xs"><Shield className="h-3 w-3 mr-1" />Right to Work</TabsTrigger>}
+          {isHrAdmin && <TabsTrigger value="dbs" className="text-xs"><Shield className="h-3 w-3 mr-1" />DBS &amp; Safeguarding</TabsTrigger>}
+          {isHrAdmin && <TabsTrigger value="training" className="text-xs"><BookOpen className="h-3 w-3 mr-1" />Training</TabsTrigger>}
+          {isHrAdmin && <TabsTrigger value="leave" className="text-xs"><Calendar className="h-3 w-3 mr-1" />Leave</TabsTrigger>}
+          {isHrAdmin && <TabsTrigger value="absence" className="text-xs"><Activity className="h-3 w-3 mr-1" />Absence</TabsTrigger>}
+          {isHrAdmin && <TabsTrigger value="documents" className="text-xs"><FileText className="h-3 w-3 mr-1" />Documents</TabsTrigger>}
           <TabsTrigger value="onboarding" className="text-xs"><CheckSquare className="h-3 w-3 mr-1" />Onboarding</TabsTrigger>
-          <TabsTrigger value="appraisals" className="text-xs"><Star className="h-3 w-3 mr-1" />Appraisals</TabsTrigger>
+          {isHrAdmin && <TabsTrigger value="appraisals" className="text-xs"><Star className="h-3 w-3 mr-1" />Appraisals</TabsTrigger>}
           <TabsTrigger value="attendance" className="text-xs"><Clock className="h-3 w-3 mr-1" />Attendance</TabsTrigger>
-          {(staff.employment_status === "leaver") && (
+          {isHrAdmin && (staff.employment_status === "leaver") && (
             <TabsTrigger value="leaver" className="text-xs text-red-600"><LogOut className="h-3 w-3 mr-1" />Leaver</TabsTrigger>
           )}
         </TabsList>
 
         <div className="mt-4">
           <TabsContent value="employment"><EmploymentTab staffId={id!} staff={staff} /></TabsContent>
-          <TabsContent value="rtw"><RtwTab staffId={id!} /></TabsContent>
-          <TabsContent value="dbs"><StaffDbsTab staffId={id!} /></TabsContent>
-          <TabsContent value="training"><TrainingTab staffId={id!} /></TabsContent>
-          <TabsContent value="leave"><LeaveTab staffId={id!} /></TabsContent>
-          <TabsContent value="absence"><AbsenceTab staffId={id!} /></TabsContent>
-          <TabsContent value="documents"><StaffDocumentsTab staffId={id!} /></TabsContent>
+          {isHrAdmin && <TabsContent value="rtw"><RtwTab staffId={id!} /></TabsContent>}
+          {isHrAdmin && <TabsContent value="dbs"><StaffDbsTab staffId={id!} /></TabsContent>}
+          {isHrAdmin && <TabsContent value="training"><TrainingTab staffId={id!} /></TabsContent>}
+          {isHrAdmin && <TabsContent value="leave"><LeaveTab staffId={id!} /></TabsContent>}
+          {isHrAdmin && <TabsContent value="absence"><AbsenceTab staffId={id!} /></TabsContent>}
+          {isHrAdmin && <TabsContent value="documents"><StaffDocumentsTab staffId={id!} /></TabsContent>}
           <TabsContent value="onboarding"><OnboardingTab staffId={id!} /></TabsContent>
-          <TabsContent value="appraisals"><AppraisalsTab staffId={id!} /></TabsContent>
+          {isHrAdmin && <TabsContent value="appraisals"><AppraisalsTab staffId={id!} /></TabsContent>}
           <TabsContent value="attendance"><AttendanceTab staffId={id!} /></TabsContent>
-          {staff.employment_status === "leaver" && (
+          {isHrAdmin && staff.employment_status === "leaver" && (
             <TabsContent value="leaver">
               <LeaverDetail staffId={id!} />
             </TabsContent>

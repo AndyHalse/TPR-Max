@@ -21,8 +21,8 @@ function requireAdminRole(req: any, res: any, next: any) {
 
 export function registerHrDbsRoutes(app: Express): void {
 
-  // GET /api/staff/:staffId/dbs — available to all authenticated users (no HR feature gate)
-  app.get('/api/staff/:staffId/dbs', requireAuth, async (req, res) => {
+  // GET /api/staff/:staffId/dbs — admin/hr_admin only (criminal-offence data under UK GDPR Art. 10)
+  app.get('/api/staff/:staffId/dbs', requireAuth, requireAdminRole, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const result = await pool.query(
@@ -106,8 +106,8 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // GET /api/staff/:staffId/dbs-required — fetch the DBS required flag
-  app.get('/api/staff/:staffId/dbs-required', requireAuth, async (req, res) => {
+  // GET /api/staff/:staffId/dbs-required — admin/hr_admin only
+  app.get('/api/staff/:staffId/dbs-required', requireAuth, requireAdminRole, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const result = await pool.query(
@@ -215,8 +215,8 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // GET /api/dbs/expiry-alerts — all staff with expired/expiring DBS within 90 days
-  app.get('/api/dbs/expiry-alerts', requireAuth, async (req, res) => {
+  // GET /api/dbs/expiry-alerts — admin/hr_admin only
+  app.get('/api/dbs/expiry-alerts', requireAuth, requireAdminRole, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const result = await pool.query(
@@ -242,8 +242,8 @@ export function registerHrDbsRoutes(app: Express): void {
   });
 
   // ── Staff Notes ───────────────────────────────────────────────────────────
-  // GET /api/staff/:staffId/notes
-  app.get('/api/staff/:staffId/notes', requireAuth, async (req, res) => {
+  // GET /api/staff/:staffId/notes — admin/hr_admin only
+  app.get('/api/staff/:staffId/notes', requireAuth, requireAdminRole, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const { staffId } = req.params;

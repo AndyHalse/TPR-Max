@@ -14,8 +14,8 @@ async function getPool(customerId: string) {
 
 export function registerHrAbsenceRoutes(app: Express): void {
 
-  // GET /api/staff/:staffId/absences
-  app.get('/api/staff/:staffId/absences', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/staff/:staffId/absences — admin/hr_admin only (special-category health data)
+  app.get('/api/staff/:staffId/absences', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -135,8 +135,8 @@ export function registerHrAbsenceRoutes(app: Express): void {
     }
   });
 
-  // GET /api/absences/overview
-  app.get('/api/absences/overview', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/absences/overview — admin/hr_admin only
+  app.get('/api/absences/overview', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 

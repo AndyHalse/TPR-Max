@@ -194,8 +194,8 @@ export function registerHrLeaverRoutes(app: Express): void {
     }
   });
 
-  // GET /api/staff/:staffId/leaver — full leaver record (checklist + equipment + interview)
-  app.get('/api/staff/:staffId/leaver', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/staff/:staffId/leaver — admin/hr_admin only
+  app.get('/api/staff/:staffId/leaver', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const checklist = await pool.query(
@@ -520,8 +520,8 @@ export function registerHrLeaverRoutes(app: Express): void {
     }
   });
 
-  // GET /api/hr/leavers — all staff currently in leaver status
-  app.get('/api/hr/leavers', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/hr/leavers — admin/hr_admin only
+  app.get('/api/hr/leavers', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(

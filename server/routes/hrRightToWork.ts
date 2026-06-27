@@ -14,8 +14,8 @@ async function getRtwPool(customerId: string) {
 
 export function registerHrRightToWorkRoutes(app: Express): void {
 
-  // GET /api/staff/:staffId/right-to-work
-  app.get('/api/staff/:staffId/right-to-work', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/staff/:staffId/right-to-work — admin/hr_admin only
+  app.get('/api/staff/:staffId/right-to-work', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const result = await pool.query(
@@ -77,8 +77,8 @@ export function registerHrRightToWorkRoutes(app: Express): void {
     }
   });
 
-  // GET /api/right-to-work/expiring — all expiring within 90 days
-  app.get('/api/right-to-work/expiring', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/right-to-work/expiring — admin/hr_admin only
+  app.get('/api/right-to-work/expiring', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const result = await pool.query(
@@ -97,8 +97,8 @@ export function registerHrRightToWorkRoutes(app: Express): void {
     }
   });
 
-  // GET /api/right-to-work/status/:staffId
-  app.get('/api/right-to-work/status/:staffId', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/right-to-work/status/:staffId — admin/hr_admin only
+  app.get('/api/right-to-work/status/:staffId', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const result = await pool.query(

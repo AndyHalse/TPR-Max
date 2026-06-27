@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
-import { requireHrFeature } from './hrMiddleware';
+import { requireHrFeature, requireHrAdmin } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -23,8 +23,8 @@ async function safe<T>(fn: () => Promise<T>, fallback: T, label: string): Promis
 
 export function registerHrDashboardRoutes(app: Express): void {
 
-  // GET /api/hr/dashboard — single endpoint returning all dashboard counts + "today" lists
-  app.get('/api/hr/dashboard', requireAuth, requireHrFeature, async (req, res) => {
+  // GET /api/hr/dashboard — admin/hr_admin only (exposes staff names, birthdays, etc.)
+  app.get('/api/hr/dashboard', requireAuth, requireHrFeature, requireHrAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const s = `"${schemaName}"`;
