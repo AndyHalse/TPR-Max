@@ -45,10 +45,9 @@ async function ensureChromeBinary() {
     );
   }
 }
-// Chrome must be pre-installed in the production Docker/server image.
-if (process.env.NODE_ENV !== "production") {
-  ensureChromeBinary();
-}
+// Run on every startup (dev and production) so the Replit deployment image
+// always has the Chrome binary available for PDF report generation.
+ensureChromeBinary();
 
 // Global error handlers to prevent crashes
 process.on("uncaughtException", (error: any) => {

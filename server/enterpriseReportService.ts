@@ -667,10 +667,16 @@ async function renderPdf(html: string): Promise<Buffer> {
   const puppeteerLaunch = (puppeteer as any).default?.launch ?? (puppeteer as any).launch;
   if (!puppeteerLaunch) throw new Error('puppeteer_launch_missing');
 
-  browser = await puppeteerLaunch({
+  const launchOptions: any = {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-zygote', '--single-process'],
-  });
+  };
+  // Allow explicit override via env var (useful in production if the
+  // Puppeteer-managed binary isn't installed yet on first boot).
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  browser = await puppeteerLaunch(launchOptions);
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
