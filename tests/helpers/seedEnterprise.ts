@@ -387,6 +387,55 @@ export async function deleteHelpdeskTicketRaw(ticketId: string): Promise<void> {
   }
 }
 
+/**
+ * Insert a lone_worker_session directly into the test customer's isolated schema
+ * for a specific site.  Status is 'active' so it appears in GET /api/lone-worker/active.
+ *
+ * Bypasses the HTTP layer's "staff must be checked in + loneWorkerEnabled" guard so
+ * the isolation contract of the GET route can be exercised without complex setup.
+ *
+ * Returns the session id so the caller can clean up.
+ */
+export async function seedLoneWorkerSession(siteId: string): Promise<string> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const res = await pg.query<{ id: string }>(
+      `INSERT INTO "${TEST_CUSTOMER_SCHEMA}".lone_worker_sessions
+         (customer_id, person_id, person_type, person_name, person_email,
+          interval_mins, grace_period_mins, status, site_id)
+       VALUES ($1, gen_random_uuid()::text, 'staff', 'ISO LW Test Worker',
+               'iso-lw@test.example', 30, 10, 'active', $2)
+       RETURNING id`,
+      [TEST_CUSTOMER_ID, siteId]
+    );
+    return res.rows[0].id;
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Delete a lone_worker_session inserted by seedLoneWorkerSession.
+ * Also removes any lone_worker_tokens that reference it (FK cascade may not exist in all schemas).
+ */
+export async function cleanupLoneWorkerSession(sessionId: string): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".lone_worker_tokens WHERE session_id = $1`,
+      [sessionId]
+    ).catch(() => {});
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".lone_worker_sessions WHERE id = $1`,
+      [sessionId]
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
 export async function ensureCdmProjectsColumns(): Promise<void> {
   const pg = new PgClient({ connectionString: getDbUrl() });
   await pg.connect();

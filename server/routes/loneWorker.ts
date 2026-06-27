@@ -212,6 +212,8 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
       const settings = await getLoneWorkerSettings({ db: customerDb });
       if (!settings?.loneWorkerEnabled) return res.status(400).json({ error: 'Lone Worker Protection is not enabled for this organisation' });
 
+      // Guard against duplicate active sessions — intentionally customer-wide (not site-scoped) so
+      // a contractor worker can never have two concurrent lone-worker sessions across any site.
       const [existingSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
         .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'contractor' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`)
         .limit(1);

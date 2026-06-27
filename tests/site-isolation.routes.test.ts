@@ -52,6 +52,8 @@ import {
   ensureCdmProjectsColumns,
   seedHelpdeskTicketRaw,
   deleteHelpdeskTicketRaw,
+  seedLoneWorkerSession,
+  cleanupLoneWorkerSession,
   type SeedResult,
 } from "./helpers/seedEnterprise";
 
@@ -1444,21 +1446,44 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
     const agentA = await agentForSite(seed.siteAId);
     const agentB = await agentForSite(seed.siteBId);
 
-    // With no sessions active, both sites must return a valid (empty) array —
-    // confirming the scopedWhere is present and doesn't break the query.
-    const resA = await agentA.get("/api/lone-worker/active");
-    expect(
-      [200],
-      `Site A GET /api/lone-worker/active must succeed (status ${resA.status}): ${JSON.stringify(resA.body)}`
-    ).toContain(resA.status);
-    expect(Array.isArray(resA.body), "Site A active sessions must be an array").toBe(true);
+    // Insert a real lone-worker session for Site A via direct SQL, bypassing the
+    // "staff must be checked-in + loneWorkerEnabled" HTTP guard so the isolation
+    // contract of the GET route is exercised directly.
+    //
+    // PROVE-IT-BITES: in server/routes/loneWorker.ts GET /api/lone-worker/active,
+    // change the conditional so siteFilter is never applied (always use the
+    // unfiltered branch) → Site B will see Site A's session → test goes RED.
+    // Restore → GREEN.
+    const sessionId = await seedLoneWorkerSession(seed.siteAId);
+    try {
+      // Site A must see its own session.
+      const resA = await agentA.get("/api/lone-worker/active");
+      expect(
+        [200],
+        `Site A GET /api/lone-worker/active must succeed (status ${resA.status}): ${JSON.stringify(resA.body)}`
+      ).toContain(resA.status);
+      expect(Array.isArray(resA.body), "Site A active sessions must be an array").toBe(true);
+      const siteAIds = (resA.body as any[]).map((s: any) => s.id);
+      expect(
+        siteAIds,
+        `Site A must see the seeded session (id=${sessionId}) in its active list`
+      ).toContain(sessionId);
 
-    const resB = await agentB.get("/api/lone-worker/active");
-    expect(
-      [200],
-      `Site B GET /api/lone-worker/active must succeed (status ${resB.status}): ${JSON.stringify(resB.body)}`
-    ).toContain(resB.status);
-    expect(Array.isArray(resB.body), "Site B active sessions must be an array").toBe(true);
+      // Site B must NOT see Site A's session.
+      const resB = await agentB.get("/api/lone-worker/active");
+      expect(
+        [200],
+        `Site B GET /api/lone-worker/active must succeed (status ${resB.status}): ${JSON.stringify(resB.body)}`
+      ).toContain(resB.status);
+      expect(Array.isArray(resB.body), "Site B active sessions must be an array").toBe(true);
+      const siteBIds = (resB.body as any[]).map((s: any) => s.id);
+      expect(
+        siteBIds,
+        `Site B must NOT see Site A's lone-worker session (id=${sessionId}) — cross-site safety leak!`
+      ).not.toContain(sessionId);
+    } finally {
+      await cleanupLoneWorkerSession(sessionId);
+    }
   }, 30_000);
 
   /**
