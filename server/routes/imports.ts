@@ -2972,9 +2972,9 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         if (demoRoomRes.rows.length > 0) {
           const roomIds: string[] = demoRoomRes.rows.map((r: any) => r.id);
           const rP = inP(roomIds);
-          // Delete bookings first (FK → meeting_rooms), then attendees if any
+          // Delete attendees first (FK → room_bookings), then bookings (FK → meeting_rooms)
+          await del('room_booking_attendees', `WHERE booking_id IN (SELECT id FROM "${schemaName}".room_bookings WHERE meeting_room_id IN (${rP}))`, roomIds);
           await del('room_bookings', `WHERE meeting_room_id IN (${rP})`, roomIds);
-          await del('room_booking_attendees', `WHERE room_booking_id IN (SELECT id FROM "${schemaName}".room_bookings WHERE meeting_room_id IN (${rP}))`, roomIds);
           await pool.query(`DELETE FROM "${schemaName}".meeting_rooms WHERE id IN (${rP})`, roomIds);
           deleted['meeting_rooms'] = roomIds.length;
         }
