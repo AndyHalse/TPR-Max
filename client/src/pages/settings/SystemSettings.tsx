@@ -25,6 +25,8 @@ export default function SystemSettings() {
   const [showManualResetDialog, setShowManualResetDialog] = useState(false);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
   const [showClearSampleDataDialog, setShowClearSampleDataDialog] = useState(false);
+  const [showEnterpriseDemoResetDialog, setShowEnterpriseDemoResetDialog] = useState(false);
+  const [enterpriseDemoResetResult, setEnterpriseDemoResetResult] = useState<{ cleared: boolean; deleted: Record<string, number>; remaining: Record<string, number> } | null>(null);
 
   const { data: systemStatus } = useQuery<{
     success: boolean;
@@ -178,6 +180,46 @@ export default function SystemSettings() {
       toast({ title: "Demo Data Deleted!", description: data.message });
     },
     onError: (error: any) => { toast({ title: "Failed to Delete Demo Data", description: error.message || "An error occurred", variant: "destructive" }); },
+  });
+
+  const { data: enterpriseDemoStatus, refetch: refetchEnterpriseDemoStatus } = useQuery<{
+    isEnterprise: boolean; loaded: boolean; siteCount: number;
+  }>({ queryKey: ['/api/enterprise-demo/status'] });
+
+  const loadEnterpriseDemoMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/enterprise-demo/load', {});
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed to load enterprise demo'); }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      refetchEnterpriseDemoStatus();
+      queryClient.invalidateQueries({ queryKey: ['/api/enterprise/sites'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/enterprise/areas'] });
+      toast({ title: 'Enterprise Demo Loaded!', description: data.message });
+    },
+    onError: (error: any) => { toast({ title: 'Failed to Load Enterprise Demo', description: error.message || 'An error occurred', variant: 'destructive' }); },
+  });
+
+  const resetEnterpriseDemoMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/enterprise-demo/reset', {});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to reset enterprise demo');
+      return data;
+    },
+    onSuccess: (data) => {
+      setEnterpriseDemoResetResult(data);
+      refetchEnterpriseDemoStatus();
+      queryClient.invalidateQueries({ queryKey: ['/api/enterprise/sites'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/enterprise/areas'] });
+      toast({
+        title: data.cleared ? 'Enterprise Demo Removed' : 'Reset Completed With Warnings',
+        description: data.cleared ? 'All enterprise demo data has been removed from the account.' : 'Reset completed — check verification results for any remaining rows.',
+        variant: data.cleared ? 'default' : 'destructive',
+      });
+    },
+    onError: (error: any) => { toast({ title: 'Reset Failed', description: error.message || 'An error occurred', variant: 'destructive' }); },
   });
 
   const handleBackupDatabase = () => backupMutation.mutate();
@@ -771,6 +813,84 @@ export default function SystemSettings() {
   </GlassCard>
 </div>
 
+{enterpriseDemoStatus?.isEnterprise && (
+<div className="mt-6">
+  <GlassCard className="p-6">
+    <h3 className="text-lg font-semibold text-fixed mb-1 flex items-center gap-2">
+      <Building className="w-5 h-5 text-indigo-500" />
+      Enterprise Demo Estate
+      {enterpriseDemoStatus?.loaded ? (
+        <Badge className="ml-2 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+          Loaded — {enterpriseDemoStatus.siteCount} sites
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="ml-2 text-slate-500">Not loaded</Badge>
+      )}
+    </h3>
+    <p className="text-sm text-variable mb-5">
+      Seeds a full 10-site Scottish estate for enterprise demos — 4 regions, realistic compliance spread (Critical / Warning / Compliant sites), 5 contractor companies, PPM work orders, fire risk assessments, H&S incidents, and demo user accounts. All demo records are tagged <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1 rounded">is_demo = true</code> for clean, verified removal.
+    </p>
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 text-xs text-variable">
+      <ul className="space-y-1">
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />4 Scottish regions, 10 sites</li>
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />Compliance spread: 2 Critical, 3 Warning, 5 Compliant</li>
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />7 demo users (area managers + coordinators)</li>
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />Fire Risk Assessments with overdue/current status</li>
+      </ul>
+      <ul className="space-y-1">
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />5 contractor companies, mixed clearances</li>
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />Compliance certificates (expired, expiring, valid)</li>
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />PPM work orders (3 overdue at Critical sites)</li>
+        <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />Enterprise-scope visit reasons &amp; induction defaults</li>
+      </ul>
+    </div>
+
+    <div className="flex flex-wrap gap-3">
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="whitespace-nowrap border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+              onClick={() => loadEnterpriseDemoMutation.mutate()}
+              disabled={loadEnterpriseDemoMutation.isPending || enterpriseDemoStatus?.loaded}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              {loadEnterpriseDemoMutation.isPending ? 'Loading…' : enterpriseDemoStatus?.loaded ? 'Estate Loaded' : 'Load Enterprise Demo'}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>{enterpriseDemoStatus?.loaded ? 'Enterprise demo estate is already loaded. Use "Reset" to remove it first.' : 'Seeds the full 10-site Scottish estate with realistic compliance data for enterprise demonstrations.'}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="whitespace-nowrap border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+              onClick={() => { setEnterpriseDemoResetResult(null); setShowEnterpriseDemoResetDialog(true); }}
+              disabled={resetEnterpriseDemoMutation.isPending}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {resetEnterpriseDemoMutation.isPending ? 'Removing…' : 'Reset — Remove All Demo Data'}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>Permanently removes every record tagged <code>is_demo = true</code> — all demo sites, areas, users, contractors, certificates, FRAs, PPM records, and incidents. Runs a full verification pass to confirm the account is clean.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  </GlassCard>
+</div>
+)}
+
 <div className="mt-6">
   <GlassCard className="p-6">
     <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
@@ -1309,6 +1429,39 @@ export default function SystemSettings() {
 </div>
 </TooltipProvider>
 
+
+      {/* Enterprise Demo Reset Confirm Dialog */}
+      <AlertDialog open={showEnterpriseDemoResetDialog} onOpenChange={setShowEnterpriseDemoResetDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove All Enterprise Demo Data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove every record tagged <strong>is_demo = true</strong> — all 10 demo sites, 4 areas, 7 demo users, 5 contractor companies, compliance certificates, fire risk assessments, PPM work orders, H&S incidents, and enterprise-scope visit reasons. A full verification pass will confirm the account is clean. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {enterpriseDemoResetResult && (
+            <div className={`mt-2 p-3 rounded-lg border text-xs ${enterpriseDemoResetResult.cleared ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800'}`}>
+              <p className={`font-semibold mb-1 ${enterpriseDemoResetResult.cleared ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                {enterpriseDemoResetResult.cleared ? '✓ Verification passed — account is clean' : '⚠ Verification found remaining rows'}
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-slate-600 dark:text-slate-400">
+                {Object.entries(enterpriseDemoResetResult.deleted ?? {}).map(([table, count]) => (
+                  <span key={table}>{table}: <strong>{count}</strong> removed</span>
+                ))}
+              </div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { setShowEnterpriseDemoResetDialog(false); resetEnterpriseDemoMutation.mutate(); }}
+            >
+              Yes, Remove All Demo Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Demo Data Confirm Dialog */}
       <AlertDialog open={showClearSampleDataDialog} onOpenChange={setShowClearSampleDataDialog}>
