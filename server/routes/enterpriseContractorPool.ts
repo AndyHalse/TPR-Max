@@ -101,16 +101,27 @@ export function registerEnterpriseContractorPoolRoutes(app: Application) {
           ));
 
         const clearedWorkersByCompany = new Map<string, Set<string>>();
+        const clearedSitesByCompany = new Map<string, Set<string>>();
         const clearancesBySite = new Map<string, Map<string, string>>(); // siteId → workerId → status
         for (const c of clearances) {
           const s = clearedWorkersByCompany.get(c.companyId) ?? new Set();
           s.add(c.workerId);
           clearedWorkersByCompany.set(c.companyId, s);
 
+          const ss = clearedSitesByCompany.get(c.companyId) ?? new Set();
+          ss.add(c.siteId);
+          clearedSitesByCompany.set(c.companyId, ss);
+
           const bySite = clearancesBySite.get(c.siteId) ?? new Map();
           bySite.set(c.workerId, c.status);
           clearancesBySite.set(c.siteId, bySite);
         }
+
+        const allActiveSites = await db
+          .select({ id: isolatedSchema.sites.id })
+          .from(isolatedSchema.sites)
+          .where(eq(isolatedSchema.sites.status, 'active'));
+        const totalSites = allActiveSites.length;
 
         const KEY_DOCS = ['publicLiability', 'employersLiability', 'healthSafety', 'rams'];
 
@@ -128,6 +139,8 @@ export function registerEnterpriseContractorPoolRoutes(app: Application) {
             riskRating: co.riskRating,
             workerCount,
             clearedCount,
+            sitesClearedCount: clearedSitesByCompany.get(co.id)?.size ?? 0,
+            totalSitesCount: totalSites,
             documentsStatus: docSummary,
             complianceIssues: missingDocs.length,
             overallCompliance: missingDocs.length === 0 && co.status === 'approved' ? 'compliant' : 'attention',

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -208,6 +208,200 @@ function daysUntil(iso: string | null | undefined): number | null {
   if (!iso) return null;
   const ms = new Date(iso).getTime() - Date.now();
   return Math.ceil(ms / 86_400_000);
+}
+
+// ── Scotland Estate Map ─────────────────────────────────────────────────────────
+// Pure SVG – no external map library.
+// Viewport 400 × 500. Linear projection:
+//   x = (lon + 7.7) / 7.0 × 400   (lon range −7.7 → −0.7)
+//   y = (61.0 − lat) / 6.5 × 500  (lat range 54.5 → 61.0)
+
+const SCOTLAND_OUTLINE =
+  "M302,425 L326,402 L297,385 L291,362 L293,341 L320,296 " +
+  "L326,254 L250,257 L198,271 L210,240 L231,222 L268,181 " +
+  "L239,185 L187,194 L154,182 L141,219 L145,239 L115,252 " +
+  "L113,286 L107,310 L127,353 L110,437 L157,443 L153,469 " +
+  "L234,456 Z";
+
+const MAP_REGION_COORDS: Record<string, [number, number]> = {
+  glasgow:                 [197, 395],
+  edinburgh:               [258, 388],
+  aberdeen:                [320, 296],
+  dundee:                  [270, 349],
+  inverness:               [199, 271],
+  stirling:                [215, 375],
+  perth:                   [244, 354],
+  falkirk:                 [224, 384],
+  ayr:                     [175, 426],
+  ayrshire:                [175, 426],
+  "south ayrshire":        [170, 435],
+  kilmarnock:              [185, 420],
+  lothian:                 [258, 388],
+  "west lothian":          [240, 390],
+  "east lothian":          [275, 390],
+  midlothian:              [258, 395],
+  fife:                    [285, 365],
+  grampian:                [310, 280],
+  highland:                [175, 255],
+  highlands:               [175, 255],
+  tayside:                 [260, 350],
+  strathclyde:             [185, 400],
+  lanarkshire:             [215, 405],
+  "south lanarkshire":     [220, 410],
+  "north lanarkshire":     [210, 395],
+  renfrewshire:            [185, 405],
+  moray:                   [255, 263],
+  argyll:                  [140, 370],
+  "argyll and bute":       [135, 365],
+  dumfries:                [234, 456],
+  "dumfries and galloway": [210, 460],
+  borders:                 [295, 430],
+  "scottish borders":      [295, 430],
+  central:                 [215, 385],
+  "central scotland":      [215, 385],
+};
+
+function getSiteMapCoords(siteName: string, region: string | null): [number, number] | null {
+  const text = `${siteName} ${region ?? ""}`.toLowerCase();
+  if (text.includes("glasgow"))    return MAP_REGION_COORDS.glasgow;
+  if (text.includes("aberdeen"))   return MAP_REGION_COORDS.aberdeen;
+  if (text.includes("edinburgh"))  return MAP_REGION_COORDS.edinburgh;
+  if (text.includes("dundee"))     return MAP_REGION_COORDS.dundee;
+  if (text.includes("inverness"))  return MAP_REGION_COORDS.inverness;
+  if (text.includes("stirling"))   return MAP_REGION_COORDS.stirling;
+  if (text.includes("perth"))      return MAP_REGION_COORDS.perth;
+  if (text.includes("falkirk"))    return MAP_REGION_COORDS.falkirk;
+  if (text.includes("kilmarnock")) return MAP_REGION_COORDS.kilmarnock;
+  if (text.includes("ayr"))        return MAP_REGION_COORDS.ayr;
+  if (region) {
+    const rl = region.toLowerCase();
+    for (const [key, coords] of Object.entries(MAP_REGION_COORDS)) {
+      if (rl === key || rl.includes(key) || key.includes(rl)) return coords;
+    }
+  }
+  return null;
+}
+
+function mapPinColor(score: number): string {
+  if (score >= 90) return "#16a34a";
+  if (score >= 70) return "#d97706";
+  if (score >= 50) return "#ea580c";
+  return "#dc2626";
+}
+
+interface GeoSite {
+  id: string;
+  name: string;
+  region: string | null;
+  postcode: string | null;
+  status: string;
+}
+
+function ScotlandEstateMap({
+  complianceSites,
+  geoSites,
+  noData,
+  onPinClick,
+}: {
+  complianceSites: SiteRow[];
+  geoSites: GeoSite[];
+  noData: boolean;
+  onPinClick: (siteId: string) => void;
+}) {
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const geoMap = useMemo(() => {
+    const m = new Map<string, GeoSite>();
+    for (const s of geoSites) m.set(s.id, s);
+    return m;
+  }, [geoSites]);
+
+  const sitePins = useMemo(() => {
+    return complianceSites.flatMap((cs) => {
+      const geo = geoMap.get(cs.siteId);
+      if (!geo) return [];
+      const coords = getSiteMapCoords(geo.name, geo.region);
+      if (!coords) return [];
+      return [{ ...cs, siteLabelName: geo.name, x: coords[0], y: coords[1] }];
+    });
+  }, [complianceSites, geoMap]);
+
+  const MAP_LEGEND = [
+    { label: "≥ 90 %", color: "#16a34a" },
+    { label: "≥ 70 %", color: "#d97706" },
+    { label: "≥ 50 %", color: "#ea580c" },
+    { label: "< 50 %",  color: "#dc2626" },
+  ];
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <svg
+        viewBox="0 0 400 500"
+        width="100%"
+        style={{ maxWidth: 300 }}
+        aria-label="Scotland estate compliance map"
+        role="img"
+      >
+        <rect width="400" height="500" fill="#dbeafe" rx="6" />
+        <path d={SCOTLAND_OUTLINE} fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1.5" strokeLinejoin="round" />
+        <line x1="153" y1="469" x2="302" y2="425" stroke="#94a3b8" strokeWidth="0.8" strokeDasharray="4 3" opacity="0.5" />
+        {sitePins.map((pin) => {
+          const color = noData ? "#94a3b8" : mapPinColor(pin.score);
+          const isHov = hovered === pin.siteId;
+          return (
+            <g
+              key={pin.siteId}
+              style={{ cursor: "pointer" }}
+              onClick={() => onPinClick(pin.siteId)}
+              onMouseEnter={() => setHovered(pin.siteId)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <circle cx={pin.x} cy={pin.y} r={isHov ? 12 : 9} fill={color} stroke="white" strokeWidth="2.5" />
+              <text x={pin.x} y={pin.y + 3.5} textAnchor="middle" fontSize="7.5" fontWeight="700" fill="white" style={{ pointerEvents: "none" }}>
+                {noData ? "—" : pin.score}
+              </text>
+              {isHov && (
+                <g style={{ pointerEvents: "none" }}>
+                  <rect
+                    x={pin.x - 42}
+                    y={pin.y - 28}
+                    width="84"
+                    height="14"
+                    rx="3"
+                    fill="white"
+                    fillOpacity="0.9"
+                    stroke="#cbd5e1"
+                    strokeWidth="0.5"
+                  />
+                  <text x={pin.x} y={pin.y - 18} textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#1e293b">
+                    {pin.siteLabelName}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+        {noData && sitePins.length === 0 && (
+          <text x="200" y="460" textAnchor="middle" fontSize="10" fill="#94a3b8" fontStyle="italic">
+            Run evaluation to see compliance scores
+          </text>
+        )}
+      </svg>
+      <div className="flex items-center gap-3 flex-wrap justify-center">
+        {MAP_LEGEND.map((l) => (
+          <span key={l.label} className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ background: l.color }} />
+            {l.label}
+          </span>
+        ))}
+      </div>
+      {sitePins.length === 0 && geoSites.length > 0 && !noData && (
+        <p className="text-[11px] text-slate-400 text-center px-4">
+          Add a region to your sites to plot them on the map.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function ExpiryChip({ expiresAt, status }: { expiresAt: string | null; status: string }) {
@@ -433,6 +627,7 @@ function AlertFeedRow({
 
 export default function EnterpriseCompliance() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [evaluating, setEvaluating] = useState(false);
 
   const STALE = 60_000; // 60 s — matches server cache TTL
@@ -480,6 +675,11 @@ export default function EnterpriseCompliance() {
   const { data: contractors, isError: contractorsError } = useQuery<unknown[]>({
     queryKey: ["/api/contractors"],
     staleTime: 120_000,
+  });
+
+  const { data: geoSites = [] } = useQuery<GeoSite[]>({
+    queryKey: ["/api/enterprise/sites"],
+    staleTime: 5 * 60_000,
   });
 
   // ── Derived values ───────────────────────────────────────────────────────────
@@ -752,6 +952,50 @@ export default function EnterpriseCompliance() {
           </Card>
         </div>
 
+        {/* ── Estate Map ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <Card className="lg:col-span-1">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Estate Map</CardTitle>
+                {noData && <Badge variant="secondary" className="text-xs">No data</Badge>}
+              </div>
+              <p className="text-xs text-muted-foreground">Click a pin to open that site's detail</p>
+            </CardHeader>
+            <CardContent>
+              <ScotlandEstateMap
+                complianceSites={sites ?? []}
+                geoSites={geoSites}
+                noData={noData}
+                onPinClick={(siteId) => navigate(`/enterprise/sites/${siteId}`)}
+              />
+            </CardContent>
+          </Card>
+          <Card className="lg:col-span-2 flex flex-col justify-center px-5 py-6 bg-gradient-to-br from-slate-50 to-slate-100/60 dark:from-slate-800/40 dark:to-slate-900/40">
+            <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-3">Site scores</h3>
+            {noData ? (
+              <p className="text-xs text-slate-400 italic">Run an evaluation to see per-site scores.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {(summary?.siteScores ?? []).slice(0, 8).map((ss) => (
+                  <button
+                    key={ss.siteId}
+                    onClick={() => navigate(`/enterprise/sites/${ss.siteId}`)}
+                    className="flex items-center justify-between gap-2 rounded-lg p-2.5 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/50 transition-colors text-left"
+                  >
+                    <span className="text-xs font-medium truncate text-slate-700 dark:text-slate-300">{ss.siteName}</span>
+                    <span className={`text-xs font-bold tabular-nums shrink-0 ${
+                      ss.score >= 90 ? "text-green-600 dark:text-green-400" :
+                      ss.score >= 70 ? "text-amber-600 dark:text-amber-400" :
+                      "text-red-600 dark:text-red-400"
+                    }`}>{ss.score}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
         {/* ── Row 2: Stat cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
@@ -986,18 +1230,24 @@ export default function EnterpriseCompliance() {
                           })}
                           <td className="py-2.5 px-2 text-center">
                             <div className="flex items-center justify-center gap-1">
-                              {site.openCriticals > 0 && (
-                                <span className="inline-flex items-center rounded px-1 py-0.5 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
-                                  {site.openCriticals}
-                                </span>
-                              )}
-                              {site.openWarnings > 0 && (
-                                <span className="inline-flex items-center rounded px-1 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                                  {site.openWarnings}
-                                </span>
-                              )}
-                              {site.openCriticals === 0 && site.openWarnings === 0 && (
+                              {site.score >= 80 ? (
                                 <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                              ) : (
+                                <>
+                                  {site.openCriticals > 0 && (
+                                    <span className="inline-flex items-center rounded px-1 py-0.5 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                                      {site.openCriticals}
+                                    </span>
+                                  )}
+                                  {site.openWarnings > 0 && (
+                                    <span className="inline-flex items-center rounded px-1 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                      {site.openWarnings}
+                                    </span>
+                                  )}
+                                  {site.openCriticals === 0 && site.openWarnings === 0 && (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                                  )}
+                                </>
                               )}
                             </div>
                           </td>

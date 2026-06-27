@@ -24,6 +24,8 @@ interface Company {
   riskRating: string;
   workerCount: number;
   clearedCount: number;
+  sitesClearedCount: number;
+  totalSitesCount: number;
   documentsStatus: Record<string, string>;
   complianceIssues: number;
   overallCompliance: string;
@@ -332,7 +334,12 @@ function CompanyRow({ company, sites }: { company: Company; sites: Site[] }) {
                   </div>
                   <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Users size={11} />{company.workerCount} worker{company.workerCount !== 1 ? 's' : ''}</span>
-                    <span className="flex items-center gap-1"><ShieldCheck size={11} />{company.clearedCount} cleared</span>
+                    <span className={`flex items-center gap-1 ${company.sitesClearedCount > 0 ? 'text-green-700 dark:text-green-400' : ''}`}>
+                      <ShieldCheck size={11} />
+                      {company.sitesClearedCount > 0
+                        ? `Cleared at ${company.sitesClearedCount} of ${company.totalSitesCount} site${company.totalSitesCount !== 1 ? 's' : ''}`
+                        : `${company.totalSitesCount > 0 ? `Not cleared at any of ${company.totalSitesCount} site${company.totalSitesCount !== 1 ? 's' : ''}` : 'No sites'}`}
+                    </span>
                   </div>
                 </div>
               </div>

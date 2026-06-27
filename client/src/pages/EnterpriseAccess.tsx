@@ -120,6 +120,12 @@ const ROLE_CONFIG: Record<EnterpriseRole, { label: string; className: string; ic
   },
 };
 
+function toGBDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+}
+
 function displayName(u: GrantUser | null): string {
   if (!u) return "Unknown user";
   const full = [u.firstName, u.lastName].filter(Boolean).join(" ");
@@ -293,7 +299,104 @@ function EffectiveSitesList({ grant, sites }: { grant: Grant; sites: Site[] }) {
   );
 }
 
-// ── GrantRow ──────────────────────────────────────────────────────────────────
+// ── UserGrantGroup types + helpers ────────────────────────────────────────────
+
+interface UserGrantGroup {
+  userId: string;
+  user: GrantUser | null;
+  grants: Grant[];
+}
+
+function groupGrantsByUser(grants: Grant[]): UserGrantGroup[] {
+  const map = new Map<string, UserGrantGroup>();
+  for (const g of grants) {
+    const existing = map.get(g.userId);
+    if (existing) {
+      existing.grants.push(g);
+    } else {
+      map.set(g.userId, { userId: g.userId, user: g.user, grants: [g] });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function UserGrantGroupRow({
+  userGroup,
+  areas,
+  sites,
+  canRevokeGrant,
+  isLastAdmin,
+  onRevoke,
+}: {
+  userGroup: UserGrantGroup;
+  areas: Area[];
+  sites: Site[];
+  canRevokeGrant: (grant: Grant) => boolean;
+  isLastAdmin: boolean;
+  onRevoke: (grant: Grant) => void;
+}) {
+  const anyRevocable = userGroup.grants.some(canRevokeGrant);
+
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 text-sm font-semibold text-slate-600 dark:text-slate-300 mt-0.5">
+        {userInitials(userGroup.user)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{displayName(userGroup.user)}</p>
+        {userGroup.user?.email && (
+          <p className="text-xs text-muted-foreground truncate">{userGroup.user.email}</p>
+        )}
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {userGroup.grants.map((grant) => {
+            const cfg = ROLE_CONFIG[grant.role];
+            const RoleIcon = cfg.icon;
+            const scope = grantScopeLabel(grant, areas, sites);
+            const showScope = grant.role !== "enterprise_admin";
+            return (
+              <span key={grant.id} className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${cfg.className}`}>
+                <RoleIcon size={10} />
+                {cfg.label}
+                {showScope && <span className="opacity-75">· {scope}</span>}
+              </span>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-1">
+          Added {toGBDate(userGroup.grants[0]?.createdAt)}
+        </p>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0 pt-1">
+        {userGroup.grants.map((grant) =>
+          canRevokeGrant(grant) ? (
+            <TooltipProvider key={grant.id}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    disabled={isLastAdmin}
+                    onClick={() => onRevoke(grant)}
+                    aria-label={`Revoke ${ROLE_CONFIG[grant.role].label}`}
+                  >
+                    <Trash2 size={13} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isLastAdmin ? "Cannot remove the last Enterprise Admin" : `Revoke ${ROLE_CONFIG[grant.role].label}`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null
+        )}
+        {!anyRevocable && <div className="w-7" />}
+      </div>
+    </div>
+  );
+}
+
+// ── GrantRow (legacy - kept for reference) ────────────────────────────────────
 
 function GrantRow({
   grant,
@@ -803,6 +906,10 @@ export default function EnterpriseAccess() {
   const areaManagerGrants = grants.filter((g) => g.role === "area_manager");
   const coordinatorGrants = grants.filter((g) => g.role === "site_coordinator");
 
+  const uniqueAdminCount = new Set(adminGrants.map((g) => g.userId)).size;
+  const uniqueAreaManagerCount = new Set(areaManagerGrants.map((g) => g.userId)).size;
+  const uniqueCoordinatorCount = new Set(coordinatorGrants.map((g) => g.userId)).size;
+
   return (
     <TooltipProvider>
       <div className="p-6 space-y-6 max-w-5xl">
@@ -840,8 +947,8 @@ export default function EnterpriseAccess() {
               <ShieldCheck size={18} className="text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{adminGrants.length}</p>
-              <p className="text-xs text-muted-foreground">Enterprise Admin{adminGrants.length !== 1 ? "s" : ""}</p>
+              <p className="text-2xl font-bold">{uniqueAdminCount}</p>
+              <p className="text-xs text-muted-foreground">Enterprise Admin{uniqueAdminCount !== 1 ? "s" : ""}</p>
             </div>
           </GlassCard>
           <GlassCard className="p-4 flex items-center gap-3">
@@ -849,8 +956,8 @@ export default function EnterpriseAccess() {
               <MapPin size={18} className="text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{areaManagerGrants.length}</p>
-              <p className="text-xs text-muted-foreground">Area Manager{areaManagerGrants.length !== 1 ? "s" : ""}</p>
+              <p className="text-2xl font-bold">{uniqueAreaManagerCount}</p>
+              <p className="text-xs text-muted-foreground">Area Manager{uniqueAreaManagerCount !== 1 ? "s" : ""}</p>
             </div>
           </GlassCard>
           <GlassCard className="p-4 flex items-center gap-3">
@@ -858,8 +965,8 @@ export default function EnterpriseAccess() {
               <Building2 size={18} className="text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{coordinatorGrants.length}</p>
-              <p className="text-xs text-muted-foreground">Site Coordinator{coordinatorGrants.length !== 1 ? "s" : ""}</p>
+              <p className="text-2xl font-bold">{uniqueCoordinatorCount}</p>
+              <p className="text-xs text-muted-foreground">Site Coordinator{uniqueCoordinatorCount !== 1 ? "s" : ""}</p>
             </div>
           </GlassCard>
         </div>
@@ -887,13 +994,13 @@ export default function EnterpriseAccess() {
                     Enterprise Admins
                   </span>
                 </div>
-                {adminGrants.map((g) => (
-                  <GrantRow
-                    key={g.id}
-                    grant={g}
+                {groupGrantsByUser(adminGrants).map((ug) => (
+                  <UserGrantGroupRow
+                    key={ug.userId}
+                    userGroup={ug}
                     areas={areas}
                     sites={sites}
-                    canRevoke={canRevokeGrant(g)}
+                    canRevokeGrant={canRevokeGrant}
                     isLastAdmin={adminGrantCount <= 1}
                     onRevoke={setRevokeTarget}
                   />
@@ -909,13 +1016,13 @@ export default function EnterpriseAccess() {
                     Area Managers
                   </span>
                 </div>
-                {areaManagerGrants.map((g) => (
-                  <GrantRow
-                    key={g.id}
-                    grant={g}
+                {groupGrantsByUser(areaManagerGrants).map((ug) => (
+                  <UserGrantGroupRow
+                    key={ug.userId}
+                    userGroup={ug}
                     areas={areas}
                     sites={sites}
-                    canRevoke={canRevokeGrant(g)}
+                    canRevokeGrant={canRevokeGrant}
                     isLastAdmin={false}
                     onRevoke={setRevokeTarget}
                   />
@@ -931,13 +1038,13 @@ export default function EnterpriseAccess() {
                     Site Coordinators
                   </span>
                 </div>
-                {coordinatorGrants.map((g) => (
-                  <GrantRow
-                    key={g.id}
-                    grant={g}
+                {groupGrantsByUser(coordinatorGrants).map((ug) => (
+                  <UserGrantGroupRow
+                    key={ug.userId}
+                    userGroup={ug}
                     areas={areas}
                     sites={sites}
-                    canRevoke={canRevokeGrant(g)}
+                    canRevokeGrant={canRevokeGrant}
                     isLastAdmin={false}
                     onRevoke={setRevokeTarget}
                   />

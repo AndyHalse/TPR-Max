@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Building2, ChevronDown, CheckCircle2, Loader2 } from "lucide-react";
+import { Building2, ChevronDown, CheckCircle2, Loader2, Globe } from "lucide-react";
 
 interface Site {
   id: string;
@@ -22,18 +23,16 @@ interface Site {
 }
 
 interface SiteSwitcherProps {
-  /** If true, show a compact icon-only trigger (sidebar collapsed mode) */
   compact?: boolean;
-  /** Additional class for the trigger button */
   className?: string;
-  /** Text colour override (for use inside nav banners that invert text) */
   textStyle?: React.CSSProperties;
 }
 
 export default function SiteSwitcher({ compact = false, className = "", textStyle }: SiteSwitcherProps) {
   const { toast } = useToast();
+  const [location] = useLocation();
+  const isEnterprisePage = location.startsWith("/enterprise");
 
-  // Current user — tells us isEnterprise + activeSiteId
   const { data: user } = useQuery<{
     isEnterprise?: boolean;
     activeSiteId?: string | null;
@@ -59,11 +58,9 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
       return res.json();
     },
     onSuccess: (data) => {
-      // Update the user cache immediately so the UI reflects the change
       queryClient.setQueryData(["/api/auth/me"], (old: any) =>
         old ? { ...old, activeSiteId: data.activeSiteId } : old,
       );
-      // Invalidate all data so site-scoped queries reload for the new site
       queryClient.invalidateQueries();
     },
     onError: (err: Error) => {
@@ -71,7 +68,6 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
     },
   });
 
-  // Only show for enterprise customers
   if (!user?.isEnterprise) return null;
 
   const activeSites = sites.filter((s) => s.status !== "archived");
@@ -88,16 +84,37 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
           <button
             className={`p-2 rounded-lg hover:bg-white/10 transition-colors relative ${className}`}
             style={textStyle}
-            title={displayName}
+            title={isEnterprisePage ? "Whole estate view" : displayName}
             disabled={isPending}
             aria-disabled={isPending}
           >
-            {isPending ? <Loader2 size={18} className="animate-spin" /> : <Building2 size={18} />}
+            {isPending ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : isEnterprisePage ? (
+              <Globe size={18} className="text-blue-300" />
+            ) : (
+              <Building2 size={18} />
+            )}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Switch Site</DropdownMenuLabel>
-          <DropdownMenuSeparator />
+        <DropdownMenuContent align="end" className="w-56">
+          {isEnterprisePage ? (
+            <>
+              <DropdownMenuLabel className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <Globe size={11} />
+                Viewing whole estate
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                Switch to a single-site view:
+              </DropdownMenuLabel>
+            </>
+          ) : (
+            <>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Switch Site</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          )}
           {activeSites.map((site) => (
             <DropdownMenuItem
               key={site.id}
@@ -107,7 +124,7 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
             >
               <Building2 size={14} className="text-muted-foreground flex-shrink-0" />
               <span className="flex-1 truncate text-sm">{site.name}</span>
-              {site.id === user?.activeSiteId && (
+              {!isEnterprisePage && site.id === user?.activeSiteId && (
                 <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" />
               )}
             </DropdownMenuItem>
@@ -132,18 +149,37 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
         >
           {isPending ? (
             <Loader2 size={14} className="animate-spin flex-shrink-0" />
+          ) : isEnterprisePage ? (
+            <Globe size={14} className="flex-shrink-0 text-blue-500" />
           ) : (
             <Building2 size={14} className="flex-shrink-0" />
           )}
           <span className="truncate text-xs font-medium">
-            {displayRef ? `${displayRef} – ` : ""}{displayName}
+            {isEnterprisePage
+              ? "Whole estate"
+              : `${displayRef ? `${displayRef} – ` : ""}${displayName}`}
           </span>
           <ChevronDown size={12} className="flex-shrink-0 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">Active Site</DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end" className="w-60">
+        {isEnterprisePage ? (
+          <>
+            <DropdownMenuLabel className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+              <Globe size={11} />
+              Viewing whole estate
+            </DropdownMenuLabel>
+            <p className="text-[11px] text-muted-foreground px-2 pb-1 leading-snug">
+              All estate pages show data across every site. Select a site below to switch to single-site view.
+            </p>
+            <DropdownMenuSeparator />
+          </>
+        ) : (
+          <>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Active Site</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {activeSites.map((site) => (
           <DropdownMenuItem
             key={site.id}
@@ -158,7 +194,7 @@ export default function SiteSwitcher({ compact = false, className = "", textStyl
                 <p className="text-[10px] text-muted-foreground font-mono">{site.reference}</p>
               )}
             </div>
-            {site.id === user?.activeSiteId && (
+            {!isEnterprisePage && site.id === user?.activeSiteId && (
               <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" />
             )}
           </DropdownMenuItem>
