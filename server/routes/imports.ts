@@ -2900,8 +2900,15 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           const caIds: string[] = demoCaRes.rows.map((r: any) => r.id);
           await pool.query(`DELETE FROM "${schemaName}".audit_corrective_actions WHERE id IN (${inP(caIds)})`, caIds);
         }
-        // Audit records created with demo-prefixed IDs (record items + corrective actions cascade)
-        const demoRecRes = await pool.query(`SELECT id FROM "${schemaName}".audit_records WHERE id LIKE 'audit-demo-%'`);
+        // Audit records: demo-prefixed IDs (Load Demo Data) OR created by site-isolation tests
+        // (conductedBy = 'ISO Test Agent' / title LIKE 'ISO Audit %' / title = 'ISO By-ID Isolation Test')
+        const demoRecRes = await pool.query(
+          `SELECT id FROM "${schemaName}".audit_records
+           WHERE id LIKE 'audit-demo-%'
+              OR conducted_by = 'ISO Test Agent'
+              OR title LIKE 'ISO Audit %'
+              OR title = 'ISO By-ID Isolation Test'`
+        );
         if (demoRecRes.rows.length > 0) {
           const recIds: string[] = demoRecRes.rows.map((r: any) => r.id);
           const rP = inP(recIds);
