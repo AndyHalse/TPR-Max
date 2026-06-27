@@ -4246,40 +4246,24 @@ ${evacuationPhotosData.length > 0 ? `
       // Get customer database connection
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
-      // Resolve site scope — this is a public FM-token route (no session); use the marshal's own siteId
-      const resetSiteId: string | null = (marshal as any)?.siteId ?? null;
-      
-      // Get all checked-in staff — filtered to active site for enterprise
-      const checkedInStaff = await customerDb
-        .select()
-        .from(isolatedSchema.staff)
-        .where(and(
-          eq(isolatedSchema.staff.isCheckedIn, true),
-          resetSiteId ? eq(isolatedSchema.staff.siteId, resetSiteId) : undefined
-        ));
-      
-      // Get all current visitors — filtered to active site for enterprise
-      const currentVisitors = await customerDb
-        .select()
-        .from(isolatedSchema.visitors)
-        .where(and(
-          eq(isolatedSchema.visitors.isCheckedIn, true),
-          resetSiteId ? eq(isolatedSchema.visitors.siteId, resetSiteId) : undefined
-        ))
-        .orderBy(desc(isolatedSchema.visitors.checkedInAt));
-      
-      // Get all checked-in contractors — filtered to active site for enterprise
-      const checkedInContractors = await customerDb
-        .select()
-        .from(isolatedSchema.contractorWorkers)
-        .where(and(
-          eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
-          resetSiteId ? eq(isolatedSchema.contractorWorkers.siteId, resetSiteId) : undefined
-        ))
-        .orderBy(desc(isolatedSchema.contractorWorkers.checkedInAt));
-      
-      logger.info(`CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
-      
+      // FM URL is a public token route — no site filter on live check-in queries.
+      // The evacuation accountability records are the source of truth for who was on site;
+      // we also fetch all current check-ins (unfiltered) to pick up late arrivals.
+
+      // Fetch all currently checked-in people (no site filter — FM sees the full building)
+      const [checkedInStaff, currentVisitors, checkedInContractors] = await Promise.all([
+        customerDb.select().from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.isCheckedIn, true)),
+        customerDb.select().from(isolatedSchema.visitors)
+          .where(eq(isolatedSchema.visitors.isCheckedIn, true))
+          .orderBy(desc(isolatedSchema.visitors.checkedInAt)),
+        customerDb.select().from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true))
+          .orderBy(desc(isolatedSchema.contractorWorkers.checkedInAt)),
+      ]);
+
+      logger.info(`FM personnel: staff=${checkedInStaff.length} visitors=${currentVisitors.length} contractors=${checkedInContractors.length}`);
+
       let checkedInMembers: any[] = [];
       try {
         const [custSettings] = await customerDb
@@ -4290,16 +4274,11 @@ ${evacuationPhotosData.length > 0 ? `
           checkedInMembers = await customerDb
             .select()
             .from(isolatedSchema.members)
-            .where(and(
-              eq(isolatedSchema.members.isCheckedIn, true),
-              resetSiteId ? eq(isolatedSchema.members.siteId, resetSiteId) : undefined
-            ));
+            .where(eq(isolatedSchema.members.isCheckedIn, true));
         }
-      } catch (e) {
-      }
-      
-      // CRITICAL FIX: Get active evacuation from public schema (filtered by customerId)
-      // ORDER BY createdAt DESC to get the MOST RECENT active evacuation
+      } catch (e) { /* members table may not exist */ }
+
+      // Get the latest active evacuation for this customer
       const activeEvacuation = await db
         .select()
         .from(evacuations)
@@ -4309,31 +4288,27 @@ ${evacuationPhotosData.length > 0 ? `
         ))
         .orderBy(desc(evacuations.createdAt))
         .limit(1);
-      
+
       logger.info(`Active evacuation query result: ${activeEvacuation.length} evacuations found for customer ${customerId}`);
-      
+
       let accountabilityMap = new Map<string, any>();
-      
+
       if (activeEvacuation.length > 0) {
+        // Fetch accountability records by evacuationId only — some older records lack customerId
         const accountabilityRecords = await db
           .select()
           .from(evacuationAccountability)
-          .where(
-            and(
-              eq(evacuationAccountability.evacuationId, activeEvacuation[0].evacuationId),
-              eq(evacuationAccountability.customerId, customerId)
-            )
-          );
-        
+          .where(eq(evacuationAccountability.evacuationId, activeEvacuation[0].evacuationId));
+
         accountabilityRecords.forEach(record => {
           accountabilityMap.set(record.personId, record);
         });
-        
-        logger.info(`Loaded ${accountabilityRecords.length} accountability records from PUBLIC SCHEMA for evacuation ${activeEvacuation[0].evacuationId}`);
+
+        logger.info(`Loaded ${accountabilityRecords.length} accountability records for evacuation ${activeEvacuation[0].evacuationId}`);
       } else {
-        logger.info(`No active evacuation found for customer ${customerId} - accountability status will default to false`);
+        logger.info(`No active evacuation for customer ${customerId} — accountability status defaults to false`);
       }
-      
+
       // Fetch muster settings for this customer (gracefully handle missing table)
       let musterSettingsForMarshal = { statusOptionsEnabled: false, statusOptions: ['Location unknown', 'Working remotely / offsite', 'Sent to another location'] };
       try {
@@ -4350,82 +4325,106 @@ ${evacuationPhotosData.length > 0 ? `
         }
       } catch { /* table may not exist yet */ }
 
-      // Combine all personnel for Fire Marshal view with REAL accountability status
-      const personnelList = [
-        ...checkedInStaff.map(staff => {
-          const accountabilityRecord = accountabilityMap.get(staff.id);
-          return {
-            id: staff.id,
-            name: `${staff.firstName} ${staff.lastName}`,
-            type: 'staff' as const,
-            department: staff.department,
-            checkedInAt: staff.checkedInAt || staff.createdAt,
-            location: accountabilityRecord?.lastKnownLocation || (staff as any).zoneName || 'Building A',
-            zoneId: accountabilityRecord?.zoneId || (staff as any).zoneId || null,
-            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
-            accountedBy: accountabilityRecord?.accountedBy,
-            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint,
-            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
-            needsEvacuationAssistance: (staff as any).needsEvacuationAssistance ?? false
-          };
-        }),
-        ...currentVisitors.map(visitor => {
-          const accountabilityRecord = accountabilityMap.get(visitor.id);
-          return {
-            id: visitor.id,
-            name: `${visitor.firstName} ${visitor.lastName}`,
-            type: 'visitor' as const,
-            company: visitor.company,
-            checkedInAt: visitor.checkedInAt,
-            location: accountabilityRecord?.lastKnownLocation || (visitor as any).zoneName || 'Reception',
-            zoneId: accountabilityRecord?.zoneId || (visitor as any).zoneId || null,
-            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
-            accountedBy: accountabilityRecord?.accountedBy,
-            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint,
-            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
-            needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false
-          };
-        }),
-        ...checkedInContractors.map(contractor => {
-          const accountabilityRecord = accountabilityMap.get(contractor.id);
-          return {
-            id: contractor.id,
-            name: `${contractor.firstName} ${contractor.lastName}`,
-            type: 'contractor' as const,
-            department: contractor.department,
-            checkedInAt: contractor.checkedInAt,
-            location: accountabilityRecord?.lastKnownLocation || (contractor as any).zoneName || 'Site',
-            zoneId: accountabilityRecord?.zoneId || (contractor as any).zoneId || null,
-            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
-            accountedBy: accountabilityRecord?.accountedBy,
-            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint,
-            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
-            needsEvacuationAssistance: (contractor as any).needsEvacuationAssistance ?? false
-          };
-        }),
-        ...checkedInMembers.map(member => {
-          const accountabilityRecord = accountabilityMap.get(member.id);
-          return {
-            id: member.id,
-            name: `${member.firstName} ${member.lastName}`,
-            type: 'member' as const,
-            company: null,
-            department: member.membershipType || 'Member',
-            checkedInAt: member.checkedInAt || member.createdAt,
-            location: accountabilityRecord?.lastKnownLocation || (member as any).zoneName || 'Building A',
-            zoneId: accountabilityRecord?.zoneId || (member as any).zoneId || null,
-            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
-            accountedBy: accountabilityRecord?.accountedBy,
-            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint,
-            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
-            needsEvacuationAssistance: false
-          };
-        })
-      ];
+      // Build the personnel list.
+      // Strategy: when an active evacuation exists, use accountability records as the primary
+      // source (they capture everyone who was on-site at activation time, across all sites).
+      // Supplement with any late arrivals (checked in after activation, not yet in accountability).
+      // When no evacuation is active, fall back to the full live check-in list.
+
+      let personnelList: any[] = [];
+
+      if (activeEvacuation.length > 0 && accountabilityMap.size > 0) {
+        // Primary: people captured in the evacuation accountability snapshot
+        personnelList = Array.from(accountabilityMap.values()).map(record => ({
+          id: record.personId,
+          name: record.personName,
+          type: record.personType as 'staff' | 'visitor' | 'contractor' | 'member',
+          department: record.department || '',
+          company: record.company || '',
+          location: record.lastKnownLocation || 'Unknown',
+          zoneId: (record as any).zoneId ?? null,
+          isAccountedFor: record.isAccountedFor,
+          accountedBy: record.accountedBy,
+          accountedAt: record.accountedAt?.toISOString(),
+          musterPoint: record.musterPoint,
+          statusOption: (record as any).statusOption ?? null,
+          needsEvacuationAssistance: false,
+          checkedInAt: record.createdAt,
+        }));
+
+        // Secondary: late arrivals — currently checked in but not yet in accountability
+        const knownIds = new Set(accountabilityMap.keys());
+        const lateStaff = checkedInStaff.filter(s => !knownIds.has(s.id));
+        const lateVisitors = currentVisitors.filter(v => !knownIds.has(v.id));
+        const lateContractors = checkedInContractors.filter(c => !knownIds.has(c.id));
+        const lateMembers = checkedInMembers.filter(m => !knownIds.has(m.id));
+
+        personnelList = [
+          ...personnelList,
+          ...lateStaff.map(s => ({
+            id: s.id, name: `${s.firstName} ${s.lastName}`, type: 'staff' as const,
+            department: s.department || '', company: '',
+            location: (s as any).zoneName || 'Building A', zoneId: (s as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: (s as any).needsEvacuationAssistance ?? false,
+            checkedInAt: s.checkedInAt || s.createdAt,
+          })),
+          ...lateVisitors.map(v => ({
+            id: v.id, name: `${v.firstName} ${v.lastName}`, type: 'visitor' as const,
+            department: '', company: v.company || '',
+            location: (v as any).zoneName || 'Reception', zoneId: (v as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: false,
+            checkedInAt: v.checkedInAt,
+          })),
+          ...lateContractors.map(c => ({
+            id: c.id, name: `${c.firstName} ${c.lastName}`, type: 'contractor' as const,
+            department: '', company: (c as any).company || '',
+            location: (c as any).zoneName || 'Site', zoneId: (c as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: false,
+            checkedInAt: c.checkedInAt,
+          })),
+          ...lateMembers.map(m => ({
+            id: m.id, name: `${m.firstName} ${m.lastName}`, type: 'member' as const,
+            department: (m as any).membershipType || 'Member', company: null,
+            location: (m as any).zoneName || 'Building A', zoneId: (m as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: false,
+            checkedInAt: (m as any).checkedInAt || m.createdAt,
+          })),
+        ];
+
+        logger.info(`FM personnel list: ${accountabilityMap.size} from evacuation + ${personnelList.length - accountabilityMap.size} late arrivals = ${personnelList.length} total`);
+      } else {
+        // No active evacuation — build from live check-in data (no site filter applied above)
+        personnelList = [
+          ...checkedInStaff.map(s => ({
+            id: s.id, name: `${s.firstName} ${s.lastName}`, type: 'staff' as const,
+            department: s.department || '', company: '',
+            location: (s as any).zoneName || 'Building A', zoneId: (s as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: (s as any).needsEvacuationAssistance ?? false,
+            checkedInAt: s.checkedInAt || s.createdAt,
+          })),
+          ...currentVisitors.map(v => ({
+            id: v.id, name: `${v.firstName} ${v.lastName}`, type: 'visitor' as const,
+            department: '', company: v.company || '',
+            location: (v as any).zoneName || 'Reception', zoneId: (v as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: false,
+            checkedInAt: v.checkedInAt,
+          })),
+          ...checkedInContractors.map(c => ({
+            id: c.id, name: `${c.firstName} ${c.lastName}`, type: 'contractor' as const,
+            department: '', company: (c as any).company || '',
+            location: (c as any).zoneName || 'Site', zoneId: (c as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: false,
+            checkedInAt: c.checkedInAt,
+          })),
+          ...checkedInMembers.map(m => ({
+            id: m.id, name: `${m.firstName} ${m.lastName}`, type: 'member' as const,
+            department: (m as any).membershipType || 'Member', company: null,
+            location: (m as any).zoneName || 'Building A', zoneId: (m as any).zoneId ?? null,
+            isAccountedFor: false, needsEvacuationAssistance: false,
+            checkedInAt: (m as any).checkedInAt || m.createdAt,
+          })),
+        ];
+      }
       
       // Prevent browser caching for real-time updates
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
