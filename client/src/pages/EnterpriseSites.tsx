@@ -1787,8 +1787,9 @@ export default function EnterpriseSites() {
 
         {/* Site form dialog */}
         <SiteFormDialog
+          key={editingSite?.id ?? 'new'}
           open={showForm}
-          onOpenChange={setShowForm}
+          onOpenChange={(v) => { setShowForm(v); if (!v) setEditingSite(null); }}
           site={editingSite}
           areas={areas}
           onSaved={() => setEditingSite(null)}
