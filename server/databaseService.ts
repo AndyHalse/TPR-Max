@@ -749,7 +749,7 @@ export class DatabaseService {
   /**
    * STAFF TIME & ATTENDANCE METHODS - Customer Isolated
    */
-  async getStaffTimeAndAttendance(context: CustomerContext, dateFrom?: Date, dateTo?: Date): Promise<Array<{
+  async getStaffTimeAndAttendance(context: CustomerContext, dateFrom?: Date, dateTo?: Date, activeSiteId?: string | null): Promise<Array<{
     staffId: string;
     staffName: string;
     department: string;
@@ -766,17 +766,30 @@ export class DatabaseService {
     const fromDate = dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default to last 30 days
     const toDate = dateTo || new Date();
     
-    // Get all staff for the customer
+    // Get staff — scoped to the active site for enterprise customers.
+    // For non-enterprise (activeSiteId is null/undefined) return all active staff.
     const staff = await db
       .select()
       .from(isolatedSchema.staff)
-      .where(eq(isolatedSchema.staff.isActive, true));
+      .where(
+        activeSiteId
+          ? and(eq(isolatedSchema.staff.isActive, true), eq(isolatedSchema.staff.siteId, activeSiteId))
+          : eq(isolatedSchema.staff.isActive, true)
+      );
     
-    // Get session history for the date range
+    // Build the set of staff IDs so sessions can be scoped to the same site.
+    const staffIds = staff.map(s => s.id);
+    
+    if (staffIds.length === 0) {
+      return [];
+    }
+
+    // Get session history for the date range, restricted to the in-scope staff.
     const sessionHistory = await db
       .select()
       .from(isolatedSchema.staffSessions)
       .where(and(
+        inArray(isolatedSchema.staffSessions.staffId, staffIds),
         gte(isolatedSchema.staffSessions.checkInTime, fromDate),
         lte(isolatedSchema.staffSessions.checkInTime, toDate)
       ))

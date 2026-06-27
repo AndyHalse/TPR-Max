@@ -1607,28 +1607,31 @@ export function registerStaffRoutes(app: Express): void {
 
   app.get("/api/staff/time-attendance", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      // Use getScopedDb so enterprise site context is resolved correctly.
+      const { siteContext } = await getScopedDb(req);
+      const activeSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
       
       const { dateFrom, dateTo } = req.query;
       let fromDate = dateFrom ? new Date(dateFrom as string) : undefined;
       let toDate = dateTo ? new Date(dateTo as string) : undefined;
       
-      // Fix: Set toDate to end of day (23:59:59.999) instead of start of day (00:00:00)
       if (toDate) {
         toDate.setHours(23, 59, 59, 999);
       }
       
-      // Fix: Set fromDate to start of day for consistency
       if (fromDate) {
         fromDate.setHours(0, 0, 0, 0);
       }
       
-      // Use customer-isolated database service instead of file storage
-      const timeAttendance = await databaseService.getStaffTimeAndAttendance(context, fromDate, toDate);
+      const timeAttendance = await databaseService.getStaffTimeAndAttendance(context, fromDate, toDate, activeSiteId);
       res.json(timeAttendance);
     } catch (error) {
+      if (error instanceof SiteContextError) {
+        return res.status(403).json({ error: error.message });
+      }
       logger.error("Failed to fetch time and attendance data:", error);
       res.status(500).json({ error: "Failed to fetch time and attendance data" });
     }

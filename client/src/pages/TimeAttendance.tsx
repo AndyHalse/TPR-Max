@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,12 +43,7 @@ export default function TimeAttendance() {
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       
-      const response = await fetch(`/api/staff/time-attendance?${params}`, {
-        cache: 'no-cache', // Ensure fresh data
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
+      const response = await apiRequest('GET', `/api/staff/time-attendance?${params}`);
       if (!response.ok) throw new Error('Failed to fetch data');
       const data = await response.json();
       
