@@ -278,9 +278,13 @@ export async function createApp(): Promise<{
   });
 
   // Rate limiting
+  // NOTE: max is intentionally high (500) here because this is a shared-IP
+  // guard — corporate offices with NAT share a single IP across many users.
+  // Real brute-force protection is the per-account limiter (10 failed
+  // attempts / 15 min) registered directly on the login route in auth.ts.
   const authRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 500,
     skipSuccessfulRequests: true,
     keyGenerator: realClientIp,
     validate: { keyGeneratorIpFallback: false },
