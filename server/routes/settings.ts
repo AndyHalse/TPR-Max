@@ -774,10 +774,7 @@ export function registerSettingsRoutes(
               return res.status(401).json({ error: 'Authentication required to access this file.' });
             }
             effectiveCustomerId = payload.customerId;
-            // Portal tokens may only read contractor-portal documents.
-            if (!req.path.includes('/contractor-portal/')) {
-              return res.status(403).json({ error: 'Not permitted.' });
-            }
+            // Customer-ID isolation: path must belong to the portal user's customer.
             if (pathCustomerId && pathCustomerId !== payload.customerId) {
               return res.status(403).json({ error: 'Not permitted.' });
             }
