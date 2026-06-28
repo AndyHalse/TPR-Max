@@ -1,0 +1,47 @@
+You are fixing a bug in the TPR Max codebase (React + TypeScript front end in
+client/src, Express + TypeScript API in server/). Use the report below to find
+the root cause and propose a fix. Do not guess — read the named source file
+first, and ask for the screenshots if you need them.
+
+# Bug BR-033
+- Reported: 28/06/2026, 18:44:55
+- Status: New
+- Reporter: Emma Leschenko <emma@acsltd.eu>
+- Customer / tenant: Nimbuscare Ltd
+- App version: v2026.06.28-1da37ec9
+- Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0
+- Screen: 1714x866
+
+## Where it happened
+- Route (URL path): /muster
+- Likely source file: client/src/pages/EmergencyMuster.tsx
+  (If the route is dynamic or unknown, say "Unknown — search client/src/pages".)
+
+## What the user reported
+Same as other page, the page tags aren't displaying properly.
+
+## Console / network logs at the time
+None captured.
+
+## What the user did just before (most recent last)
+[2026-06-28T17:40:37.312Z] [ROUTE] /contractors
+[2026-06-28T17:41:11.667Z] [CLICK] button:Close
+[2026-06-28T17:41:12.956Z] [CLICK] button:tab-contractors
+[2026-06-28T17:41:14.907Z] [CLICK] button:tab-walkin-registration
+[2026-06-28T17:41:16.100Z] [CLICK] button:tab-pre-booking
+[2026-06-28T17:41:17.092Z] [CLICK] button:tab-co2-reports
+[2026-06-28T17:41:19.203Z] [CLICK] button:tab-assign-hs
+[2026-06-28T17:41:22.187Z] [CLICK] button:tab-previous-contractors
+[2026-06-28T17:42:16.341Z] [CLICK] button:Send Report
+[2026-06-28T17:42:59.718Z] [CLICK] a:Muster List
+[2026-06-28T17:42:59.719Z] [ROUTE] /muster
+[2026-06-28T17:44:57.401Z] [CLICK] button:Send Report
+
+## Screenshots
+1 image(s) were attached but are NOT included in this text. They are visible in Platform Admin and in the report PDF (use the "Download PDF" button). Ask the user to paste them if the cause isn't clear from the data above.
+
+## Your task
+1. Read the likely source file and trace the code path the user hit.
+2. Identify the root cause.
+3. Propose the smallest correct fix, and call out any tenant-isolation,
+   permissions, or input-validation concerns you notice while there.
