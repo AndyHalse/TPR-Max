@@ -555,9 +555,15 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteContext } = await getScopedDb(req);
 
-    // Optional year filter — match ISO date strings starting with "YYYY-"
+    // Optional year filter — dueDate is a timestamp column so use date-range bounds,
+    // not LIKE (LIKE on a timestamp column is a PostgreSQL type error).
     const yearParam = req.query.year ? parseInt(req.query.year as string, 10) : null;
-    const yearCondition = yearParam ? like(isolatedSchema.ppmWorkOrders.dueDate, `${yearParam}-%`) : undefined;
+    const yearCondition = yearParam
+      ? and(
+          gte(isolatedSchema.ppmWorkOrders.dueDate, new Date(`${yearParam}-01-01T00:00:00.000Z`)),
+          lt(isolatedSchema.ppmWorkOrders.dueDate,  new Date(`${yearParam + 1}-01-01T00:00:00.000Z`))
+        )
+      : undefined;
     const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
 
     const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
