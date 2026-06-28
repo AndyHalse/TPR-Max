@@ -859,6 +859,7 @@ export default function SecuritySettings() {
               <SelectItem value="/reports">Reports</SelectItem>
               <SelectItem value="/induction-settings">Induction Settings</SelectItem>
               <SelectItem value="/kiosk">Kiosk Mode</SelectItem>
+              <SelectItem value="/staff-kiosk">Staff Kiosk</SelectItem>
               <SelectItem value="/email-outbox">Email Outbox</SelectItem>
               <SelectItem value="/settings">Settings</SelectItem>
             </SelectContent>
@@ -904,6 +905,7 @@ export default function SecuritySettings() {
               { path: "/reports", label: "Reports" },
               { path: "/induction-settings", label: "Induction Settings" },
               { path: "/kiosk", label: "Kiosk Mode" },
+              { path: "/staff-kiosk", label: "Staff Kiosk" },
               { path: "/email-outbox", label: "Email Outbox" },
               { path: "/settings", label: "Settings" },
             ].map((item) => {

@@ -1468,7 +1468,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
     'featureStaff', 'featureMembers', 'featureMeetingRooms', 'featureTimeAttendance',
     'featureMusterList', 'featureIncidentReports', 'featureHsIncidents',
     'featureFireRiskAssessment', 'featureMartynLaw', 'featureReports',
-    'featureInductionSettings', 'featureKiosk', 'featureEmailOutbox',
+    'featureInductionSettings', 'featureKiosk', 'featureStaffKiosk', 'featureEmailOutbox',
     'featureHrModule', 'featureComplianceDashboard', 'featureSettingsPage',
     'featurePPM', 'featureAuditEngine', 'featureComplianceCertificates',
     'featurePermitToWork', 'featureRaBuilder', 'featureHelpDesk', 'featureBbs',

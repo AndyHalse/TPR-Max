@@ -1290,6 +1290,7 @@ const addMissingCompanySettingsColumnsMigration: Migration = {
       { name: 'feature_time_attendance', definition: 'BOOLEAN DEFAULT true' },
       { name: 'feature_induction_settings', definition: 'BOOLEAN DEFAULT true' },
       { name: 'feature_kiosk', definition: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_staff_kiosk', definition: 'BOOLEAN DEFAULT false' },
       { name: 'feature_ai_demo', definition: 'BOOLEAN DEFAULT true' },
       
       // Integration flags

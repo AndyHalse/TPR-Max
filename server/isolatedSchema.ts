@@ -599,6 +599,7 @@ export const companySettings = pgTable("company_settings", {
   featureTimeAttendance: boolean("feature_time_attendance").default(false),
   featureInductionSettings: boolean("feature_induction_settings").default(false),
   featureKiosk: boolean("feature_kiosk").default(false),
+  featureStaffKiosk: boolean("feature_staff_kiosk").default(false),
   featureAiDemo: boolean("feature_ai_demo").default(false),
   featureContractorPage: boolean("feature_contractor_page").default(false),
   featureMembers: boolean("feature_members").default(false),

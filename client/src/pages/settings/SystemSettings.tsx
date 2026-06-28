@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FileEdit, Flame, FlaskConical, HardHat, Lock, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2, Sparkles } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FileEdit, Flame, FlaskConical, HardHat, IdCard, Lock, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2, Sparkles } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -1350,6 +1350,25 @@ export default function SystemSettings() {
           onCheckedChange={(checked) => handleInputChange("featureKiosk", checked)}
           data-testid="toggle-kiosk"
           disabled={isPlatformLocked("featureKiosk")}
+        />
+      </div>
+      {/* Staff Kiosk */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-100 rounded-lg">
+            <IdCard className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Staff Kiosk</h4>
+            <p className="text-xs text-variable">Dedicated tablet kiosk for staff tap-to-check-in/out</p>
+            {isPlatformLocked("featureStaffKiosk") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureStaffKiosk === true}
+          onCheckedChange={(checked) => handleInputChange("featureStaffKiosk", checked)}
+          data-testid="toggle-staff-kiosk"
+          disabled={isPlatformLocked("featureStaffKiosk")}
         />
       </div>
       {/* Email Outbox */}
