@@ -491,29 +491,38 @@ export default function StaffKiosk() {
           </div>
 
           {/* Right: mode toggle + exit link */}
-          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
             {/* Mode toggle pill */}
-            <div className="flex bg-white/20 rounded-xl p-1 gap-1">
+            <div className="flex rounded-xl border-2 border-white/40 overflow-hidden">
               <button
-                className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === "checkin" ? "bg-white shadow-sm" : "text-white/90 hover:bg-white/10"}`}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all ${
+                  mode === "checkin"
+                    ? "bg-white shadow-sm"
+                    : "bg-transparent text-white hover:bg-white/15"
+                }`}
                 style={mode === "checkin" ? { color: "hsl(var(--primary))" } : {}}
                 onClick={() => { setMode("checkin"); setSearch(""); }}
               >
-                <span className="hidden sm:inline">Check In</span>
-                <LogIn size={16} className="sm:hidden" />
+                <LogIn size={16} />
+                <span>Check In</span>
               </button>
+              <div className="w-px bg-white/40" />
               <button
-                className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === "checkout" ? "bg-white shadow-sm" : "text-white/90 hover:bg-white/10"}`}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all ${
+                  mode === "checkout"
+                    ? "bg-white shadow-sm"
+                    : "bg-transparent text-white hover:bg-white/15"
+                }`}
                 style={mode === "checkout" ? { color: "hsl(var(--primary))" } : {}}
                 onClick={() => { setMode("checkout"); setSearch(""); }}
               >
-                <span className="hidden sm:inline">Check Out</span>
-                <LogOut size={16} className="sm:hidden" />
+                <LogOut size={16} />
+                <span>Check Out</span>
               </button>
             </div>
             {/* Exit link */}
             <button
-              className="text-xs text-white/75 hover:text-white transition-colors underline underline-offset-2"
+              className="text-xs text-white/80 hover:text-white transition-colors underline underline-offset-2"
               onClick={() => setLocation("/")}
             >
               ← Exit to Main System

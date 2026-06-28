@@ -16,7 +16,7 @@ const NAV_GROUPS_CONFIG = [
   { label: "People",      paths: ["/visitors", "/contractors", "/staff", "/members"] },
   { label: "Company Compliance",  paths: ["/induction-settings", "/contractor-portal-admin", "/compliance-certificates", "/permit-to-work", "/ra-builder", "/audits"] },
   { label: "Safety",      paths: ["/muster", "/incident-reports", "/hs-incidents", "/fire-risk-assessment", "/martyn-law"] },
-  { label: "Operations",  paths: ["/meeting-rooms", "/time-attendance", "/ppm", "/helpdesk", "/kiosk", "/email-outbox"] },
+  { label: "Operations",  paths: ["/meeting-rooms", "/time-attendance", "/ppm", "/helpdesk", "/kiosk", "/staff-kiosk", "/email-outbox"] },
   { label: "HR",          paths: ["/hr"] },
   { label: "Reports",     paths: ["/reports"] },
 ];
