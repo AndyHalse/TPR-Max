@@ -610,7 +610,7 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     // on timestamp-without-timezone columns, and is immune to the LIKE type error.
     const yearParam = req.query.year ? parseInt(req.query.year as string, 10) : null;
     const yearCondition = yearParam
-      ? sql`EXTRACT(YEAR FROM ${isolatedSchema.ppmWorkOrders.dueDate}) = ${yearParam}`
+      ? sql`EXTRACT(YEAR FROM ${isolatedSchema.ppmWorkOrders.dueDate}::date) = ${yearParam}`
       : undefined;
     const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
 
