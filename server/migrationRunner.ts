@@ -963,6 +963,18 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260628_064_add_staff_kiosk_feature_toggle',
+      description: 'Add feature_staff_kiosk column to company_settings',
+      async up(db: any) {
+        try {
+          await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_staff_kiosk BOOLEAN DEFAULT false`);
+          logger.info('✅ [064] feature_staff_kiosk column ensured');
+        } catch (err: any) {
+          logger.info(`⚠️ [064] feature_staff_kiosk: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {
