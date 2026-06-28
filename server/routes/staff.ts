@@ -578,8 +578,10 @@ export function registerStaffRoutes(app: Express): void {
   app.post("/api/staff", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = (req.user as any)?.username ?? (req as any).userId ?? 'unknown';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      
+      logger.info(`[POST /api/staff] customerId=${req.customerId} username=${username} body.email=${req.body?.email} body.accessLevel=${req.body?.accessLevel}`);
       
       // Add customerId to request data for proper customer isolation
       let staffData = insertStaffSchema.parse({ ...req.body, customerId: context.customerId });
@@ -591,10 +593,27 @@ export function registerStaffRoutes(app: Express): void {
         logger.info(`AUTO-GENERATED Fire Marshal URL for ID ${staffData.id}: ${staffData.fireMarshalUrlId}`);
       }
       
-      const { siteId } = await getScopedDb(req);
+      let siteId: string | null = null;
+      try {
+        const scopedResult = await getScopedDb(req);
+        siteId = scopedResult.siteId;
+      } catch (siteErr) {
+        if (siteErr instanceof SiteContextError) {
+          logger.warn(`[POST /api/staff] SiteContextError: ${siteErr.message}`);
+          return res.status(siteErr.statusCode).json({ error: siteErr.message });
+        }
+        logger.warn(`[POST /api/staff] getScopedDb non-critical error (continuing with null siteId):`, siteErr);
+      }
+
+      logger.info(`[POST /api/staff] siteId=${siteId} — calling createStaff`);
       const staff = await databaseService.createStaff(context, staffData, siteId);
+      logger.info(`[POST /api/staff] ✅ created staff id=${staff?.id}`);
       res.json(staff);
     } catch (error) {
+      logger.error(`[POST /api/staff] ❌ Error:`, error);
+      if (error instanceof SiteContextError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid staff data", details: error.errors });
       } else if (error instanceof Error) {
