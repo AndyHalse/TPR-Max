@@ -808,6 +808,9 @@ export function registerContractorRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       await getScopedDb(req); // validates session / enterprise site context
+      // Ensure is_demo column exists — SELECT * includes it via Drizzle schema
+      const listDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await ensureContractorColumns(listDb, context.customerId);
       // For enterprise customers, contractor companies are estate-wide (not site-scoped).
       // Non-enterprise: null = no extra filter (single-site, already isolated by schema).
       const contractors = await databaseService.getAllContractorCompanies(context, null);
@@ -1242,7 +1245,11 @@ export function registerContractorRoutes(app: Express): void {
       
       const requestDataWithCustomerId = { ...req.body, customerId: context.customerId };
       const contractorData = insertContractorCompanySchema.parse(requestDataWithCustomerId);
-      
+
+      // Ensure is_demo column exists before INSERT...RETURNING (RETURNING includes all columns)
+      const custDbForEnsure = await customerDbService.getCustomerDatabase(context.customerId);
+      await ensureContractorColumns(custDbForEnsure, context.customerId);
+
       const mappedContractorData = {
         ...contractorData,
         companyName: contractorData.name,
