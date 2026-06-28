@@ -555,14 +555,12 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteContext } = await getScopedDb(req);
 
-    // Optional year filter — dueDate is a timestamp column so use date-range bounds,
-    // not LIKE (LIKE on a timestamp column is a PostgreSQL type error).
+    // Optional year filter — use EXTRACT(YEAR FROM due_date) for robustness.
+    // Avoids timezone-conversion edge cases that gte/lt with JS Date objects can hit
+    // on timestamp-without-timezone columns, and is immune to the LIKE type error.
     const yearParam = req.query.year ? parseInt(req.query.year as string, 10) : null;
     const yearCondition = yearParam
-      ? and(
-          gte(isolatedSchema.ppmWorkOrders.dueDate, new Date(`${yearParam}-01-01T00:00:00.000Z`)),
-          lt(isolatedSchema.ppmWorkOrders.dueDate,  new Date(`${yearParam + 1}-01-01T00:00:00.000Z`))
-        )
+      ? sql`EXTRACT(YEAR FROM ${isolatedSchema.ppmWorkOrders.dueDate}) = ${yearParam}`
       : undefined;
     const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
 
@@ -2412,9 +2410,10 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
 // ── PPM Demo Data — Delete ────────────────────────────────────────────────────
 // DELETE /api/ppm/demo-data
-// Scoped delete: removes ONLY rows where is_demo=true within the caller's allowed
-// site(s).  Single-site customers see all their is_demo rows; enterprise users are
-// scoped to their active site (or all allowed sites if no active site is set).
+// Full PPM wipe: removes ALL PPM records within the caller's allowed site(s),
+// regardless of is_demo flag — this catches records created by older seeders
+// that predated the is_demo column, enterprise site seeders, and ISO test runs.
+// Contractor-company cleanup remains name-based (only known demo companies).
 // FK-safe order: WO docs → work orders → schedules → assets → asset groups.
 app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
   if (!["admin", "manager"].includes(req.user!.role)) return res.status(403).json({ error: "Administrator access required" });
@@ -2422,43 +2421,42 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
     const { db: custDb, siteContext } = await getScopedDb(req);
     await ensurePpmColumns(custDb, req.customerId!);
 
-    // ── STEP 1: delete demo PPM data in FK-safe order (is_demo=true only, scoped to caller's site(s))
+    // ── STEP 1: delete ALL PPM data in FK-safe order, scoped to caller's site(s)
+    // We wipe ALL records (not just is_demo=true) because records created by
+    // enterprise site seeders, ISO test runs, or older seeders have is_demo=false.
 
-    // Work order docs have no siteId — delete via scoped demo WO ids
-    const demoWoRows = await custDb
+    // Work order docs have no siteId — collect all scoped WO ids first
+    const allWoRows = await custDb
       .select({ id: isolatedSchema.ppmWorkOrders.id })
       .from(isolatedSchema.ppmWorkOrders)
-      .where(and(
-        eq(isolatedSchema.ppmWorkOrders.isDemo, true),
-        scopedWhere(siteContext, isolatedSchema.ppmWorkOrders),
-      ));
-    const demoWoIds = demoWoRows.map(w => w.id);
+      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders) ?? sql`true`);
+    const allWoIds = allWoRows.map(w => w.id);
 
     let woDocCount = 0;
-    if (demoWoIds.length > 0) {
+    if (allWoIds.length > 0) {
       const deletedDocs = await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
-        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, demoWoIds))
+        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, allWoIds))
         .returning({ id: isolatedSchema.ppmWorkOrderDocuments.id });
       woDocCount = deletedDocs.length;
     }
 
     const deletedWOs = await custDb.delete(isolatedSchema.ppmWorkOrders)
-      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
+      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders) ?? sql`true`)
       .returning({ id: isolatedSchema.ppmWorkOrders.id });
     const woCount = deletedWOs.length;
 
     const deletedScheds = await custDb.delete(isolatedSchema.ppmSchedules)
-      .where(and(eq(isolatedSchema.ppmSchedules.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmSchedules)))
+      .where(scopedWhere(siteContext, isolatedSchema.ppmSchedules) ?? sql`true`)
       .returning({ id: isolatedSchema.ppmSchedules.id });
     const schedCount = deletedScheds.length;
 
     const deletedAssets = await custDb.delete(isolatedSchema.ppmAssets)
-      .where(and(eq(isolatedSchema.ppmAssets.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssets)))
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssets) ?? sql`true`)
       .returning({ id: isolatedSchema.ppmAssets.id });
     const assetCount = deletedAssets.length;
 
     const deletedGroups = await custDb.delete(isolatedSchema.ppmAssetGroups)
-      .where(and(eq(isolatedSchema.ppmAssetGroups.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)))
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssetGroups) ?? sql`true`)
       .returning({ id: isolatedSchema.ppmAssetGroups.id });
     const groupCount = deletedGroups.length;
 
@@ -2553,19 +2551,19 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    // ── POST-DELETE VERIFICATION — confirm zero is_demo=true rows remain in scope ─
+    // ── POST-DELETE VERIFICATION — confirm zero PPM rows remain in scope ─────────
     const [{ remainingAssets }] = await custDb
       .select({ remainingAssets: count() }).from(isolatedSchema.ppmAssets)
-      .where(and(eq(isolatedSchema.ppmAssets.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssets)));
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssets) ?? sql`true`);
     const [{ remainingWOs }] = await custDb
       .select({ remainingWOs: count() }).from(isolatedSchema.ppmWorkOrders)
-      .where(and(eq(isolatedSchema.ppmWorkOrders.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)));
+      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders) ?? sql`true`);
     const [{ remainingSchedules }] = await custDb
       .select({ remainingSchedules: count() }).from(isolatedSchema.ppmSchedules)
-      .where(and(eq(isolatedSchema.ppmSchedules.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmSchedules)));
+      .where(scopedWhere(siteContext, isolatedSchema.ppmSchedules) ?? sql`true`);
     const [{ remainingGroups }] = await custDb
       .select({ remainingGroups: count() }).from(isolatedSchema.ppmAssetGroups)
-      .where(and(eq(isolatedSchema.ppmAssetGroups.isDemo, true), scopedWhere(siteContext, isolatedSchema.ppmAssetGroups)));
+      .where(scopedWhere(siteContext, isolatedSchema.ppmAssetGroups) ?? sql`true`);
 
     const allClear =
       Number(remainingAssets) === 0 &&
@@ -2575,14 +2573,14 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
     if (!allClear) {
       logger.error(
-        `❌ [PPM Demo] Post-delete verification FAILED — remaining is_demo=true: assets=${remainingAssets}, WOs=${remainingWOs}, schedules=${remainingSchedules}, groups=${remainingGroups}`,
+        `❌ [PPM Demo] Post-delete verification FAILED — remaining: assets=${remainingAssets}, WOs=${remainingWOs}, schedules=${remainingSchedules}, groups=${remainingGroups}`,
       );
       return res.status(500).json({
-        error: `Delete incomplete — ${remainingAssets} demo assets, ${remainingWOs} demo work orders, ${remainingSchedules} demo schedules, ${remainingGroups} demo groups still remain. Check server logs.`,
+        error: `Delete incomplete — ${remainingAssets} assets, ${remainingWOs} work orders, ${remainingSchedules} schedules, ${remainingGroups} groups still remain. Check server logs.`,
       });
     }
 
-    logger.info(`✅ [PPM Demo] Scoped is_demo delete verified — deleted: assets=${assetCount}, WOs=${woCount}, schedules=${schedCount}, groups=${groupCount}, woDocs=${woDocCount}, companies=${companiesDeleted}`);
+    logger.info(`✅ [PPM Demo] Full PPM wipe verified — deleted: assets=${assetCount}, WOs=${woCount}, schedules=${schedCount}, groups=${groupCount}, woDocs=${woDocCount}, companies=${companiesDeleted}`);
     await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, {
       assetsDeleted: assetCount,
       workOrdersDeleted: woCount,
