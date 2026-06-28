@@ -7,6 +7,7 @@ import type { CompanySettings } from "@shared/schema";
 import jsQR from "jsqr";
 import ScannerReticle from "@/components/ScannerReticle";
 import { playBeep } from "@/hooks/useCameraScanner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -492,34 +493,48 @@ export default function StaffKiosk() {
 
           {/* Right: mode toggle + exit link */}
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
-            {/* Mode toggle pill */}
-            <div className="flex rounded-xl border-2 border-white/40 overflow-hidden">
-              <button
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all ${
-                  mode === "checkin"
-                    ? "bg-white shadow-sm"
-                    : "bg-transparent text-white hover:bg-white/15"
-                }`}
-                style={mode === "checkin" ? { color: "hsl(var(--primary))" } : {}}
-                onClick={() => { setMode("checkin"); setSearch(""); }}
-              >
-                <LogIn size={16} />
-                <span>Check In</span>
-              </button>
-              <div className="w-px bg-white/40" />
-              <button
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all ${
-                  mode === "checkout"
-                    ? "bg-white shadow-sm"
-                    : "bg-transparent text-white hover:bg-white/15"
-                }`}
-                style={mode === "checkout" ? { color: "hsl(var(--primary))" } : {}}
-                onClick={() => { setMode("checkout"); setSearch(""); }}
-              >
-                <LogOut size={16} />
-                <span>Check Out</span>
-              </button>
-            </div>
+            <TooltipProvider delayDuration={400}>
+              <div className="flex gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-2 shadow-sm ${
+                        mode === "checkin"
+                          ? "bg-white border-white text-slate-900"
+                          : "bg-white/10 border-white text-white hover:bg-white/25"
+                      }`}
+                      onClick={() => { setMode("checkin"); setSearch(""); }}
+                    >
+                      <LogIn size={16} className="flex-shrink-0" />
+                      <span>Check In</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Switch to Check In mode — show staff who haven't arrived yet</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-2 shadow-sm ${
+                        mode === "checkout"
+                          ? "bg-white border-white text-slate-900"
+                          : "bg-white/10 border-white text-white hover:bg-white/25"
+                      }`}
+                      onClick={() => { setMode("checkout"); setSearch(""); }}
+                    >
+                      <LogOut size={16} className="flex-shrink-0" />
+                      <span>Check Out</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Switch to Check Out mode — show staff who are currently on site</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+
             {/* Exit link */}
             <button
               className="text-xs text-white/80 hover:text-white transition-colors underline underline-offset-2"
