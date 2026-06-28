@@ -854,6 +854,7 @@ export function registerEmergencyRoutes(app: Express): void {
         success: true,
         message: `Emergency activated! Sent ${totalEmailsSent} total alerts (${evacuationData.notificationsSent} regular + ${fireMarshalEmailsSent} Fire Marshal).`,
         evacuationId,
+        startedAt: new Date().toISOString(),
         evacuationData,
         fireMarshals: fireMarshals.length,
         fireMarshalEmailsSent,

@@ -79,6 +79,7 @@ interface ActiveEvacuation {
   evacuationId?: string;
   customerId?: string;
   isDrill?: boolean;
+  startedAt?: string;
 }
 
 interface ZoneSweep {
@@ -250,6 +251,13 @@ export default function EmergencyMuster() {
     if (activeEvacuation?.active === true && emergencyPhase === 'idle') {
       setEmergencyPhase('active');
       setEmergencyActive(true);
+      // Use the real server start time so the timer is accurate even after
+      // a page refresh or when joining mid-emergency from another session.
+      if (activeEvacuation.startedAt) {
+        setEmergencyStartTime(new Date(activeEvacuation.startedAt));
+      } else {
+        setEmergencyStartTime(new Date());
+      }
     } else if (activeEvacuation?.active === false && emergencyPhase === 'active') {
       setEmergencyPhase('idle');
       setEmergencyActive(false);
@@ -478,7 +486,7 @@ export default function EmergencyMuster() {
     },
     onSuccess: (data, variables) => {
       setEmergencyPhase('active');
-      setEmergencyStartTime(new Date());
+      setEmergencyStartTime(data.startedAt ? new Date(data.startedAt) : new Date());
       if (data.evacuationId) setLastEvacuationId(data.evacuationId);
       toast({
         title: variables.isDrill ? t('muster:drillStarted') : t('muster:emergencyNotificationsSent'),
