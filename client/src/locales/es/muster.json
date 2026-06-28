@@ -10,6 +10,7 @@
   "monitorLink": "Enlace de monitoreo",
   "monitorLinkCopied": "Enlace de monitoreo copiado al portapapeles",
   "monitorLinkCopiedDesc": "Comparta este enlace de solo lectura con la gerencia",
+  "monitorLinkTooltip": "Compartir una vista en vivo de solo lectura con la gerencia",
   "noActiveEvacuation": "No hay evacuación activa",
   "startEmergencyFirst": "Inicie una emergencia primero",
   "nudgeUnaccounted": "Notificar no contabilizados",
@@ -30,7 +31,9 @@
     "title": "Jefes de emergencias asignados",
     "none": "No hay jefes de emergencias asignados",
     "noneDesc": "Vaya a Gestión de personal y active el estado de jefe de emergencias para los miembros del personal correspondientes.",
-    "noneActive": "No hay jefes de emergencias configurados. Asígnelos en Gestión de personal."
+    "noneActive": "No hay jefes de emergencias configurados. Asígnelos en Gestión de personal.",
+    "accessLinks": "Enlaces de acceso para jefes de emergencias",
+    "accessLinksDesc": "Envíe estos enlaces a sus jefes de emergencias — abren una vista en vivo del mustering en su dispositivo, sin necesidad de iniciar sesión."
   },
   "wizard": {
     "activateFireDrill": "Activar simulacro de incendio",

@@ -10,6 +10,7 @@
   "monitorLink": "Monitor Link",
   "monitorLinkCopied": "Monitor link copied to clipboard",
   "monitorLinkCopiedDesc": "Share this read-only link with management",
+  "monitorLinkTooltip": "Share a read-only live view with management",
   "noActiveEvacuation": "No active evacuation",
   "startEmergencyFirst": "Start an emergency first",
   "nudgeUnaccounted": "Nudge Unaccounted",
@@ -30,7 +31,9 @@
     "title": "Assigned Fire Marshals",
     "none": "No Fire Marshals Assigned",
     "noneDesc": "Go to Staff Management and enable Fire Marshal status for relevant staff members.",
-    "noneActive": "No Fire Marshals configured. Assign them in Staff Management."
+    "noneActive": "No Fire Marshals configured. Assign them in Staff Management.",
+    "accessLinks": "Fire Marshal Access Links",
+    "accessLinksDesc": "Send these links to your Fire Marshals — they open a live muster view on their device, no login required."
   },
   "wizard": {
     "activateFireDrill": "Activate Fire Drill",
