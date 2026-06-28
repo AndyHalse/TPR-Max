@@ -897,6 +897,7 @@ export const contractorCompanies = pgTable("contractor_companies", {
   otherAccreditations: text("other_accreditations"), // free-text for Acclaim, SSIP etc.
   pdProfessionalBody: text("pd_professional_body"), // e.g. RIBA, ARB, ICE, CIOB
   siteId: varchar("site_id"),
+  isDemo: boolean("is_demo").notNull().default(false),
 });
 
 // Contractor Workers
@@ -1007,6 +1008,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   archivedBy: text("archived_by"),
   archiveReason: text("archive_reason"),
   siteId: varchar("site_id"),
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -51,6 +51,11 @@ async function logPpmAudit(
 // Adds columns to PPM tables that were introduced after initial schema creation.
 // Safe to re-run on any DB — uses ADD COLUMN IF NOT EXISTS throughout.
 const _ppmColumnsMigrated = new Set<string>();
+
+// Per-customer PPM feature-flag cache — 60-second TTL avoids a DB round-trip on every request
+const _ppmFeatureCache = new Map<string, { enabled: boolean; ts: number }>();
+const PPM_FEATURE_CACHE_TTL_MS = 60_000;
+
 async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> {
   if (_ppmColumnsMigrated.has(customerId)) return;
   try {
@@ -83,6 +88,10 @@ async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> 
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS missing_cert_alerted_at TIMESTAMP`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS missing_docs_alerted_at TIMESTAMP`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMP`);
+
+    // Contractor tables — is_demo flag added for safe demo-data scoping (Fix 3)
+    await custDb.execute(sql`ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    await custDb.execute(sql`ALTER TABLE contractor_workers   ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
 
     _ppmColumnsMigrated.add(customerId);
   } catch (err) {
@@ -123,6 +132,29 @@ const DEMO_GROUP_NAMES = [
 const DEMO_COMPANY_NAMES_LIST = [
   "CoolAir Services Ltd","FireGuard UK Ltd","BuildRight Co",
   "Volt-Safe Electrical Ltd","AquaSafe Hygiene Ltd","SecureAccess Systems","Schindler UK",
+];
+
+// All template names created by the demo seeder (DEMO_TEMPLATES array + templateName refs in DEMO_SCHEDULES).
+// Used by the delete route to remove demo templates without touching real customer templates.
+const DEMO_TEMPLATE_NAMES = [
+  // From DEMO_TEMPLATES array
+  "Monthly HVAC Filter Check",
+  "Annual Fire Alarm Full Test",
+  "Monthly Emergency Lighting Functional Test",
+  "Annual Boiler Service & Gas Safety Check",
+  "6-Monthly Lift Thorough Examination",
+  "Quarterly Sprinkler System Inspection",
+  "Fixed Wiring Inspection & Testing (EICR)",
+  "Monthly Access Control System Check",
+  "Monthly Water Hygiene Inspection",
+  // Additional names referenced as templateName in DEMO_SCHEDULES
+  "Quarterly HVAC Filter & Coil Service",
+  "Annual HVAC Full Plant Service",
+  "Quarterly Emergency Lighting Functional Test",
+  "Annual Emergency Lighting Duration Test",
+  "Annual Sprinkler Full Flow Test",
+  "6-Monthly Access Control System Health Check",
+  "6-Monthly CCTV System Health Check",
 ];
 
 /**
@@ -177,20 +209,33 @@ function calcNextDueDate(startDate: string, frequency: string, customDays?: numb
 // ── PPM feature gate ────────────────────────────────────────────────────────
 const requirePPMFeature = async (req: any, res: any, next: any) => {
   try {
-    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-    const settings = await simpleDatabaseService.getCompanySettings(context);
-    if (!settings?.featurePPM) {
+    const customerId = req.customerId as string;
+    const now = Date.now();
+    const cached = customerId ? _ppmFeatureCache.get(customerId) : undefined;
+
+    let featureEnabled: boolean;
+    if (cached && now - cached.ts < PPM_FEATURE_CACHE_TTL_MS) {
+      featureEnabled = cached.enabled;
+    } else {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      featureEnabled = !!settings?.featurePPM;
+      if (customerId) _ppmFeatureCache.set(customerId, { enabled: featureEnabled, ts: now });
+    }
+
+    if (!featureEnabled) {
       return res.status(403).json({
         error: 'PPM module is not enabled for your account. Please contact support.'
       });
     }
+
     // Ensure PPM-specific DB columns exist for this customer (idempotent, memoised per-process).
     // Doing this here covers ALL authenticated PPM routes — including work-order routes that
     // previously didn't call ensurePpmColumns, which would crash on scopedWhere if site_id
     // hadn't been added yet (e.g. server restart followed by a deep-link to /ppm/work-orders).
-    if (req.customerId) {
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      await ensurePpmColumns(custDb, context.customerId);
+    if (customerId) {
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      await ensurePpmColumns(custDb, customerId);
     }
     next();
   } catch (error) {
@@ -201,7 +246,12 @@ const requirePPMFeature = async (req: any, res: any, next: any) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function registerPPMRoutes(app: Express): void {
-app.use('/api/ppm', requireAuth, requirePPMFeature);
+// Gate all authenticated PPM routes — but let the public contractor work-order endpoints
+// through (they authenticate via rolling token, not session, so no requireAuth here).
+app.use('/api/ppm', (req, res, next) => {
+  if (req.path.startsWith('/work-order/public')) return next();
+  return requireAuth(req, res, () => requirePPMFeature(req, res, next));
+});
 
 // PPM Assets
 app.get("/api/ppm/assets", requireAuth, async (req, res) => {
@@ -549,10 +599,10 @@ app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/ppm/work-orders — list all work orders for customer (admin only; tokens omitted from list)
+// GET /api/ppm/work-orders — list work orders for customer (admin or manager; tokens omitted from list)
 app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    if (!["admin", "manager"].includes(req.user!.role)) return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteContext } = await getScopedDb(req);
 
     // Optional year filter — use EXTRACT(YEAR FROM due_date) for robustness.
@@ -564,9 +614,15 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
       : undefined;
     const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
 
+    // Pagination — safety cap for large enterprise deployments; UI year-filter keeps sets small
+    const limitParam  = Math.min(parseInt((req.query.limit  as string) || "200", 10), 500);
+    const offsetParam = Math.max(parseInt((req.query.offset as string) || "0",   10), 0);
+
     const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
       .where(and(yearCondition, siteFilter))
-      .orderBy(isolatedSchema.ppmWorkOrders.createdAt);
+      .orderBy(isolatedSchema.ppmWorkOrders.createdAt)
+      .limit(limitParam)
+      .offset(offsetParam);
 
     // Omit bearer token fields from list payload; use GET /api/ppm/work-orders/:id/token to get link
     const sanitized = rows.map(({ accessToken: _t, accessTokenExpiresAt: _e, ...rest }) => rest);
@@ -1957,14 +2013,15 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       if (existingCompany) {
         companyId = existingCompany.id;
       } else {
-        const [ins] = await custDb.insert(isolatedSchema.contractorCompanies).values({
+        const [ins] = await custDb.insert(isolatedSchema.contractorCompanies).values(withSiteId(siteId, {
           companyName:       c.company,
           contactEmail:      c.email,
           contactFirstName:  c.firstName,
           contactLastName:   c.lastName,
           industry:          c.industry,
           status:            "approved",
-        } as any).returning({ id: isolatedSchema.contractorCompanies.id });
+          isDemo:            true,
+        }) as any).returning({ id: isolatedSchema.contractorCompanies.id });
         companyId = ins.id;
         contractorsSeeded++;
       }
@@ -1981,13 +2038,14 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
         .limit(1);
 
       if (!existingWorker) {
-        await custDb.insert(isolatedSchema.contractorWorkers).values({
+        await custDb.insert(isolatedSchema.contractorWorkers).values(withSiteId(siteId, {
           companyId,
           firstName: c.firstName,
           lastName:  c.lastName,
           jobTitle:  c.jobTitle,
           email:     c.email,
-        } as any);
+          isDemo:    true,
+        }) as any);
       }
     }
     logger.info(`✅ [PPM Demo] Contractor companies seeded: ${contractorsSeeded} new, ${DEMO_CONTRACTORS.length - contractorsSeeded} already existed`);
@@ -2002,7 +2060,10 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       const _demoAssetRows = await custDb
         .select({ id: isolatedSchema.ppmAssets.id })
         .from(isolatedSchema.ppmAssets)
-        .where(inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS));
+        .where(and(
+          inArray(isolatedSchema.ppmAssets.assetRef, DEMO_ASSET_REFS),
+          scopedWhere(siteContext, isolatedSchema.ppmAssets) ?? sql`true`,
+        ));
       const _demoAssetIds = _demoAssetRows.map(r => r.id);
 
       if (_demoAssetIds.length > 0) {
@@ -2025,7 +2086,10 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
 
       await custDb.delete(isolatedSchema.ppmAssetGroups)
-        .where(inArray(isolatedSchema.ppmAssetGroups.name, DEMO_GROUP_NAMES));
+        .where(and(
+          inArray(isolatedSchema.ppmAssetGroups.name, DEMO_GROUP_NAMES),
+          scopedWhere(siteContext, isolatedSchema.ppmAssetGroups) ?? sql`true`,
+        ));
     }
 
     // ── STEP 2: Asset groups — one per maintenance category ─────────────────
@@ -2421,52 +2485,48 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
     const { db: custDb, siteContext } = await getScopedDb(req);
     await ensurePpmColumns(custDb, req.customerId!);
 
-    // ── STEP 1: delete ALL PPM data in FK-safe order, scoped to caller's site(s)
-    // We wipe ALL records (not just is_demo=true) because records created by
-    // enterprise site seeders, ISO test runs, or older seeders have is_demo=false.
+    // Helper — delete only demo rows within the caller's active site scope.
+    // This protects real customer data: is_demo=false rows are never touched.
+    const demoFilter = (table: { isDemo: any }) =>
+      and(eq(table.isDemo, true), scopedWhere(siteContext, table as any) ?? sql`true`);
 
-    // Work order docs have no siteId — collect all scoped WO ids first
-    const allWoRows = await custDb
+    // ── STEP 1: delete demo PPM data in FK-safe order ──────────────────────
+    // Work order docs have no siteId / isDemo — collect demo WO ids first
+    const demoWoRows = await custDb
       .select({ id: isolatedSchema.ppmWorkOrders.id })
       .from(isolatedSchema.ppmWorkOrders)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders) ?? sql`true`);
-    const allWoIds = allWoRows.map(w => w.id);
+      .where(demoFilter(isolatedSchema.ppmWorkOrders));
+    const demoWoIds = demoWoRows.map(w => w.id);
 
     let woDocCount = 0;
-    if (allWoIds.length > 0) {
+    if (demoWoIds.length > 0) {
       const deletedDocs = await custDb.delete(isolatedSchema.ppmWorkOrderDocuments)
-        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, allWoIds))
+        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, demoWoIds))
         .returning({ id: isolatedSchema.ppmWorkOrderDocuments.id });
       woDocCount = deletedDocs.length;
     }
 
-    const deletedWOs = await custDb.delete(isolatedSchema.ppmWorkOrders)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders) ?? sql`true`)
-      .returning({ id: isolatedSchema.ppmWorkOrders.id });
-    const woCount = deletedWOs.length;
+    const deletedWOs    = await custDb.delete(isolatedSchema.ppmWorkOrders).where(demoFilter(isolatedSchema.ppmWorkOrders)).returning({ id: isolatedSchema.ppmWorkOrders.id });
+    const woCount       = deletedWOs.length;
+    const deletedScheds = await custDb.delete(isolatedSchema.ppmSchedules).where(demoFilter(isolatedSchema.ppmSchedules)).returning({ id: isolatedSchema.ppmSchedules.id });
+    const schedCount    = deletedScheds.length;
+    const deletedAssets = await custDb.delete(isolatedSchema.ppmAssets).where(demoFilter(isolatedSchema.ppmAssets)).returning({ id: isolatedSchema.ppmAssets.id });
+    const assetCount    = deletedAssets.length;
+    const deletedGroups = await custDb.delete(isolatedSchema.ppmAssetGroups).where(demoFilter(isolatedSchema.ppmAssetGroups)).returning({ id: isolatedSchema.ppmAssetGroups.id });
+    const groupCount    = deletedGroups.length;
 
-    const deletedScheds = await custDb.delete(isolatedSchema.ppmSchedules)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmSchedules) ?? sql`true`)
-      .returning({ id: isolatedSchema.ppmSchedules.id });
-    const schedCount = deletedScheds.length;
-
-    const deletedAssets = await custDb.delete(isolatedSchema.ppmAssets)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmAssets) ?? sql`true`)
-      .returning({ id: isolatedSchema.ppmAssets.id });
-    const assetCount = deletedAssets.length;
-
-    const deletedGroups = await custDb.delete(isolatedSchema.ppmAssetGroups)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmAssetGroups) ?? sql`true`)
-      .returning({ id: isolatedSchema.ppmAssetGroups.id });
-    const groupCount = deletedGroups.length;
-
-    // ── STEP 2: delete demo contractor companies (and their workers) by known name (not site-scoped)
+    // ── STEP 2: delete demo contractor companies (and their workers) — is_demo=true only
+    // A real customer's contractor with the same name (e.g. a genuine "Schindler UK")
+    // has is_demo=false and is left completely untouched.
     let companiesDeleted = 0;
     for (const name of DEMO_COMPANY_NAMES_LIST) {
       const [existing] = await custDb
         .select({ id: isolatedSchema.contractorCompanies.id })
         .from(isolatedSchema.contractorCompanies)
-        .where(eq(isolatedSchema.contractorCompanies.companyName, name))
+        .where(and(
+          eq(isolatedSchema.contractorCompanies.companyName, name),
+          eq(isolatedSchema.contractorCompanies.isDemo, true),
+        ))
         .limit(1);
       if (existing) {
         const cid = existing.id;
@@ -2551,19 +2611,26 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    // ── POST-DELETE VERIFICATION — confirm zero PPM rows remain in scope ─────────
+    // ── STEP 3: delete demo templates by known name (templates have no is_demo column)
+    const deletedTemplates = await custDb.delete(isolatedSchema.ppmTemplates)
+      .where(inArray(isolatedSchema.ppmTemplates.name, DEMO_TEMPLATE_NAMES))
+      .returning({ id: isolatedSchema.ppmTemplates.id });
+    const templateCount = deletedTemplates.length;
+
+    // ── POST-DELETE VERIFICATION — confirm zero DEMO rows remain in scope ─────────
+    // Only counts is_demo=true rows so real customer data doesn't cause a false failure.
     const [{ remainingAssets }] = await custDb
       .select({ remainingAssets: count() }).from(isolatedSchema.ppmAssets)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmAssets) ?? sql`true`);
+      .where(demoFilter(isolatedSchema.ppmAssets));
     const [{ remainingWOs }] = await custDb
       .select({ remainingWOs: count() }).from(isolatedSchema.ppmWorkOrders)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders) ?? sql`true`);
+      .where(demoFilter(isolatedSchema.ppmWorkOrders));
     const [{ remainingSchedules }] = await custDb
       .select({ remainingSchedules: count() }).from(isolatedSchema.ppmSchedules)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmSchedules) ?? sql`true`);
+      .where(demoFilter(isolatedSchema.ppmSchedules));
     const [{ remainingGroups }] = await custDb
       .select({ remainingGroups: count() }).from(isolatedSchema.ppmAssetGroups)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmAssetGroups) ?? sql`true`);
+      .where(demoFilter(isolatedSchema.ppmAssetGroups));
 
     const allClear =
       Number(remainingAssets) === 0 &&
@@ -2580,12 +2647,13 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       });
     }
 
-    logger.info(`✅ [PPM Demo] Full PPM wipe verified — deleted: assets=${assetCount}, WOs=${woCount}, schedules=${schedCount}, groups=${groupCount}, woDocs=${woDocCount}, companies=${companiesDeleted}`);
+    logger.info(`✅ [PPM Demo] Demo wipe verified — deleted: assets=${assetCount}, WOs=${woCount}, schedules=${schedCount}, groups=${groupCount}, templates=${templateCount}, woDocs=${woDocCount}, companies=${companiesDeleted}`);
     await logPpmAudit(custDb, "demo_data_wiped", req.user!.username, {
       assetsDeleted: assetCount,
       workOrdersDeleted: woCount,
       schedulesDeleted: schedCount,
       groupsDeleted: groupCount,
+      templatesDeleted: templateCount,
       companiesDeleted,
     });
     res.json({
@@ -2594,9 +2662,10 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       workOrdersDeleted: woCount,
       schedulesDeleted: schedCount,
       groupsDeleted: groupCount,
+      templatesDeleted: templateCount,
       companiesDeleted,
       verified: true,
-      message: `Demo PPM data cleared — ${assetCount} assets, ${woCount} work orders, ${schedCount} schedules, ${groupCount} groups removed. Templates untouched.`,
+      message: `Demo PPM data cleared — ${assetCount} assets, ${woCount} work orders, ${schedCount} schedules, ${groupCount} groups, ${templateCount} templates, ${companiesDeleted} contractor companies removed.`,
     });
   } catch (error: unknown) {
     if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
