@@ -53,6 +53,12 @@ export function useSettingsAutoSave() {
   const triggerAutoSave = (field: string, value: any) => {
     if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Optimistically update the shared React Query cache immediately so the
+    // sidebar and other consumers (e.g. Layout.tsx nav filter) reflect the
+    // new value right away — before the PUT round-trip completes.
+    queryClient.setQueryData(["/api/settings"], (old: any) =>
+      old ? { ...old, [field]: value } : old
+    );
     if (CREDENTIAL_FIELDS.has(field) && (value === '' || value === null || value === undefined)) return;
     pendingUpdatesRef.current = { ...pendingUpdatesRef.current, [field]: value };
     const delay = typeof value === 'boolean' ? 0 : 800;
