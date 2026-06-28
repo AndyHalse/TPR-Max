@@ -221,7 +221,7 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
   });
 
   const { data: allWorkOrders = [], isLoading: loadingWOs } = useQuery<PpmWorkOrder[]>({
-    queryKey: ["/api/ppm/work-orders"],
+    queryKey: [`/api/ppm/work-orders?year=${year}`],
   });
 
   const { data: schedules = [], isLoading: loadingSchedules } = useQuery<PpmSchedule[]>({
