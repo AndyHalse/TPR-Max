@@ -987,6 +987,18 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260628_066_force_staff_kiosk_on',
+      description: 'Force feature_staff_kiosk to true for all customers unconditionally',
+      async up(db: any) {
+        try {
+          await db.execute(`UPDATE company_settings SET feature_staff_kiosk = true`);
+          logger.info('✅ [066] feature_staff_kiosk forced ON for all customers');
+        } catch (err: any) {
+          logger.info(`⚠️ [066] feature_staff_kiosk force-on: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

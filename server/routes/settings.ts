@@ -162,7 +162,7 @@ export function registerSettingsRoutes(
 
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
-      logger.info(`[SETTINGS-API] customer=${context.customerId} logo=${settings?.logoUrl || 'NONE'} bg=${settings?.backgroundColor || 'NONE'} accent=${settings?.accentColor || 'NONE'} company=${settings?.companyName || 'NONE'}`);
+      logger.info(`[SETTINGS-API] customer=${context.customerId} featureStaffKiosk=${settings?.featureStaffKiosk} logo=${settings?.logoUrl || 'NONE'} company=${settings?.companyName || 'NONE'}`);
       
       if (settings) {
         const {
