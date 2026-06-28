@@ -15,6 +15,7 @@ import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import StaffManagement from "@/pages/StaffManagement";
 import KioskMode from "@/pages/KioskMode";
+import StaffKiosk from "@/pages/StaffKiosk";
 import VisitorCheckIn from "@/pages/VisitorCheckIn";
 import EmergencyMuster from "@/pages/EmergencyMuster";
 import Settings from "@/pages/Settings";
@@ -512,6 +513,11 @@ function Router() {
       <Route path="/kiosk">
         <ErrorBoundary>
           <KioskMode />
+        </ErrorBoundary>
+      </Route>
+      <Route path="/staff-kiosk">
+        <ErrorBoundary>
+          <StaffKiosk />
         </ErrorBoundary>
       </Route>
       <Route path="/contractor">

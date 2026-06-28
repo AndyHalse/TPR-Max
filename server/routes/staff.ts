@@ -1624,6 +1624,44 @@ export function registerStaffRoutes(app: Express): void {
     }
   });
 
+  // Staff kiosk list — enriches the normal staff list with lastCheckInAt from staffSessions
+  // so the dedicated Staff Kiosk can sort by most-recently-checked-in.
+  app.get("/api/staff/kiosk-list", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+
+      const allStaff = await databaseService.getAllStaff(context, filterSiteId);
+      if (!allStaff.length) return res.json([]);
+
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId!);
+
+      // Most recent check-in time per staff member (single GROUP BY, no N+1)
+      const lastSessions = await custDb
+        .select({
+          staffId: isolatedSchema.staffSessions.staffId,
+          lastCheckInAt: sql<string>`max(${isolatedSchema.staffSessions.checkInTime})`,
+        })
+        .from(isolatedSchema.staffSessions)
+        .groupBy(isolatedSchema.staffSessions.staffId);
+
+      const lastCheckInMap = new Map(lastSessions.map(s => [s.staffId, s.lastCheckInAt]));
+
+      const enriched = allStaff.map(s => ({
+        ...s,
+        lastCheckInAt: lastCheckInMap.get(s.id) ?? null,
+      }));
+
+      res.json(enriched);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status((err as any).statusCode).json({ error: err.message });
+      logger.error("Failed to fetch kiosk staff list:", err);
+      res.status(500).json({ error: "Failed to fetch staff list" });
+    }
+  });
+
   app.get("/api/staff/time-attendance", requireAuth, async (req, res) => {
     try {
       const username = req.user!.username;
