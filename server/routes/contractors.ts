@@ -71,18 +71,82 @@ import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteS
 
 // ─── Module-scope helpers ────────────────────────────────────────────────────
 
-// Memoized per-customer: ensures contractor_companies and contractor_workers have
-// columns added after initial schema creation (e.g. is_demo).  Safe to call on
-// every request — the Set prevents redundant ALTER TABLE round-trips.
+// Ensure all columns from isolatedSchema.contractorCompanies exist in the DB.
+// Drizzle's RETURNING * (used in INSERT/SELECT) generates every schema column by name —
+// if any column is absent the query fails with 42703.  Safe to call on every request:
+// the Set prevents redundant round-trips after the first successful run per customer.
 const _contractorColumnsEnsured = new Set<string>();
 async function ensureContractorColumns(custDb: any, customerId: string): Promise<void> {
   if (_contractorColumnsEnsured.has(customerId)) return;
+  const alters = [
+    // contractor_companies — all columns added after original table creation
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS company_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS vat_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS registration_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS postcode TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS website TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS description TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS industry TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS primary_contact_name TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS primary_contact_email TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS primary_contact_phone TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS public_liability_insurer TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS public_liability_amount TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS public_liability_expiry_date TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS public_liability_policy_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS employers_liability_insurer TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS employers_liability_amount TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS employers_liability_expiry_date TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS employers_liability_policy_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS professional_indemnity_insurer TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS professional_indemnity_amount TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS professional_indemnity_expiry_date TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS professional_indemnity_policy_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS approved_by VARCHAR`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS suspended_reason TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS has_health_safety_policy BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS health_safety_policy_url TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS health_safety_policy_expiry_date TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS chas_certified BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS chas_certificate_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS chas_expiry_date TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS safe_contractor_certified BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS safe_contractor_number TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS safe_contractor_expiry_date TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS risk_rating TEXT DEFAULT 'medium'`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS risk_notes TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS last_audit_date TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS next_audit_due TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS audit_frequency_months INTEGER DEFAULT 12`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS ai_compliance_score INTEGER DEFAULT 0`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS last_ai_review TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS auto_compliance_checks BOOLEAN DEFAULT TRUE`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS cdm_role TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS constructionline_grade TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS smas_accredited BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS other_accreditations TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS pd_professional_body TEXT`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS site_id VARCHAR`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'not_started'`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS onboarding_submitted_at TIMESTAMP`,
+    `ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS onboarding_approved_at TIMESTAMP`,
+    // contractor_workers
+    `ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`,
+  ];
   try {
-    await custDb.execute(sql`ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
-    await custDb.execute(sql`ALTER TABLE contractor_workers   ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    for (const stmt of alters) {
+      await custDb.execute(sql.raw(stmt));
+    }
     _contractorColumnsEnsured.add(customerId);
+    logger.info(`✅ Contractor schema columns ensured for ${customerId}`);
   } catch (e: any) {
-    logger.warn('ensureContractorColumns: could not add column — continuing:', e?.message);
+    logger.warn('ensureContractorColumns: error adding columns — continuing:', e?.message);
   }
 }
 
