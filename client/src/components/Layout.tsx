@@ -92,9 +92,9 @@ export default function Layout({ children }: LayoutProps) {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
     queryFn: getQueryFn<CompanySettings>({ on401: "returnNull" }),
-    staleTime: 30 * 1000,
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     placeholderData: (previousData: CompanySettings | undefined) => previousData,
   });
 
