@@ -306,4 +306,23 @@ export const siteMigrations: Migration[] = [
       }
     },
   },
+
+  {
+    version: '20260628_069_ensure_muster_points_site_id',
+    description: 'Safety backfill: ensure site_id column exists in muster_points (covers gaps from migration 065)',
+    async up(db: any) {
+      try {
+        await db.execute(`ALTER TABLE muster_points ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+        logger.info('✅ [069] site_id ensured in muster_points');
+      } catch (err: any) {
+        logger.warn(`⚠️ [069] muster_points site_id: ${err.message?.substring(0, 100)}`);
+      }
+      try {
+        await db.execute(`CREATE INDEX IF NOT EXISTS idx_muster_points_site_id ON muster_points(site_id)`);
+        logger.info('✅ [069] muster_points site_id index ensured');
+      } catch (err: any) {
+        logger.warn(`⚠️ [069] muster_points site_id index: ${err.message?.substring(0, 100)}`);
+      }
+    },
+  },
 ];
