@@ -287,7 +287,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/reports", icon: FileText, label: "Reports", featureKey: "featureReports", defaultOn: true },
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk", defaultOn: true },
-    { path: "/staff-kiosk", icon: IdCard, label: "Staff Kiosk", featureKey: "featureStaffKiosk", defaultOn: false },
+    { path: "/staff-kiosk", icon: IdCard, label: "Staff Kiosk", featureKey: "featureStaffKiosk", defaultOn: true },
     { path: "/email-outbox", icon: Mail, label: "Email Outbox", featureKey: "featureEmailOutbox" },
     { path: "/hr", icon: Briefcase, label: "HR", featureKey: "featureHrModule", defaultOn: true },
     { path: "/settings", icon: Settings, label: "Settings", featureKey: "featureSettingsPage", defaultOn: true },

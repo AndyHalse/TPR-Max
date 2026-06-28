@@ -975,6 +975,18 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260628_065_enable_staff_kiosk_for_existing_customers',
+      description: 'Enable staff kiosk by default for all existing customers',
+      async up(db: any) {
+        try {
+          await db.execute(`UPDATE company_settings SET feature_staff_kiosk = true WHERE feature_staff_kiosk IS NULL OR feature_staff_kiosk = false`);
+          logger.info('✅ [065] feature_staff_kiosk enabled for all existing customers');
+        } catch (err: any) {
+          logger.info(`⚠️ [065] feature_staff_kiosk backfill: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

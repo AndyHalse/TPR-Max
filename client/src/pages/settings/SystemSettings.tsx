@@ -1365,7 +1365,7 @@ export default function SystemSettings() {
           </div>
         </div>
         <Switch
-          checked={currentSettings?.featureStaffKiosk === true}
+          checked={currentSettings?.featureStaffKiosk !== false}
           onCheckedChange={(checked) => handleInputChange("featureStaffKiosk", checked)}
           data-testid="toggle-staff-kiosk"
           disabled={isPlatformLocked("featureStaffKiosk")}
