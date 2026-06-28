@@ -188,6 +188,27 @@ async function runStartupMigrations(): Promise<void> {
     // Run idempotent schema migrations before routes register
     await runStartupMigrations();
 
+    // Ensure per-customer contractor columns (is_demo) exist across all schemas.
+    // Runs in the background so it doesn't delay server startup / first request.
+    (async () => {
+      try {
+        const { customerDbService } = await import('./customerDatabase');
+        const customers = await customerDbService.getAllCustomers();
+        for (const customer of customers) {
+          try {
+            const custDb = await customerDbService.getCustomerDatabase(customer.id);
+            await custDb.execute(sql.raw(`ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`));
+            await custDb.execute(sql.raw(`ALTER TABLE contractor_workers   ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`));
+          } catch (e: any) {
+            logger.warn(`⚠️ Contractor column migration skipped for ${customer.id}: ${e?.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ Contractor is_demo columns ensured for all customers');
+      } catch (e: any) {
+        logger.warn('⚠️ Contractor column startup migration failed:', e?.message);
+      }
+    })();
+
     // Build the configured Express app + HTTP server (middleware + routes)
     const { app, server } = await createApp();
 

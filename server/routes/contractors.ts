@@ -71,6 +71,21 @@ import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteS
 
 // ─── Module-scope helpers ────────────────────────────────────────────────────
 
+// Memoized per-customer: ensures contractor_companies and contractor_workers have
+// columns added after initial schema creation (e.g. is_demo).  Safe to call on
+// every request — the Set prevents redundant ALTER TABLE round-trips.
+const _contractorColumnsEnsured = new Set<string>();
+async function ensureContractorColumns(custDb: any, customerId: string): Promise<void> {
+  if (_contractorColumnsEnsured.has(customerId)) return;
+  try {
+    await custDb.execute(sql`ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    await custDb.execute(sql`ALTER TABLE contractor_workers   ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+    _contractorColumnsEnsured.add(customerId);
+  } catch (e: any) {
+    logger.warn('ensureContractorColumns: could not add column — continuing:', e?.message);
+  }
+}
+
   function calculateDuration(start: Date, end: Date): string {
     const diff = end.getTime() - start.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -2034,6 +2049,7 @@ export function registerContractorRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
+      await ensureContractorColumns(db, context.customerId);
       const [company] = await db.select().from(isolatedSchema.contractorCompanies)
         .where(eq(isolatedSchema.contractorCompanies.id, companyId)).limit(1);
       if (!company) return res.status(404).json({ error: 'Company not found' });
