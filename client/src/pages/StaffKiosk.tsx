@@ -464,47 +464,61 @@ export default function StaffKiosk() {
     <div className="min-h-screen bg-slate-50 flex flex-col select-none" style={{ height: "100dvh" }}>
 
       {/* Header */}
-      <header className="bg-[hsl(var(--primary))] text-white px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-md"
+      <header className="bg-[hsl(var(--primary))] text-white px-4 py-3 sm:px-6 sm:py-4 flex-shrink-0 shadow-md"
         style={{ backgroundColor: "hsl(var(--primary))" }}>
+        <div className="flex items-center justify-between gap-4">
 
-        {/* Company logo + name — clicking exits kiosk (matches existing KioskMode pattern) */}
-        <button
-          className="flex items-center gap-3 min-w-0 text-left"
-          onClick={() => setLocation("/")}
-          style={{ cursor: "default" }}
-          aria-label="Exit kiosk"
-        >
-          {settings?.bannerUrl && (
-            <img
-              src={objectUrl(`/objects${settings.bannerUrl}`)}
-              alt=""
-              className="h-8 w-auto object-contain bg-white rounded px-1.5 flex-shrink-0"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
-            />
-          )}
-          <span className="text-base sm:text-lg font-bold truncate max-w-[180px] sm:max-w-xs">
-            {(settings as any)?.companyName || "Staff Sign In"}
-          </span>
-        </button>
+          {/* Left: Company branding + page title */}
+          <div className="flex items-center gap-3 min-w-0">
+            {(settings?.logoUrl || settings?.bannerUrl) && (
+              <img
+                src={objectUrl(`/objects${settings.logoUrl || settings.bannerUrl}`)}
+                alt=""
+                className="h-10 w-auto object-contain bg-white rounded-lg px-2 py-0.5 flex-shrink-0"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            )}
+            <div className="min-w-0">
+              {(settings as any)?.companyName && (
+                <p className="text-xs font-medium opacity-70 truncate max-w-[150px] sm:max-w-xs leading-tight">
+                  {(settings as any).companyName}
+                </p>
+              )}
+              <p className="text-sm sm:text-base font-bold leading-tight">
+                Staff Check In / Out
+              </p>
+            </div>
+          </div>
 
-        {/* Mode toggle pill */}
-        <div className="flex bg-white/20 rounded-xl p-1 gap-1 flex-shrink-0">
-          <button
-            className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === "checkin" ? "bg-white shadow-sm" : "text-white/90 hover:bg-white/10"}`}
-            style={mode === "checkin" ? { color: "hsl(var(--primary))" } : {}}
-            onClick={() => { setMode("checkin"); setSearch(""); }}
-          >
-            <span className="hidden sm:inline">Check In</span>
-            <LogIn size={16} className="sm:hidden" />
-          </button>
-          <button
-            className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === "checkout" ? "bg-white shadow-sm" : "text-white/90 hover:bg-white/10"}`}
-            style={mode === "checkout" ? { color: "hsl(var(--primary))" } : {}}
-            onClick={() => { setMode("checkout"); setSearch(""); }}
-          >
-            <span className="hidden sm:inline">Check Out</span>
-            <LogOut size={16} className="sm:hidden" />
-          </button>
+          {/* Right: mode toggle + exit link */}
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            {/* Mode toggle pill */}
+            <div className="flex bg-white/20 rounded-xl p-1 gap-1">
+              <button
+                className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === "checkin" ? "bg-white shadow-sm" : "text-white/90 hover:bg-white/10"}`}
+                style={mode === "checkin" ? { color: "hsl(var(--primary))" } : {}}
+                onClick={() => { setMode("checkin"); setSearch(""); }}
+              >
+                <span className="hidden sm:inline">Check In</span>
+                <LogIn size={16} className="sm:hidden" />
+              </button>
+              <button
+                className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === "checkout" ? "bg-white shadow-sm" : "text-white/90 hover:bg-white/10"}`}
+                style={mode === "checkout" ? { color: "hsl(var(--primary))" } : {}}
+                onClick={() => { setMode("checkout"); setSearch(""); }}
+              >
+                <span className="hidden sm:inline">Check Out</span>
+                <LogOut size={16} className="sm:hidden" />
+              </button>
+            </div>
+            {/* Exit link */}
+            <button
+              className="text-xs text-white/75 hover:text-white transition-colors underline underline-offset-2"
+              onClick={() => setLocation("/")}
+            >
+              ← Exit to Main System
+            </button>
+          </div>
         </div>
       </header>
 
