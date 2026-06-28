@@ -5,6 +5,7 @@ import { db } from '../db';
 import { customers } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { geocodePostcodesBulk } from '../geocodeService';
 
 const customerDbService = CustomerDatabaseService.getInstance();
 
@@ -186,6 +187,35 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
           ($9,'Edinburgh Retail Centre','ERC-009','Ocean Drive, Edinburgh','EH6 6JJ','East Scotland',$12,'active',false,true),
           ($10,'Ayr Seafront Offices','ASO-010','2 Wellington Square, Ayr','KA7 1EN','South Scotland',$14,'active',false,true)
       `, [sGla, sAbd, sEdH, sSti, sPer, sDun, sInv, sFal, sEdR, sAyr, aC, aE, aN, aS]);
+
+      // Geocode demo sites so they appear on the Estate Map immediately (best-effort)
+      try {
+        const demoSites = [
+          { id: sGla, postcode: 'G4 0SF' },
+          { id: sAbd, postcode: 'AB10 7PQ' },
+          { id: sEdH, postcode: 'EH2 4AN' },
+          { id: sSti, postcode: 'FK7 7RP' },
+          { id: sPer, postcode: 'PH1 5RJ' },
+          { id: sDun, postcode: 'DD1 3JA' },
+          { id: sInv, postcode: 'IV2 5GH' },
+          { id: sFal, postcode: 'FK6 6BG' },
+          { id: sEdR, postcode: 'EH6 6JJ' },
+          { id: sAyr, postcode: 'KA7 1EN' },
+        ];
+        const coords = await geocodePostcodesBulk(demoSites.map(s => s.postcode));
+        for (const site of demoSites) {
+          const c = coords.get(site.postcode);
+          if (c) {
+            await pool.query(
+              `UPDATE "${sn}".sites SET latitude = $1, longitude = $2 WHERE id = $3`,
+              [c.lat, c.lng, site.id]
+            );
+          }
+        }
+        logger.info(`[enterprise-demo] geocoded ${demoSites.length} demo sites`);
+      } catch (geoErr: any) {
+        logger.warn('[enterprise-demo] geocoding failed (non-fatal):', geoErr?.message ?? geoErr);
+      }
 
       // ══ 3. DEMO USERS (area managers + coordinators in isolated users table) ═
       await pool.query(`

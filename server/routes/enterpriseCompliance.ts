@@ -123,6 +123,8 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
         expiringItems = items.filter((i: any) => i.status === 'expiring').length;
       }
 
+      const siteNames = await loadSiteNames(custDb, siteScores.map(s => s.siteId));
+
       const payload = {
         estateScore,
         categoryScores,
@@ -131,7 +133,9 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
         openWarnings,
         totalItems,
         expiringItems,
-        siteScores: siteScores.map(s => ({ siteId: s.siteId, score: s.score })),
+        siteScores: siteScores
+          .map(s => ({ siteId: s.siteId, siteName: siteNames.get(s.siteId) ?? 'Unnamed site', score: s.score }))
+          .sort((a, b) => a.score - b.score),   // worst-first so problem sites surface without scrolling
         generatedAt: new Date().toISOString(),
       };
 

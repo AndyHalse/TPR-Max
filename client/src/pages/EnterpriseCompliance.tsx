@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -71,7 +71,7 @@ interface SummaryData {
   openWarnings: number;
   totalItems: number;
   expiringItems: number;
-  siteScores: { siteId: string; score: number }[];
+  siteScores: { siteId: string; siteName: string; score: number }[];
   generatedAt: string;
 }
 
@@ -648,6 +648,27 @@ export default function EnterpriseCompliance() {
     staleTime: 5 * 60_000,
   });
 
+  // Auto-geocode any unplotted sites on first load (enterprise_admin only).
+  // Non-admins get a 403 which is swallowed silently — no error toast on load.
+  const autoPlottedRef = useRef(false);
+  useEffect(() => {
+    if (autoPlottedRef.current) return;
+    if (geoSites.length === 0) return;
+    const unplotted = geoSites.filter(
+      s => s.postcode && (s.latitude == null || s.longitude == null)
+    );
+    if (unplotted.length === 0) return;
+    autoPlottedRef.current = true;
+    apiRequest("POST", "/api/enterprise/sites/geocode-missing", {})
+      .then(r => r.json())
+      .then((data: { updated: number }) => {
+        if (data.updated > 0) {
+          queryClient.invalidateQueries({ queryKey: ["/api/enterprise/sites"] });
+        }
+      })
+      .catch(() => {});
+  }, [geoSites]);
+
   // ── Derived values ───────────────────────────────────────────────────────────
 
   const noData = !summaryLoading && (summary?.totalItems === 0 || summary?.siteCount === 0);
@@ -942,21 +963,23 @@ export default function EnterpriseCompliance() {
             {noData ? (
               <p className="text-xs text-slate-400 italic">Run an evaluation to see per-site scores.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {(summary?.siteScores ?? []).slice(0, 8).map((ss) => (
-                  <button
-                    key={ss.siteId}
-                    onClick={() => navigate(`/enterprise/sites/${ss.siteId}`)}
-                    className="flex items-center justify-between gap-2 rounded-lg p-2.5 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/50 transition-colors text-left"
-                  >
-                    <span className="text-xs font-medium truncate text-slate-700 dark:text-slate-300">{ss.siteName}</span>
-                    <span className={`text-xs font-bold tabular-nums shrink-0 ${
-                      ss.score >= 90 ? "text-green-600 dark:text-green-400" :
-                      ss.score >= 70 ? "text-amber-600 dark:text-amber-400" :
-                      "text-red-600 dark:text-red-400"
-                    }`}>{ss.score}</span>
-                  </button>
-                ))}
+              <div className="max-h-72 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2">
+                  {(summary?.siteScores ?? []).map((ss) => (
+                    <button
+                      key={ss.siteId}
+                      onClick={() => navigate(`/enterprise/sites/${ss.siteId}`)}
+                      className="flex items-center justify-between gap-2 rounded-lg p-2.5 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/50 transition-colors text-left"
+                    >
+                      <span className="text-xs font-medium truncate text-slate-700 dark:text-slate-300">{ss.siteName}</span>
+                      <span className={`text-xs font-bold tabular-nums shrink-0 ${
+                        ss.score >= 90 ? "text-green-600 dark:text-green-400" :
+                        ss.score >= 70 ? "text-amber-600 dark:text-amber-400" :
+                        "text-red-600 dark:text-red-400"
+                      }`}>{ss.score}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </Card>
