@@ -614,15 +614,19 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
       : undefined;
     const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
 
-    // Pagination — safety cap for large enterprise deployments; UI year-filter keeps sets small
-    const limitParam  = Math.min(parseInt((req.query.limit  as string) || "200", 10), 500);
-    const offsetParam = Math.max(parseInt((req.query.offset as string) || "0",   10), 0);
+    // Pagination — only applied when caller explicitly passes ?limit=N (e.g. Work Orders tab).
+    // Annual Planner omits limit so it gets all records for the selected year.
+    const hasExplicitLimit = req.query.limit !== undefined;
+    const limitParam  = hasExplicitLimit ? Math.min(parseInt(req.query.limit as string, 10), 500) : null;
+    const offsetParam = hasExplicitLimit ? Math.max(parseInt((req.query.offset as string) || "0", 10), 0) : 0;
 
-    const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+    const baseQuery = custDb.select().from(isolatedSchema.ppmWorkOrders)
       .where(and(yearCondition, siteFilter))
-      .orderBy(isolatedSchema.ppmWorkOrders.createdAt)
-      .limit(limitParam)
-      .offset(offsetParam);
+      .orderBy(isolatedSchema.ppmWorkOrders.createdAt);
+
+    const rows = await (limitParam !== null
+      ? baseQuery.limit(limitParam).offset(offsetParam)
+      : baseQuery);
 
     // Omit bearer token fields from list payload; use GET /api/ppm/work-orders/:id/token to get link
     const sanitized = rows.map(({ accessToken: _t, accessTokenExpiresAt: _e, ...rest }) => rest);
