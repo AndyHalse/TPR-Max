@@ -71,12 +71,33 @@ export async function seedIsolatedHSTemplates(customerDb: any, customerLabel?: s
       return 0;
     }
 
-    const hasCustomerId = await customerDb.execute(sql`
+    const hasCustomerIdResult = await customerDb.execute(sql`
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = 'uk_hs_document_templates' AND column_name = 'customer_id'
       LIMIT 1
     `);
-    const needsSharedColumns = (hasCustomerId.rows?.length || 0) > 0;
+    const needsSharedColumns = (hasCustomerIdResult.rows?.length || 0) > 0;
+
+    // Some older schemas have uk_hs_document_templates with customer_id (legacy shared-DB
+    // format). The INSERT below uses extra columns that may not have been added to those
+    // tables yet. Ensure they all exist before we try to insert.
+    if (needsSharedColumns) {
+      const legacyColAlters = [
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS document_code TEXT`,
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS template_content TEXT NOT NULL DEFAULT ''`,
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS is_uk_hs_required BOOLEAN NOT NULL DEFAULT TRUE`,
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS compliance_category TEXT`,
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS version TEXT NOT NULL DEFAULT '1.0'`,
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS allowed_file_types TEXT[]`,
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS max_file_size_mb INTEGER DEFAULT 10`,
+        `ALTER TABLE uk_hs_document_templates ADD COLUMN IF NOT EXISTS auto_fill_enabled BOOLEAN DEFAULT FALSE`,
+      ];
+      for (const stmt of legacyColAlters) {
+        try {
+          await customerDb.execute(sql.raw(stmt));
+        } catch (_) { /* ignore — column may already exist */ }
+      }
+    }
 
     let seeded = 0;
     for (const template of UK_HS_TEMPLATES) {
