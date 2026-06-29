@@ -49,6 +49,7 @@ import {
   ChevronUp,
   UserPlus,
   UserCheck,
+  X,
 } from "lucide-react";
 import GlassCard from "@/components/GlassCard";
 
@@ -353,12 +354,34 @@ function UserGrantGroupRow({
             const RoleIcon = cfg.icon;
             const scope = grantScopeLabel(grant, areas, sites);
             const showScope = grant.role !== "enterprise_admin";
+            const revocable = canRevokeGrant(grant);
             return (
-              <span key={grant.id} className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${cfg.className}`}>
-                <RoleIcon size={10} />
-                {cfg.label}
-                {showScope && <span className="opacity-75">· {scope}</span>}
-              </span>
+              <TooltipProvider key={grant.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${cfg.className}`}>
+                      <RoleIcon size={10} />
+                      {cfg.label}
+                      {showScope && <span className="opacity-75">· {scope}</span>}
+                      {revocable && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onRevoke(grant); }}
+                          disabled={isLastAdmin}
+                          className="ml-0.5 opacity-60 hover:opacity-100 disabled:opacity-30 transition-opacity"
+                          aria-label={`Revoke ${cfg.label}${showScope ? ` · ${scope}` : ""}`}
+                        >
+                          <X size={9} />
+                        </button>
+                      )}
+                    </span>
+                  </TooltipTrigger>
+                  {revocable && (
+                    <TooltipContent>
+                      {isLastAdmin ? "Cannot remove the last Enterprise Admin" : `Revoke ${cfg.label}${showScope ? ` · ${scope}` : ""}`}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             );
           })}
         </div>
@@ -366,32 +389,7 @@ function UserGrantGroupRow({
           Added {toGBDate(userGroup.grants[0]?.createdAt)}
         </p>
       </div>
-      <div className="flex items-center gap-1 flex-shrink-0 pt-1">
-        {userGroup.grants.map((grant) =>
-          canRevokeGrant(grant) ? (
-            <TooltipProvider key={grant.id}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    disabled={isLastAdmin}
-                    onClick={() => onRevoke(grant)}
-                    aria-label={`Revoke ${ROLE_CONFIG[grant.role].label}`}
-                  >
-                    <Trash2 size={13} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isLastAdmin ? "Cannot remove the last Enterprise Admin" : `Revoke ${ROLE_CONFIG[grant.role].label}`}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null
-        )}
-        {!anyRevocable && <div className="w-7" />}
-      </div>
+      <div className="w-2 flex-shrink-0" />
     </div>
   );
 }
