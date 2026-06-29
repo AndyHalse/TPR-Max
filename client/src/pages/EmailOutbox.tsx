@@ -9,9 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn, getSessionToken } from "@/lib/queryClient";
 import type { CompanySettings } from "@shared/schema";
-import { getQueryFn } from "@/lib/queryClient";
 
 interface EmailSummary {
   id: string;
@@ -74,10 +73,13 @@ export default function EmailOutbox() {
     staleTime: 10 * 1000,
   });
 
-  const { data: previewData, isLoading: previewLoading, isError: previewError } = useQuery<EmailDetail>({
+  const { data: previewData, isLoading: previewLoading, error: previewError } = useQuery<EmailDetail>({
     queryKey: ["/api/email-log", previewId],
     queryFn: async () => {
-      const res = await fetch(`/api/email-log/${previewId}`, { credentials: "include" });
+      const headers: Record<string, string> = {};
+      const token = getSessionToken();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/email-log/${previewId}`, { credentials: "include", headers });
       if (!res.ok) throw new Error(`${res.status}`);
       return res.json();
     },
@@ -308,13 +310,27 @@ export default function EmailOutbox() {
           ) : previewError ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
               <AlertTriangle className="w-10 h-10 text-amber-400" />
-              <p className="text-slate-600 dark:text-slate-400 font-medium">Session expired</p>
-              <p className="text-slate-500 dark:text-slate-500 text-sm max-w-xs">
-                Your login session has expired. Please log in again to view email previews.
-              </p>
-              <Button size="sm" onClick={() => { setPreviewId(null); navigate("/login"); }}>
-                Go to Login
-              </Button>
+              {previewError.message === "401" || previewError.message === "403" ? (
+                <>
+                  <p className="text-slate-600 dark:text-slate-400 font-medium">Session expired</p>
+                  <p className="text-slate-500 dark:text-slate-500 text-sm max-w-xs">
+                    Your login session has expired. Please log in again to view email previews.
+                  </p>
+                  <Button size="sm" onClick={() => { setPreviewId(null); navigate("/login"); }}>
+                    Go to Login
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-slate-600 dark:text-slate-400 font-medium">Failed to load preview</p>
+                  <p className="text-slate-500 dark:text-slate-500 text-sm max-w-xs">
+                    Could not load the email preview. Try closing and reopening it.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => setPreviewId(null)}>
+                    Close
+                  </Button>
+                </>
+              )}
             </div>
           ) : previewData ? (
             <div className="space-y-3 mt-1">
