@@ -136,7 +136,7 @@ export function registerEnterpriseReportRoutes(app: Application) {
           .update(iso.enterpriseReports)
           .set({ status: 'failed', errorMessage: errMsg, completedAt: new Date() })
           .where(eq(iso.enterpriseReports.id, reportId));
-        return res.status(500).json({ error: 'Report generation failed', detail: errMsg });
+        return res.status(500).json({ error: errMsg });
       }
 
       // Update DB record

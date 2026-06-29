@@ -10,6 +10,9 @@ import { eq, ne, and, inArray, lte, gte, or, isNull } from 'drizzle-orm';
 import * as iso from './isolatedSchema';
 import { objectStorageClient, parseObjectPath } from './objectStorage';
 import { logger } from './utils/logger';
+// Static import so Node's CJS loader handles Puppeteer — avoids esbuild's ESM
+// shim that throws "Dynamic require of 'fs' is not supported" at launch time.
+import puppeteer from 'puppeteer';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -707,18 +710,11 @@ function findChromiumExecutable(): string | undefined {
 }
 
 async function renderPdf(html: string): Promise<Buffer> {
-  let browser: any;
-  const puppeteer = await import('puppeteer');
-  // Support both ESM default-export and CJS direct-export shapes
-  const puppeteerDefault = (puppeteer as any).default ?? puppeteer;
-  const puppeteerLaunch = puppeteerDefault?.launch ?? (puppeteer as any).launch;
-  if (typeof puppeteerLaunch !== 'function') throw new Error('puppeteer_launch_not_found');
-
   const executablePath = findChromiumExecutable();
   logger.info('[renderPdf] launching Chromium', { executablePath: executablePath ?? 'bundled' });
 
   const launchOptions: any = {
-    headless: true,   // 'true' maps to new-headless mode in Puppeteer 22+
+    headless: true,
     timeout: 30_000,
     args: [
       '--no-sandbox',
@@ -732,7 +728,8 @@ async function renderPdf(html: string): Promise<Buffer> {
   };
   if (executablePath) launchOptions.executablePath = executablePath;
 
-  browser = await puppeteerLaunch.call(puppeteerDefault, launchOptions);
+  // puppeteer is a static import — Node's CJS loader handles it correctly
+  const browser = await puppeteer.launch(launchOptions);
   try {
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(60_000);
