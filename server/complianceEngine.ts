@@ -276,9 +276,13 @@ async function evalCertificates(custDb: any, siteId: string, now: Date): Promise
 }
 
 async function evalPpm(custDb: any, siteId: string, now: Date): Promise<ItemDef[]> {
+  const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD for date comparisons
+
+  // 1. Open work orders for this site (existing behaviour)
   const orders = await custDb
     .select({
       id: iso.ppmWorkOrders.id,
+      scheduleId: iso.ppmWorkOrders.scheduleId,
       status: iso.ppmWorkOrders.status,
       dueDate: iso.ppmWorkOrders.dueDate,
     })
@@ -290,7 +294,7 @@ async function evalPpm(custDb: any, siteId: string, now: Date): Promise<ItemDef[
       ),
     );
 
-  return orders.map((o: any): ItemDef => {
+  const workOrderItems: ItemDef[] = orders.map((o: any): ItemDef => {
     let status: ItemStatus = 'current';
     const dueDate = o.dueDate ? new Date(o.dueDate) : null;
     if (o.status === 'overdue') {
@@ -303,6 +307,52 @@ async function evalPpm(custDb: any, siteId: string, now: Date): Promise<ItemDef[
       status, severity: toSeverity(status), expiresAt: dueDate,
     };
   });
+
+  // 2. PPM schedules for this site — the authoritative maintenance register.
+  //    Many sites have schedules but no explicit work orders; the compliance engine
+  //    must evaluate schedules directly so overdue/upcoming maintenance is visible.
+  //    We track each schedule that doesn't already have an open work order.
+  const schedulesWithOpenWo = new Set(
+    orders.map((o: any) => o.scheduleId).filter(Boolean)
+  );
+
+  const schedules = await custDb
+    .select({
+      id: iso.ppmSchedules.id,
+      nextDueDate: iso.ppmSchedules.nextDueDate,
+      status: iso.ppmSchedules.status,
+    })
+    .from(iso.ppmSchedules)
+    .where(
+      and(
+        eq(iso.ppmSchedules.siteId, siteId),
+        inArray(iso.ppmSchedules.status, ['scheduled', 'overdue']),
+      ),
+    );
+
+  const scheduleItems: ItemDef[] = schedules
+    .filter((s: any) => !schedulesWithOpenWo.has(s.id)) // avoid double-counting
+    .map((s: any): ItemDef => {
+      // Derive effective status from nextDueDate (same logic as PPM route)
+      const nextDue = s.nextDueDate ? new Date(s.nextDueDate) : null;
+      let status: ItemStatus = 'current';
+      if (nextDue) {
+        const daysUntilDue = daysDiff(now, nextDue);
+        if (s.nextDueDate < todayStr) {
+          // Overdue — how long?
+          const daysOverdue = daysDiff(nextDue, now);
+          status = daysOverdue > 30 ? 'lapsed' : 'expiring';
+        } else if (daysUntilDue <= 14) {
+          status = 'expiring';
+        }
+      }
+      return {
+        siteId, category: 'ppm', sourceTable: 'ppm_schedules', sourceId: s.id,
+        status, severity: toSeverity(status), expiresAt: nextDue,
+      };
+    });
+
+  return [...workOrderItems, ...scheduleItems];
 }
 
 async function evalFra(custDb: any, siteId: string, now: Date): Promise<ItemDef[]> {
