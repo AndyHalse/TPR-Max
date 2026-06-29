@@ -1137,6 +1137,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
   const emptyWOForm = () => ({
     title: "", description: "", assetId: "", groupId: "", scheduleId: "", dueDate: "", notes: "",
     requiresCertificate: false, status: "scheduled", scope: "single-asset" as "single-asset" | "group",
+    contractorCompanyId: "" as string | null, contractorCompanyName: "" as string | null,
   });
   const [woForm, setWoForm] = useState(emptyWOForm());
 
@@ -1156,6 +1157,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       requiresCertificate: wo.requiresCertificate ?? false,
       status: wo.status,
       scope: wo.groupId ? "group" : "single-asset",
+      contractorCompanyId: wo.contractorCompanyId || "",
+      contractorCompanyName: wo.contractorCompanyName || "",
     });
     setShowEditWO(true);
   };
@@ -1888,6 +1891,22 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               <Label>{t("workOrders.notesLabel")}</Label>
               <Textarea value={woForm.notes} onChange={e => setWoForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
+            <div>
+              <Label>Contractor (optional)</Label>
+              <Select
+                value={woForm.contractorCompanyId || "_none"}
+                onValueChange={v => {
+                  const c = contractors.find(x => x.id === v);
+                  setWoForm(f => ({ ...f, contractorCompanyId: v === "_none" ? null : v, contractorCompanyName: v === "_none" ? null : (c?.name ?? v) }));
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="reqCert" checked={woForm.requiresCertificate} onChange={e => setWoForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
               <Label htmlFor="reqCert" className="font-normal cursor-pointer">{t("workOrders.requiresCertificate")}</Label>
@@ -1901,6 +1920,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 assetId: woForm.scope === "single-asset" ? (woForm.assetId || null) : null,
                 groupId: woForm.scope === "group" ? (woForm.groupId || null) : null,
                 scheduleId: woForm.scheduleId || null,
+                contractorCompanyId: woForm.contractorCompanyId || null,
+                contractorCompanyName: woForm.contractorCompanyName || null,
               })}
               disabled={!woForm.title || createWOMutation.isPending}
             >
@@ -1987,6 +2008,22 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
               <Label>{t("workOrders.notesLabel")}</Label>
               <Textarea value={editWOForm.notes} onChange={e => setEditWOForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
+            <div>
+              <Label>Contractor (optional)</Label>
+              <Select
+                value={editWOForm.contractorCompanyId || "_none"}
+                onValueChange={v => {
+                  const c = contractors.find(x => x.id === v);
+                  setEditWOForm(f => ({ ...f, contractorCompanyId: v === "_none" ? null : v, contractorCompanyName: v === "_none" ? null : (c?.name ?? v) }));
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="editReqCert" checked={editWOForm.requiresCertificate} onChange={e => setEditWOForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
               <Label htmlFor="editReqCert" className="font-normal cursor-pointer">{t("workOrders.requiresCertificate")}</Label>
@@ -2003,6 +2040,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   assetId: editWOForm.scope === "single-asset" ? (editWOForm.assetId || null) : null,
                   groupId: editWOForm.scope === "group" ? (editWOForm.groupId || null) : null,
                   scheduleId: editWOForm.scheduleId || null,
+                  contractorCompanyId: editWOForm.contractorCompanyId || null,
+                  contractorCompanyName: editWOForm.contractorCompanyName || null,
                 }
               })}
             >
