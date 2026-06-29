@@ -631,9 +631,91 @@ export async function computeLiveScores(
     estateCategoryScores[cat] = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 100;
   }
 
-  const estateScore = siteResults.length > 0
+  let estateScore = siteResults.length > 0
     ? Math.round(siteResults.reduce((a, b) => a + b.score, 0) / siteResults.length)
     : 100;
+
+  // ── Contractor pool health injection ────────────────────────────────────────
+  // Company-level docs (insurance, RAMS, H&S) are NOT linked to a specific site,
+  // so they never appear in compliance_items. We fetch them here and blend their
+  // completeness into the relevant estate category scores (50 % site / 50 % pool).
+  // This ensures the estate score reflects contractor gaps even when all sites
+  // score 100 % on their own site-linked documents.
+  try {
+    const KEY_POOL_DOCS: Array<{ type: string; category: Category }> = [
+      { type: 'publicLiability',    category: 'insurance' },
+      { type: 'employersLiability', category: 'insurance' },
+      { type: 'rams',               category: 'rams' },
+      { type: 'healthSafety',       category: 'certificates' },
+    ];
+    const poolCategories = new Set(KEY_POOL_DOCS.map(d => d.category));
+
+    const companies = await custDb
+      .select({ id: iso.contractorCompanies.id })
+      .from(iso.contractorCompanies)
+      .where(eq(iso.contractorCompanies.isActive, true));
+
+    if (companies.length > 0) {
+      const companyIds = companies.map((c: any) => c.id);
+
+      const poolDocs = await custDb
+        .select({
+          companyId: iso.contractorDocuments.companyId,
+          documentType: iso.contractorDocuments.documentType,
+          status: iso.contractorDocuments.status,
+        })
+        .from(iso.contractorDocuments)
+        .where(and(
+          inArray(iso.contractorDocuments.companyId, companyIds),
+          isNull(iso.contractorDocuments.workerId),
+          eq(iso.contractorDocuments.isActive, true),
+          ne(iso.contractorDocuments.status, 'rejected'),
+        ));
+
+      // Build set of approved document types per company
+      const approvedByCompany = new Map<string, Set<string>>();
+      for (const d of poolDocs) {
+        if (d.status === 'approved' || d.status === 'valid') {
+          if (!approvedByCompany.has(d.companyId)) approvedByCompany.set(d.companyId, new Set());
+          approvedByCompany.get(d.companyId)!.add(d.documentType);
+        }
+      }
+
+      // Score each pool category: % of companies that have every required doc
+      const poolCatScore: Partial<Record<Category, number>> = {};
+      for (const cat of poolCategories) {
+        const keyTypes = KEY_POOL_DOCS.filter(k => k.category === cat).map(k => k.type);
+        let total = 0; let current = 0;
+        for (const co of companies) {
+          const approved = approvedByCompany.get((co as any).id) ?? new Set<string>();
+          for (const docType of keyTypes) {
+            total++;
+            if (approved.has(docType)) current++;
+          }
+        }
+        poolCatScore[cat] = total > 0 ? Math.round((current / total) * 100) : 100;
+      }
+
+      // Blend 50 / 50: site average meets pool score for each affected category
+      for (const cat of poolCategories) {
+        const siteCatScore = estateCategoryScores[cat] ?? 100;
+        const poolScore = poolCatScore[cat] ?? 100;
+        estateCategoryScores[cat] = Math.round((siteCatScore + poolScore) / 2);
+      }
+
+      // Recalculate estate score from the blended category scores
+      let totalWeight = 0; let weightedSum = 0;
+      for (const cat of CATEGORIES) {
+        const w = weights[cat] ?? 10;
+        weightedSum += (estateCategoryScores[cat] ?? 100) * w;
+        totalWeight += w;
+      }
+      estateScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : estateScore;
+    }
+  } catch (poolErr) {
+    logger.warn('[compliance] pool health injection skipped (non-fatal):', poolErr);
+  }
+  // ── End pool injection ─────────────────────────────────────────────────────
 
   return { estateScore, siteScores: siteResults, categoryScores: estateCategoryScores };
 }
