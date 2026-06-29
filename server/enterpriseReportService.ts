@@ -663,14 +663,29 @@ async function buildAuditTrailExport(
 
 // ─── Puppeteer PDF renderer ───────────────────────────────────────────────────
 
-/** Detect a working Chromium binary, preferring system nix-compiled versions
- *  which have all shared-library deps resolved via the nix store. */
+// Known nix store paths for chromium, in order of preference.
+// Nix store hashes are content-addressed and identical for the same package
+// version + channel across dev and production (Replit stable-24_05).
+// Add new entries here if the channel is ever bumped.
+const NIX_CHROMIUM_CANDIDATES = [
+  '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+];
+
+/** Detect a working Chromium binary, preferring nix-compiled versions whose
+ *  shared-library deps are resolved via the nix store (no libglib issues). */
 function findChromiumExecutable(): string | undefined {
-  // 1. Explicit env override (allows ops to pin a specific path)
+  const { existsSync } = require('fs');
+
+  // 1. Env override — set globally at startup by ensureChromeBinary() in index.ts,
+  //    or pinned manually by ops.  This is the primary path in production.
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
 
-  // 2. System chromium from PATH (installed via nix packages — libraries are
-  //    bundled in the nix store so libglib / libnss / etc. are always present)
+  // 2. Known nix store paths (O(1) stat, deterministic across dev+prod).
+  for (const p of NIX_CHROMIUM_CANDIDATES) {
+    if (existsSync(p)) return p;
+  }
+
+  // 3. PATH-based lookup (works in dev where nix bins are on PATH, or plain Linux envs)
   try {
     const { execFileSync } = require('child_process');
     for (const cmd of ['chromium', 'chromium-browser', 'google-chrome-stable', 'google-chrome']) {
@@ -681,7 +696,7 @@ function findChromiumExecutable(): string | undefined {
     }
   } catch {}
 
-  // 3. Fall through — let Puppeteer use its managed Chrome (works in dev)
+  // 4. Fall through — let Puppeteer use its managed Chrome
   return undefined;
 }
 

@@ -29,8 +29,31 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
-// Ensure Puppeteer Chrome binary is available (used for PDF report generation)
+// Known nix store paths for chromium (content-addressed → same hash in dev + prod).
+// These are O(1) existsSync checks — no directory scanning.
+const NIX_CHROMIUM_CANDIDATES = [
+  "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium",
+];
+
+// Ensure Puppeteer Chrome binary is available (used for PDF report generation).
+// Priority: nix-compiled chromium (shared libs in nix store, no libglib issues)
+//           → Puppeteer managed Chrome (fallback for plain Linux dev envs)
 async function ensureChromeBinary() {
+  const { existsSync } = await import("fs");
+
+  // 1. Check known nix store paths first (O(1), deterministic across dev + prod).
+  //    Setting PUPPETEER_EXECUTABLE_PATH globally means every Puppeteer user in
+  //    this process (enterprise reports, PPM, emergency, RAMS) uses nix chromium.
+  for (const chromePath of NIX_CHROMIUM_CANDIDATES) {
+    if (existsSync(chromePath)) {
+      process.env.PUPPETEER_EXECUTABLE_PATH = chromePath;
+      logger.info(`✅ Nix chromium found and set: ${chromePath}`);
+      return;
+    }
+  }
+
+  // 2. Fall back to Puppeteer's managed Chrome (works in plain Linux envs where
+  //    shared libs like libglib are present on the host).
   try {
     const { execSync } = await import("child_process");
     execSync("npx puppeteer browsers install chrome", {
@@ -45,8 +68,8 @@ async function ensureChromeBinary() {
     );
   }
 }
-// Run on every startup (dev and production) so the Replit deployment image
-// always has the Chrome binary available for PDF report generation.
+// Run on every startup so PUPPETEER_EXECUTABLE_PATH is set before any
+// PDF-generation request arrives.
 ensureChromeBinary();
 
 // Global error handlers to prevent crashes
