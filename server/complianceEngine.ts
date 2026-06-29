@@ -386,34 +386,84 @@ async function evalFra(custDb: any, siteId: string, now: Date): Promise<ItemDef[
 }
 
 async function evalRtw(custDb: any, siteId: string, now: Date): Promise<ItemDef[]> {
+  // Step 1: All active contractor workers at this site
   const workers = await custDb
-    .select({
-      id: iso.contractorWorkers.id,
-      rightToWork: iso.contractorWorkers.rightToWork,
-      rightToWorkExpiryDate: iso.contractorWorkers.rightToWorkExpiryDate,
-    })
+    .select({ id: iso.contractorWorkers.id })
     .from(iso.contractorWorkers)
-    .where(
-      and(
-        eq(iso.contractorWorkers.siteId, siteId),
-        isNotNull(iso.contractorWorkers.rightToWork),
-        ne(iso.contractorWorkers.rightToWork, 'pending'),
-      ),
-    );
+    .where(and(
+      eq(iso.contractorWorkers.siteId, siteId),
+      eq(iso.contractorWorkers.isActive, true),
+    ));
+
+  if (workers.length === 0) return [];
+
+  const workerIds = workers.map((w: any) => w.id);
+
+  // Step 2: Active RTW documents for those workers (skip rejected).
+  // A worker can have multiple RTW docs — we pick the best one per worker
+  // (approved first, then pending, then others; latest expiry wins ties).
+  const docs = await custDb
+    .select({
+      workerId: iso.contractorDocuments.workerId,
+      status: iso.contractorDocuments.status,
+      expiryDate: iso.contractorDocuments.expiryDate,
+    })
+    .from(iso.contractorDocuments)
+    .where(and(
+      inArray(iso.contractorDocuments.workerId, workerIds),
+      eq(iso.contractorDocuments.documentType, 'right_to_work'),
+      eq(iso.contractorDocuments.isActive, true),
+      ne(iso.contractorDocuments.status, 'rejected'),
+    ));
+
+  // Sort: best status first (approved=0 > pending=1 > others=2), then latest expiry
+  const statusRank: Record<string, number> = { approved: 0, pending: 1 };
+  docs.sort((a: any, b: any) => {
+    const ra = statusRank[a.status] ?? 2, rb = statusRank[b.status] ?? 2;
+    if (ra !== rb) return ra - rb;
+    const ae = a.expiryDate ? new Date(a.expiryDate).getTime() : 0;
+    const be = b.expiryDate ? new Date(b.expiryDate).getTime() : 0;
+    return be - ae; // later expiry first
+  });
+
+  // Best doc per worker (first after sort)
+  const docMap = new Map<string, { status: string; expiryDate: Date | null }>();
+  for (const d of docs) {
+    if (!docMap.has(d.workerId)) {
+      docMap.set(d.workerId, { status: d.status, expiryDate: d.expiryDate ? new Date(d.expiryDate) : null });
+    }
+  }
 
   return workers.map((w: any): ItemDef => {
-    let status: ItemStatus = 'current';
-    if (w.rightToWork === 'expired' || w.rightToWork === 'invalid') {
+    const doc = docMap.get(w.id);
+    let status: ItemStatus;
+    let expiresAt: Date | null = null;
+
+    if (!doc) {
+      // No RTW document uploaded at all → missing → critical
       status = 'lapsed';
-    } else if (w.rightToWork === 'valid' && w.rightToWorkExpiryDate) {
-      const diff = daysDiff(now, new Date(w.rightToWorkExpiryDate));
-      if (diff < 0) status = 'lapsed';
-      else if (diff <= 28) status = 'expiring';
+    } else if (doc.status === 'expired') {
+      status = 'lapsed';
+      expiresAt = doc.expiryDate;
+    } else if (doc.status === 'approved') {
+      expiresAt = doc.expiryDate;
+      if (doc.expiryDate) {
+        const diff = daysDiff(now, doc.expiryDate);
+        if (diff < 0) status = 'lapsed';        // document past expiry
+        else if (diff <= 28) status = 'expiring'; // expires within 28 days
+        else status = 'current';
+      } else {
+        status = 'current'; // no expiry = indefinite leave to remain etc.
+      }
+    } else {
+      // pending or other → needs attention
+      status = 'expiring';
+      expiresAt = doc.expiryDate;
     }
+
     return {
       siteId, category: 'rtw', sourceTable: 'contractor_workers', sourceId: w.id,
-      status, severity: toSeverity(status),
-      expiresAt: w.rightToWorkExpiryDate ? new Date(w.rightToWorkExpiryDate) : null,
+      status, severity: toSeverity(status), expiresAt,
     };
   });
 }
