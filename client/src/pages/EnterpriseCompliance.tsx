@@ -896,12 +896,16 @@ export default function EnterpriseCompliance() {
     queryKey: ["/api/enterprise/compliance/summary"],
     staleTime: STALE,
     refetchOnWindowFocus: true,
+    retry: 1,
+    retryDelay: 2000,
   });
 
   const { data: sites, isLoading: sitesLoading } = useQuery<SiteRow[]>({
     queryKey: ["/api/enterprise/compliance/sites"],
     staleTime: STALE,
     refetchOnWindowFocus: true,
+    retry: 1,
+    retryDelay: 2000,
   });
 
   const { data: alerts, isLoading: alertsLoading } = useQuery<AlertRow[]>({

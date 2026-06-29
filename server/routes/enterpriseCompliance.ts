@@ -15,18 +15,22 @@ import * as iso from '../isolatedSchema';
 import { computeLiveScores, evaluateSite, DEFAULT_WEIGHTS, DEFAULT_PENALTY, CATEGORIES } from '../complianceEngine';
 import { logger } from '../utils/logger';
 
-// ── Simple in-memory cache (60 s TTL) per (customerId + scopeKey) ─────────────
-const _summaryCache = new Map<string, { ts: number; data: unknown }>();
+// ── Simple in-memory cache per (customerId + scopeKey) ────────────────────────
+// Normal TTL: 60 s.  Short TTL (8 s): used when returning existing data while a
+// freshness evaluation runs in the background — ensures the next request picks
+// up the newly-evaluated results quickly instead of serving stale data for 60 s.
+const _summaryCache = new Map<string, { ts: number; data: unknown; ttlMs: number }>();
 const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_BACKGROUND_MS = 8_000;
 
 function cacheGet(key: string): unknown | null {
   const entry = _summaryCache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL_MS) { _summaryCache.delete(key); return null; }
+  if (Date.now() - entry.ts > entry.ttlMs) { _summaryCache.delete(key); return null; }
   return entry.data;
 }
-function cacheSet(key: string, data: unknown): void {
-  _summaryCache.set(key, { ts: Date.now(), data });
+function cacheSet(key: string, data: unknown, ttlMs: number = CACHE_TTL_MS): void {
+  _summaryCache.set(key, { ts: Date.now(), data, ttlMs });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -109,12 +113,34 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
-      // Await freshness evaluation so date-based statuses (e.g. overdue PPM) are
-      // always current before computing scores. The 120 s per-site TTL in
-      // ensureFreshComplianceEvaluation means this blocks only on the first request
-      // after each 2-minute window, not on every call.
       const scopeSiteIds = await inScopeActiveSiteIds(custDb, allowed);
-      await ensureFreshComplianceEvaluation(customerId, scopeSiteIds);
+
+      // Find which sites are stale (eval TTL expired or never run)
+      const nowMs = Date.now();
+      const staleSiteIds = scopeSiteIds.filter(
+        id => nowMs - (_siteEvalTs.get(`${customerId}:${id}`) ?? 0) >= EVAL_TTL_MS
+      );
+
+      // Non-blocking strategy: if compliance items already exist, serve them
+      // immediately and re-evaluate freshness in the background (short cache TTL
+      // ensures the next request gets the updated scores). Only block on first-ever
+      // run (no items yet) so the initial response contains real data.
+      let backgroundEval = false;
+      if (staleSiteIds.length > 0) {
+        const existingRows = scopeSiteIds.length > 0
+          ? await custDb
+              .select({ id: iso.complianceItems.id })
+              .from(iso.complianceItems)
+              .where(inArray(iso.complianceItems.siteId, scopeSiteIds))
+              .limit(1)
+          : [];
+        if (existingRows.length > 0) {
+          backgroundEval = true;
+          void ensureFreshComplianceEvaluation(customerId, staleSiteIds);
+        } else {
+          await ensureFreshComplianceEvaluation(customerId, staleSiteIds);
+        }
+      }
 
       const { estateScore, siteScores, categoryScores } = await computeLiveScores(custDb, allowed);
 
@@ -157,7 +183,9 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
         generatedAt: new Date().toISOString(),
       };
 
-      cacheSet(cacheKey, payload);
+      // Use a short TTL when background eval is running so the next request
+      // picks up the freshly-evaluated scores instead of serving stale data.
+      cacheSet(cacheKey, payload, backgroundEval ? CACHE_TTL_BACKGROUND_MS : CACHE_TTL_MS);
       return res.json(payload);
     } catch (err) {
       logger.error('[compliance/summary] error:', err);
@@ -174,10 +202,27 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
       const allowed = await callerScope(req);
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
-      // Re-evaluate in-scope sites so the Sites page reflects current statuses
-      // (e.g. overdue PPM) before scoring. Bounded by a per-site TTL + in-flight lock.
+      // Non-blocking evaluation: serve existing data immediately when available,
+      // fire freshness re-evaluation in the background (same pattern as summary).
       const scopeSiteIds = await inScopeActiveSiteIds(custDb, allowed);
-      await ensureFreshComplianceEvaluation(customerId, scopeSiteIds);
+      const nowMsSites = Date.now();
+      const staleSiteIdsSites = scopeSiteIds.filter(
+        id => nowMsSites - (_siteEvalTs.get(`${customerId}:${id}`) ?? 0) >= EVAL_TTL_MS
+      );
+      if (staleSiteIdsSites.length > 0) {
+        const existingRowsSites = scopeSiteIds.length > 0
+          ? await custDb
+              .select({ id: iso.complianceItems.id })
+              .from(iso.complianceItems)
+              .where(inArray(iso.complianceItems.siteId, scopeSiteIds))
+              .limit(1)
+          : [];
+        if (existingRowsSites.length > 0) {
+          void ensureFreshComplianceEvaluation(customerId, staleSiteIdsSites);
+        } else {
+          await ensureFreshComplianceEvaluation(customerId, staleSiteIdsSites);
+        }
+      }
 
       const { siteScores } = await computeLiveScores(custDb, allowed);
       const siteIds = siteScores.map(s => s.siteId);
