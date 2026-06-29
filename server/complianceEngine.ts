@@ -185,62 +185,81 @@ async function evalRams(custDb: any, siteId: string, now: Date): Promise<ItemDef
 }
 
 async function evalInductions(custDb: any, siteId: string, now: Date): Promise<ItemDef[]> {
-  // Workers currently checked in at this site
-  const onSite = await custDb
-    .select({ id: iso.contractorWorkers.id })
+  // All active contractor workers at this site (not just checked-in — tracks
+  // induction status for the full workforce register, not just today's visitors)
+  const workers = await custDb
+    .select({
+      id: iso.contractorWorkers.id,
+      siteInductionCompleted: iso.contractorWorkers.siteInductionCompleted,
+      siteInductionExpiryDate: iso.contractorWorkers.siteInductionExpiryDate,
+      siteInductionRequired: iso.contractorWorkers.siteInductionRequired,
+    })
     .from(iso.contractorWorkers)
-    .where(and(eq(iso.contractorWorkers.siteId, siteId), eq(iso.contractorWorkers.isCheckedIn, true)));
+    .where(and(
+      eq(iso.contractorWorkers.siteId, siteId),
+      eq(iso.contractorWorkers.isActive, true),
+    ));
 
-  if (onSite.length === 0) return [];
+  if (workers.length === 0) return [];
 
-  const workerIds = onSite.map((w: any) => w.id);
+  const workerIds = workers.map((w: any) => w.id);
 
-  // Their induction tokens at this site (completed / valid)
+  // Digital induction tokens — quiz-completed tokens give an expiry date
+  // (offline inductions are tracked via siteInductionCompleted on the worker)
   const tokens = await custDb
     .select({
       workerId: iso.inductionTokens.workerId,
       expiresAt: iso.inductionTokens.expiresAt,
-      quizCompleted: iso.inductionTokens.quizCompleted,
-      status: iso.inductionTokens.status,
     })
     .from(iso.inductionTokens)
-    .where(
-      and(
-        eq(iso.inductionTokens.siteId, siteId),
-        inArray(iso.inductionTokens.workerId, workerIds),
-        eq(iso.inductionTokens.quizCompleted, true),
-      ),
-    );
+    .where(and(
+      eq(iso.inductionTokens.siteId, siteId),
+      inArray(iso.inductionTokens.workerId, workerIds),
+      eq(iso.inductionTokens.quizCompleted, true),
+    ));
 
-  // Build map: workerId → most recent valid token
-  const tokenMap = new Map<string, any>();
+  // Best token per worker: latest expiry wins
+  const tokenExpiry = new Map<string, Date | null>();
   for (const t of tokens) {
     if (!t.workerId) continue;
-    const existing = tokenMap.get(t.workerId);
-    if (!existing || (t.expiresAt && existing.expiresAt && new Date(t.expiresAt) > new Date(existing.expiresAt))) {
-      tokenMap.set(t.workerId, t);
+    const newExp = t.expiresAt ? new Date(t.expiresAt) : null;
+    const prev = tokenExpiry.get(t.workerId);
+    if (!tokenExpiry.has(t.workerId) || (newExp && (!prev || newExp > prev))) {
+      tokenExpiry.set(t.workerId, newExp);
     }
   }
 
-  return onSite.map((w: any): ItemDef => {
-    const token = tokenMap.get(w.id);
-    if (!token) {
+  return workers
+    .filter((w: any) => w.siteInductionRequired !== false) // skip workers where induction not required
+    .map((w: any): ItemDef => {
+      const completed = w.siteInductionCompleted === true;
+      const hasToken = tokenExpiry.has(w.id);
+      const isInducted = completed || hasToken;
+
+      // Best expiry: latest of worker-level date and token expiry
+      const workerExp = w.siteInductionExpiryDate ? new Date(w.siteInductionExpiryDate) : null;
+      const tokExp = tokenExpiry.get(w.id) ?? null;
+      let bestExpiry: Date | null = null;
+      if (workerExp && tokExp) bestExpiry = workerExp > tokExp ? workerExp : tokExp;
+      else bestExpiry = workerExp ?? tokExp;
+
+      let status: ItemStatus;
+      if (!isInducted) {
+        status = 'missing'; // never inducted → critical
+      } else if (bestExpiry) {
+        const diff = daysDiff(now, bestExpiry);
+        if (diff < 0) status = 'lapsed';        // induction expired
+        else if (diff <= 14) status = 'expiring'; // expiring within 2 weeks
+        else status = 'current';
+      } else {
+        status = 'current'; // inducted, no expiry set
+      }
+
       return {
         siteId, category: 'inductions', sourceTable: 'contractor_workers', sourceId: w.id,
-        status: 'missing', severity: 'critical', expiresAt: null,
+        status, severity: toSeverity(status), expiresAt: bestExpiry,
       };
-    }
-    let status: ItemStatus = 'current';
-    if (token.expiresAt) {
-      const diff = daysDiff(now, new Date(token.expiresAt));
-      if (diff < 0) status = 'lapsed';
-      else if (diff <= 14) status = 'expiring';
-    }
-    return {
-      siteId, category: 'inductions', sourceTable: 'contractor_workers', sourceId: w.id,
-      status, severity: toSeverity(status), expiresAt: token.expiresAt ? new Date(token.expiresAt) : null,
-    };
-  });
+    });
 }
 
 async function evalCertificates(custDb: any, siteId: string, now: Date): Promise<ItemDef[]> {
