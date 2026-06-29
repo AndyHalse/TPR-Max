@@ -626,6 +626,87 @@ export async function runDailyComplianceJob(customerId: string): Promise<void> {
 
 // ── Compute live score from existing items (for API without running full eval) ─
 
+// ── Contractor pool health (company-level docs, not site-linked) ───────────────
+// Company-level insurance / RAMS / H&S docs have no siteId, so they never become
+// site-linked compliance_items. This helper scores their completeness per category
+// so the result can be blended into BOTH the estate score and every site score
+// (the contractor pool is shared across the estate). Expiry is honoured the same
+// way the Contractor Pool UI's docStatus does, so expired / expiring company docs
+// are penalised consistently instead of silently counting as compliant.
+const KEY_POOL_DOCS: Array<{ type: string; category: Category }> = [
+  { type: 'publicLiability',    category: 'insurance' },
+  { type: 'employersLiability', category: 'insurance' },
+  { type: 'rams',               category: 'rams' },
+  { type: 'healthSafety',       category: 'certificates' },
+];
+export const POOL_CATEGORIES: ReadonlySet<Category> = new Set(KEY_POOL_DOCS.map(d => d.category));
+
+export async function computeContractorPoolCategoryScores(
+  custDb: any,
+  now: Date = new Date(),
+): Promise<Partial<Record<Category, number>>> {
+  try {
+    const companies = await custDb
+      .select({ id: iso.contractorCompanies.id })
+      .from(iso.contractorCompanies)
+      .where(eq(iso.contractorCompanies.isActive, true));
+    if (companies.length === 0) return {};
+
+    const companyIds = companies.map((c: any) => c.id);
+
+    const poolDocs = await custDb
+      .select({
+        companyId: iso.contractorDocuments.companyId,
+        documentType: iso.contractorDocuments.documentType,
+        status: iso.contractorDocuments.status,
+        expiryDate: iso.contractorDocuments.expiryDate,
+      })
+      .from(iso.contractorDocuments)
+      .where(and(
+        inArray(iso.contractorDocuments.companyId, companyIds),
+        isNull(iso.contractorDocuments.workerId),   // company-level docs only
+        eq(iso.contractorDocuments.isActive, true),
+        ne(iso.contractorDocuments.status, 'rejected'),
+      ));
+
+    // Best health value per (company, docType): 1 = current, 0.5 = expiring, 0 = missing/expired/unapproved
+    const healthByCompanyDoc = new Map<string, number>();
+    for (const d of poolDocs) {
+      const approved = d.status === 'approved' || d.status === 'valid';
+      let health = 0;
+      if (approved) {
+        health = 1;
+        if (d.expiryDate) {
+          const diff = daysDiff(now, new Date(d.expiryDate));
+          if (diff < 0) health = 0;          // expired
+          else if (diff <= 30) health = 0.5; // expiring soon
+        }
+      }
+      const key = `${d.companyId}:${d.documentType}`;
+      const prev = healthByCompanyDoc.get(key);
+      if (prev === undefined || health > prev) healthByCompanyDoc.set(key, health);
+    }
+
+    // Score each pool category as the average health across (company × required doc type)
+    const poolCatScore: Partial<Record<Category, number>> = {};
+    for (const cat of POOL_CATEGORIES) {
+      const keyTypes = KEY_POOL_DOCS.filter(k => k.category === cat).map(k => k.type);
+      let total = 0; let sum = 0;
+      for (const co of companies) {
+        for (const docType of keyTypes) {
+          total++;
+          sum += healthByCompanyDoc.get(`${(co as any).id}:${docType}`) ?? 0;
+        }
+      }
+      poolCatScore[cat] = total > 0 ? Math.round((sum / total) * 100) : 100;
+    }
+    return poolCatScore;
+  } catch (poolErr) {
+    logger.warn('[compliance] pool health computation skipped (non-fatal):', poolErr);
+    return {};
+  }
+}
+
 export async function computeLiveScores(
   custDb: any,
   allowedSiteIds: string[] | 'all',
@@ -658,19 +739,41 @@ export async function computeLiveScores(
     .from(iso.complianceAlerts)
     .where(and(inArray(iso.complianceAlerts.siteId, allSiteIds), eq(iso.complianceAlerts.status, 'open')));
 
+  // Shared contractor-pool category scores (company-level docs, not site-linked).
+  // Blended into BOTH each site (so the Sites page reflects pool gaps) and the
+  // estate (unchanged behaviour). Empty when there are no active companies, in
+  // which case blending is a no-op and every score matches the previous logic.
+  const poolCatScore = await computeContractorPoolCategoryScores(custDb);
+  const hasPool = Object.keys(poolCatScore).length > 0;
+
+  const blendPool = (cat: string, rawScore: number): number => {
+    if (!hasPool) return rawScore;
+    const poolScore = poolCatScore[cat as Category];
+    if (poolScore === undefined) return rawScore;
+    return Math.round((rawScore + poolScore) / 2);
+  };
+
   const siteResults: SiteScore[] = [];
   const estateCategory: Record<string, number[]> = {};
+  let rawSiteScoreSum = 0;
 
   for (const site of sites) {
     const siteItems = items.filter((i: any) => i.siteId === site.id);
     const siteCriticals = openAlerts.filter((a: any) => a.siteId === site.id && a.severity === 'critical').length;
+    const rawCatScores: Record<string, number> = {};
     const catScores: Record<string, number> = {};
     for (const cat of CATEGORIES) {
       const catItems = siteItems.filter((i: any) => i.category === cat);
-      catScores[cat] = calcCategoryScore(catItems);
+      const raw = calcCategoryScore(catItems);
+      rawCatScores[cat] = raw;
+      // Estate averages use RAW site-linked scores so the estate calc is unchanged.
       if (!estateCategory[cat]) estateCategory[cat] = [];
-      estateCategory[cat].push(catScores[cat]);
+      estateCategory[cat].push(raw);
+      // The site's DISPLAYED category score blends in the shared pool.
+      catScores[cat] = blendPool(cat, raw);
     }
+    // Keep a raw (pool-free) site score for the estate average, exactly as before.
+    rawSiteScoreSum += calcSiteScore(rawCatScores, weights, siteCriticals, penalty);
     const score = calcSiteScore(catScores, weights, siteCriticals, penalty);
     siteResults.push({ siteId: site.id, score, categoryScores: catScores, openCriticals: siteCriticals });
   }
@@ -681,89 +784,28 @@ export async function computeLiveScores(
     estateCategoryScores[cat] = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 100;
   }
 
+  // Estate score = average of RAW per-site scores (unchanged from previous logic).
   let estateScore = siteResults.length > 0
-    ? Math.round(siteResults.reduce((a, b) => a + b.score, 0) / siteResults.length)
+    ? Math.round(rawSiteScoreSum / siteResults.length)
     : 100;
 
-  // ── Contractor pool health injection ────────────────────────────────────────
-  // Company-level docs (insurance, RAMS, H&S) are NOT linked to a specific site,
-  // so they never appear in compliance_items. We fetch them here and blend their
-  // completeness into the relevant estate category scores (50 % site / 50 % pool).
-  // This ensures the estate score reflects contractor gaps even when all sites
-  // score 100 % on their own site-linked documents.
-  try {
-    const KEY_POOL_DOCS: Array<{ type: string; category: Category }> = [
-      { type: 'publicLiability',    category: 'insurance' },
-      { type: 'employersLiability', category: 'insurance' },
-      { type: 'rams',               category: 'rams' },
-      { type: 'healthSafety',       category: 'certificates' },
-    ];
-    const poolCategories = new Set(KEY_POOL_DOCS.map(d => d.category));
-
-    const companies = await custDb
-      .select({ id: iso.contractorCompanies.id })
-      .from(iso.contractorCompanies)
-      .where(eq(iso.contractorCompanies.isActive, true));
-
-    if (companies.length > 0) {
-      const companyIds = companies.map((c: any) => c.id);
-
-      const poolDocs = await custDb
-        .select({
-          companyId: iso.contractorDocuments.companyId,
-          documentType: iso.contractorDocuments.documentType,
-          status: iso.contractorDocuments.status,
-        })
-        .from(iso.contractorDocuments)
-        .where(and(
-          inArray(iso.contractorDocuments.companyId, companyIds),
-          isNull(iso.contractorDocuments.workerId),
-          eq(iso.contractorDocuments.isActive, true),
-          ne(iso.contractorDocuments.status, 'rejected'),
-        ));
-
-      // Build set of approved document types per company
-      const approvedByCompany = new Map<string, Set<string>>();
-      for (const d of poolDocs) {
-        if (d.status === 'approved' || d.status === 'valid') {
-          if (!approvedByCompany.has(d.companyId)) approvedByCompany.set(d.companyId, new Set());
-          approvedByCompany.get(d.companyId)!.add(d.documentType);
-        }
-      }
-
-      // Score each pool category: % of companies that have every required doc
-      const poolCatScore: Partial<Record<Category, number>> = {};
-      for (const cat of poolCategories) {
-        const keyTypes = KEY_POOL_DOCS.filter(k => k.category === cat).map(k => k.type);
-        let total = 0; let current = 0;
-        for (const co of companies) {
-          const approved = approvedByCompany.get((co as any).id) ?? new Set<string>();
-          for (const docType of keyTypes) {
-            total++;
-            if (approved.has(docType)) current++;
-          }
-        }
-        poolCatScore[cat] = total > 0 ? Math.round((current / total) * 100) : 100;
-      }
-
-      // Blend 50 / 50: site average meets pool score for each affected category
-      for (const cat of poolCategories) {
-        const siteCatScore = estateCategoryScores[cat] ?? 100;
-        const poolScore = poolCatScore[cat] ?? 100;
-        estateCategoryScores[cat] = Math.round((siteCatScore + poolScore) / 2);
-      }
-
-      // Recalculate estate score from the blended category scores
-      let totalWeight = 0; let weightedSum = 0;
-      for (const cat of CATEGORIES) {
-        const w = weights[cat] ?? 10;
-        weightedSum += (estateCategoryScores[cat] ?? 100) * w;
-        totalWeight += w;
-      }
-      estateScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : estateScore;
+  // ── Contractor pool health injection (estate-level, structurally unchanged) ──
+  // Blend the pool into the estate category scores and recompute the estate score
+  // from the blended categories. Only applies when pool data exists, so customers
+  // without contractor companies keep their previous estate score exactly.
+  if (hasPool) {
+    for (const cat of POOL_CATEGORIES) {
+      if (poolCatScore[cat] === undefined) continue;
+      const siteCatScore = estateCategoryScores[cat] ?? 100;
+      estateCategoryScores[cat] = Math.round((siteCatScore + (poolCatScore[cat] as number)) / 2);
     }
-  } catch (poolErr) {
-    logger.warn('[compliance] pool health injection skipped (non-fatal):', poolErr);
+    let totalWeight = 0; let weightedSum = 0;
+    for (const cat of CATEGORIES) {
+      const w = weights[cat] ?? 10;
+      weightedSum += (estateCategoryScores[cat] ?? 100) * w;
+      totalWeight += w;
+    }
+    estateScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : estateScore;
   }
   // ── End pool injection ─────────────────────────────────────────────────────
 

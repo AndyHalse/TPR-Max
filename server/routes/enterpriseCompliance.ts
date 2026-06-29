@@ -53,6 +53,42 @@ async function loadSiteNames(custDb: any, siteIds: string[]): Promise<Map<string
   return new Map(rows.map((r: any) => [r.id, r.name]));
 }
 
+// ── On-demand freshness ───────────────────────────────────────────────────────
+// computeLiveScores only READS materialised compliance_items, so date-based
+// statuses (e.g. PPM that became overdue since the last evaluation) can drift out
+// of date. Before scoring we re-evaluate in-scope sites, bounded by a per-site TTL
+// and an in-flight lock so a burst of requests triggers at most one evaluation per
+// site per window. evaluateSite is idempotent (item upsert + alert sync). Sites are
+// evaluated sequentially to respect the small per-customer DB connection pool.
+const EVAL_TTL_MS = 120_000;
+const _siteEvalTs = new Map<string, number>();
+const _siteEvalInflight = new Map<string, Promise<void>>();
+
+async function ensureFreshComplianceEvaluation(customerId: string, siteIds: string[]): Promise<void> {
+  const now = Date.now();
+  for (const siteId of siteIds) {
+    const key = `${customerId}:${siteId}`;
+    if (now - (_siteEvalTs.get(key) ?? 0) < EVAL_TTL_MS) continue; // recently evaluated
+
+    let p = _siteEvalInflight.get(key);
+    if (!p) {
+      p = evaluateSite(customerId, siteId)
+        .then(() => { _siteEvalTs.set(key, Date.now()); })
+        .catch(err => logger.warn(`[compliance] freshness eval failed site=${siteId}:`, err))
+        .finally(() => { _siteEvalInflight.delete(key); });
+      _siteEvalInflight.set(key, p);
+    }
+    await p;
+  }
+}
+
+/** Active (non-archived) site IDs visible to the caller. */
+async function inScopeActiveSiteIds(custDb: any, allowed: string[] | 'all'): Promise<string[]> {
+  const rows = await custDb.select({ id: iso.sites.id }).from(iso.sites).where(ne(iso.sites.status, 'archived'));
+  const ids = rows.map((r: any) => r.id as string);
+  return allowed === 'all' ? ids : ids.filter((id: string) => allowed.includes(id));
+}
+
 // ── Route registration ────────────────────────────────────────────────────────
 
 export function registerEnterpriseComplianceRoutes(app: Express): void {
@@ -73,30 +109,11 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
-      // If no items at all for this scope, trigger a background evaluation
-      let hasItems = false;
-      try {
-        const check = await custDb
-          .select({ id: iso.complianceItems.id })
-          .from(iso.complianceItems)
-          .limit(1);
-        hasItems = check.length > 0;
-      } catch { /* table may not exist yet if migration pending */ }
-
-      if (!hasItems) {
-        // Fire-and-forget initial evaluation for all allowed sites
-        (async () => {
-          const sites = await custDb
-            .select({ id: iso.sites.id })
-            .from(iso.sites)
-            .where(ne(iso.sites.status, 'archived'));
-          for (const s of sites) {
-            if (allowed === 'all' || allowed.includes(s.id)) {
-              await evaluateSite(customerId, s.id).catch(() => {});
-            }
-          }
-        })();
-      }
+      // Re-evaluate in-scope sites first so date-based statuses (e.g. overdue PPM)
+      // and newly added records are current before scoring. Bounded by a per-site
+      // TTL + in-flight lock; awaited so the very first load is already correct.
+      const scopeSiteIds = await inScopeActiveSiteIds(custDb, allowed);
+      await ensureFreshComplianceEvaluation(customerId, scopeSiteIds);
 
       const { estateScore, siteScores, categoryScores } = await computeLiveScores(custDb, allowed);
 
@@ -155,6 +172,11 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
       const customerId = req.customerId!;
       const allowed = await callerScope(req);
       const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Re-evaluate in-scope sites so the Sites page reflects current statuses
+      // (e.g. overdue PPM) before scoring. Bounded by a per-site TTL + in-flight lock.
+      const scopeSiteIds = await inScopeActiveSiteIds(custDb, allowed);
+      await ensureFreshComplianceEvaluation(customerId, scopeSiteIds);
 
       const { siteScores } = await computeLiveScores(custDb, allowed);
       const siteIds = siteScores.map(s => s.siteId);
@@ -407,6 +429,9 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const nameMap = await loadSiteNames(custDb, [siteId]);
+
+      // Re-evaluate this site so its detail reflects current statuses before scoring.
+      await ensureFreshComplianceEvaluation(customerId, [siteId]);
 
       const { siteScores } = await computeLiveScores(custDb, [siteId]);
       const siteScore = siteScores.find((s: any) => s.siteId === siteId);

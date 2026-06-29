@@ -1,21 +1,22 @@
 ---
 name: Compliance engine scoring blind spots
-description: Two structural gaps in the compliance scoring engine that cause false 100% scores
+description: Why the enterprise compliance engine can show false 100% scores, and the patterns that fix it
 ---
 
 ## Rule
-The compliance engine (`server/complianceEngine.ts`) has two categories that need special handling beyond the standard `compliance_items` table query.
+The enterprise compliance score (`server/complianceEngine.ts`, `computeLiveScores`) is built from the per-site `compliance_items` table. Several real compliance signals do NOT live in that table or are time-sensitive, so they silently score 100% unless handled specially.
 
-### 1 — Contractor pool documents are never site-linked
-Company-level contractor docs (publicLiability, employersLiability, RAMS, healthSafety) are stored in `contractor_documents` with `workerID = NULL` and **no siteId**. They never appear in `compliance_items`, so `calcCategoryScore([]) = 100` for every empty category.
+### 1 — Shared contractor pool docs are not site-linked
+Company-level contractor docs (public/employers liability, RAMS, H&S) live in `contractor_documents` with no siteId, so they never reach `compliance_items`. An empty category scores 100. They must be scored separately and blended into BOTH the per-site displayed scores and the estate score — not only the estate. Blending only at estate level was the original cause of "all sites 100% but estate < 100".
+**Why:** per-site cards and the Sites-page header counts read site scores, not the estate score.
 
-**Fix applied in `computeLiveScores`**: After computing site scores, fetch all active contractor companies + their key docs, compute a pool score per category (% of companies with each doc approved), then blend 50/50 with the site average for insurance, rams, and certificates. Recalculate estate score from blended categories.
+### 2 — Pool/document scoring must be expiry-aware
+A doc that is approved but expired (or expiring soon) must not score as fully compliant. Score per (company, docType): current=1, expiring≤30d=0.5, missing/expired/unapproved=0. Mirror the Contractor Pool UI's `docStatus` semantics so the dashboard and the pool page agree.
 
-### 2 — PPM evaluation only checked work orders, not schedules
-`evalPpm` originally queried only `ppm_work_orders` with `status IN ('scheduled', 'overdue')`. Sites that use `ppm_schedules` without explicit work orders scored 100% (empty → 100%).
+### 3 — Two-level entities (schedule → work order) must evaluate the parent
+PPM scored 100 when a site used `ppm_schedules` with no explicit `ppm_work_orders`. Evaluate the parent schedule directly (overdue when `nextDueDate < today`), de-duplicated against any open child work order.
 
-**Fix applied in `evalPpm`**: Also query `ppm_schedules` for the site (status = scheduled/overdue). Derive effective overdue status from `nextDueDate < today`. Exclude schedules that already have an open work order (de-duplicate by scheduleId) to avoid double-counting.
+### 4 — Date-based statuses are stale unless read endpoints freshen first
+`compliance_items` is only (re)written by `evaluateSite`, which otherwise runs on a daily cron. So "overdue today" PPM/expiries won't appear until the next cron run. Read endpoints that serve live scores (`/summary`, `/sites`, `/sites/:id`) must re-evaluate in-scope sites before scoring, bounded by a short per-site TTL + in-flight lock, sequential to respect the per-customer DB pool (max 5). `evaluateSite` is idempotent.
 
-**Why:** Both fixes are necessary because the compliance_items table is only populated by site-linked document evaluators, but two important compliance signals (contractor pool health and PPM schedules) live outside that pattern.
-
-**How to apply:** Any new compliance category that tracks data not tied to a specific siteId must inject its contribution separately into `computeLiveScores` after the site loop. Any evaluator using a two-level entity (schedule → work order) must evaluate the parent schedule directly, not just open child work orders.
+**How to apply:** Any compliance signal not tied to a siteId must be injected into `computeLiveScores` after the site loop AND blended per-site, not just into the estate. Keep the estate calc fed by RAW site scores so no-contractor customers are unchanged. Any date-derived status needs a freshness pass on the read path. Note: daily `compliance_snapshots` still store raw (non-pool-blended) scores — reports built on snapshots use the old semantics.
