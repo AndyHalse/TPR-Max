@@ -262,6 +262,19 @@ function FitBounds({ positions }: { positions: Array<[number, number]> }) {
   return null;
 }
 
+// Forces Leaflet to recalculate tile layout after container dimensions settle
+// (essential when the map is mounted inside a Dialog animation)
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const t1 = setTimeout(() => map.invalidateSize(), 50);
+    const t2 = setTimeout(() => map.invalidateSize(), 250);
+    const t3 = setTimeout(() => map.invalidateSize(), 600);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [map]);
+  return null;
+}
+
 const MAP_LEGEND = [
   { label: "≥ 90%", color: "#16a34a" },
   { label: "≥ 70%", color: "#d97706" },
@@ -274,20 +287,23 @@ function MapCore({
   noData,
   onPinClick,
   height,
+  mapKey,
 }: {
   sitePins: Array<{ siteId: string; siteLabelName: string; lat: number; lng: number; score: number }>;
   noData: boolean;
   onPinClick: (siteId: string) => void;
   height: number | string;
+  mapKey?: string;
 }) {
   const positions: Array<[number, number]> = sitePins.map(p => [p.lat, p.lng]);
   return (
     <div style={{ height, borderRadius: 10, overflow: "hidden", position: "relative", zIndex: 0 }}>
-      <MapContainer center={[54.5, -3.5] as [number, number]} zoom={5} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
+      <MapContainer key={mapKey} center={[54.5, -3.5] as [number, number]} zoom={5} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
+        <MapResizer />
         {positions.length > 0 && <FitBounds positions={positions} />}
         {sitePins.map((pin) => (
           <CircleMarker
@@ -425,6 +441,14 @@ function EstateMapDialog({
   noData: boolean;
   onPinClick: (siteId: string) => void;
 }) {
+  // Increment each time the dialog opens so MapContainer fully remounts
+  // (Leaflet calculates tile layout at mount — it needs a fresh mount to
+  // get correct dimensions after the dialog animation finishes)
+  const openCount = useRef(0);
+  useEffect(() => {
+    if (open) openCount.current += 1;
+  }, [open]);
+
   const geoMap = useMemo(() => {
     const m = new Map<string, GeoSite>();
     for (const s of geoSites) m.set(s.id, s);
@@ -444,9 +468,12 @@ function EstateMapDialog({
     onPinClick(siteId);
   }, [onClose, onPinClick]);
 
+  // The map needs a concrete pixel height — use window height minus the header bar
+  const mapHeight = typeof window !== "undefined" ? window.innerHeight - 70 : 700;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[92vh] p-0 overflow-hidden flex flex-col bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/30 shadow-2xl">
+      <DialogContent className="max-w-[95vw] w-[95vw] p-0 overflow-hidden flex flex-col bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/30 shadow-2xl" style={{ height: "92vh" }}>
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-blue-500/10">
@@ -471,9 +498,16 @@ function EstateMapDialog({
             </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-          {sitePins.length > 0 && (
-            <MapCore sitePins={sitePins} noData={noData} onPinClick={handlePinClick} height="100%" />
+        {/* Give the map a concrete pixel height so Leaflet can calculate tile layout correctly */}
+        <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
+          {open && sitePins.length > 0 && (
+            <MapCore
+              sitePins={sitePins}
+              noData={noData}
+              onPinClick={handlePinClick}
+              height={mapHeight}
+              mapKey={`fullscreen-${openCount.current}`}
+            />
           )}
         </div>
       </DialogContent>
