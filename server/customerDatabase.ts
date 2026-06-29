@@ -358,6 +358,14 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ feature_hs_incidents column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
     try {
+      await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigation_status TEXT NOT NULL DEFAULT 'open'`);
+      await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS record_type TEXT NOT NULL DEFAULT 'incident'`);
+      await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS is_demo BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+    } catch (err: any) {
+      logger.warn(`⚠️ hs_incidents column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_fire_risk_assessment BOOLEAN DEFAULT true`);
     } catch (err: any) {
       logger.warn(`⚠️ feature_fire_risk_assessment column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

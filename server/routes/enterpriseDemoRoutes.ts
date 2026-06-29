@@ -26,6 +26,18 @@ async function ensureDemoColumns(pool: any, sn: string): Promise<void> {
       );
     } catch { /* table may not exist — ignore */ }
   }
+
+  // Extra columns that were added to isolatedSchema.ts after the tables were first provisioned
+  const safe = async (sql: string) => { try { await pool.query(sql); } catch { /* non-fatal */ } };
+
+  // visit_reasons: scope + site_id added later
+  await safe(`ALTER TABLE IF EXISTS "${sn}".visit_reasons ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'site'`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".visit_reasons ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+
+  // induction_settings: kiosk_enabled, scope, site_id added later
+  await safe(`ALTER TABLE IF EXISTS "${sn}".induction_settings ADD COLUMN IF NOT EXISTS kiosk_enabled BOOLEAN NOT NULL DEFAULT false`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".induction_settings ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'site'`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".induction_settings ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
 }
 
 /**
