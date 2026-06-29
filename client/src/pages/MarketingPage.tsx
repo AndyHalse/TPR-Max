@@ -509,14 +509,6 @@ export default function MarketingPage() {
                   className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full object-cover"
                   style={{ maxHeight: "520px", objectPosition: "center top" }}
                 />
-                <div className="absolute -bottom-4 -right-4 bg-red-600 dark:bg-red-700 rounded-lg p-3 shadow-lg border border-red-700 dark:border-red-600">
-                  <div className="flex items-center space-x-2">
-                    <Siren className="h-4 w-4 text-white animate-pulse" />
-                    <span className="text-sm font-medium text-white">
-                      No App Download Required
-                    </span>
-                  </div>
-                </div>
                 <div className="absolute -top-4 -left-4 bg-white dark:bg-slate-800 rounded-lg p-3 shadow-lg border border-slate-200 dark:border-slate-600">
                   <div className="flex items-center space-x-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
