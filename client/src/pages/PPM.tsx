@@ -19,7 +19,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
-  Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan, CalendarDays,
+  Layers, ChevronDown, ChevronUp, ChevronsUpDown, ChevronRight, Bell, FileDown, BellOff, Scan, CalendarDays,
   LayoutDashboard, Info, Lock, ShieldAlert,
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
@@ -1133,6 +1133,14 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
   const [showEditWO, setShowEditWO] = useState(false);
   const [contractorDetailTarget, setContractorDetailTarget] = useState<{ type: 'company' | 'worker'; workOrder: PpmWorkOrder } | null>(null);
 
+  // Work order table sort
+  const [woSortKey, setWoSortKey] = useState<"title" | "asset" | "status" | "due" | "contractor" | "worker" | null>(null);
+  const [woSortDir, setWoSortDir] = useState<"asc" | "desc">("asc");
+  const toggleWOSort = (key: "title" | "asset" | "status" | "due" | "contractor" | "worker") => {
+    if (woSortKey === key) setWoSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setWoSortKey(key); setWoSortDir("asc"); }
+  };
+
   // Create form
   const emptyWOForm = () => ({
     title: "", description: "", assetId: "", groupId: "", scheduleId: "", dueDate: "", notes: "",
@@ -1384,7 +1392,33 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
   });
 
   const statusOrder: Record<string, number> = { overdue: 0, on_site: 1, in_progress: 2, scheduled: 3, completed: 4 };
-  const sortedWOs = [...filtered].sort((a, b) => (statusOrder[effectiveWOStatus(a)] ?? 5) - (statusOrder[effectiveWOStatus(b)] ?? 5));
+  const sortedWOs = useMemo(() => {
+    const arr = [...filtered];
+    const dir = woSortDir === "asc" ? 1 : -1;
+    if (!woSortKey) {
+      return arr.sort((a, b) => (statusOrder[effectiveWOStatus(a)] ?? 5) - (statusOrder[effectiveWOStatus(b)] ?? 5));
+    }
+    return arr.sort((a, b) => {
+      if (woSortKey === "status") {
+        return dir * ((statusOrder[effectiveWOStatus(a)] ?? 5) - (statusOrder[effectiveWOStatus(b)] ?? 5));
+      }
+      if (woSortKey === "due") {
+        const av = a.dueDate ?? "", bv = b.dueDate ?? "";
+        if (!av && !bv) return 0;
+        if (!av) return dir;
+        if (!bv) return -dir;
+        return dir * av.localeCompare(bv);
+      }
+      let av = "", bv = "";
+      if (woSortKey === "title") { av = a.title ?? ""; bv = b.title ?? ""; }
+      else if (woSortKey === "asset") {
+        av = a.groupId ? (groups.find(g => g.id === a.groupId)?.name ?? "") : (assets.find(x => x.id === a.assetId)?.name ?? "");
+        bv = b.groupId ? (groups.find(g => g.id === b.groupId)?.name ?? "") : (assets.find(x => x.id === b.assetId)?.name ?? "");
+      } else if (woSortKey === "contractor") { av = a.contractorCompanyName ?? ""; bv = b.contractorCompanyName ?? ""; }
+      else if (woSortKey === "worker") { av = a.contractorWorkerName ?? ""; bv = b.contractorWorkerName ?? ""; }
+      return dir * av.localeCompare(bv, undefined, { sensitivity: "base" });
+    });
+  }, [filtered, woSortKey, woSortDir, assets, groups]);
 
   async function openDetail(wo: PpmWorkOrder) {
     setSelectedWO(wo);
@@ -1596,12 +1630,26 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
-                <th className="text-left px-3 py-2 font-medium">{t("workOrders.colTitle")}</th>
-                <th className="text-left px-3 py-2 font-medium hidden md:table-cell">{t("workOrders.colAsset")}</th>
-                <th className="text-left px-3 py-2 font-medium">{t("workOrders.colStatus")}</th>
-                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">{t("workOrders.colDue")}</th>
-                <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">{t("workOrders.colContractor")}</th>
-                <th className="text-left px-3 py-2 font-medium hidden xl:table-cell">{t("workOrders.colWorker")}</th>
+                {(["title","asset","status","due","contractor","worker"] as const).map((col) => {
+                  const labels: Record<string, string> = {
+                    title: t("workOrders.colTitle"),
+                    asset: t("workOrders.colAsset"),
+                    status: t("workOrders.colStatus"),
+                    due: t("workOrders.colDue"),
+                    contractor: t("workOrders.colContractor"),
+                    worker: t("workOrders.colWorker"),
+                  };
+                  const hidden = col === "asset" ? "hidden md:table-cell" : col === "due" ? "hidden sm:table-cell" : col === "contractor" ? "hidden lg:table-cell" : col === "worker" ? "hidden xl:table-cell" : "";
+                  const Icon = woSortKey === col ? (woSortDir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
+                  return (
+                    <th key={col} className={`text-left px-3 py-2 font-medium cursor-pointer select-none group ${hidden}`} onClick={() => toggleWOSort(col)}>
+                      <span className="inline-flex items-center gap-0.5 hover:text-foreground transition-colors">
+                        {labels[col]}
+                        <Icon className={`h-3 w-3 ${woSortKey === col ? "text-foreground" : "opacity-40 group-hover:opacity-70"}`} />
+                      </span>
+                    </th>
+                  );
+                })}
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
