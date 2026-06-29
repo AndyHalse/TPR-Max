@@ -12,7 +12,7 @@ import { registerLoneWorkerRoutes } from './loneWorker';
 import { registerSettingsRoutes } from './settings';
 import { registerContractorRoutes } from './contractors';
 import { registerEmergencyRoutes } from './emergency';
-import { registerInductionRoutes } from './induction';
+import { registerInductionRoutes, triggerBiostarPollingReset } from './induction';
 import { registerPPMRoutes } from './ppm';
 import { registerRemainingRoutes } from './remaining';
 import { registerAiFeatureRoutes } from './aiFeatures';
@@ -79,7 +79,7 @@ export async function registerSplitRoutes(
   registerReportRoutes(app);
   registerRamsRoutes(app);
   registerLoneWorkerRoutes(app, server);
-  registerSettingsRoutes(app, { setupAutomaticDailyReset });
+  registerSettingsRoutes(app, { setupAutomaticDailyReset, setupBiostarPolling: triggerBiostarPollingReset });
   registerContractorRoutes(app);
   registerEmergencyRoutes(app);
   registerInductionRoutes(app);

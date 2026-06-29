@@ -260,6 +260,20 @@ function patchInductionHtml(html: string): string {
 // Track active daily reset tasks per customer so they can be stopped/rescheduled
 const dailyResetTasks = new Map<string, ReturnType<typeof cron.schedule>>();
 
+// Module-level timer map so setupBiostarAttendancePolling can be called from outside
+// the registerInductionRoutes closure (e.g. from the settings route after a toggle change).
+const biostarPollTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+// Set by registerInductionRoutes once the inner setup function is defined.
+let _setupBiostarPolling: (() => Promise<void>) | null = null;
+
+/** Re-runs the full BioStar attendance polling setup (clear + rebuild for all customers).
+ *  Called by the settings route whenever any BioStar field is saved, so that turning the
+ *  integration on or off takes effect immediately without a server restart. */
+export function triggerBiostarPollingReset(): Promise<void> {
+  return _setupBiostarPolling ? _setupBiostarPolling() : Promise.resolve();
+}
+
 // Setup automatic daily reset — safe to call multiple times (stops old tasks first)
 export async function setupAutomaticDailyReset(specificCustomerId?: string) {
   try {
@@ -4148,8 +4162,8 @@ export function registerInductionRoutes(app: Express): void {
   // BioStar 2 live attendance polling
   // Runs every biostarSyncInterval seconds (default 300) per customer.
   // Reads today's access events and updates staff isCheckedIn in real-time.
+  // biostarPollTimers is module-level so triggerBiostarPollingReset() can reach it.
   // -----------------------------------------------------------------
-  const biostarPollTimers = new Map<string, ReturnType<typeof setInterval>>();
 
   async function pollBiostarAttendance(customerId: string): Promise<void> {
     try {
@@ -4371,11 +4385,11 @@ export function registerInductionRoutes(app: Express): void {
     }
   }
 
+  // Expose the setup function so settings route can trigger a re-setup when the toggle changes.
+  _setupBiostarPolling = setupBiostarAttendancePolling;
+
   // Start BioStar attendance polling (non-fatal — won't affect startup if Biostar isn't configured)
   setupBiostarAttendancePolling().catch(() => {});
-
-  // Re-schedule when BioStar settings are saved (handled via settings update endpoint side-effect)
-  // The sync-now endpoint also triggers an immediate status refresh.
 
 
   // Induction Settings Management API Routes

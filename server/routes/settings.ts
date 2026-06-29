@@ -22,7 +22,10 @@ import { verifySessionToken } from '../auth';
 
 export function registerSettingsRoutes(
   app: Express,
-  { setupAutomaticDailyReset }: { setupAutomaticDailyReset?: (customerId?: string) => Promise<void> } = {}
+  { setupAutomaticDailyReset, setupBiostarPolling }: {
+    setupAutomaticDailyReset?: (customerId?: string) => Promise<void>;
+    setupBiostarPolling?: () => Promise<void>;
+  } = {}
 ): void {
 
   app.get("/api/public-logo/:token", async (req, res) => {
@@ -679,6 +682,14 @@ export function registerSettingsRoutes(
         logger.info(`Daily reset settings changed for customer ${context.customerId} — rescheduling`);
         setupAutomaticDailyReset(context.customerId).catch(err => 
           logger.error('Failed to reschedule daily reset after settings change:', err)
+        );
+      }
+
+      const biostarFields = ['biostarEnabled', 'biostarServerUrl', 'biostarUsername', 'biostarPassword', 'biostarDatabaseId', 'biostarSyncInterval'];
+      if (biostarFields.some(f => f in updates) && setupBiostarPolling) {
+        logger.info(`BioStar settings changed for customer ${context.customerId} — rebuilding polling schedule`);
+        setupBiostarPolling().catch(err =>
+          logger.error('Failed to rebuild BioStar polling after settings change:', err)
         );
       }
 
