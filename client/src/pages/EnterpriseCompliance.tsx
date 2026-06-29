@@ -683,7 +683,7 @@ export default function EnterpriseCompliance() {
 
   // ── Derived values ───────────────────────────────────────────────────────────
 
-  const noData = !summaryLoading && (summary?.totalItems === 0 || summary?.siteCount === 0);
+  const noData = !summaryLoading && (summary?.siteCount === 0);
 
   const estateScore = summary?.estateScore ?? 0;
 

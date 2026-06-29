@@ -594,6 +594,7 @@ app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
     }
     res.json({ expiredCount, expiringSoonCount, total: expiredCount + expiringSoonCount });
   } catch (error) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: error.message });
     logger.error('GET /api/ppm/expiry-count', error);
     res.status(500).json({ error: 'Failed to fetch PPM expiry count' });
   }
@@ -676,6 +677,7 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     }));
     res.json(withExpiry);
   } catch (error: unknown) {
+    if (error instanceof SiteContextError) return res.status(error.statusCode).json({ error: (error as any).message });
     logger.error("GET /api/ppm/work-orders", error);
     res.status(500).json({ error: "Failed to fetch PPM work orders" });
   }

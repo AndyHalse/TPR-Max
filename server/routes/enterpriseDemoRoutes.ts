@@ -168,6 +168,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
 
   // ── Load Enterprise Demo ─────────────────────────────────────────────────────
   app.post('/api/enterprise-demo/load', requireAuth, async (req, res) => {
+    let _step = 'init';
     try {
       const cid = req.customerId!;
 
@@ -234,6 +235,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       const ctEmLt  = `${B}-ct6`;  // Emergency Lighting Certificate
 
       // ══ 1. AREAS ═════════════════════════════════════════════════════════════
+      _step = 'areas';
       await pool.query(`
         INSERT INTO "${sn}".areas (id, name, description, is_demo) VALUES
           ($1,'Central Scotland','Glasgow, Stirling, and Falkirk sites',true),
@@ -243,6 +245,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `, [aC, aE, aN, aS]);
 
       // ══ 2. SITES ═════════════════════════════════════════════════════════════
+      _step = 'sites';
       await pool.query(`
         INSERT INTO "${sn}".sites
           (id, name, reference, address, postcode, region, area_id, status, is_default, is_demo) VALUES
@@ -288,6 +291,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       }
 
       // ══ 3. DEMO USERS (area managers + coordinators in isolated users table) ═
+      _step = 'users';
       await pool.query(`
         INSERT INTO "${sn}".users
           (id, username, email, role, first_name, last_name, is_active, is_demo) VALUES
@@ -301,6 +305,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `, [uSarah, uDuncan, uLynn, uCallum, uFiona, uAileen, uBruce]);
 
       // ══ 4. SITE USER ROLES ══════════════════════════════════════════════════
+      _step = 'site_user_roles';
       await pool.query(`
         INSERT INTO "${sn}".site_user_roles
           (id, user_id, role, area_id, site_id, is_demo) VALUES
@@ -314,6 +319,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `, [uSarah, uDuncan, uLynn, uCallum, uFiona, uAileen, uBruce, null, aC, aN, sGla, sAbd, sEdH, sSti, sInv]);
 
       // ══ 5. COMPLIANCE CERTIFICATE TYPES (demo-specific, self-contained) ═════
+      _step = 'cert_types';
       await pool.query(`
         INSERT INTO "${sn}".compliance_certificate_types
           (id, certificate_type, display_name, legal_basis, frequency, is_active, reminder_days_before, is_demo) VALUES
@@ -326,6 +332,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `, [ctFire, ctAsb, ctL8, ctEicr, ctGas, ctEmLt]);
 
       // ══ 6. COMPLIANCE CERTIFICATES ══════════════════════════════════════════
+      _step = 'compliance_certs';
       // Dates relative to today (2026-06-27)
       // Glasgow — Fire cert EXPIRED 3 months ago
       await pool.query(`
@@ -396,6 +403,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
           sGla, sAbd, sEdH, sSti, sPer, sDun, sInv, sFal, sEdR, sAyr]);
 
       // ══ 7. FIRE RISK ASSESSMENTS ═════════════════════════════════════════════
+      _step = 'fire_risk_assessments';
       // Glasgow — OVERDUE (next_review_date 5 months ago)
       // Aberdeen — OVERDUE (next_review_date 26 days ago)
       // All others — current
@@ -445,6 +453,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `, [sGla, sAbd, sEdH, sSti, sPer, sDun, sInv, sFal, sEdR, sAyr]);
 
       // ══ 8. H&S INCIDENTS ════════════════════════════════════════════════════
+      _step = 'hs_incidents';
       await pool.query(`
         INSERT INTO "${sn}".hs_incidents
           (id, title, description, incident_date, location, reported_by,
@@ -469,9 +478,13 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `, [sGla, sAbd, sEdH]);
 
       // ══ 9. CONTRACTOR COMPANIES ═════════════════════════════════════════════
-      const expiredPlDate = new Date('2026-05-01');
-      const expiredAbdDate = new Date('2026-06-05');
-      const validPlDate = new Date('2027-06-01');
+      _step = 'contractor_companies';
+      // $6 = Caledonian PL expiry (expired May 2026)
+      // $7 = Highland PL expiry (expired Jun 2026 → pending at Aberdeen)
+      // $8 = validDate shared by all valid EL/PL entries (Jun 2027)
+      const expiredCalPl = '2026-05-01';
+      const expiredHigPl = '2026-06-05';
+      const validDate    = '2027-06-01';
 
       await pool.query(`
         INSERT INTO "${sn}".contractor_companies
@@ -482,28 +495,28 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
            status, is_demo) VALUES
           ($1,'Caledonian Building Services Ltd','info@calbuild.entdemo.local',
            'Gordon','Macfarlane','+44 141 555 0101','12 Sauchiehall Lane, Glasgow','G2 3EH','Construction',
-           'Aviva PLC','£5,000,000',$16,'NFU Mutual','£10,000,000',$18,'active',true),
+           'Aviva PLC','£5,000,000',$6,'NFU Mutual','£10,000,000',$8,'active',true),
 
           ($2,'Highland Facilities Management','ops@highlandfm.entdemo.local',
            'Sheila','Mackenzie','+44 1463 555 0202','Longman Road, Inverness','IV1 1SU','Facilities Management',
-           'Zurich Insurance','£5,000,000',$17,'Allianz','£10,000,000',$17,'active',true),
+           'Zurich Insurance','£5,000,000',$7,'Allianz','£10,000,000',$8,'active',true),
 
           ($3,'Clyde Electrical Contractors','enquiries@clydeelec.entdemo.local',
            'Derek','Reid','+44 141 555 0303','45 Dalmarnock Road, Glasgow','G40 4LA','Electrical',
-           'RSA Insurance','£2,000,000',$17,'Aviva PLC','£5,000,000',$17,'active',true),
+           'RSA Insurance','£2,000,000',$8,'Aviva PLC','£5,000,000',$8,'active',true),
 
           ($4,'Scotia Mechanical Services','contact@scotiamech.entdemo.local',
            'Patricia','Hamilton','+44 131 555 0404','14 Salamander Street, Edinburgh','EH6 7JT','Mechanical',
-           'AXA Insurance','£5,000,000',$17,'Allianz','£10,000,000',$17,'active',true),
+           'AXA Insurance','£5,000,000',$8,'Allianz','£10,000,000',$8,'active',true),
 
           ($5,'Borders Fire & Security','hello@bordersfs.entdemo.local',
            'Andrew','Turnbull','+44 1896 555 0505','Market Square, Galashiels','TD1 3AF','Fire & Security',
            NULL,NULL,NULL,NULL,NULL,NULL,'pending',true)
       `, [coCal, coHigh, coClyd, coScot, coBord,
-          expiredPlDate, validPlDate, validPlDate,
-          expiredAbdDate, validPlDate]);
+          expiredCalPl, expiredHigPl, validDate]);
 
       // ══ 10. CONTRACTOR WORKERS ═══════════════════════════════════════════════
+      _step = 'contractor_workers';
       const wCal1 = `${B}-w01`; const wCal2 = `${B}-w02`;
       const wHig1 = `${B}-w03`; const wHig2 = `${B}-w04`;
       const wCly1 = `${B}-w05`; const wCly2 = `${B}-w06`;
@@ -526,6 +539,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
           coCal, coHigh, coClyd, coScot, coBord]);
 
       // ══ 11. CONTRACTOR SITE CLEARANCES ══════════════════════════════════════
+      _step = 'contractor_site_clearances';
       // Caledonian: cleared at Edinburgh HQ + Perth; NOT cleared at Glasgow (missing docs)
       // Highland: cleared at Inverness; pending at Aberdeen (expired public liability)
       // Clyde: cleared at Edinburgh HQ, Glasgow, Dundee
@@ -562,6 +576,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `);
 
       // ══ 12. PPM — ASSET GROUPS, ASSETS, SCHEDULES, WORK ORDERS ═════════════
+      _step = 'ppm_asset_groups';
       // Glasgow: 3 overdue work orders (boiler, emergency lighting, lift)
       // Aberdeen: 1 overdue (electrical inspection)
       // Edinburgh HQ: 1 scheduled/due soon (HVAC)
@@ -584,6 +599,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       [agGla, agAbd, agEdH]);
 
       // params: $1-$5 = asset IDs, $6-$8 = group IDs, $9-$11 = site IDs
+      _step = 'ppm_assets';
       await pool.query(`
         INSERT INTO "${sn}".ppm_assets
           (id, group_id, name, asset_ref, category, location, status, site_id, is_demo) VALUES
@@ -599,6 +615,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       const schedAbdEl = `${B}-sc4`;
       const schedEdHvac = `${B}-sc5`;
 
+      _step = 'ppm_schedules';
       await pool.query(`
         INSERT INTO "${sn}".ppm_schedules
           (id, asset_id, title, frequency, start_date, next_due_date, status, site_id, is_demo) VALUES
@@ -617,6 +634,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
           sGla, sAbd, sEdH]);
 
       // params: $1-$5 = schedule IDs, $6-$10 = asset IDs, $11-$13 = group IDs, $14-$16 = site IDs
+      _step = 'ppm_work_orders';
       await pool.query(`
         INSERT INTO "${sn}".ppm_work_orders
           (id, schedule_id, asset_id, group_id, title, description, status,
@@ -650,6 +668,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
           agGla, agAbd, agEdH, sGla, sAbd, sEdH]);
 
       // ══ 13. VISIT REASONS (group / enterprise scope) ═════════════════════════
+      _step = 'visit_reasons';
       await pool.query(`
         INSERT INTO "${sn}".visit_reasons
           (id, label, instructions, require_hs_acceptance, is_active, sort_order,
@@ -672,6 +691,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       `);
 
       // ══ 14. INDUCTION SETTINGS (enterprise scope defaults) ═══════════════════
+      _step = 'induction_settings';
       await pool.query(`
         INSERT INTO "${sn}".induction_settings
           (id, role_type, video_title, video_url, video_format, pass_percentage,
@@ -705,8 +725,8 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
         },
       });
     } catch (e: any) {
-      logger.error('[enterprise-demo/load] error:', e);
-      return res.status(500).json({ error: 'Failed to load enterprise demo data', details: e.message });
+      logger.error(`[enterprise-demo/load] error at step ${_step}:`, e);
+      return res.status(500).json({ error: 'Failed to load enterprise demo data', details: `[${_step}] ${e.message}` });
     }
   });
 
