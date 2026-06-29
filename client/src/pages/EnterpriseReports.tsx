@@ -1041,8 +1041,21 @@ export default function EnterpriseReports() {
 
   const STALE = 60_000;
 
-  const { data: sites = [] } = useQuery<Site[]>({
-    queryKey: ['/api/enterprise/contractor-pool/sites'],
+  const { data: rawSites = [] } = useQuery<any[]>({
+    queryKey: ['/api/enterprise/sites'],
+    staleTime: STALE,
+  });
+  const sites = useMemo<Site[]>(
+    () => rawSites.map(s => ({ id: s.id, name: s.name, reference: s.siteReference ?? undefined })),
+    [rawSites],
+  );
+
+  const { data: poolHealth } = useQuery<{
+    total: number; compliant: number; needsAttention: number;
+    pendingCompanies: string[]; totalMissingDocs: number;
+  }>({
+    queryKey: ['/api/enterprise/compliance/contractor-pool-health'],
+    staleTime: STALE,
   });
 
   const { data: history = [], isLoading: histLoading, isError: histError, error: histErrorObj, refetch: refetchHist } = useQuery<ReportRecord[]>({
@@ -1152,6 +1165,25 @@ export default function EnterpriseReports() {
           <p className="text-sm text-muted-foreground">Generate board-ready PDFs, preview contents live, or schedule automatic delivery.</p>
         </div>
       </div>
+
+      {/* ── Contractor Pool Health Banner ── */}
+      {poolHealth && poolHealth.needsAttention > 0 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10">
+          <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              Contractor pool has {poolHealth.needsAttention} of {poolHealth.total} companies with compliance gaps
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              {poolHealth.totalMissingDocs} missing key document{poolHealth.totalMissingDocs !== 1 ? 's' : ''} across pending companies.
+              The compliance score only includes documents linked to a specific site — unlinked contractor documents do not affect these reports.
+            </p>
+          </div>
+          <a href="/enterprise/contractor-pool" className="text-xs font-medium text-amber-700 dark:text-amber-400 underline underline-offset-2 shrink-0">
+            View pool
+          </a>
+        </div>
+      )}
 
       {/* ── Row 1: Builder + Preview ── */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">

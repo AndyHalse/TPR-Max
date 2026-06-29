@@ -113,7 +113,7 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
     requireEnterpriseRole('enterprise_admin', 'area_manager'),
     async (req: any, res) => {
       try {
-        const customerId: string = req.user.customerId;
+        const customerId: string = req.customerId!;
         const db = await customerDbService.getCustomerDatabase(customerId);
 
         const rows = await db
@@ -135,7 +135,7 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
     requireEnterpriseRole('enterprise_admin'),
     async (req: any, res) => {
       try {
-        const customerId: string = req.user.customerId;
+        const customerId: string = req.customerId!;
         const db = await customerDbService.getCustomerDatabase(customerId);
 
         // Only insert defaults that don't already exist (match by title + isDefault)
@@ -157,7 +157,7 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
             ...d,
             id: randomUUID(),
             createdBy: req.user.id,
-            createdByName: req.user.name ?? req.user.email,
+            createdByName: req.user.username ?? req.user.email ?? null,
             createdAt: now,
             updatedAt: now,
           })),
@@ -178,7 +178,7 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
     requireEnterpriseRole('enterprise_admin'),
     async (req: any, res) => {
       try {
-        const customerId: string = req.user.customerId;
+        const customerId: string = req.customerId!;
         const {
           reportType, reportTitle, scope = 'estate', scopeId = null,
           parameters = {}, recipients = [], frequency,
@@ -220,7 +220,7 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
           lastRunStatus: null,
           lastRunError: null,
           createdBy: req.user.id,
-          createdByName: req.user.name ?? req.user.email,
+          createdByName: req.user.username ?? req.user.email ?? null,
           createdAt: now,
           updatedAt: now,
         });
@@ -241,7 +241,7 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
     requireEnterpriseRole('enterprise_admin'),
     async (req: any, res) => {
       try {
-        const customerId: string = req.user.customerId;
+        const customerId: string = req.customerId!;
         const { id } = req.params;
         const db = await customerDbService.getCustomerDatabase(customerId);
 
@@ -287,7 +287,7 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
     requireEnterpriseRole('enterprise_admin'),
     async (req: any, res) => {
       try {
-        const customerId: string = req.user.customerId;
+        const customerId: string = req.customerId!;
         const { id } = req.params;
         const db = await customerDbService.getCustomerDatabase(customerId);
 
