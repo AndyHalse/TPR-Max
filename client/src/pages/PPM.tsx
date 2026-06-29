@@ -1138,6 +1138,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     title: "", description: "", assetId: "", groupId: "", scheduleId: "", dueDate: "", notes: "",
     requiresCertificate: false, status: "scheduled", scope: "single-asset" as "single-asset" | "group",
     contractorCompanyId: "" as string | null, contractorCompanyName: "" as string | null,
+    contractorWorkerId: "" as string | null, contractorWorkerName: "" as string | null,
   });
   const [woForm, setWoForm] = useState(emptyWOForm());
 
@@ -1159,6 +1160,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       scope: wo.groupId ? "group" : "single-asset",
       contractorCompanyId: wo.contractorCompanyId || "",
       contractorCompanyName: wo.contractorCompanyName || "",
+      contractorWorkerId: wo.contractorWorkerId || "",
+      contractorWorkerName: wo.contractorWorkerName || "",
     });
     setShowEditWO(true);
   };
@@ -1203,6 +1206,26 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     enabled: !!selectedCompanyIdForWorkers,
     queryFn: async () => {
       const res = await fetch(`/api/contractors/${selectedCompanyIdForWorkers}/workers`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  const newWOCompanyId = woForm.contractorCompanyId || "";
+  const { data: newWOWorkers = [] } = useQuery<ContractorWorker[]>({
+    queryKey: ["/api/contractors", newWOCompanyId, "workers"],
+    enabled: !!newWOCompanyId,
+    queryFn: async () => {
+      const res = await fetch(`/api/contractors/${newWOCompanyId}/workers`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  const editWOCompanyId = editWOForm.contractorCompanyId || "";
+  const { data: editWOWorkers = [] } = useQuery<ContractorWorker[]>({
+    queryKey: ["/api/contractors", editWOCompanyId, "workers"],
+    enabled: !!editWOCompanyId,
+    queryFn: async () => {
+      const res = await fetch(`/api/contractors/${editWOCompanyId}/workers`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -1897,7 +1920,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 value={woForm.contractorCompanyId || "_none"}
                 onValueChange={v => {
                   const c = contractors.find(x => x.id === v);
-                  setWoForm(f => ({ ...f, contractorCompanyId: v === "_none" ? null : v, contractorCompanyName: v === "_none" ? null : (c?.name ?? v) }));
+                  setWoForm(f => ({ ...f, contractorCompanyId: v === "_none" ? null : v, contractorCompanyName: v === "_none" ? null : (c?.name ?? v), contractorWorkerId: null, contractorWorkerName: null }));
                 }}
               >
                 <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
@@ -1907,6 +1930,24 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 </SelectContent>
               </Select>
             </div>
+            {woForm.contractorCompanyId && (
+              <div>
+                <Label>Worker (optional)</Label>
+                <Select
+                  value={woForm.contractorWorkerId || "_none"}
+                  onValueChange={v => {
+                    const w = newWOWorkers.find(x => x.id === v);
+                    setWoForm(f => ({ ...f, contractorWorkerId: v === "_none" ? null : v, contractorWorkerName: v === "_none" ? null : `${w?.firstName ?? ""} ${w?.lastName ?? ""}`.trim() }));
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="— No specific worker —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— No specific worker —</SelectItem>
+                    {newWOWorkers.map(w => <SelectItem key={w.id} value={w.id}>{w.firstName} {w.lastName}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input type="checkbox" id="reqCert" checked={woForm.requiresCertificate} onChange={e => setWoForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
               <Label htmlFor="reqCert" className="font-normal cursor-pointer">{t("workOrders.requiresCertificate")}</Label>
@@ -1922,6 +1963,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 scheduleId: woForm.scheduleId || null,
                 contractorCompanyId: woForm.contractorCompanyId || null,
                 contractorCompanyName: woForm.contractorCompanyName || null,
+                contractorWorkerId: woForm.contractorWorkerId || null,
+                contractorWorkerName: woForm.contractorWorkerName || null,
               })}
               disabled={!woForm.title || createWOMutation.isPending}
             >
@@ -2014,7 +2057,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 value={editWOForm.contractorCompanyId || "_none"}
                 onValueChange={v => {
                   const c = contractors.find(x => x.id === v);
-                  setEditWOForm(f => ({ ...f, contractorCompanyId: v === "_none" ? null : v, contractorCompanyName: v === "_none" ? null : (c?.name ?? v) }));
+                  setEditWOForm(f => ({ ...f, contractorCompanyId: v === "_none" ? null : v, contractorCompanyName: v === "_none" ? null : (c?.name ?? v), contractorWorkerId: null, contractorWorkerName: null }));
                 }}
               >
                 <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
@@ -2024,6 +2067,24 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 </SelectContent>
               </Select>
             </div>
+            {editWOForm.contractorCompanyId && (
+              <div>
+                <Label>Worker (optional)</Label>
+                <Select
+                  value={editWOForm.contractorWorkerId || "_none"}
+                  onValueChange={v => {
+                    const w = editWOWorkers.find(x => x.id === v);
+                    setEditWOForm(f => ({ ...f, contractorWorkerId: v === "_none" ? null : v, contractorWorkerName: v === "_none" ? null : `${w?.firstName ?? ""} ${w?.lastName ?? ""}`.trim() }));
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="— No specific worker —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— No specific worker —</SelectItem>
+                    {editWOWorkers.map(w => <SelectItem key={w.id} value={w.id}>{w.firstName} {w.lastName}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input type="checkbox" id="editReqCert" checked={editWOForm.requiresCertificate} onChange={e => setEditWOForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
               <Label htmlFor="editReqCert" className="font-normal cursor-pointer">{t("workOrders.requiresCertificate")}</Label>
@@ -2042,6 +2103,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   scheduleId: editWOForm.scheduleId || null,
                   contractorCompanyId: editWOForm.contractorCompanyId || null,
                   contractorCompanyName: editWOForm.contractorCompanyName || null,
+                  contractorWorkerId: editWOForm.contractorWorkerId || null,
+                  contractorWorkerName: editWOForm.contractorWorkerName || null,
                 }
               })}
             >

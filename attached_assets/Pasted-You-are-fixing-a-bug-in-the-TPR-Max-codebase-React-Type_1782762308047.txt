@@ -1,0 +1,48 @@
+You are fixing a bug in the TPR Max codebase (React + TypeScript front end in
+client/src, Express + TypeScript API in server/). Use the report below to find
+the root cause and propose a fix. Do not guess — read the named source file
+first, and ask for the screenshots if you need them.
+
+# Bug BR-035
+- Reported: 29/06/2026, 20:04:07
+- Status: New
+- Reporter: Emma Leschenko <emma@acsltd.eu>
+- Customer / tenant: Cowiesburn
+- App version: v2026.06.29-8fa162ca
+- Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0
+- Screen: 1714x866
+
+## Where it happened
+- Route (URL path): /ppm
+- Likely source file: client/src/pages/PPM.tsx
+  (If the route is dynamic or unknown, say "Unknown — search client/src/pages".)
+
+## What the user reported
+Work Order section needs the ability to assign a work order to a Worker within a company. See screenshots for location of creation of new button for this function.
+
+## Console / network logs at the time
+[2026-06-29T18:48:15.193Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-29T18:49:01.534Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-29T18:49:02.842Z] [NETWORK] HTTP 500 GET /api/ppm/work-orders/2bd6a628-07c1-4d99-89d1-2f604b797a53/documents
+
+## What the user did just before (most recent last)
+[2026-06-29T18:46:03.398Z] [ROUTE] /ppm
+[2026-06-29T18:46:08.139Z] [CLICK] button:Work Orders
+[2026-06-29T18:46:12.851Z] [CLICK] button:Clear
+[2026-06-29T18:47:34.094Z] [CLICK] button:Clear
+[2026-06-29T18:48:26.965Z] [CLICK] button:— None —
+[2026-06-29T18:48:36.112Z] [CLICK] button:Save Changes
+[2026-06-29T18:56:16.772Z] [CLICK] button:Close
+[2026-06-29T19:01:51.118Z] [CLICK] button:Upload
+[2026-06-29T19:03:08.032Z] [CLICK] button:Upload
+[2026-06-29T19:03:48.177Z] [CLICK] button:Upload
+[2026-06-29T19:04:07.050Z] [CLICK] button:Send Report
+
+## Screenshots
+3 image(s) were attached but are NOT included in this text. They are visible in Platform Admin and in the report PDF (use the "Download PDF" button). Ask the user to paste them if the cause isn't clear from the data above.
+
+## Your task
+1. Read the likely source file and trace the code path the user hit.
+2. Identify the root cause.
+3. Propose the smallest correct fix, and call out any tenant-isolation,
+   permissions, or input-validation concerns you notice while there.
