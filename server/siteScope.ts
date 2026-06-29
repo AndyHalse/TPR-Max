@@ -117,14 +117,8 @@ async function resolveSiteContext(req: Request): Promise<SiteContext> {
       return { isEnterprise: false, activeSiteId: null, allowedSiteIds: 'all' };
     }
 
-    // Enterprise path — fail closed: active site MUST be in the session.
+    // Enterprise path — resolve grants first so we know the user's scope.
     const activeSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
-
-    if (!activeSiteId) {
-      throw new SiteContextError(
-        'Enterprise session has no active site. Select a site before accessing site-scoped resources.',
-      );
-    }
 
     // Resolve per-user site allowlist from enterprise role grants.
     // Fail closed: no grant → empty allowlist → 403 on any site-scoped query.
@@ -138,10 +132,19 @@ async function resolveSiteContext(req: Request): Promise<SiteContext> {
       allowedSiteIds = grants.allowedSiteIds;
     }
 
+    // enterprise_admin (allowedSiteIds === 'all') may operate in "whole estate"
+    // mode with no active site selected — scopedWhere() returns undefined so all
+    // sites are visible. Non-admin enterprise users must select a site first.
+    if (!activeSiteId && allowedSiteIds !== 'all') {
+      throw new SiteContextError(
+        'Enterprise session has no active site. Select a site before accessing site-scoped resources.',
+      );
+    }
+
     // Security: verify the session's active site is within the user's grant.
     // This catches stale sessions after grant revocation and any tampering that
     // somehow bypassed the POST /api/enterprise/active-site check.
-    if (allowedSiteIds !== 'all' && !allowedSiteIds.includes(activeSiteId)) {
+    if (activeSiteId && allowedSiteIds !== 'all' && !allowedSiteIds.includes(activeSiteId)) {
       // Clear the invalid site from the session so it does not keep triggering
       // this error on every request after a grant change.
       (req.session as any).activeSiteId = undefined;

@@ -309,14 +309,14 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
       await pool.query(`
         INSERT INTO "${sn}".site_user_roles
           (id, user_id, role, area_id, site_id, is_demo) VALUES
-          (gen_random_uuid(),$1,'area_manager',$9,NULL,true),
-          (gen_random_uuid(),$2,'area_manager',$10,NULL,true),
-          (gen_random_uuid(),$3,'site_coordinator',NULL,$11,true),
-          (gen_random_uuid(),$4,'site_coordinator',NULL,$12,true),
-          (gen_random_uuid(),$5,'site_coordinator',NULL,$13,true),
-          (gen_random_uuid(),$6,'site_coordinator',NULL,$14,true),
-          (gen_random_uuid(),$7,'site_coordinator',NULL,$15,true)
-      `, [uSarah, uDuncan, uLynn, uCallum, uFiona, uAileen, uBruce, null, aC, aN, sGla, sAbd, sEdH, sSti, sInv]);
+          (gen_random_uuid(),$1,'area_manager',$8,NULL,true),
+          (gen_random_uuid(),$2,'area_manager',$9,NULL,true),
+          (gen_random_uuid(),$3,'site_coordinator',NULL,$10,true),
+          (gen_random_uuid(),$4,'site_coordinator',NULL,$11,true),
+          (gen_random_uuid(),$5,'site_coordinator',NULL,$12,true),
+          (gen_random_uuid(),$6,'site_coordinator',NULL,$13,true),
+          (gen_random_uuid(),$7,'site_coordinator',NULL,$14,true)
+      `, [uSarah, uDuncan, uLynn, uCallum, uFiona, uAileen, uBruce, aC, aN, sGla, sAbd, sEdH, sSti, sInv]);
 
       // ══ 5. COMPLIANCE CERTIFICATE TYPES (demo-specific, self-contained) ═════
       _step = 'cert_types';
