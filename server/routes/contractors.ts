@@ -5551,6 +5551,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     }
   });
 
+  // ── Contractor Portal: Edit portal user email / name ───────────────────────
+  app.patch('/api/contractors/portal-users/:userId/edit', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const customerId = req.customerId!;
+      const { email, firstName, lastName } = req.body;
+      if (!email?.trim()) return res.status(400).json({ error: 'Email is required.' });
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const [updated] = await db
+        .update(isolatedSchema.contractorPortalUsers)
+        .set({ email: email.trim().toLowerCase(), firstName: firstName?.trim() ?? '', lastName: lastName?.trim() ?? '' })
+        .where(eq(isolatedSchema.contractorPortalUsers.id, userId))
+        .returning();
+      if (!updated) return res.status(404).json({ error: 'Portal user not found.' });
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[portal-admin] edit portal user error', {
+        customerId: req.customerId, user: (req.user as any)?.username,
+        message: error?.message, stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
+      });
+      return res.status(500).json({ error: 'Failed to update portal user.', detail: error?.message });
+    }
+  });
+
   // ── Contractor Portal: Resend login details to an active portal user ────────
   app.post('/api/contractors/portal-users/:userId/resend-login', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {

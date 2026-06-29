@@ -5,7 +5,7 @@ import { apiRequest, objectUrl } from "@/lib/queryClient";
 import {
   Globe, Send, Users, Building2, Loader2,
   CheckCircle2, Clock, Plus, MailCheck, ShieldOff, FileText,
-  CheckCheck, XCircle, Eye, RefreshCw, AlertTriangle, ShieldCheck, Settings, History,
+  CheckCheck, XCircle, Eye, RefreshCw, AlertTriangle, ShieldCheck, Settings, History, Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,8 @@ export default function ContractorPortalAdmin() {
   const [inviteCompanyId, setInviteCompanyId] = useState("");
 
   const [revokeTarget, setRevokeTarget] = useState<{ id: string; email: string } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ id: string; email: string; firstName: string; lastName: string } | null>(null);
+  const [editForm, setEditForm] = useState({ email: "", firstName: "", lastName: "" });
   const [rejectTarget, setRejectTarget] = useState<{ docId: string; documentName: string; companyName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [requestChangesTarget, setRequestChangesTarget] = useState<{ id: string; companyName: string } | null>(null);
@@ -133,6 +135,21 @@ export default function ContractorPortalAdmin() {
     },
     onError: (err: any) => {
       toast({ title: "Failed to revoke access", description: err?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const editPortalUserMutation = useMutation({
+    mutationFn: async ({ userId, email, firstName, lastName }: { userId: string; email: string; firstName: string; lastName: string }) => {
+      const res = await apiRequest("PATCH", `/api/contractors/portal-users/${userId}/edit`, { email, firstName, lastName });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Portal user updated", description: "Details have been saved." });
+      setEditTarget(null);
+      qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update portal user", description: err?.message || "Please try again.", variant: "destructive" });
     },
   });
 
@@ -472,6 +489,17 @@ export default function ContractorPortalAdmin() {
                               </Tooltip>
                             </>
                           )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => {
+                                setEditTarget({ id: u.id, email: u.email, firstName: u.firstName ?? "", lastName: u.lastName ?? "" });
+                                setEditForm({ email: u.email, firstName: u.firstName ?? "", lastName: u.lastName ?? "" });
+                              }}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Edit portal user details</TooltipContent>
+                          </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setLocation(`/contractors/${u.companyId}`)}>
@@ -963,6 +991,41 @@ export default function ContractorPortalAdmin() {
             <Button variant="outline" onClick={() => setRevokeTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={() => revokeTarget && revokeMutation.mutate(revokeTarget.id)} disabled={revokeMutation.isPending}>
               {revokeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Revoke Access
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Portal User Dialog ──────────────────────────────────────────── */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4" />Edit Portal User</DialogTitle>
+            <DialogDescription>Update the name or email address for this portal user.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>First name</Label>
+                <Input value={editForm.firstName} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} placeholder="First name" />
+              </div>
+              <div className="space-y-1">
+                <Label>Last name</Label>
+                <Input value={editForm.lastName} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} placeholder="Last name" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Email address</Label>
+              <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="email@example.com" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button
+              disabled={!editForm.email.trim() || editPortalUserMutation.isPending}
+              onClick={() => editTarget && editPortalUserMutation.mutate({ userId: editTarget.id, ...editForm })}
+            >
+              {editPortalUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
