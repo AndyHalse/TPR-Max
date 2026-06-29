@@ -339,7 +339,7 @@ export class CustomerDatabaseService {
 
     // Ensure feature_ppm column exists in company_settings (PPM module migration)
     try {
-      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_ppm BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_ppm BOOLEAN DEFAULT true`);
     } catch (err: any) {
       logger.warn(`⚠️ feature_ppm column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }

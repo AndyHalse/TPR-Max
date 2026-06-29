@@ -318,6 +318,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addInductionFailureFeedbackLevelMigration,
     addSsoCredentialsMigration,
     addPpmAuditTableMigration,
+    repairPpmFeatureFlagMigration,
     {
       version: '20260513_047_add_sso_fields',
       description: 'Add Azure Entra ID SSO columns to company_settings and users',
@@ -3119,6 +3120,30 @@ const addPpmAuditTableMigration: Migration = {
       } else {
         throw err;
       }
+    }
+  }
+};
+
+// Migration 059 — Re-apply feature_ppm = true for any customer DB that missed migration 056
+// Root-cause: when customerDatabase.ts adds feature_ppm via ALTER TABLE it uses DEFAULT false,
+// so existing customers provisioned before the column existed get false even if migration 056
+// ran against a cached/skipped state. This idempotent migration forces the flag true for all
+// customer DBs that have it disabled (platform-level overrides live in platformDisabledFeatures
+// on the management DB — a separate mechanism that is unaffected by this write).
+const repairPpmFeatureFlagMigration: Migration = {
+  version: '20260629_059_repair_ppm_feature_flag',
+  description: 'Ensure feature_ppm = true for all customer DBs that missed migration 056',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_ppm BOOLEAN DEFAULT true`);
+    } catch (err: any) {
+      logger.info(`⚠️ [059] feature_ppm column ensure: ${err.message?.substring(0, 80)}`);
+    }
+    try {
+      await db.execute(`UPDATE company_settings SET feature_ppm = true WHERE feature_ppm IS NOT true`);
+      logger.info('✅ [059] feature_ppm repaired to true for all customer settings rows');
+    } catch (err: any) {
+      logger.error(`❌ [059] Failed to repair feature_ppm: ${err.message}`);
     }
   }
 };
