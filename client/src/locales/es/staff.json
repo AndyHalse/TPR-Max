@@ -27,6 +27,7 @@
   "badges": {
     "active": "Activo",
     "inactive": "Inactivo",
+    "archived": "Archivado",
     "onSite": "En el sitio",
     "fireMarshal": "Jefe de emergencias",
     "staff": "Personal",
@@ -58,6 +59,12 @@
     "title": "TPR Max requerido",
     "desc": "Actualice a TPR Max para gestionar documentos del personal, verificación del derecho al trabajo y seguimiento de DBS."
   },
+  "archiveStaff": "Archivar",
+  "unarchiveStaff": "Restaurar",
+  "showArchived": "Ver archivados",
+  "hideArchived": "Ocultar archivados",
+  "failedToArchive": "Error al archivar al miembro del personal",
+  "failedToUnarchive": "Error al restaurar al miembro del personal",
   "failedToDelete": "Error al eliminar al miembro del personal",
   "failedToCheckIn": "Error al registrar la entrada del miembro del personal",
   "failedToCheckOut": "Error al registrar la salida del miembro del personal",
@@ -71,6 +78,10 @@
   "toasts": {
     "deletedTitle": "Éxito",
     "deletedDesc": "Miembro del personal eliminado correctamente",
+    "archivedTitle": "Personal archivado",
+    "archivedDesc": "El miembro del personal ha sido archivado y dado de baja",
+    "unarchivedTitle": "Personal restaurado",
+    "unarchivedDesc": "El miembro del personal ha sido restaurado como activo",
     "qrSentTitle": "Pase QR enviado",
     "qrSentDesc": "El pase QR de entrada ha sido enviado por correo al miembro del personal",
     "photoUpdatedTitle": "Foto actualizada",

@@ -818,6 +818,44 @@ export function registerStaffRoutes(app: Express): void {
     }
   });
 
+  // Archive staff member — soft-delete (isActive=false), auto-checks-out if on site
+  app.patch("/api/staff/:id/archive", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const existing = await databaseService.getStaffById(context, id);
+      if (!existing) return res.status(404).json({ error: "Staff member not found" });
+      const updates: any = { isActive: false };
+      if (existing.isCheckedIn) {
+        updates.isCheckedIn = false;
+        updates.checkedOutAt = new Date();
+        updates.checkoutType = "archive";
+      }
+      const updated = await databaseService.updateStaff(context, id, updates);
+      res.json(updated);
+    } catch (error) {
+      logger.error("Failed to archive staff member:", error);
+      res.status(500).json({ error: "Failed to archive staff member" });
+    }
+  });
+
+  // Unarchive staff member — restore (isActive=true)
+  app.patch("/api/staff/:id/unarchive", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const existing = await databaseService.getStaffById(context, id);
+      if (!existing) return res.status(404).json({ error: "Staff member not found" });
+      const updated = await databaseService.updateStaff(context, id, { isActive: true } as any);
+      res.json(updated);
+    } catch (error) {
+      logger.error("Failed to unarchive staff member:", error);
+      res.status(500).json({ error: "Failed to unarchive staff member" });
+    }
+  });
+
   // Staff authentication endpoint
   app.post("/api/staff/auth", requireAuth, async (req, res) => {
     try {

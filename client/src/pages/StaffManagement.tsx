@@ -9,7 +9,7 @@ import StaffDbsTab from "@/components/StaffDbsTab";
 import StaffDocumentsTab from "@/components/StaffDocumentsTab";
 import StaffActivityTab from "@/components/StaffActivityTab";
 import StaffNotesTab from "@/components/StaffNotesTab";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff, FileText, XCircle, History, StickyNote } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff, FileText, XCircle, History, StickyNote, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -211,6 +211,7 @@ export default function StaffManagement() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<'firstName' | 'lastName' | 'recentCheckIn'>('firstName');
+  const [showArchived, setShowArchived] = useState(false);
   const [isUploadingStaffPhoto, setIsUploadingStaffPhoto] = useState(false);
   const [isDownloadingWalletPass, setIsDownloadingWalletPass] = useState(false);
   const staffPhotoInputId = "staff-photo-upload-input";
@@ -256,6 +257,32 @@ export default function StaffManagement() {
         description: t('failedToDelete'),
         variant: "destructive",
       });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("PATCH", `/api/staff/${id}/archive`),
+    onSuccess: () => {
+      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({ title: t('toasts.archivedTitle'), description: t('toasts.archivedDesc') });
+    },
+    onError: () => {
+      toast({ title: t('common:error'), description: t('failedToArchive'), variant: "destructive" });
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("PATCH", `/api/staff/${id}/unarchive`),
+    onSuccess: () => {
+      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
+      queryClient.invalidateQueries({ queryKey });
+      toast({ title: t('toasts.unarchivedTitle'), description: t('toasts.unarchivedDesc') });
+    },
+    onError: () => {
+      toast({ title: t('common:error'), description: t('failedToUnarchive'), variant: "destructive" });
     },
   });
 
@@ -889,6 +916,8 @@ export default function StaffManagement() {
   }
 
   const filteredStaff = [...(staff || [])].filter(member => {
+    // Show archived or active based on toggle
+    if (showArchived ? member.isActive : !member.isActive) return false;
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
@@ -957,6 +986,16 @@ export default function StaffManagement() {
               <SelectItem value="recentCheckIn">{t('sorting.recentCheckIn')}</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowArchived(v => !v)}
+            className={showArchived ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 gap-1.5" : "text-amber-700 border-amber-300 hover:bg-amber-50 gap-1.5"}
+            title={showArchived ? t('hideArchived') : t('showArchived')}
+          >
+            <Archive size={13} />
+            <span className="hidden sm:inline text-xs">{showArchived ? t('hideArchived') : t('showArchived')}</span>
+          </Button>
           <div className="flex items-center gap-1">
             <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0" title={t('common:view')}>
               <LayoutGrid size={14} />
@@ -1087,17 +1126,42 @@ export default function StaffManagement() {
                         </Button>
                       ) : null;
                     })()}
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => deleteMutation.mutate(member.id)}
-                      disabled={deleteMutation.isPending}
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                      data-testid={`button-delete-staff-${member.id}`}
-                      title={t('common:delete')}
-                    >
-                      <Trash2 size={15} />
-                    </Button>
+                    {!showArchived ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => archiveMutation.mutate(member.id)}
+                        disabled={archiveMutation.isPending}
+                        className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                        title={t('archiveStaff')}
+                      >
+                        <Archive size={15} />
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => unarchiveMutation.mutate(member.id)}
+                          disabled={unarchiveMutation.isPending}
+                          className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          title={t('unarchiveStaff')}
+                        >
+                          <ArchiveRestore size={15} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteMutation.mutate(member.id)}
+                          disabled={deleteMutation.isPending}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          data-testid={`button-delete-staff-${member.id}`}
+                          title={t('common:delete')}
+                        >
+                          <Trash2 size={15} />
+                        </Button>
+                      </>
+                    )}
                   </div>
                   {member.isActive && (
                     <>
@@ -1170,6 +1234,14 @@ export default function StaffManagement() {
                     )}
                     <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-8 w-8 p-0" title={t('common:edit')}><Edit size={14} /></Button>
                     <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title={t('qrPass')}><QrCode size={14} /></Button>
+                    {!showArchived ? (
+                      <Button size="sm" variant="ghost" onClick={() => archiveMutation.mutate(member.id)} disabled={archiveMutation.isPending} className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50" title={t('archiveStaff')}><Archive size={14} /></Button>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => unarchiveMutation.mutate(member.id)} disabled={unarchiveMutation.isPending} className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" title={t('unarchiveStaff')}><ArchiveRestore size={14} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate(member.id)} disabled={deleteMutation.isPending} className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" title={t('common:delete')}><Trash2 size={14} /></Button>
+                      </>
+                    )}
                     {(() => {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (
@@ -1195,6 +1267,14 @@ export default function StaffManagement() {
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-9 w-9 p-0" title={t('common:edit')}><Edit size={15} /></Button>
                     <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-9 w-9 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title={t('qrPass')}><QrCode size={15} /></Button>
+                    {!showArchived ? (
+                      <Button size="sm" variant="ghost" onClick={() => archiveMutation.mutate(member.id)} disabled={archiveMutation.isPending} className="h-9 w-9 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50" title={t('archiveStaff')}><Archive size={15} /></Button>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => unarchiveMutation.mutate(member.id)} disabled={unarchiveMutation.isPending} className="h-9 w-9 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" title={t('unarchiveStaff')}><ArchiveRestore size={15} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate(member.id)} disabled={deleteMutation.isPending} className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" title={t('common:delete')}><Trash2 size={15} /></Button>
+                      </>
+                    )}
                     {(() => {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (

@@ -27,6 +27,7 @@
   "badges": {
     "active": "Active",
     "inactive": "Inactive",
+    "archived": "Archived",
     "onSite": "On Site",
     "fireMarshal": "Fire Marshal",
     "staff": "Staff",
@@ -58,6 +59,12 @@
     "title": "TPR Max required",
     "desc": "Upgrade to TPR Max for staff documents, Right to Work and DBS tracking."
   },
+  "archiveStaff": "Archive",
+  "unarchiveStaff": "Restore",
+  "showArchived": "Show Archived",
+  "hideArchived": "Hide Archived",
+  "failedToArchive": "Failed to archive staff member",
+  "failedToUnarchive": "Failed to restore staff member",
   "failedToDelete": "Failed to delete staff member",
   "failedToCheckIn": "Failed to check in staff member",
   "failedToCheckOut": "Failed to check out staff member",
@@ -71,6 +78,10 @@
   "toasts": {
     "deletedTitle": "Success",
     "deletedDesc": "Staff member deleted successfully",
+    "archivedTitle": "Staff Archived",
+    "archivedDesc": "Staff member has been archived and checked out",
+    "unarchivedTitle": "Staff Restored",
+    "unarchivedDesc": "Staff member has been restored to active",
     "qrSentTitle": "QR Pass Sent",
     "qrSentDesc": "QR check-in pass has been emailed to the staff member",
     "photoUpdatedTitle": "Photo updated",
