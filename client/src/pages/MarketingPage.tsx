@@ -106,6 +106,8 @@ import musterActiveImg from "@assets/image_1774977371147.png";
 import fireMarshalMobileImg from "@assets/image_1774977602704.png";
 import heroSiteImg from "@assets/image_1782745341310.png";
 
+import TPR_People_Meeting from "@assets/TPR People Meeting.webp";
+
 function ScreenCaption({ what, why }: { what: string; why: string }) {
   return (
     <div className="mt-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-4 py-3">
@@ -398,7 +400,6 @@ export default function MarketingPage() {
           )}
         </div>
       </nav>
-
       {/* Hero Section */}
       <section className="relative py-20 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -503,7 +504,7 @@ export default function MarketingPage() {
             <div className="relative">
               <div className="relative z-10">
                 <img
-                  src={fireMarshalMobileImg}
+                  src={TPR_People_Meeting}
                   alt="Fire Marshal using TPR on mobile phone during live evacuation"
                   className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full object-cover"
                   style={{ maxHeight: "520px", objectPosition: "center top" }}
@@ -530,7 +531,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* Muster section — moved below after One Platform Solution */}
       {false && <section className="py-16 bg-gradient-to-b from-red-50 to-orange-50 dark:from-slate-900 dark:to-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -631,7 +631,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>}
-
       {/* Stats Strip */}
       <section className="py-12 bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -651,7 +650,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* One Platform Solution Section */}
       <section className="py-20 bg-gradient-to-br from-[#2460A9]/5 via-white to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -785,7 +783,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* Muster Before & During Section */}
       <section className="py-16 bg-gradient-to-b from-red-50 to-orange-50 dark:from-slate-900 dark:to-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -926,7 +923,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* All Modules Overview Section */}
       <section id="modules" className="py-20 bg-white dark:bg-slate-900 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1199,8 +1195,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
-
       {/* Interactive Tabbed Product Tour */}
       <section
         id="features"
@@ -4230,7 +4224,6 @@ export default function MarketingPage() {
 
         </div>
       </section>
-
       {/* Industry-Specific Solutions Section */}
       <section
         id="industries"
@@ -4547,7 +4540,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* Social Proof Section */}
       <section className="py-20 bg-gradient-to-b from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -4573,7 +4565,6 @@ export default function MarketingPage() {
           {/* Customer quotes and case studies — coming soon */}
         </div>
       </section>
-
       {/* Pricing Section */}
       <section id="pricing" className="py-20 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -4716,7 +4707,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* Mid-page CTA Banner */}
       <section
         className="py-16"
@@ -4752,7 +4742,6 @@ export default function MarketingPage() {
           <p className="text-white/60 text-sm mt-6">No commitment required · UK-based team · Response within 1 business day</p>
         </div>
       </section>
-
       {/* Why TPR Section */}
       <section className="py-20 bg-white/50 dark:bg-slate-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -4821,7 +4810,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* Contact Section */}
       <section
         id="contact"
@@ -4926,7 +4914,6 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
-
       {/* Footer */}
       <footer className="bg-slate-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
