@@ -313,18 +313,33 @@ function DashboardSummary({ onWorkOrdersClick }: { onWorkOrdersClick: (filter?: 
     { label: t("dashboard.awaitingCertificates"), value: awaitingCerts, color: awaitingCerts > 0 ? "text-amber-600" : "text-foreground", onClick: () => onWorkOrdersClick("awaiting-cert") },
   ];
 
+  const statTooltips: Record<string, string> = {
+    [t("dashboard.overdueWorkOrders")]: "Click to filter work orders to overdue only",
+    [t("dashboard.awaitingCertificates")]: "Click to view completed work orders awaiting a certificate upload",
+  };
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {stats.map(s => (
-        <GlassCard
-          key={s.label}
-          className={`p-4 text-center ${s.onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
-          onClick={s.onClick}
-        >
-          <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-          <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
-        </GlassCard>
-      ))}
+      {stats.map(s => {
+        const tip = statTooltips[s.label];
+        const card = (
+          <GlassCard
+            key={s.label}
+            className={`p-4 text-center ${s.onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+            onClick={s.onClick}
+          >
+            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+          </GlassCard>
+        );
+        if (!tip) return card;
+        return (
+          <Tooltip key={s.label}>
+            <TooltipTrigger asChild>{card}</TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">{tip}</p></TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }
@@ -459,10 +474,20 @@ function AssetsTab() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{t("assets.descriptionText")}</p>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setGroupForm({ name: "", description: "" }); setGroupDialogOpen(true); }}>
-            <Layers className="h-4 w-4 mr-1" />{t("assets.manageGroups")}
-          </Button>
-          <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />{t("assets.addAsset")}</Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setGroupForm({ name: "", description: "" }); setGroupDialogOpen(true); }}>
+                <Layers className="h-4 w-4 mr-1" />{t("assets.manageGroups")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">Create, rename, or delete asset groups to organise your equipment</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />{t("assets.addAsset")}</Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">Register a new piece of equipment or plant asset</p></TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -483,17 +508,22 @@ function AssetsTab() {
           {/* Each Asset Group as a collapsible section */}
           {grouped.map(({ group, assets: ga }) => (
             <div key={group.id} className="border rounded-lg overflow-hidden">
-              <button
-                onClick={() => toggleGroup(group.id)}
-                className="w-full flex items-center gap-2 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
-              >
-                {expandedGroups.has(group.id)
-                  ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                  : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
-                <Layers className="h-4 w-4 text-blue-600 shrink-0" />
-                <span className="font-semibold text-sm flex-1">{group.name}</span>
-                <Badge variant="secondary" className="text-xs">{ga.length !== 1 ? t("dashboard.assetCountPlural", { count: ga.length }) : t("dashboard.assetCountSingular", { count: ga.length })}</Badge>
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => toggleGroup(group.id)}
+                    className="w-full flex items-center gap-2 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+                  >
+                    {expandedGroups.has(group.id)
+                      ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                    <Layers className="h-4 w-4 text-blue-600 shrink-0" />
+                    <span className="font-semibold text-sm flex-1">{group.name}</span>
+                    <Badge variant="secondary" className="text-xs">{ga.length !== 1 ? t("dashboard.assetCountPlural", { count: ga.length }) : t("dashboard.assetCountSingular", { count: ga.length })}</Badge>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top"><p className="text-xs">{expandedGroups.has(group.id) ? "Click to collapse this group" : "Click to expand this group"}</p></TooltipContent>
+              </Tooltip>
               {expandedGroups.has(group.id) && (
                 <div className="p-3">
                   {ga.length === 0 ? (
@@ -629,12 +659,22 @@ function AssetsTab() {
                           {g.description && <p className="text-xs text-muted-foreground truncate">{g.description}</p>}
                           <p className="text-xs text-muted-foreground">{assets.filter(a => a.groupId === g.id).length} asset{assets.filter(a => a.groupId === g.id).length !== 1 ? "s" : ""}</p>
                         </div>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingGroup(g); setGroupForm({ name: g.name, description: g.description ?? "" }); }}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm(t("assets.deleteGroupConfirm", { name: g.name }))) deleteGroupMutation.mutate(g.id); }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingGroup(g); setGroupForm({ name: g.name, description: g.description ?? "" }); }}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top"><p className="text-xs">Rename this group</p></TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm(t("assets.deleteGroupConfirm", { name: g.name }))) deleteGroupMutation.mutate(g.id); }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top"><p className="text-xs">Delete this group (assets will become ungrouped)</p></TooltipContent>
+                        </Tooltip>
                       </>
                     )}
                   </div>
@@ -756,10 +796,20 @@ function TemplatesTab() {
                 {tmpl.estimatedHours && <p className="text-xs"><span className="text-muted-foreground">{t("templates.estTime")}</span> {tmpl.estimatedHours}h</p>}
                 {items.length > 0 && <p className="text-xs text-muted-foreground">{items.length} {items.length !== 1 ? t("templates.checklistCountPlural") : t("templates.checklistCount")}</p>}
                 <div className="flex gap-2 pt-1">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(tmpl)}><Edit className="h-3 w-3 mr-1" />{t("dashboard.editBtn")}</Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm(t("dashboard.deleteTemplateConfirm"))) deleteMutation.mutate(tmpl.id); }}>
-                    <Trash2 className="h-3 w-3 mr-1" />{t("dashboard.deleteBtn")}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(tmpl)}><Edit className="h-3 w-3 mr-1" />{t("dashboard.editBtn")}</Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom"><p className="text-xs">Edit this maintenance template's details and checklist</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm(t("dashboard.deleteTemplateConfirm"))) deleteMutation.mutate(tmpl.id); }}>
+                        <Trash2 className="h-3 w-3 mr-1" />{t("dashboard.deleteBtn")}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom"><p className="text-xs">Permanently delete this template</p></TooltipContent>
+                  </Tooltip>
                 </div>
               </GlassCard>
             );
@@ -953,7 +1003,14 @@ function SchedulesTab() {
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{t("schedules.descriptionText")}</p>
-        <Button onClick={openNew} size="sm" disabled={assets.length === 0}><Plus className="h-4 w-4 mr-1" />{t("schedules.addSchedule")}</Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={openNew} size="sm" disabled={assets.length === 0}><Plus className="h-4 w-4 mr-1" />{t("schedules.addSchedule")}</Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-xs">{assets.length === 0 ? "Add at least one asset before creating a schedule" : "Create a new recurring maintenance schedule for an asset"}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {assets.length === 0 && (
@@ -989,10 +1046,20 @@ function SchedulesTab() {
                   {s.notes && <p className="text-xs text-muted-foreground mt-1 italic">{s.notes}</p>}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(s)}><Edit className="h-3 w-3" /></Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm(t("dashboard.deleteScheduleConfirm"))) deleteMutation.mutate(s.id); }}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(s)}><Edit className="h-3 w-3" /></Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p className="text-xs">Edit schedule</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm(t("dashboard.deleteScheduleConfirm"))) deleteMutation.mutate(s.id); }}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p className="text-xs">Delete schedule</p></TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </GlassCard>
@@ -1531,23 +1598,37 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
         <p className="text-sm text-muted-foreground">{t("workOrders.descriptionText")}</p>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button size="sm" variant="outline" onClick={() => setShowExportDialog(true)}>
-              <FileDown className="h-4 w-4 mr-1" />{t("workOrders.exportAll")}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="outline" onClick={() => setShowExportDialog(true)}>
+                  <FileDown className="h-4 w-4 mr-1" />{t("workOrders.exportAll")}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom"><p className="text-xs">Export work orders to CSV or PDF with optional filters</p></TooltipContent>
+            </Tooltip>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => { if (confirm(t("workOrders.confirmBulkAlert"))) bulkResendAlertMutation.mutate(); }}
-            disabled={bulkResendAlertMutation.isPending}
-            title={t("workOrders.sendAllExpiryAlerts")}
-          >
-            {bulkResendAlertMutation.isPending ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Bell className="h-4 w-4 mr-1" />}
-            {t("workOrders.sendAllExpiryAlerts")}
-          </Button>
-          <Button size="sm" onClick={() => { setWoForm(emptyWOForm()); setShowCreate(true); }}>
-            <Plus className="h-4 w-4 mr-1" />{t("workOrders.newWorkOrder")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { if (confirm(t("workOrders.confirmBulkAlert"))) bulkResendAlertMutation.mutate(); }}
+                disabled={bulkResendAlertMutation.isPending}
+              >
+                {bulkResendAlertMutation.isPending ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Bell className="h-4 w-4 mr-1" />}
+                {t("workOrders.sendAllExpiryAlerts")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">Email expiry alerts to admin for all work orders with expiring or expired documents</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" onClick={() => { setWoForm(emptyWOForm()); setShowCreate(true); }}>
+                <Plus className="h-4 w-4 mr-1" />{t("workOrders.newWorkOrder")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">Create a new work order and optionally assign it to a contractor</p></TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -1588,31 +1669,47 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
             <span className="text-xs text-muted-foreground">{t("workOrders.to")}</span>
             <Input type="date" className="h-8 w-36 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
           </div>
-          <Button
-            size="sm"
-            variant={filterExpiringDocs ? "secondary" : "outline"}
-            className={`h-8 text-xs gap-1 ${filterExpiringDocs ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-600" : ""}`}
-            onClick={() => setFilterExpiringDocs(v => { const next = !v; try { localStorage.setItem('ppm_filterExpiringDocs', String(next)); } catch {} return next; })}
-          >
-            <AlertTriangle className="h-3 w-3" />{t("workOrders.expiringDocs")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant={filterExpiringDocs ? "secondary" : "outline"}
+                className={`h-8 text-xs gap-1 ${filterExpiringDocs ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-600" : ""}`}
+                onClick={() => setFilterExpiringDocs(v => { const next = !v; try { localStorage.setItem('ppm_filterExpiringDocs', String(next)); } catch {} return next; })}
+              >
+                <AlertTriangle className="h-3 w-3" />{t("workOrders.expiringDocs")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">Show only work orders that have expired or soon-to-expire documents attached</p></TooltipContent>
+          </Tooltip>
           {isAdmin && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs gap-1"
-              disabled={bulkResendAlertsMutation.isPending || !notifyOnDocumentExpiry}
-              title={notifyOnDocumentExpiry ? t("workOrders.sendAllExpiryAlerts") : t("workOrders.expiryNotificationsDisabledShort")}
-              onClick={() => bulkResendAlertsMutation.mutate()}
-            >
-              {bulkResendAlertsMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-              {t("workOrders.resendAllAlerts")}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1"
+                  disabled={bulkResendAlertsMutation.isPending || !notifyOnDocumentExpiry}
+                  onClick={() => bulkResendAlertsMutation.mutate()}
+                >
+                  {bulkResendAlertsMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                  {t("workOrders.resendAllAlerts")}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">{notifyOnDocumentExpiry ? "Send expiry alert emails to all assigned contractors with expiring documents" : t("workOrders.expiryNotificationsDisabledShort")}</p>
+              </TooltipContent>
+            </Tooltip>
           )}
           {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo || filterExpiringDocs) && (
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterExpiringDocs(false); try { localStorage.setItem('ppm_filterExpiringDocs', 'false'); } catch {} }}>
-              <X className="h-3 w-3 mr-1" />{t("workOrders.clearFilters")}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterExpiringDocs(false); try { localStorage.setItem('ppm_filterExpiringDocs', 'false'); } catch {} }}>
+                  <X className="h-3 w-3 mr-1" />{t("workOrders.clearFilters")}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom"><p className="text-xs">Remove all active filters and show all work orders</p></TooltipContent>
+            </Tooltip>
           )}
         </div>
       </GlassCard>
@@ -1697,32 +1794,62 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{fmtDate(wo.dueDate)}</td>
                   <td className="px-3 py-2.5 hidden lg:table-cell max-w-[150px]">
                     {wo.contractorCompanyName ? (
-                      <button className="text-blue-600 dark:text-blue-400 hover:underline text-left text-sm truncate max-w-[140px] block" onClick={e => { e.stopPropagation(); setContractorDetailTarget({ type: 'company', workOrder: wo }); }}>
-                        {wo.contractorCompanyName}
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="text-blue-600 dark:text-blue-400 hover:underline text-left text-sm truncate max-w-[140px] block" onClick={e => { e.stopPropagation(); setContractorDetailTarget({ type: 'company', workOrder: wo }); }}>
+                            {wo.contractorCompanyName}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p className="text-xs">Click to view contractor company details</p></TooltipContent>
+                      </Tooltip>
                     ) : <span className="text-muted-foreground text-sm">—</span>}
                   </td>
                   <td className="px-3 py-2.5 hidden xl:table-cell max-w-[150px]">
                     {wo.contractorWorkerName ? (
-                      <button className="text-blue-600 dark:text-blue-400 hover:underline text-left text-sm truncate max-w-[140px] block" onClick={e => { e.stopPropagation(); setContractorDetailTarget({ type: 'worker', workOrder: wo }); }}>
-                        {wo.contractorWorkerName}
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="text-blue-600 dark:text-blue-400 hover:underline text-left text-sm truncate max-w-[140px] block" onClick={e => { e.stopPropagation(); setContractorDetailTarget({ type: 'worker', workOrder: wo }); }}>
+                            {wo.contractorWorkerName}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p className="text-xs">Click to view worker details and compliance status</p></TooltipContent>
+                      </Tooltip>
                     ) : <span className="text-muted-foreground text-sm">—</span>}
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1">
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title={t("workOrders.viewWorkOrder")} onClick={e => { e.stopPropagation(); openDetail(wo); }}>
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title={t("workOrders.editWorkOrder")} onClick={e => { e.stopPropagation(); openEditWO(wo); }}>
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title={t("workOrders.duplicateWorkOrder")} disabled={duplicateWOMutation.isPending} onClick={e => { e.stopPropagation(); duplicateWOMutation.mutate(wo.id); }}>
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title={t("workOrders.deleteWorkOrder")} disabled={deleteWOMutation.isPending} onClick={e => { e.stopPropagation(); if (confirm(t("workOrders.confirmDeleteWO"))) deleteWOMutation.mutate(wo.id); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openDetail(wo); }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p className="text-xs">{t("workOrders.viewWorkOrder")}</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" onClick={e => { e.stopPropagation(); openEditWO(wo); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p className="text-xs">{t("workOrders.editWorkOrder")}</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" disabled={duplicateWOMutation.isPending} onClick={e => { e.stopPropagation(); duplicateWOMutation.mutate(wo.id); }}>
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p className="text-xs">{t("workOrders.duplicateWorkOrder")}</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" disabled={deleteWOMutation.isPending} onClick={e => { e.stopPropagation(); if (confirm(t("workOrders.confirmDeleteWO"))) deleteWOMutation.mutate(wo.id); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top"><p className="text-xs">{t("workOrders.deleteWorkOrder")}</p></TooltipContent>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>
@@ -2465,12 +2592,22 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                               )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <a href={doc.fileUrl} target="_blank" rel="noreferrer" title="View document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
-                                <Eye className="h-3.5 w-3.5" />
-                              </a>
-                              <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noreferrer" title="Download document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
-                                <Download className="h-3.5 w-3.5" />
-                              </a>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p className="text-xs">View document in a new tab</p></TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
+                                    <Download className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p className="text-xs">Download document</p></TooltipContent>
+                              </Tooltip>
                               {isAdmin && (isExpired || isExpiringSoon) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
