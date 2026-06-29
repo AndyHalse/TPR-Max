@@ -331,7 +331,7 @@ async function runStartupMigrations(): Promise<void> {
           "font-src 'self' blob: data: https:",
           "connect-src 'self' blob: data: https: wss:",
           "worker-src blob:",
-          "frame-src 'self'",
+          "frame-src 'self' blob:",
           "media-src 'self' blob: data: https:",
         ].join("; ")
       );

@@ -213,7 +213,7 @@ export async function createApp(): Promise<{
           imgSrc: ["'self'", "data:", "blob:", "https:"],
           connectSrc: ["'self'", "blob:", "https://api.stripe.com", "wss:"],
           mediaSrc: ["'self'", "blob:", "data:"],
-          frameSrc: ["'self'"],
+          frameSrc: ["'self'", "blob:"],
           objectSrc: ["'none'"],
           upgradeInsecureRequests: [],
         },
