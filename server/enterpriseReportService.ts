@@ -166,10 +166,12 @@ async function buildPortfolioComplianceSnapshot(
   // Latest snapshot per site (last row by date)
   let snapshots: any[] = [];
   try {
-    snapshots = await db
-      .select()
-      .from(iso.complianceSnapshots)
-      .where(and(inArray(iso.complianceSnapshots.siteId!, siteIds)));
+    if (siteIds.length > 0) {
+      snapshots = await db
+        .select()
+        .from(iso.complianceSnapshots)
+        .where(inArray(iso.complianceSnapshots.siteId as any, siteIds));
+    }
   } catch {
     // Table may not exist yet (migration pending) — proceed with empty snapshots
     snapshots = [];
@@ -661,22 +663,50 @@ async function buildAuditTrailExport(
 
 // ─── Puppeteer PDF renderer ───────────────────────────────────────────────────
 
+/** Detect a working Chromium binary, preferring system nix-compiled versions
+ *  which have all shared-library deps resolved via the nix store. */
+function findChromiumExecutable(): string | undefined {
+  // 1. Explicit env override (allows ops to pin a specific path)
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
+
+  // 2. System chromium from PATH (installed via nix packages — libraries are
+  //    bundled in the nix store so libglib / libnss / etc. are always present)
+  try {
+    const { execFileSync } = require('child_process');
+    for (const cmd of ['chromium', 'chromium-browser', 'google-chrome-stable', 'google-chrome']) {
+      try {
+        const p = execFileSync('which', [cmd], { encoding: 'utf8', timeout: 3000 }).trim();
+        if (p) return p;
+      } catch {}
+    }
+  } catch {}
+
+  // 3. Fall through — let Puppeteer use its managed Chrome (works in dev)
+  return undefined;
+}
+
 async function renderPdf(html: string): Promise<Buffer> {
   let browser: any;
   const puppeteer = await import('puppeteer');
-  const puppeteerLaunch = (puppeteer as any).default?.launch ?? (puppeteer as any).launch;
+  const puppeteerDefault = (puppeteer as any).default ?? puppeteer;
+  const puppeteerLaunch = puppeteerDefault?.launch;
   if (!puppeteerLaunch) throw new Error('puppeteer_launch_missing');
 
+  const executablePath = findChromiumExecutable();
   const launchOptions: any = {
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-zygote', '--single-process'],
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-first-run',
+      '--disable-extensions',
+    ],
   };
-  // Allow explicit override via env var (useful in production if the
-  // Puppeteer-managed binary isn't installed yet on first boot).
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
-  browser = await puppeteerLaunch(launchOptions);
+  if (executablePath) launchOptions.executablePath = executablePath;
+
+  browser = await puppeteerLaunch.call(puppeteerDefault, launchOptions);
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
