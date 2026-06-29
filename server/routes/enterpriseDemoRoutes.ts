@@ -359,45 +359,45 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
           -- Stirling — Fire cert expiring in 22 days (2026-07-19)
           (gen_random_uuid(),$1,'fire_safety','2025-07-01','2026-07-19','FSC-STI-2025',
            'Central Fire Safety','Central Fire Safety','current',true,$10,true),
-          (gen_random_uuid(),$3,'legionella_l8','2024-06-01','2027-06-01','L8-STI-2024',
+          (gen_random_uuid(),$4,'legionella_l8','2024-06-01','2027-06-01','L8-STI-2024',
            'Stirling Water Services','Stirling Water Services','current',true,$10,true),
 
           -- Perth — L8 expiring in 28 days (2026-07-25) + EICR expiring in 25 days (2026-07-22)
-          (gen_random_uuid(),$3,'legionella_l8','2024-07-01','2026-07-25','L8-PER-2024',
+          (gen_random_uuid(),$4,'legionella_l8','2024-07-01','2026-07-25','L8-PER-2024',
            'Tayside Water Services','Tayside Water Services','current',true,$11,true),
-          (gen_random_uuid(),$4,'eicr','2021-07-01','2026-07-22','EICR-PER-2021',
+          (gen_random_uuid(),$5,'eicr','2021-07-01','2026-07-22','EICR-PER-2021',
            'Perth Electrical Ltd','Perth Electrical Ltd','current',true,$11,true),
 
           -- Dundee — all valid (1+ year remaining)
           (gen_random_uuid(),$1,'fire_safety','2025-05-01','2027-05-01','FSC-DUN-2025',
            'Tayside Fire Safety','Tayside Fire Safety','current',true,$12,true),
-          (gen_random_uuid(),$4,'eicr','2022-01-01','2027-01-01','EICR-DUN-2022',
+          (gen_random_uuid(),$5,'eicr','2022-01-01','2027-01-01','EICR-DUN-2022',
            'Dundee Electrical','Dundee Electrical','current',true,$12,true),
 
           -- Inverness — all valid
           (gen_random_uuid(),$1,'fire_safety','2025-04-01','2027-04-01','FSC-INV-2025',
            'Highland Fire Safety','Highland Fire Safety','current',true,$13,true),
-          (gen_random_uuid(),$3,'legionella_l8','2025-01-01','2027-01-01','L8-INV-2025',
+          (gen_random_uuid(),$4,'legionella_l8','2025-01-01','2027-01-01','L8-INV-2025',
            'Highland Water Services','Highland Water Services','current',true,$13,true),
 
           -- Falkirk — all valid
           (gen_random_uuid(),$1,'fire_safety','2025-03-01','2027-03-01','FSC-FAL-2025',
            'Forth Fire Safety','Forth Fire Safety','current',true,$14,true),
-          (gen_random_uuid(),$5,'gas_safety','2025-11-01','2026-11-01','GAS-FAL-2025',
+          (gen_random_uuid(),$6,'gas_safety','2025-11-01','2026-11-01','GAS-FAL-2025',
            'Scotia Gas Services','Scotia Gas Services','current',true,$14,true),
 
           -- Edinburgh Retail — all valid
           (gen_random_uuid(),$1,'fire_safety','2025-08-01','2027-08-01','FSC-ERC-2025',
            'Lothian Fire Services','Lothian Fire Services','current',true,$15,true),
-          (gen_random_uuid(),$4,'eicr','2024-01-01','2029-01-01','EICR-ERC-2024',
+          (gen_random_uuid(),$5,'eicr','2024-01-01','2029-01-01','EICR-ERC-2024',
            'Capital Electrical','Capital Electrical','current',true,$15,true),
 
           -- Ayr — all valid (perfect score)
           (gen_random_uuid(),$1,'fire_safety','2025-10-01','2027-10-01','FSC-AYR-2025',
            'Ayrshire Fire Safety','Ayrshire Fire Safety','current',true,$16,true),
-          (gen_random_uuid(),$3,'legionella_l8','2025-05-01','2027-05-01','L8-AYR-2025',
+          (gen_random_uuid(),$4,'legionella_l8','2025-05-01','2027-05-01','L8-AYR-2025',
            'Ayrshire Water Services','Ayrshire Water Services','current',true,$16,true),
-          (gen_random_uuid(),$5,'gas_safety','2026-01-01','2027-01-01','GAS-AYR-2026',
+          (gen_random_uuid(),$6,'gas_safety','2026-01-01','2027-01-01','GAS-AYR-2026',
            'Ayrshire Gas Services','Ayrshire Gas Services','current',true,$16,true)
       `, [ctFire, ctEmLt, ctAsb, ctL8, ctEicr, ctGas,
           sGla, sAbd, sEdH, sSti, sPer, sDun, sInv, sFal, sEdR, sAyr]);
