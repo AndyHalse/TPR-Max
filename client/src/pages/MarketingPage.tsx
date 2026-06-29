@@ -104,6 +104,7 @@ import thermalImg from "@assets/ID Card printer_1756400844599.png";
 import musterReadinessImg from "@assets/image_1774977346503.png";
 import musterActiveImg from "@assets/image_1774977371147.png";
 import fireMarshalMobileImg from "@assets/image_1774977602704.png";
+import heroSiteImg from "@assets/image_1782745341310.png";
 
 function ScreenCaption({ what, why }: { what: string; why: string }) {
   return (
@@ -874,6 +875,35 @@ export default function MarketingPage() {
                   <div className="text-sm font-semibold text-red-700 dark:text-red-400">One-Tap Alert</div>
                   <div className="text-xs text-slate-500 mt-1">Email all personnel instantly</div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Real-world photo strip */}
+          <div className="relative rounded-2xl overflow-hidden my-10 shadow-2xl">
+            <img
+              src={fireMarshalMobileImg}
+              alt="Fire Marshal checking TPR on mobile during live site evacuation"
+              className="w-full object-cover"
+              style={{ maxHeight: "420px", objectPosition: "center 30%" }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/85 via-slate-900/30 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-red-400 text-xs font-bold uppercase tracking-widest">Evacuation Active</span>
+                </div>
+                <p className="text-white text-lg sm:text-xl font-semibold max-w-xl leading-snug">
+                  A Fire Marshal checks the live roll-call on their phone — no app, no password, no delay.
+                </p>
+                <p className="text-slate-300 text-sm mt-1">
+                  Bookmarked once. Works every time. Exactly when it matters most.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-red-600/90 backdrop-blur-sm rounded-xl px-4 py-2.5 text-white text-sm font-semibold whitespace-nowrap border border-red-500/50 shadow-lg">
+                <Siren className="h-4 w-4 animate-pulse" />
+                No App Download Required
               </div>
             </div>
           </div>
