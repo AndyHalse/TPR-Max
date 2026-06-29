@@ -521,7 +521,7 @@ export default function MarketingPage() {
                   <div className="flex items-center space-x-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      LIVE — Fire Marshal Panel
+                      Compliance & Safety in One Platform
                     </span>
                   </div>
                 </div>
