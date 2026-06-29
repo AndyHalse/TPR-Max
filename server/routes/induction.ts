@@ -160,8 +160,8 @@ const IMG_ERR_RECOVERY_SCRIPT = `<script id="tpr-img-errfix">
       this.src=PH;
       this.style.opacity='0.75';
     };
-    // Image already failed to load (broken URL / expired CDN link)
-    if(img.complete && img.naturalWidth===0 && img.src && img.src.indexOf('data:')<0){
+    // Image already failed to load (broken URL, expired CDN link, or bad data: URI)
+    if(img.complete && img.naturalWidth===0 && img.src){
       img.onerror();
     }
   }

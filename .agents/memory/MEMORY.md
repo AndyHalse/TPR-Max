@@ -13,6 +13,7 @@
 - [contractorWorkers induction field mismatch](contractor-induction-field.md) — contractorWorkers isolated schema uses siteInductionCompleted/siteInductionCompletedAt (site_induction_completed); never use inductionCompleted on this table.
 - [objectUrl token pattern for img tags](object-url-token-pattern.md) — img tags can't send Bearer headers; use objectUrl() from queryClient.ts to append ?token= so /objects/... route authenticates via query param.
 - [Imagen4 imageBytes double-encoding](imagen4-double-encoding.md) — SDK returns imageBytes as already-base64 string; Buffer.from(str).toString('base64') double-encodes it; always check typeof before encoding.
+- [Induction HTML self-contained image rules](induction-html-self-contained.md) — generated HTML is served as standalone file; all images MUST be base64 data: URLs; never /objects/ paths (need auth) or percent-encoded SVG (breaks in prod proxies).
 - [Contractor check-in & approval logic](contractor-checkin-approval.md) — 'attention_needed' must warn not block; reevaluateCompanyApproval must only fire on company-level docs; PATCH approve must sync worker fields.
 - [Platform Admin hardening patterns](platform-admin-hardening.md) — soft-delete/purge, super_admin tier, writeAudit helper, DatabaseProvisioningService singleton, VALID_ROLES (admin|user only).
 - [Enterprise compliance dashboard patterns](enterprise-compliance-ui.md) — score ring is SVG with stroke-dashoffset; noData when totalItems===0; expiries endpoint needs manual queryFn with ?days=N; ackMutation POSTs to /alerts/:id/acknowledge.

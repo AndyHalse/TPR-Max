@@ -8,6 +8,7 @@ import { ResultUtils } from './utils/result';
 import { ImageFallbackChain } from './managers/ImageFallbackChain';
 import OpenAI from "openai";
 import { logger } from './utils/logger';
+import { objectStorageClient, parseObjectPath as parseObjectStoragePath, ObjectStorageService } from './objectStorage';
 
 // Using Replit's AI Integrations service - provides OpenAI-compatible API access without requiring your own API key
 // Charges are billed to Replit credits, bypassing personal API billing limits
@@ -69,6 +70,27 @@ export class VideoGenerationService {
       return {};
     }
   }
+
+  /**
+   * Fetch the company logo from object storage and return it as a base64 data URL
+   * so it can be embedded directly in self-contained HTML (no auth headers needed).
+   * Returns null if the logo can't be fetched.
+   */
+  private async fetchLogoAsDataUrl(logoPath: string): Promise<string | null> {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}${logoPath}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const [fileBytes] = await objectStorageClient.bucket(bucketName).file(objectName).download();
+      const ext = logoPath.split('.').pop()?.toLowerCase() || 'png';
+      const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
+      return `data:${mime};base64,${fileBytes.toString('base64')}`;
+    } catch {
+      return null;
+    }
+  }
+
 
   // OpenAI GPT-5 completion methods - PRODUCTION QUALITY
   private async aiComplete(prompt: string, options: any = {}): Promise<string> {
@@ -1537,6 +1559,8 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
       logger.info('📄 Creating professional slide presentation with Gemini 3.0 images...');
       // CRITICAL: Now we always embed AI-generated Gemini 3.0 images regardless of format
       // Use company brand colours if available, otherwise fall back to professional defaults
+      const rawLogoPathSimple = this.companySettings?.logoUrl || this.companySettings?.bannerUrl || null;
+      const logoDataUrlSimple = rawLogoPathSimple ? (await this.fetchLogoAsDataUrl(rawLogoPathSimple)) : null;
       const brandAccent  = this.companySettings?.accentColor     || '#2460a9';
       const brandBgColor = this.companySettings?.backgroundColor  || '#1a2e4a';
       // For the slide background: if brandBgColor is a light colour, use the accent instead for contrast
@@ -1672,10 +1696,8 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
 </head>
 <body>
     <div class="logo">
-        ${this.companySettings?.logoUrl ?
-            `<img src="/objects${this.companySettings.logoUrl}" alt="${companyName}" style="height: 36px; max-width: 130px; object-fit: contain; border-radius: 4px; flex-shrink:0;" onerror="this.style.display='none';" />` :
-          this.companySettings?.bannerUrl ?
-            `<img src="/objects${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 36px; max-width: 130px; object-fit: contain; border-radius: 4px; flex-shrink:0;" onerror="this.style.display='none';" />` :
+        ${logoDataUrlSimple ?
+            `<img src="${logoDataUrlSimple}" alt="${companyName}" style="height: 36px; max-width: 130px; object-fit: contain; border-radius: 4px; flex-shrink:0;" onerror="this.style.display='none';" />` :
             '🛡️'
         }
         <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 3px rgba(0,0,0,0.4);">${companyName}</span>
@@ -2053,7 +2075,10 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
     
     // Get company name and logo for branding
     const companyName = this.companySettings?.companyName || "TPR";
-    const companyLogoUrl = this.companySettings?.logoUrl || this.companySettings?.bannerUrl || null;
+    const rawLogoPath = this.companySettings?.logoUrl || this.companySettings?.bannerUrl || null;
+    // Fetch logo bytes server-side so the HTML is self-contained — img tags in
+    // deployed HTML can't send Bearer auth headers for /objects/... URLs.
+    const companyLogoUrl = rawLogoPath ? (await this.fetchLogoAsDataUrl(rawLogoPath)) : null;
 
     // Resolve brand colours — use company settings with professional defaults
     const brandAccent = this.companySettings?.accentColor || '#2460a9';

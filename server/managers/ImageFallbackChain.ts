@@ -168,7 +168,7 @@ export class FallbackSvgImageGenerator implements IImageGenerator {
   <rect x="15" y="15" width="${width - 30}" height="${height - 30}" fill="none" stroke="white" stroke-width="3" opacity="0.25" rx="10" />
 </svg>`;
 
-      const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}`;
+      const svgDataUrl = `data:image/svg+xml;base64,${Buffer.from(safeSvg).toString('base64')}`;
       logger.info(`✅ [SVG] Generated fallback safety image for theme: ${theme}`);
 
       return ResultUtils.success({
