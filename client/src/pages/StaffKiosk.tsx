@@ -44,6 +44,100 @@ function ukTime(date = new Date()) {
   });
 }
 
+// ── On-screen keyboard (letters only, no numbers) ─────────────────────────────
+
+const KB_ROWS = [
+  ["Q","W","E","R","T","Y","U","I","O","P"],
+  ["A","S","D","F","G","H","J","K","L"],
+  ["Z","X","C","V","B","N","M"],
+];
+
+function OnScreenKeyboard({
+  onKey,
+  onBackspace,
+  onClear,
+  onClose,
+}: {
+  onKey: (k: string) => void;
+  onBackspace: () => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const prevent = (fn: () => void) => (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    fn();
+  };
+
+  const keyBase =
+    "h-10 sm:h-12 flex-1 rounded-lg text-white font-semibold text-sm sm:text-base select-none " +
+    "active:scale-95 transition-all duration-75 shadow-sm";
+
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 pt-2 sm:px-4 sm:pb-4"
+      style={{
+        background: "rgba(8, 14, 28, 0.92)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        borderTop: "1px solid rgba(255,255,255,0.12)",
+      }}
+    >
+      <div className="max-w-2xl mx-auto space-y-1.5 sm:space-y-2">
+        {KB_ROWS.map((row, ri) => (
+          <div key={ri} className="flex gap-1 sm:gap-1.5 justify-center">
+            {row.map(k => (
+              <button
+                key={k}
+                className={keyBase}
+                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.22)" }}
+                onMouseDown={prevent(() => onKey(k))}
+                onTouchStart={prevent(() => onKey(k))}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        ))}
+        {/* Bottom action row */}
+        <div className="flex gap-1.5 pt-0.5">
+          <button
+            className="h-10 sm:h-12 px-4 rounded-lg text-white/70 font-semibold text-xs select-none active:scale-95 transition-all"
+            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}
+            onMouseDown={prevent(onClear)}
+            onTouchStart={prevent(onClear)}
+          >
+            Clear
+          </button>
+          <button
+            className="h-10 sm:h-12 flex-1 rounded-lg text-white/80 font-medium text-sm select-none active:scale-95 transition-all"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
+            onMouseDown={prevent(() => onKey(" "))}
+            onTouchStart={prevent(() => onKey(" "))}
+          >
+            SPACE
+          </button>
+          <button
+            className="h-10 sm:h-12 px-5 rounded-lg text-white font-bold text-base select-none active:scale-95 transition-all"
+            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.22)" }}
+            onMouseDown={prevent(onBackspace)}
+            onTouchStart={prevent(onBackspace)}
+          >
+            ⌫
+          </button>
+          <button
+            className="h-10 sm:h-12 px-5 rounded-lg text-emerald-300 font-bold text-sm select-none active:scale-95 transition-all"
+            style={{ background: "rgba(52, 211, 153, 0.18)", border: "1px solid rgba(52,211,153,0.35)" }}
+            onMouseDown={prevent(onClose)}
+            onTouchStart={prevent(onClose)}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Staff Avatar ──────────────────────────────────────────────────────────────
 
 function StaffAvatar({ staff, size = 60 }: { staff: KioskStaff; size?: number }) {
@@ -60,7 +154,7 @@ function StaffAvatar({ staff, size = 60 }: { staff: KioskStaff; size?: number })
       <img
         src={src}
         alt=""
-        className="rounded-full object-cover flex-shrink-0 bg-slate-100"
+        className="rounded-full object-cover flex-shrink-0"
         style={{ width: size, height: size }}
         onError={() => setFailed(true)}
       />
@@ -68,13 +162,24 @@ function StaffAvatar({ staff, size = 60 }: { staff: KioskStaff; size?: number })
   }
   return (
     <div
-      className="rounded-full flex items-center justify-center text-white font-bold select-none flex-shrink-0"
+      className="rounded-full flex items-center justify-center text-white font-bold select-none flex-shrink-0 ring-2 ring-white/20"
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36), backgroundColor: bg }}
     >
       {initials}
     </div>
   );
 }
+
+// ── Glass helpers ─────────────────────────────────────────────────────────────
+
+const glass = (opacity = 0.1, blur = 12) => ({
+  background: `rgba(255,255,255,${opacity})`,
+  backdropFilter: `blur(${blur}px)`,
+  WebkitBackdropFilter: `blur(${blur}px)`,
+  border: "1px solid rgba(255,255,255,0.15)",
+});
+
+const PAGE_BG = "linear-gradient(135deg, #080f1e 0%, #101d3a 45%, #0c1628 100%)";
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -84,6 +189,8 @@ export default function StaffKiosk() {
   const [screen, setScreen] = useState<Screen>("list");
   const [search, setSearch] = useState("");
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [showKeyboard, setShowKeyboard] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // ── Camera state ──────────────────────────────────────────────────────────
   const [camState, setCamState] = useState<"off" | "starting" | "scanning" | "processing" | "error">("off");
@@ -119,6 +226,7 @@ export default function StaffKiosk() {
         setScreen("list");
         setSearch("");
         setConfirm(null);
+        setShowKeyboard(false);
         lastActivityRef.current = Date.now();
       }
     }, 5_000);
@@ -182,6 +290,7 @@ export default function StaffKiosk() {
         time: ukTime(),
       });
       setSearch("");
+      setShowKeyboard(false);
       setScreen("confirmation");
       setScanMsg(null);
       setTimeout(() => {
@@ -221,7 +330,6 @@ export default function StaffKiosk() {
 
     return [...filtered].sort((a, b) => {
       if (mode === "checkin") {
-        // Most recent previous check-in first; never-checked-in to bottom alphabetically
         if (a.lastCheckInAt && b.lastCheckInAt) {
           return new Date(b.lastCheckInAt).getTime() - new Date(a.lastCheckInAt).getTime();
         }
@@ -229,7 +337,6 @@ export default function StaffKiosk() {
         if (b.lastCheckInAt) return 1;
         return a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName);
       } else {
-        // Most recent check-in first (people who just arrived near the top)
         if (a.checkedInAt && b.checkedInAt) {
           return new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime();
         }
@@ -372,12 +479,27 @@ export default function StaffKiosk() {
   const checkinCount = kioskStaff.filter(s => !s.isCheckedIn).length;
   const checkoutCount = kioskStaff.filter(s => s.isCheckedIn).length;
 
+  // ── On-screen keyboard handlers ───────────────────────────────────────────
+  const handleKbKey = useCallback((k: string) => {
+    setSearch(prev => prev + k);
+  }, []);
+  const handleKbBackspace = useCallback(() => {
+    setSearch(prev => prev.slice(0, -1));
+  }, []);
+  const handleKbClear = useCallback(() => setSearch(""), []);
+  const handleKbClose = useCallback(() => {
+    setShowKeyboard(false);
+    searchInputRef.current?.blur();
+  }, []);
+
   // ── Render: Confirmation (full-screen) ────────────────────────────────────
   if (screen === "confirmation" && confirm) {
     const isIn = confirm.action === "checkin";
     return (
-      <div className={`fixed inset-0 flex flex-col items-center justify-center z-50 ${isIn ? "bg-green-600" : "bg-[hsl(var(--primary))]"}`}
-        style={isIn ? {} : { backgroundColor: "hsl(var(--primary))" }}>
+      <div
+        className="fixed inset-0 flex flex-col items-center justify-center z-50"
+        style={{ background: isIn ? "linear-gradient(135deg, #065f46, #059669)" : PAGE_BG }}
+      >
         <div className="text-white text-center px-8 max-w-md">
           {isIn
             ? <CheckCircle2 className="w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 opacity-90" strokeWidth={1.5} />
@@ -461,12 +583,24 @@ export default function StaffKiosk() {
   }
 
   // ── Render: Main list ─────────────────────────────────────────────────────
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col select-none" style={{ height: "100dvh" }}>
+  const kbHeight = showKeyboard ? 200 : 0;
 
-      {/* Header */}
-      <header className="bg-[hsl(var(--primary))] text-white px-4 py-3 sm:px-6 sm:py-4 flex-shrink-0 shadow-md"
-        style={{ backgroundColor: "hsl(var(--primary))" }}>
+  return (
+    <div
+      className="fixed inset-0 flex flex-col select-none overflow-hidden"
+      style={{ background: PAGE_BG }}
+    >
+
+      {/* Header — glassmorphism on dark background */}
+      <header
+        className="px-4 py-3 sm:px-6 sm:py-4 flex-shrink-0"
+        style={{
+          background: "rgba(255,255,255,0.06)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
         <div className="flex items-center justify-between gap-4">
 
           {/* Left: Company branding + page title */}
@@ -475,17 +609,18 @@ export default function StaffKiosk() {
               <img
                 src={objectUrl(`/objects${settings.logoUrl || settings.bannerUrl}`)}
                 alt=""
-                className="h-10 w-auto object-contain bg-white rounded-lg px-2 py-0.5 flex-shrink-0"
+                className="h-10 w-auto object-contain rounded-lg px-2 py-0.5 flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.15)" }}
                 onError={(e) => { e.currentTarget.style.display = "none"; }}
               />
             )}
             <div className="min-w-0">
               {(settings as any)?.companyName && (
-                <p className="text-xs font-medium opacity-70 truncate max-w-[150px] sm:max-w-xs leading-tight">
+                <p className="text-xs font-medium text-white/50 truncate max-w-[150px] sm:max-w-xs leading-tight">
                   {(settings as any).companyName}
                 </p>
               )}
-              <p className="text-sm sm:text-base font-bold leading-tight">
+              <p className="text-sm sm:text-base font-bold leading-tight text-white">
                 Staff Check In / Out
               </p>
             </div>
@@ -495,15 +630,18 @@ export default function StaffKiosk() {
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
             <TooltipProvider delayDuration={400}>
               <div className="flex gap-2">
+
+                {/* Check In button */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-2 shadow-sm ${
-                        mode === "checkin"
-                          ? "bg-white border-white text-slate-900"
-                          : "bg-white/10 border-white text-white hover:bg-white/25"
-                      }`}
                       onClick={() => { setMode("checkin"); setSearch(""); }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+                      style={
+                        mode === "checkin"
+                          ? { background: "#ffffff", color: "#0f172a", boxShadow: "0 2px 12px rgba(255,255,255,0.25)" }
+                          : { background: "rgba(255,255,255,0.12)", border: "1.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)" }
+                      }
                     >
                       <LogIn size={16} className="flex-shrink-0" />
                       <span>Check In</span>
@@ -514,15 +652,17 @@ export default function StaffKiosk() {
                   </TooltipContent>
                 </Tooltip>
 
+                {/* Check Out button */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-2 shadow-sm ${
-                        mode === "checkout"
-                          ? "bg-white border-white text-slate-900"
-                          : "bg-white/10 border-white text-white hover:bg-white/25"
-                      }`}
                       onClick={() => { setMode("checkout"); setSearch(""); }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+                      style={
+                        mode === "checkout"
+                          ? { background: "#ffffff", color: "#0f172a", boxShadow: "0 2px 12px rgba(255,255,255,0.25)" }
+                          : { background: "rgba(255,255,255,0.12)", border: "1.5px solid rgba(255,255,255,0.35)", color: "rgba(255,255,255,0.85)" }
+                      }
                     >
                       <LogOut size={16} className="flex-shrink-0" />
                       <span>Check Out</span>
@@ -532,12 +672,13 @@ export default function StaffKiosk() {
                     <p>Switch to Check Out mode — show staff who are currently on site</p>
                   </TooltipContent>
                 </Tooltip>
+
               </div>
             </TooltipProvider>
 
             {/* Exit link */}
             <button
-              className="text-xs text-white/80 hover:text-white transition-colors underline underline-offset-2"
+              className="text-xs text-white/45 hover:text-white/75 transition-colors underline underline-offset-2"
               onClick={() => setLocation("/")}
             >
               ← Exit to Main System
@@ -547,63 +688,86 @@ export default function StaffKiosk() {
       </header>
 
       {/* Search + Scan row */}
-      <div className="px-4 py-3 sm:px-6 bg-white border-b border-slate-200 flex gap-3 items-center flex-shrink-0">
+      <div
+        className="px-4 py-3 sm:px-6 flex gap-3 items-center flex-shrink-0"
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 pointer-events-none" />
           <input
+            ref={searchInputRef}
             type="text"
+            inputMode="none"
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onFocus={() => setShowKeyboard(true)}
             placeholder="Search by name or department…"
-            className="w-full h-12 pl-10 pr-10 rounded-xl border border-slate-200 bg-slate-50 text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-shadow"
+            className="w-full h-12 pl-10 pr-10 rounded-xl text-white placeholder-white/35 text-base focus:outline-none transition-all"
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              border: showKeyboard ? "1.5px solid rgba(255,255,255,0.45)" : "1px solid rgba(255,255,255,0.18)",
+              boxShadow: showKeyboard ? "0 0 0 3px rgba(255,255,255,0.08)" : "none",
+            }}
           />
           {search && (
             <button
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xl leading-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-xl leading-none transition-colors"
               onClick={() => setSearch("")}
             >
               ×
             </button>
           )}
         </div>
+
+        {/* QR Scan button */}
         <button
-          className="h-12 px-4 sm:px-5 text-white rounded-xl font-semibold text-sm flex items-center gap-2 flex-shrink-0 active:opacity-80 transition-opacity shadow-sm"
-          style={{ backgroundColor: "hsl(var(--primary))" }}
-          onClick={() => setScreen("scan")}
+          className="h-12 px-4 sm:px-5 text-white rounded-xl font-semibold text-sm flex items-center gap-2 flex-shrink-0 active:scale-95 transition-all"
+          style={{
+            background: "rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.25)",
+          }}
+          onClick={() => { setShowKeyboard(false); setScreen("scan"); }}
         >
           <QrCode size={18} />
           <span className="hidden sm:inline">Scan QR / Card</span>
         </button>
       </div>
 
-      {/* Network error banner (persists until next successful toggle) */}
+      {/* Network error banner */}
       {toggleMutation.isError && (
-        <div className="mx-4 mt-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm font-medium flex-shrink-0">
+        <div className="mx-4 mt-3 rounded-xl px-4 py-3 text-red-200 text-sm font-medium flex-shrink-0"
+          style={{ background: "rgba(220,38,38,0.2)", border: "1px solid rgba(220,38,38,0.35)" }}>
           Couldn't reach the system — please try again or see reception.
         </div>
       )}
 
       {/* Staff grid */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5"
+        style={{ paddingBottom: showKeyboard ? `${kbHeight + 24}px` : undefined }}
+      >
         {displayStaff.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-48 text-center text-slate-500 py-12">
+          <div className="flex flex-col items-center justify-center h-full min-h-48 text-center py-12">
             {mode === "checkin" ? (
               <>
-                <CheckCircle2 className="w-16 h-16 text-green-400 mb-3 opacity-60" />
-                <p className="text-lg font-semibold text-slate-700">
+                <CheckCircle2 className="w-16 h-16 mb-3 opacity-40" style={{ color: "#34d399" }} />
+                <p className="text-lg font-semibold text-white/80">
                   {search ? "No match found" : "Everyone's checked in 👍"}
                 </p>
-                <p className="text-sm mt-1 text-slate-400">
+                <p className="text-sm mt-1 text-white/40">
                   {search ? "Try a different name or department." : "No staff are waiting to check in."}
                 </p>
               </>
             ) : (
               <>
-                <LogOut className="w-16 h-16 text-slate-300 mb-3" />
-                <p className="text-lg font-semibold text-slate-700">
+                <LogOut className="w-16 h-16 mb-3 text-white/20" />
+                <p className="text-lg font-semibold text-white/80">
                   {search ? "No match found" : "No one is currently checked in"}
                 </p>
-                <p className="text-sm mt-1 text-slate-400">
+                <p className="text-sm mt-1 text-white/40">
                   {search ? "Try a different name or department." : "Switch to Check In to sign someone in."}
                 </p>
               </>
@@ -617,30 +781,40 @@ export default function StaffKiosk() {
                 <button
                   key={person.id}
                   disabled={toggleMutation.isPending}
-                  onClick={() => toggleMutation.mutate(person.id)}
-                  className="relative rounded-2xl bg-white border border-slate-200 p-4 sm:p-5 flex flex-col items-center gap-3 text-center transition-all active:scale-95 hover:shadow-md hover:border-slate-300 disabled:opacity-60 disabled:cursor-not-allowed min-h-[148px] justify-center shadow-sm"
+                  onClick={() => { setShowKeyboard(false); toggleMutation.mutate(person.id); }}
+                  className="relative rounded-2xl p-4 sm:p-5 flex flex-col items-center gap-3 text-center transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed min-h-[148px] justify-center"
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.13)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
                 >
                   <StaffAvatar staff={person} size={64} />
                   <div className="min-w-0 w-full">
-                    <p className="font-bold text-slate-900 leading-snug text-sm sm:text-base">
+                    <p className="font-bold text-white leading-snug text-sm sm:text-base">
                       {person.firstName}{" "}
                       <span className="block sm:inline">{person.lastName}</span>
                     </p>
                     {(person.department || person.jobTitle) && (
-                      <p className="text-xs text-slate-400 mt-0.5 truncate">
+                      <p className="text-xs text-white/50 mt-0.5 truncate">
                         {person.department ?? person.jobTitle}
                       </p>
                     )}
                     {mode === "checkout" && person.checkedInAt && (
-                      <p className="text-xs font-medium mt-1" style={{ color: "hsl(var(--primary))" }}>
+                      <p className="text-xs font-semibold mt-1 text-blue-300">
                         Since {ukTime(new Date(person.checkedInAt))}
                       </p>
                     )}
                   </div>
 
                   {isPending && (
-                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/80">
-                      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "hsl(var(--primary))", borderTopColor: "transparent" }} />
+                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl"
+                      style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(4px)" }}>
+                      <div className="w-8 h-8 rounded-full border-2 border-white/60 border-t-transparent animate-spin" />
                     </div>
                   )}
                 </button>
@@ -651,9 +825,25 @@ export default function StaffKiosk() {
       </div>
 
       {/* Footer: live counts */}
-      <div className="bg-white border-t border-slate-100 px-4 py-2 text-xs text-slate-400 text-center flex-shrink-0">
+      <div
+        className="px-4 py-2 text-xs text-white/35 text-center flex-shrink-0"
+        style={{
+          background: "rgba(0,0,0,0.25)",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+        }}
+      >
         {checkinCount} awaiting check-in · {checkoutCount} on site
       </div>
+
+      {/* On-screen keyboard */}
+      {showKeyboard && (
+        <OnScreenKeyboard
+          onKey={handleKbKey}
+          onBackspace={handleKbBackspace}
+          onClear={handleKbClear}
+          onClose={handleKbClose}
+        />
+      )}
     </div>
   );
 }
