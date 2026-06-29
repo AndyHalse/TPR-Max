@@ -1990,14 +1990,10 @@ export function registerEmergencyRoutes(app: Express): void {
         customerId = marshal.customerId;
         validatedStaff.customerId = customerId;
         logger.info(`Fire Marshal URL authenticated: ID ${validatedStaff.id} (${customerId})`);
-      } else if ((req.session as any)?.userId && (req.session as any)?.customerId) {
-        // Admin session-cookie auth — allows admins on the Muster page to end an evacuation
-        customerId = (req.session as any).customerId;
-        validatedStaff = { firstName: 'Admin', lastName: '(session)', customerId };
-        logger.info(`Session-authenticated admin ending evacuation for customer: ${customerId}`);
       } else {
-        // Bearer-token auth — this route has no requireAuth middleware so we
-        // parse and verify the JWT directly from the Authorization header
+        // Bearer-token auth is checked BEFORE session cookie so that per-tab Bearer tokens
+        // (multi-customer tabs) take priority. The session cookie may belong to a completely
+        // different customer, which would cause the wrong evacuation to be resolved.
         const bearerHeader = req.headers['authorization'];
         if (bearerHeader && bearerHeader.startsWith('Bearer ')) {
           try {
@@ -2009,6 +2005,11 @@ export function registerEmergencyRoutes(app: Express): void {
             logger.warn('complete-evacuation: invalid Bearer token:', tokenErr);
             return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
           }
+        } else if ((req.session as any)?.userId && (req.session as any)?.customerId) {
+          // Admin session-cookie auth — fallback when no Bearer token is present
+          customerId = (req.session as any).customerId;
+          validatedStaff = { firstName: 'Admin', lastName: '(session)', customerId };
+          logger.info(`Session-authenticated admin ending evacuation for customer: ${customerId}`);
         } else {
           return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
         }
@@ -2167,6 +2168,7 @@ export function registerEmergencyRoutes(app: Express): void {
           await custDb.insert(isolatedSchema.incidentReports).values({
             evacuationId,
             customerId,
+            siteId: completedEvac?.siteId || null,
             isDrill: completedEvac?.isDrill || false,
             activatedBy: completedEvac?.activatedBy || null,
             startedAt: completedEvac?.startedAt ? new Date(completedEvac.startedAt) : null,
