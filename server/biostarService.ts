@@ -3,6 +3,19 @@ import https from 'https';
 import WebSocket from 'ws';
 import { logger } from './utils/logger';
 
+// Rate-limit repetitive Biostar error logs so one bad credential set can't
+// flood the log stream. Each unique key (e.g. `login:<serverUrl>`) is allowed
+// to emit at most one error per RATE_LIMIT_MS milliseconds.
+const _errorLoggedAt = new Map<string, number>();
+const RATE_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
+function rateLimitedWarn(key: string, msg: string): void {
+  const last = _errorLoggedAt.get(key) ?? 0;
+  if (Date.now() - last >= RATE_LIMIT_MS) {
+    _errorLoggedAt.set(key, Date.now());
+    logger.warn(msg);
+  }
+}
+
 // HTTPS agent that accepts self-signed certificates (Biostar servers often use them)
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -192,7 +205,7 @@ function mapBiostarUser(raw: any): BiostarUser {
   // the API version and card type. We try all known locations in order of preference.
   const cards: any[] = Array.isArray(raw?.cards) ? raw.cards : [];
   if (cards.length > 0) {
-    logger.info(`🔍 Biostar card raw data for "${raw?.name}":`, JSON.stringify(cards[0]));
+    logger.debug(`🔍 Biostar card raw data for "${raw?.name}":`, JSON.stringify(cards[0]));
   }
   // Biostar 2 card structure (confirmed via API inspection):
   //   { "id": "1", "card_id": "654654654", "display_card_id": "654654654", ... }
@@ -275,7 +288,7 @@ class BiostarService {
     const serverUrl = this.normalizeServerUrl(config.serverUrl);
     const loginUrl = `${serverUrl}/api/login`;
 
-    logger.info(`🔐 Biostar: Attempting login to ${serverUrl}...`);
+    logger.debug(`🔐 Biostar: Attempting login to ${serverUrl}...`);
 
     // BioStar 2 marks sessions as "web" or "api" based on the User-Agent used during login.
     // Web-only endpoints (events, T&A) return 403 "by":"web" for api-classified sessions.
@@ -310,7 +323,7 @@ class BiostarService {
       if (!response.ok) {
         const errorText = await response.text();
         const friendlyMessage = parseBiostarError(errorText);
-        logger.error(`❌ Biostar login failed: ${response.status} - ${errorText}`);
+        rateLimitedWarn(`login:${serverUrl}`, `⚠️ Biostar login failed: ${response.status} — ${friendlyMessage} (rate-limited: next log in 10 min)`);
         throw new Error(`Login failed: ${friendlyMessage}`);
       }
 
@@ -318,7 +331,7 @@ class BiostarService {
       const sessionId = response.headers.get('bs-session-id');
       
       if (!sessionId) {
-        logger.error('❌ Biostar: No session ID in response headers');
+        rateLimitedWarn(`login:${serverUrl}`, '⚠️ Biostar: No session ID in response headers (rate-limited: next log in 10 min)');
         throw new Error('No session ID received from Biostar server');
       }
 
@@ -335,14 +348,14 @@ class BiostarService {
           .map(c => c.split(';')[0].trim())
           .filter(Boolean)
           .join('; ');
-        logger.info(`🍪 Biostar: Stored session cookies (${this.sessionCookies.length} chars)`);
+        logger.debug(`🍪 Biostar: Stored session cookies (${this.sessionCookies.length} chars)`);
       } else {
         this.sessionCookies = null;
       }
 
-      logger.info(`✅ Biostar: Login successful, session expires at ${this.sessionExpiry.toISOString()}`);
+      logger.debug(`✅ Biostar: Login successful, session expires at ${this.sessionExpiry.toISOString()}`);
     } catch (error: any) {
-      logger.error(`❌ Biostar login error:`, error);
+      rateLimitedWarn(`login:${serverUrl}`, `⚠️ Biostar login error (will not repeat for 10 min): ${(error as any)?.message ?? error}`);
       
       if (error.name === 'AbortError') {
         throw new Error('Connection timeout - Biostar server may be unreachable');
@@ -362,7 +375,7 @@ class BiostarService {
    */
   private async ensureAuthenticated(config: BiostarConfig): Promise<void> {
     if (!this.isSessionValid()) {
-      logger.info('🔄 Biostar: Session expired or invalid, re-authenticating...');
+      logger.debug('🔄 Biostar: Session expired or invalid, re-authenticating...');
       await this.login(config);
     }
   }
@@ -419,7 +432,7 @@ class BiostarService {
         
         // Session might have expired
         if (response.status === 401) {
-          logger.info('🔄 Biostar: Session expired (401), re-authenticating...');
+          logger.debug('🔄 Biostar: Session expired (401), re-authenticating...');
           this.sessionId = null;
           this.sessionExpiry = null;
           this.sessionCookies = null;
@@ -493,11 +506,11 @@ class BiostarService {
     try {
       const response = await this.makeAuthenticatedRequest(config, '/api/devices');
       const rows: any[] = response?.DeviceCollection?.rows ?? response?.rows ?? (Array.isArray(response) ? response : []);
-      logger.info(`📟 Biostar: Got ${rows.length} devices from /api/devices`);
+      logger.debug(`📟 Biostar: Got ${rows.length} devices from /api/devices`);
       if (rows.length > 0) {
-        logger.info(`📟 Biostar: Device record keys:`, Object.keys(rows[0]).join(', '));
+        logger.debug(`📟 Biostar: Device record keys:`, Object.keys(rows[0]).join(', '));
         const r0 = rows[0];
-        logger.info(`📟 Biostar: Sample device - group:`, JSON.stringify(r0?.device_group_id), `lan:`, JSON.stringify(r0?.lan), `type:`, JSON.stringify(r0?.device_type_id));
+        logger.debug(`📟 Biostar: Sample device - group:`, JSON.stringify(r0?.device_group_id), `lan:`, JSON.stringify(r0?.lan), `type:`, JSON.stringify(r0?.device_type_id));
       }
 
       return rows.map((r: any) => {
@@ -533,9 +546,9 @@ class BiostarService {
     try {
       const response = await this.makeAuthenticatedRequest(config, '/api/door');
       const rows = response?.DoorCollection?.rows ?? response?.rows ?? (Array.isArray(response) ? response : []);
-      logger.info(`🚪 Biostar: Got ${rows.length} doors from door status endpoint`);
+      logger.debug(`🚪 Biostar: Got ${rows.length} doors from door status endpoint`);
       if (rows.length > 0) {
-        logger.info(`🚪 Biostar: Door record keys:`, Object.keys(rows[0]).join(', '));
+        logger.debug(`🚪 Biostar: Door record keys:`, Object.keys(rows[0]).join(', '));
       }
       return rows;
     } catch (err: any) {
@@ -581,7 +594,7 @@ class BiostarService {
       if (rawRows.length > 0) {
         const users = rawRows.map(mapBiostarUser).filter(u => u.id && u.name);
         const withCards = users.filter(u => u.barcodeNumber).length;
-        logger.info(`👥 Biostar: Retrieved ${users.length} users via search (${withCards} with card/QR data)`);
+        logger.debug(`👥 Biostar: Retrieved ${users.length} users via search (${withCards} with card/QR data)`);
         return users;
       }
     } catch {
@@ -589,7 +602,7 @@ class BiostarService {
     }
 
     // --- Strategy 2: GET list for IDs, then GET /api/users/{id} for full detail ---
-    logger.info('🔄 Biostar: Fetching user list then individual records for full card data...');
+    logger.debug('🔄 Biostar: Fetching user list then individual records for full card data...');
     try {
       const listResponse = await this.makeAuthenticatedRequest(
         config, `/api/users?limit=${limit}&offset=${offset}`
@@ -601,7 +614,7 @@ class BiostarService {
         listResponse?.rows ??
         [];
 
-      logger.info(`👥 Biostar: Found ${listRows.length} users in list, fetching full records...`);
+      logger.debug(`👥 Biostar: Found ${listRows.length} users in list, fetching full records...`);
 
       const fullUsers: BiostarUser[] = [];
       for (const listRow of listRows) {
@@ -617,13 +630,13 @@ class BiostarService {
         const mapped = mapBiostarUser(raw);
         if (mapped.id && mapped.name) {
           if (mapped.barcodeNumber) {
-            logger.info(`🃏 Biostar: User "${mapped.name}" has card: ${mapped.barcodeNumber}`);
+            logger.debug(`🃏 Biostar: User "${mapped.name}" has card: ${mapped.barcodeNumber}`);
           }
           fullUsers.push(mapped);
         }
       }
 
-      logger.info(`👥 Biostar: Retrieved ${fullUsers.length} users with full detail (${fullUsers.filter(u => u.barcodeNumber).length} with card/QR data)`);
+      logger.debug(`👥 Biostar: Retrieved ${fullUsers.length} users with full detail (${fullUsers.filter(u => u.barcodeNumber).length} with card/QR data)`);
       return fullUsers;
     } catch (error: any) {
       logger.error('❌ Failed to fetch Biostar users:', error);
@@ -767,14 +780,14 @@ class BiostarService {
         const response = await strategy.fn();
         const rows = extractRows(response);
         if (rows.length > 0) {
-          logger.info(`📋 BioStar Live Log: ✅ ${rows.length} events via "${strategy.label}"`);
+          logger.debug(`📋 BioStar Live Log: ✅ ${rows.length} events via "${strategy.label}"`);
           return { rows, strategy: strategy.label };
         }
         if (response?.EventCollection?.total === 0) {
-          logger.info(`📋 BioStar Live Log: 0 total events for period (confirmed by "${strategy.label}")`);
+          logger.debug(`📋 BioStar Live Log: 0 total events for period (confirmed by "${strategy.label}")`);
           return { rows: [], strategy: strategy.label };
         }
-        logger.info(`📋 BioStar Live Log: "${strategy.label}" returned 0 rows`);
+        logger.debug(`📋 BioStar Live Log: "${strategy.label}" returned 0 rows`);
       } catch (err: any) {
         const msg = err.message ?? String(err);
         errors.push(`${strategy.label}: ${msg}`);
@@ -849,7 +862,7 @@ class BiostarService {
     const startStr = fmtBiostar(start);
     const endStr   = fmtBiostar(end);
 
-    logger.info(`📋 Biostar: Querying events from ${startStr} to ${endStr}`);
+    logger.debug(`📋 Biostar: Querying events from ${startStr} to ${endStr}`);
 
     let rawRows: any[] = [];
 
@@ -884,7 +897,7 @@ class BiostarService {
         resp0?.EventCollection?.rows ??
         resp0?.rows ??
         (Array.isArray(resp0) ? resp0 : []);
-      logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST Query v2.7.10+ format)`);
+      logger.debug(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST Query v2.7.10+ format)`);
     } catch (err0: any) {
       logger.warn(`⚠️ Biostar Strategy 0 (Query v2.7.10+ format) failed: ${err0.message}`);
     }
@@ -928,7 +941,7 @@ class BiostarService {
         response?.records ??
         response?.rows ??
         (Array.isArray(response) ? response : []);
-      logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST /api/events/search)`);
+      logger.debug(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST /api/events/search)`);
     } catch (err: any) {
       logger.warn(`⚠️ Biostar POST /api/events/search (with filter arrays) failed: ${err.message}`);
 
@@ -944,7 +957,7 @@ class BiostarService {
           EventCollection: { start_datetime: fmtSp(start), end_datetime: fmtSp(end), event_type_id: ALL, device_id: ALL, user_id: ALL, door_id: ALL, limit, offset: 0 },
         });
         rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-        logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST space-datetime)`);
+        logger.debug(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST space-datetime)`);
         postSpaceOk = true;
       } catch (e2: any) {
         triedStrategies.push(`POST filter-arrays+space-datetime: ${e2.message}`);
@@ -958,7 +971,7 @@ class BiostarService {
             EventCollection: { event_type_id: ALL, device_id: ALL, user_id: ALL, door_id: ALL, limit, offset: 0 },
           });
           rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-          logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST no-dates)`);
+          logger.debug(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST no-dates)`);
           postNoDatesOk = true;
         } catch (e3: any) {
           triedStrategies.push(`POST filter-arrays+no-dates: ${e3.message}`);
@@ -971,7 +984,7 @@ class BiostarService {
             const endpoint = `/api/events?start_datetime=${encodeURIComponent(startStr)}&end_datetime=${encodeURIComponent(endStr)}&limit=${limit}`;
             const response = await this.makeAuthenticatedRequest(config, endpoint);
             rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-            logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?dates)`);
+            logger.debug(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?dates)`);
             getDateOk = true;
           } catch (e4: any) {
             triedStrategies.push(`GET /api/events?dates: ${e4.message}`);
@@ -982,7 +995,7 @@ class BiostarService {
             try {
               const response = await this.makeAuthenticatedRequest(config, `/api/events?limit=${limit}`);
               rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-              logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?limit)`);
+              logger.debug(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?limit)`);
             } catch (e5: any) {
               triedStrategies.push(`GET /api/events?limit: ${e5.message}`);
               logger.error(`❌ Biostar: All event strategies failed: ${triedStrategies.join(' | ')}`);
@@ -1054,7 +1067,7 @@ class BiostarService {
     if (eventsAvailable && events.length > 0) {
       // Log ALL distinct event codes today so the admin can see what's happening
       const uniqueCodes = [...new Set(events.map(e => `${e.eventTypeCode}(${e.eventTypeDesc})`))];
-      logger.info(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
+      logger.debug(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
 
       // ── Step 1: Filter to ONLY authentication events ──────────────────────
       // BioStar generates many non-auth events (door-open relay, zone events,
@@ -1066,7 +1079,7 @@ class BiostarService {
         BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode)
       );
 
-      logger.info(`📋 Biostar: ${authEvents.length} auth events (of ${events.length} total) after filtering`);
+      logger.debug(`📋 Biostar: ${authEvents.length} auth events (of ${events.length} total) after filtering`);
 
       // ── Step 2: Most-recent AUTH event per user ───────────────────────────
       const userLatest = new Map<string, BiostarEventLog>();
@@ -1078,7 +1091,7 @@ class BiostarService {
         }
       }
 
-      logger.info(`📋 Biostar: Distinct users with auth events today: ${userLatest.size} — IDs: ${[...userLatest.keys()].slice(0, 10).join(', ')}`);
+      logger.debug(`📋 Biostar: Distinct users with auth events today: ${userLatest.size} — IDs: ${[...userLatest.keys()].slice(0, 10).join(', ')}`);
 
       // ── Step 3: Determine direction via device role ───────────────────────
       // Device role (from biostar_devices table) takes precedence over event code.
@@ -1092,7 +1105,7 @@ class BiostarService {
         const role = deviceRoles[String(event.deviceId)] ?? 'ENTRY_EXIT';
         const direction = BiostarService.resolveEventDirection(event.eventTypeCode, role);
 
-        logger.info(`🔎 Biostar direction: user=${userId}(${event.userName}) device=${event.deviceId} code=${event.eventTypeCode} role=${role} → ${direction ?? 'null(non-auth)'}`);
+        logger.debug(`🔎 Biostar direction: user=${userId}(${event.userName}) device=${event.deviceId} code=${event.eventTypeCode} role=${role} → ${direction ?? 'null(non-auth)'}`);
 
         if (direction === 'ENTRY') {
           onSiteUsers.push({
@@ -1106,7 +1119,7 @@ class BiostarService {
         // EXIT / IGNORE / null → user not on-site, don't push
       }
 
-      logger.info(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users on-site (via auth event log + device roles)`);
+      logger.debug(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users on-site (via auth event log + device roles)`);
       return onSiteUsers;
     }
 
@@ -1138,7 +1151,7 @@ class BiostarService {
       }
 
       if (onSiteUsers.length > 0) {
-        logger.info(`📊 Biostar: ${onSiteUsers.length} of ${users.length} users on-site (via last_access_time fallback)`);
+        logger.debug(`📊 Biostar: ${onSiteUsers.length} of ${users.length} users on-site (via last_access_time fallback)`);
         return onSiteUsers;
       }
     } catch (fallbackErr: any) {
@@ -1148,18 +1161,18 @@ class BiostarService {
     // --- Fallback 2: Time & Attendance records ---
     // BioStar 2 T&A module records check-in/check-out per day and may be accessible
     // even when the Event Log REST endpoint is permission-denied.
-    logger.info('📊 Biostar: Trying Time & Attendance API for on-site detection...');
+    logger.debug('📊 Biostar: Trying Time & Attendance API for on-site detection...');
     try {
       const taUsers = await this.getTimeAttendanceOnSite(config);
       if (taUsers.length > 0 || true) { // always log what T&A returns
-        logger.info(`📊 Biostar: ${taUsers.length} users on-site (via Time & Attendance API)`);
+        logger.debug(`📊 Biostar: ${taUsers.length} users on-site (via Time & Attendance API)`);
         return taUsers;
       }
     } catch (taErr: any) {
       logger.warn(`⚠️ Biostar: Time & Attendance API also unavailable: ${taErr.message}`);
     }
 
-    logger.info('📊 Biostar: All on-site detection methods exhausted — returning empty list');
+    logger.debug('📊 Biostar: All on-site detection methods exhausted — returning empty list');
     return [];
   }
 
@@ -1190,15 +1203,15 @@ class BiostarService {
     try {
       const searchResp = await this.makeAuthenticatedRequest(config, '/api/time_attendance/search', 'POST', searchBody);
       rows = searchResp?.TimeAttendanceCollection?.rows ?? searchResp?.rows ?? [];
-      logger.info(`📅 Biostar T&A: POST /api/time_attendance/search returned ${rows.length} records`);
-      if (rows.length > 0) logger.info(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
+      logger.debug(`📅 Biostar T&A: POST /api/time_attendance/search returned ${rows.length} records`);
+      if (rows.length > 0) logger.debug(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
     } catch (searchErr: any) {
       logger.warn(`⚠️ Biostar T&A: POST search failed (${searchErr.message}), trying GET...`);
       try {
         const getResp = await this.makeAuthenticatedRequest(config, `/api/time_attendance?from_date=${startStr}&to_date=${endStr}`);
         rows = getResp?.TimeAttendanceCollection?.rows ?? getResp?.rows ?? [];
-        logger.info(`📅 Biostar T&A: GET /api/time_attendance returned ${rows.length} records`);
-        if (rows.length > 0) logger.info(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
+        logger.debug(`📅 Biostar T&A: GET /api/time_attendance returned ${rows.length} records`);
+        if (rows.length > 0) logger.debug(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
       } catch (getErr: any) {
         logger.warn(`⚠️ Biostar T&A: GET also failed (${getErr.message})`);
         throw getErr;
@@ -1217,9 +1230,9 @@ class BiostarService {
       if (checkin && !checkout) {
         // Checked in today, no check-out → on-site
         onSite.push({ userId: String(userId), userName, lastAccessTime: checkin, eventCode: 'ta_checkin', deviceId: '' });
-        logger.info(`📅 Biostar T&A: "${userName}" checked in at ${checkin}, no checkout → ON SITE`);
+        logger.debug(`📅 Biostar T&A: "${userName}" checked in at ${checkin}, no checkout → ON SITE`);
       } else if (checkin && checkout) {
-        logger.info(`📅 Biostar T&A: "${userName}" checked in ${checkin}, checked out ${checkout} → OFF SITE`);
+        logger.debug(`📅 Biostar T&A: "${userName}" checked in ${checkin}, checked out ${checkout} → OFF SITE`);
       }
     }
 
@@ -1329,7 +1342,7 @@ class BiostarService {
         ...(this.sessionCookies ? [this.sessionCookies] : []),
       ].join('; ');
 
-      logger.info(`🔌 BioStar WS [${this.wsCustomerId}]: connecting to ${wsUrl}`);
+      logger.debug(`🔌 BioStar WS [${this.wsCustomerId}]: connecting to ${wsUrl}`);
 
       this.wsSocket = new (WebSocket as any)(wsUrl, {
         headers: {
@@ -1343,7 +1356,7 @@ class BiostarService {
       });
 
       this.wsSocket!.on('open', () => {
-        logger.info(
+        logger.debug(
           `✅ BioStar WS [${this.wsCustomerId}]: connected — streaming real-time events`,
         );
         // BioStar 2 New Local API requires an event-filter subscription message
@@ -1362,7 +1375,7 @@ class BiostarService {
         });
         try {
           this.wsSocket!.send(subscribeMsg);
-          logger.info(`📤 BioStar WS [${this.wsCustomerId}]: subscription filter sent`);
+          logger.debug(`📤 BioStar WS [${this.wsCustomerId}]: subscription filter sent`);
         } catch (sendErr: any) {
           logger.warn(`⚠️ BioStar WS [${this.wsCustomerId}]: could not send subscription: ${sendErr.message}`);
         }
@@ -1397,7 +1410,7 @@ class BiostarService {
           wsMessageCount++;
           // Log first 5 messages verbatim so we can see what BioStar is actually sending
           if (wsMessageCount <= 5) {
-            logger.info(`📨 BioStar WS [${this.wsCustomerId}] msg#${wsMessageCount}:`, text.slice(0, 300));
+            logger.debug(`📨 BioStar WS [${this.wsCustomerId}] msg#${wsMessageCount}:`, text.slice(0, 300));
           }
           const raw = JSON.parse(text);
           this.wsOnEvent?.(raw);
@@ -1424,7 +1437,7 @@ class BiostarService {
         // If we got a 403 (known-wrong path), retry immediately with the next path.
         // For any other disconnection, wait 30 s to avoid rapid reconnect storms.
         const delayMs = this.wsGot403 ? 3_000 : 30_000;
-        logger.info(
+        logger.debug(
           `🔌 BioStar WS [${this.wsCustomerId}]: disconnected (code=${code}) — reconnecting in ${delayMs / 1000} s`,
         );
         this.wsSocket = null;
