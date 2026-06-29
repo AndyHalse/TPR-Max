@@ -6,7 +6,7 @@
  * if GCS is unavailable the buffer is returned for direct inline download.
  */
 
-import { eq, and, inArray, lte, gte, or, isNull } from 'drizzle-orm';
+import { eq, ne, and, inArray, lte, gte, or, isNull } from 'drizzle-orm';
 import * as iso from './isolatedSchema';
 import { objectStorageClient, parseObjectPath } from './objectStorage';
 import { logger } from './utils/logger';
@@ -153,8 +153,14 @@ async function buildPortfolioComplianceSnapshot(
 ): Promise<{ title: string; html: string }> {
   const title = 'Portfolio Compliance Snapshot';
 
-  // Load sites
-  const allSites = await db.select().from(iso.sites).where(eq(iso.sites.status, 'active'));
+  // Load sites (non-archived, to match compliance engine behaviour)
+  let allSites: any[] = [];
+  try {
+    allSites = await db.select().from(iso.sites).where(ne(iso.sites.status, 'archived'));
+  } catch {
+    // fallback: load all sites without status filter
+    try { allSites = await db.select().from(iso.sites); } catch { allSites = []; }
+  }
   const sites = allowedSiteIds === 'all' ? allSites : allSites.filter((s: any) => allowedSiteIds.includes(s.id));
 
   if (sites.length === 0) {
@@ -703,13 +709,17 @@ function findChromiumExecutable(): string | undefined {
 async function renderPdf(html: string): Promise<Buffer> {
   let browser: any;
   const puppeteer = await import('puppeteer');
+  // Support both ESM default-export and CJS direct-export shapes
   const puppeteerDefault = (puppeteer as any).default ?? puppeteer;
-  const puppeteerLaunch = puppeteerDefault?.launch;
-  if (!puppeteerLaunch) throw new Error('puppeteer_launch_missing');
+  const puppeteerLaunch = puppeteerDefault?.launch ?? (puppeteer as any).launch;
+  if (typeof puppeteerLaunch !== 'function') throw new Error('puppeteer_launch_not_found');
 
   const executablePath = findChromiumExecutable();
+  logger.info('[renderPdf] launching Chromium', { executablePath: executablePath ?? 'bundled' });
+
   const launchOptions: any = {
-    headless: true,
+    headless: true,   // 'true' maps to new-headless mode in Puppeteer 22+
+    timeout: 30_000,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -717,6 +727,7 @@ async function renderPdf(html: string): Promise<Buffer> {
       '--disable-gpu',
       '--no-first-run',
       '--disable-extensions',
+      '--run-all-compositor-stages-before-draw',
     ],
   };
   if (executablePath) launchOptions.executablePath = executablePath;
@@ -724,9 +735,17 @@ async function renderPdf(html: string): Promise<Buffer> {
   browser = await puppeteerLaunch.call(puppeteerDefault, launchOptions);
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
-    const buf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '15mm', bottom: '20mm', left: '12mm', right: '12mm' } });
+    page.setDefaultNavigationTimeout(60_000);
+    page.setDefaultTimeout(60_000);
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    const buf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '15mm', bottom: '20mm', left: '12mm', right: '12mm' },
+      timeout: 60_000,
+    });
     await browser.close();
+    logger.info('[renderPdf] PDF generated', { bytes: buf.length });
     return Buffer.from(buf);
   } catch (err) {
     try { await browser.close(); } catch {}

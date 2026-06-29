@@ -84,28 +84,38 @@ export function registerEnterpriseReportRoutes(app: Application) {
         return res.status(403).json({ error: 'You do not have access to the requested site.' });
       }
 
+      logger.info('[enterpriseReports] starting generation', { customerId, reportType, userId: (req as any).user?.id });
+
       const db = await customerDbService.getCustomerDatabase(customerId);
+      logger.info('[enterpriseReports] db acquired', { customerId });
 
       // Get company name for branding
-      const [settings] = await db
-        .select({ companyName: iso.companySettings.companyName })
-        .from(iso.companySettings)
-        .limit(1);
-      const companyName = settings?.companyName ?? 'Your Organisation';
+      let companyName = 'Your Organisation';
+      try {
+        const [settings] = await db
+          .select({ companyName: iso.companySettings.companyName })
+          .from(iso.companySettings)
+          .limit(1);
+        companyName = settings?.companyName ?? 'Your Organisation';
+      } catch (settingsErr: any) {
+        logger.warn('[enterpriseReports] could not load company name (non-fatal)', { error: settingsErr.message });
+      }
 
       // Insert a "generating" record
       const reportId = randomUUID();
+      logger.info('[enterpriseReports] inserting generating record', { reportId, reportType });
       await db.insert(iso.enterpriseReports).values({
         id: reportId,
         reportType,
         reportTitle: reportType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
         scope: parameters.siteId ? 'site' : 'estate',
         scopeId: parameters.siteId ?? null,
-        parameters,
+        parameters: parameters as any,
         generatedBy: (req as any).user?.id ?? null,
         generatedByName: (req as any).user?.username ?? null,
         status: 'generating',
       });
+      logger.info('[enterpriseReports] generating record inserted', { reportId });
 
       // Generate the PDF
       let result;
@@ -158,8 +168,9 @@ export function registerEnterpriseReportRoutes(app: Application) {
         return res.send(result.pdfBuffer);
       }
     } catch (err: any) {
-      logger.error('[enterpriseReports] POST error:', err);
-      res.status(500).json({ error: 'Unexpected error generating report' });
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('[enterpriseReports] POST unexpected error:', { message: msg, stack: err?.stack?.split?.('\n')?.slice(0,4)?.join(' | ') });
+      if (!res.headersSent) res.status(500).json({ error: 'Unexpected error generating report', detail: msg });
     }
   });
 

@@ -1119,7 +1119,7 @@ export default function EnterpriseReports() {
         toast({ title: 'Report generated', description: 'PDF downloaded directly.' });
       }
     },
-    onError: () => toast({ title: 'Generation failed', description: 'Unable to generate report.', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Generation failed', description: err?.message || err?.detail || 'Unable to generate report.', variant: 'destructive' }),
   });
 
   const canGenerate = !generateMutation.isPending && (!meta.requiresSite || siteId.length > 0);
