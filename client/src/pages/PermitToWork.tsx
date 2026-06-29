@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, getCsrfToken, objectUrl } from "@/lib/queryClient";
+import { apiRequest, getCsrfToken, getSessionToken, objectUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -669,11 +669,6 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function getcsrfToken(): string {
-    const c = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='));
-    return c ? decodeURIComponent(c.split('=')[1]) : '';
-  }
-
   const uploadMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const isReplace = !!uploadDialog?.replaceDoc;
@@ -681,11 +676,13 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
         ? `/api/ptw/company-documents/${uploadDialog!.replaceDoc!.id}/replace`
         : '/api/ptw/company-documents';
       const method = isReplace ? 'PATCH' : 'POST';
-      const csrfToken = getcsrfToken();
+      const headers: Record<string, string> = { 'x-csrf-token': getCsrfToken() ?? '' };
+      const sessionToken = getSessionToken();
+      if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`;
       const res = await fetch(url, {
         method,
         credentials: 'include',
-        headers: { 'x-csrf-token': csrfToken },
+        headers,
         body: data,
       });
       if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Upload failed'); }
@@ -1503,11 +1500,14 @@ function PermitDetailView({
                 const fd = new FormData();
                 fd.append('file', file);
                 fd.append('documentType', 'other');
+                const attachHeaders: Record<string, string> = { 'x-csrf-token': getCsrfToken() ?? '' };
+                const attachToken = getSessionToken();
+                if (attachToken) attachHeaders['Authorization'] = `Bearer ${attachToken}`;
                 const res = await fetch(`/api/ptw/${permit.id}/attachments`, {
                   method: 'POST',
                   body: fd,
                   credentials: 'include',
-                  headers: { 'x-csrf-token': getCsrfToken() ?? '' },
+                  headers: attachHeaders,
                 });
                 if (!res.ok) throw new Error('Upload failed');
                 qcInner.invalidateQueries({ queryKey: ['/api/ptw', permit.id] });
