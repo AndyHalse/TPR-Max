@@ -752,65 +752,70 @@ export function registerSettingsRoutes(
       // Track the authenticated customer so we can enforce tenant isolation on legacy paths.
       let effectiveCustomerId: string | null = null;
 
+      // Extract token upfront — needed for <img> tags which cannot send Authorization
+      // headers; they include auth via the ?token= query param appended by objectUrl().
+      const authHeader = req.headers['authorization'];
+      const rawToken =
+        (req.query.token as string | undefined) ||
+        (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null);
+
+      // Prefer session-based auth when the session's customer matches the path.
+      // IMPORTANT: if the session belongs to a DIFFERENT customer (e.g. the browser
+      // session cookie is for customer-A but this <img> is for customer-B loaded in a
+      // per-tab Bearer-token context), fall through to the ?token= check instead of
+      // hard-failing with 403 — the token carries the correct customer identity.
       const hasStaffSession = !!((req as any).userId && req.customerId);
-      if (hasStaffSession) {
+      const sessionCustomerMatchesPath =
+        hasStaffSession && (!pathCustomerId || pathCustomerId === req.customerId);
+
+      if (sessionCustomerMatchesPath) {
         effectiveCustomerId = req.customerId;
-        // For new namespaced paths, the path's customerId must match the session's customer.
-        if (pathCustomerId && pathCustomerId !== req.customerId) {
-          return res.status(403).json({ error: 'Not permitted.' });
+      } else if (rawToken) {
+        // Try staff Bearer / session token first.
+        try {
+          const { customerId: tokenCustomerId } = verifySessionToken(rawToken);
+          effectiveCustomerId = tokenCustomerId;
+          // Staff tokens may read any path belonging to their own customer.
+          if (pathCustomerId && pathCustomerId !== tokenCustomerId) {
+            logger.warn(`[OBJECTS] Token customer mismatch: path=${pathCustomerId} token=${tokenCustomerId} for ${req.path}`);
+            return res.status(403).json({ error: 'Not permitted.' });
+          }
+          // Auth passed via token — fall through to serve the file.
+        } catch {
+          // Not a valid staff token; try contractor portal token below.
+          const payload = verifyPortalToken(rawToken);
+          if (!payload) {
+            logger.warn(`[OBJECTS] Auth failed: invalid token for ${req.path} (session customerId=${req.customerId ?? 'none'})`);
+            return res.status(401).json({ error: 'Authentication required to access this file.' });
+          }
+          effectiveCustomerId = payload.customerId;
+          // Customer-ID isolation: path must belong to the portal user's customer.
+          if (pathCustomerId && pathCustomerId !== payload.customerId) {
+            return res.status(403).json({ error: 'Not permitted.' });
+          }
+          // Enforce company-level isolation: the requested file must belong to
+          // the portal user's own contractor company, not just the same customer.
+          try {
+            const portalDb = await customerDbService.getCustomerDatabase(payload.customerId);
+            const ownershipCheck = await portalDb.execute(
+              sql`SELECT 1 FROM contractor_documents
+                  WHERE document_url = ${req.path}
+                    AND company_id = ${payload.contractorCompanyId}
+                  LIMIT 1`
+            );
+            if (!ownershipCheck.rows.length) {
+              logger.warn(`[OBJECTS] Portal company isolation blocked: ${req.path} not owned by company ${payload.contractorCompanyId}`);
+              return res.status(403).json({ error: 'Not permitted.' });
+            }
+          } catch (ownershipErr: any) {
+            logger.error('[OBJECTS] Portal ownership check failed:', ownershipErr?.message);
+            return res.status(500).json({ error: 'Access check failed.' });
+          }
         }
       } else {
-        // Try staff Bearer token (from Authorization header OR ?token= query param).
-        // The query-param form is needed so <img> tags can include auth without JS fetch.
-        const authHeader = req.headers['authorization'];
-        const rawToken =
-          (req.query.token as string | undefined) ||
-          (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null);
-
-        // Check if this is a staff session token first.
-        if (rawToken) {
-          try {
-            const { customerId: tokenCustomerId } = verifySessionToken(rawToken);
-            effectiveCustomerId = tokenCustomerId;
-            // Staff tokens may read any path (including contractor-portal documents)
-            // belonging to their own customer — the customer-ID check below enforces that.
-            if (pathCustomerId && pathCustomerId !== tokenCustomerId) {
-              return res.status(403).json({ error: 'Not permitted.' });
-            }
-            // Auth passed — fall through to serve the file.
-          } catch {
-            // Not a valid staff token; try contractor portal token below.
-            const payload = verifyPortalToken(rawToken);
-            if (!payload) {
-              return res.status(401).json({ error: 'Authentication required to access this file.' });
-            }
-            effectiveCustomerId = payload.customerId;
-            // Customer-ID isolation: path must belong to the portal user's customer.
-            if (pathCustomerId && pathCustomerId !== payload.customerId) {
-              return res.status(403).json({ error: 'Not permitted.' });
-            }
-            // Enforce company-level isolation: the requested file must belong to
-            // the portal user's own contractor company, not just the same customer.
-            try {
-              const portalDb = await customerDbService.getCustomerDatabase(payload.customerId);
-              const ownershipCheck = await portalDb.execute(
-                sql`SELECT 1 FROM contractor_documents
-                    WHERE document_url = ${req.path}
-                      AND company_id = ${payload.contractorCompanyId}
-                    LIMIT 1`
-              );
-              if (!ownershipCheck.rows.length) {
-                logger.warn(`[OBJECTS] Portal company isolation blocked: ${req.path} not owned by company ${payload.contractorCompanyId}`);
-                return res.status(403).json({ error: 'Not permitted.' });
-              }
-            } catch (ownershipErr: any) {
-              logger.error('[OBJECTS] Portal ownership check failed:', ownershipErr?.message);
-              return res.status(500).json({ error: 'Access check failed.' });
-            }
-          }
-        } else {
-          return res.status(401).json({ error: 'Authentication required to access this file.' });
-        }
+        // No valid session match and no token provided.
+        logger.warn(`[OBJECTS] Auth failed: no session match and no token for ${req.path} (session customerId=${req.customerId ?? 'none'}, pathCustomerId=${pathCustomerId ?? 'none'})`);
+        return res.status(401).json({ error: 'Authentication required to access this file.' });
       }
 
       // For legacy (un-namespaced) paths the URL contains no customer identifier, so
