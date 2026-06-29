@@ -109,13 +109,12 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
-      // Fire-and-forget freshness: kick off a background re-evaluation so date-based
-      // statuses (e.g. overdue PPM) stay current, but don't block the response —
-      // the summary returns current materialised data immediately and the next
-      // request will reflect any newly evaluated statuses.
-      inScopeActiveSiteIds(custDb, allowed)
-        .then(ids => ensureFreshComplianceEvaluation(customerId, ids))
-        .catch(err => logger.warn('[compliance/summary] background eval error:', err));
+      // Await freshness evaluation so date-based statuses (e.g. overdue PPM) are
+      // always current before computing scores. The 120 s per-site TTL in
+      // ensureFreshComplianceEvaluation means this blocks only on the first request
+      // after each 2-minute window, not on every call.
+      const scopeSiteIds = await inScopeActiveSiteIds(custDb, allowed);
+      await ensureFreshComplianceEvaluation(customerId, scopeSiteIds);
 
       const { estateScore, siteScores, categoryScores } = await computeLiveScores(custDb, allowed);
 

@@ -1000,6 +1000,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    addComplianceItemsUniqueIndexMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -3144,6 +3145,24 @@ const repairPpmFeatureFlagMigration: Migration = {
       logger.info('✅ [059] feature_ppm repaired to true for all customer settings rows');
     } catch (err: any) {
       logger.error(`❌ [059] Failed to repair feature_ppm: ${err.message}`);
+    }
+  }
+};
+
+// Migration 067 — Add UNIQUE index to compliance_items (site_id, category, source_table, source_id)
+// Migration 063 created this table without the unique constraint; ON CONFLICT upserts fail without it.
+const addComplianceItemsUniqueIndexMigration: Migration = {
+  version: '20260629_067_compliance_items_unique_index',
+  description: 'Add unique index on compliance_items(site_id, category, source_table, source_id) so ON CONFLICT upserts work',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE UNIQUE INDEX IF NOT EXISTS compliance_items_uq
+        ON compliance_items (site_id, category, source_table, source_id)
+      `);
+      logger.info('✅ [067] compliance_items unique index ensured');
+    } catch (err: any) {
+      logger.warn(`⚠️ [067] compliance_items unique index: ${err.message?.substring(0, 120)}`);
     }
   }
 };
