@@ -50,6 +50,8 @@ import {
   UserPlus,
   UserCheck,
   X,
+  Pencil,
+  KeyRound,
 } from "lucide-react";
 import GlassCard from "@/components/GlassCard";
 
@@ -328,6 +330,7 @@ function UserGrantGroupRow({
   canRevokeGrant,
   isLastAdmin,
   onRevoke,
+  onEdit,
 }: {
   userGroup: UserGrantGroup;
   areas: Area[];
@@ -335,6 +338,7 @@ function UserGrantGroupRow({
   canRevokeGrant: (grant: Grant) => boolean;
   isLastAdmin: boolean;
   onRevoke: (grant: Grant) => void;
+  onEdit?: (userGroup: UserGrantGroup) => void;
 }) {
   const anyRevocable = userGroup.grants.some(canRevokeGrant);
 
@@ -389,7 +393,23 @@ function UserGrantGroupRow({
           Added {toGBDate(userGroup.grants[0]?.createdAt)}
         </p>
       </div>
-      <div className="w-2 flex-shrink-0" />
+      {onEdit ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 flex-shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={() => onEdit(userGroup)}
+            >
+              <Pencil size={13} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Edit user details</TooltipContent>
+        </Tooltip>
+      ) : (
+        <div className="w-7 flex-shrink-0" />
+      )}
     </div>
   );
 }
@@ -835,6 +855,62 @@ export default function EnterpriseAccess() {
     },
   });
 
+  // ── Edit user ────────────────────────────────────────────────────────────────
+  const [editTarget, setEditTarget] = useState<UserGrantGroup | null>(null);
+  const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", username: "" });
+  const [newPassword, setNewPassword] = useState("");
+  const [showPwSection, setShowPwSection] = useState(false);
+
+  function openEdit(ug: UserGrantGroup) {
+    setEditTarget(ug);
+    setEditForm({
+      firstName: ug.user?.firstName ?? "",
+      lastName: ug.user?.lastName ?? "",
+      email: ug.user?.email ?? "",
+      username: ug.user?.username ?? "",
+    });
+    setNewPassword("");
+    setShowPwSection(false);
+  }
+
+  const editUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("PATCH", `/api/enterprise/users/${userId}`, {
+        firstName: editForm.firstName.trim() || null,
+        lastName: editForm.lastName.trim() || null,
+        email: editForm.email.trim() || null,
+        username: editForm.username.trim(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update user");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/role-grants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/users"] });
+      toast({ title: "User updated", description: "Profile details have been saved." });
+      setEditTarget(null);
+    },
+    onError: (err: Error) => toast({ title: "Failed to update user", description: err.message, variant: "destructive" }),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("PATCH", `/api/enterprise/users/${userId}/password`, { password: newPassword });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to reset password");
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Password updated", description: "The user's password has been changed." });
+      setNewPassword("");
+      setShowPwSection(false);
+    },
+    onError: (err: Error) => toast({ title: "Failed to reset password", description: err.message, variant: "destructive" }),
+  });
+
   const isAdmin = myGrants?.roles.includes("enterprise_admin") ?? false;
   const isAreaManager = myGrants?.roles.includes("area_manager") ?? false;
   const canManage = isAdmin || isAreaManager;
@@ -1001,6 +1077,7 @@ export default function EnterpriseAccess() {
                     canRevokeGrant={canRevokeGrant}
                     isLastAdmin={adminGrantCount <= 1}
                     onRevoke={setRevokeTarget}
+                    onEdit={isAdmin ? openEdit : undefined}
                   />
                 ))}
               </GlassCard>
@@ -1023,6 +1100,7 @@ export default function EnterpriseAccess() {
                     canRevokeGrant={canRevokeGrant}
                     isLastAdmin={false}
                     onRevoke={setRevokeTarget}
+                    onEdit={isAdmin ? openEdit : undefined}
                   />
                 ))}
               </GlassCard>
@@ -1045,6 +1123,7 @@ export default function EnterpriseAccess() {
                     canRevokeGrant={canRevokeGrant}
                     isLastAdmin={false}
                     onRevoke={setRevokeTarget}
+                    onEdit={isAdmin ? openEdit : undefined}
                   />
                 ))}
               </GlassCard>
@@ -1064,6 +1143,80 @@ export default function EnterpriseAccess() {
             sites={sites}
           />
         )}
+
+        {/* Edit User Dialog */}
+        <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil size={16} className="text-blue-600" />
+                Edit User
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>First name</Label>
+                  <Input value={editForm.firstName} onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} placeholder="First name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Last name</Label>
+                  <Input value={editForm.lastName} onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Last name" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email address</Label>
+                <Input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="user@example.com" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Username</Label>
+                <Input value={editForm.username} onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))} placeholder="username" />
+                <p className="text-xs text-muted-foreground">Letters, numbers, underscores and hyphens only.</p>
+              </div>
+
+              {/* Password reset section */}
+              <div className="border border-border rounded-lg overflow-hidden">
+                <button
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+                  onClick={() => setShowPwSection(v => !v)}
+                >
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <KeyRound size={14} />
+                    Reset password
+                  </span>
+                  {showPwSection ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                </button>
+                {showPwSection && (
+                  <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border">
+                    <Input
+                      type="password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="New password (min 8 characters)"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={newPassword.length < 8 || resetPasswordMutation.isPending}
+                      onClick={() => editTarget?.userId && resetPasswordMutation.mutate(editTarget.userId)}
+                    >
+                      {resetPasswordMutation.isPending ? "Saving…" : "Set new password"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button
+                disabled={!editForm.username.trim() || editUserMutation.isPending}
+                onClick={() => editTarget?.userId && editUserMutation.mutate(editTarget.userId)}
+              >
+                {editUserMutation.isPending ? "Saving…" : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Revoke confirmation */}
         <AlertDialog open={!!revokeTarget} onOpenChange={(v) => !v && setRevokeTarget(null)}>
