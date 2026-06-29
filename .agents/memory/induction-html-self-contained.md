@@ -17,7 +17,13 @@ All images in generated induction HTML must be embedded as base64 data: URLs. Ne
 
 ## How to apply
 
-- `ImageFallbackChain.ts` `FallbackSvgImageGenerator`: use `Buffer.from(safeSvg).toString('base64')` for SVG data URL.
-- `VideoGenerationService.createEnhancedHTMLPresentation()`: call `await this.fetchLogoAsDataUrl(rawLogoPath)` before building the HTML template literal.
-- `VideoGenerationService.generateVideoPresentation()` else branch: same — pre-fetch logo as `logoDataUrlSimple` before the HTML template literal.
-- `IMG_ERR_RECOVERY_SCRIPT` in `induction.ts`: do NOT exclude `data:` URLs from the already-failed check — a bad data: URL should also trigger the placeholder, not go invisible.
+There are FOUR places that generate SVG data URLs for induction HTML — ALL must use base64:
+
+1. `ImageFallbackChain.ts` `FallbackSvgImageGenerator.generate()`: use `Buffer.from(safeSvg).toString('base64')`.
+2. `VideoGenerationService.generateFallbackImage()` (line ~1264): the chain-exhausted path — also must use `Buffer.from(safeSvg).toString('base64')`. This is the PRIMARY path in production when no AI API keys exist.
+3. `IMG_ERR_RECOVERY_SCRIPT` `PH` placeholder in `induction.ts` (line ~147): use `btoa(PH_SVG)` (client-side base64, safe in browser).
+4. Company logo: `VideoGenerationService.fetchLogoAsDataUrl()` fetches bytes from object storage server-side and returns `data:image/png;base64,...`. Called in `createEnhancedHTMLPresentation()` and `generateVideoPresentation()` simple-template branch.
+
+**Critical**: inline `onerror` on `<img>` tags in the HTML template must NOT set `opacity='0'` — that hides the image before the recovery script can replace it. Use `onerror="this.onerror=null;"` instead.
+
+**After any fix**: user must regenerate the induction — stored HTML in DB/object-storage keeps the old format.

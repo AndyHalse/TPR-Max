@@ -1257,8 +1257,8 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
         <rect x="0" y="${height - 60}" width="100%" height="60" fill="url(#safetyStripes${imageNumber})" />
       </svg>`;
 
-    // Convert to proper data URL that browsers can use
-    const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}`;
+    // Convert to base64 data URL — percent-encoding breaks in production proxies/CDNs
+    const svgDataUrl = `data:image/svg+xml;base64,${Buffer.from(safeSvg).toString('base64')}`;
     
     logger.info(`✅ Generated fallback safety image ${imageNumber} for theme: ${theme}`);
     return svgDataUrl;
@@ -2349,7 +2349,7 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
                 <h1 style="margin-top: 48px;">${scene.title}</h1>
                 ${sceneImages[index] ? `
                     <div class="scene-image" style="position: relative;">
-                        <img src="${sceneImages[index]}" alt="${scene.title}" onerror="this.onerror=null;this.style.opacity='0';" />
+                        <img src="${sceneImages[index]}" alt="${scene.title}" onerror="this.onerror=null;" />
                         <!-- Text overlay for critical information -->
                         <div style="position: absolute; bottom: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px;">
                             <h3 style="color: white; margin: 0; font-size: 1.2rem;">${scene.title}</h3>

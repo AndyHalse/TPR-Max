@@ -140,18 +140,8 @@ const BTN_WIRE_SCRIPT = `<script id="tpr-btn-fix">
 // which expire after ~1 hour. This script detects load failures and swaps in an SVG placeholder.
 const IMG_ERR_RECOVERY_SCRIPT = `<script id="tpr-img-errfix">
 (function(){
-  var PH='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1792 1024">'+
-    '<defs><linearGradient id="bg" x1="0%25" y1="0%25" x2="100%25" y2="100%25">'+
-    '<stop offset="0%25" stop-color="#1a2e4a"/><stop offset="100%25" stop-color="#0d1a2e"/>'+
-    '</linearGradient></defs>'+
-    '<rect width="1792" height="1024" fill="url(%23bg)" rx="12"/>'+
-    '<rect x="796" y="362" width="200" height="200" rx="100" fill="rgba(255,255,255,0.08)"/>'+
-    '<text x="896" y="480" font-family="Arial,sans-serif" font-size="72" text-anchor="middle" fill="rgba(255,255,255,0.25)">&#128444;</text>'+
-    '<text x="896" y="610" font-family="Arial,sans-serif" font-size="28" text-anchor="middle" fill="rgba(255,255,255,0.4)">Safety Training Image</text>'+
-    '<text x="896" y="655" font-family="Arial,sans-serif" font-size="20" text-anchor="middle" fill="rgba(255,255,255,0.25)">Regenerate induction to refresh images</text>'+
-    '</svg>'
-  );
+  var PH_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1792 1024"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1a2e4a"/><stop offset="100%" stop-color="#0d1a2e"/></linearGradient></defs><rect width="1792" height="1024" fill="url(#bg)" rx="12"/><rect x="796" y="362" width="200" height="200" rx="100" fill="rgba(255,255,255,0.08)"/><text x="896" y="480" font-family="Arial,sans-serif" font-size="72" text-anchor="middle" fill="rgba(255,255,255,0.25)">&#9634;</text><text x="896" y="610" font-family="Arial,sans-serif" font-size="28" text-anchor="middle" fill="rgba(255,255,255,0.4)">Safety Training Image</text><text x="896" y="655" font-family="Arial,sans-serif" font-size="20" text-anchor="middle" fill="rgba(255,255,255,0.25)">Regenerate induction to refresh images</text></svg>';
+  var PH='data:image/svg+xml;base64,'+btoa(PH_SVG);
   function applyFix(img){
     if(img._tprErr) return;
     img._tprErr=true;
