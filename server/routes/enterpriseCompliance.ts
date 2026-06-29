@@ -651,4 +651,84 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
       return res.status(500).json({ error: 'Failed to run evaluation' });
     }
   });
+
+  // ── GET /api/enterprise/compliance/contractor-pool-health ──────────────────
+  // Returns a summary of contractor pool readiness so the compliance overview
+  // can surface pending/missing-doc issues that don't affect the scored items.
+  app.get('/api/enterprise/compliance/contractor-pool-health', requireAuth,
+    requireEnterpriseRole('enterprise_admin', 'area_manager', 'site_coordinator'),
+    async (req, res) => {
+      try {
+        const customerId = req.customerId!;
+        const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+        const KEY_DOCS = ['publicLiability', 'employersLiability', 'healthSafety', 'rams'];
+
+        const companies = await custDb
+          .select({ id: iso.contractorCompanies.id, status: iso.contractorCompanies.status })
+          .from(iso.contractorCompanies)
+          .where(eq(iso.contractorCompanies.isActive, true));
+
+        if (companies.length === 0) {
+          return res.json({ total: 0, compliant: 0, needsAttention: 0, pendingCompanies: 0, totalMissingDocs: 0 });
+        }
+
+        const companyIds = companies.map(c => c.id);
+
+        const allDocs = await custDb
+          .select({
+            companyId: iso.contractorDocuments.companyId,
+            documentType: iso.contractorDocuments.documentType,
+            status: iso.contractorDocuments.status,
+          })
+          .from(iso.contractorDocuments)
+          .where(and(
+            inArray(iso.contractorDocuments.companyId, companyIds),
+            isNull(iso.contractorDocuments.workerId),
+            eq(iso.contractorDocuments.isActive, true),
+            ne(iso.contractorDocuments.status, 'rejected'),
+          ));
+
+        // Group docs by company
+        const docsByCompany = new Map<string, typeof allDocs>();
+        for (const d of allDocs) {
+          const list = docsByCompany.get(d.companyId) ?? [];
+          list.push(d);
+          docsByCompany.set(d.companyId, list);
+        }
+
+        let compliant = 0;
+        let needsAttention = 0;
+        let pendingCompanies = 0;
+        let totalMissingDocs = 0;
+
+        for (const co of companies) {
+          const docs = docsByCompany.get(co.id) ?? [];
+          const approvedDocTypes = new Set(
+            docs.filter(d => d.status === 'approved' || d.status === 'valid').map(d => d.documentType)
+          );
+          const missing = KEY_DOCS.filter(k => !approvedDocTypes.has(k));
+          totalMissingDocs += missing.length;
+
+          if (co.status !== 'approved' || missing.length > 0) {
+            needsAttention++;
+            if (co.status !== 'approved') pendingCompanies++;
+          } else {
+            compliant++;
+          }
+        }
+
+        res.json({
+          total: companies.length,
+          compliant,
+          needsAttention,
+          pendingCompanies,
+          totalMissingDocs,
+        });
+      } catch (err) {
+        logger.error('[compliance/contractor-pool-health] error:', err);
+        res.status(500).json({ error: 'Failed to load contractor pool health' });
+      }
+    },
+  );
 }

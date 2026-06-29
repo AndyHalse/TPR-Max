@@ -643,6 +643,18 @@ export default function EnterpriseCompliance() {
     staleTime: 120_000,
   });
 
+  const { data: poolHealth } = useQuery<{
+    total: number;
+    compliant: number;
+    needsAttention: number;
+    pendingCompanies: number;
+    totalMissingDocs: number;
+  }>({
+    queryKey: ["/api/enterprise/compliance/contractor-pool-health"],
+    staleTime: STALE,
+    refetchOnWindowFocus: true,
+  });
+
   const { data: geoSites = [] } = useQuery<GeoSite[]>({
     queryKey: ["/api/enterprise/sites"],
     staleTime: 5 * 60_000,
@@ -938,6 +950,67 @@ export default function EnterpriseCompliance() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ── Contractor Pool Health ── */}
+        {poolHealth && poolHealth.total > 0 && (
+          <div className={`rounded-xl border px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 ${
+            poolHealth.needsAttention > 0
+              ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/40"
+              : "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700/40"
+          }`}>
+            <div className="flex items-center gap-3 flex-1">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                poolHealth.needsAttention > 0
+                  ? "bg-amber-100 dark:bg-amber-800/40"
+                  : "bg-emerald-100 dark:bg-emerald-800/40"
+              }`}>
+                <Users className={`w-5 h-5 ${poolHealth.needsAttention > 0 ? "text-amber-600" : "text-emerald-600"}`} />
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${poolHealth.needsAttention > 0 ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>
+                  Contractor Pool Health
+                </p>
+                {poolHealth.needsAttention > 0 ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    {poolHealth.needsAttention} of {poolHealth.total} {poolHealth.needsAttention === 1 ? "company needs" : "companies need"} attention
+                    {poolHealth.totalMissingDocs > 0 && ` — ${poolHealth.totalMissingDocs} key document${poolHealth.totalMissingDocs === 1 ? "" : "s"} missing`}
+                    {poolHealth.pendingCompanies > 0 && ` (${poolHealth.pendingCompanies} not yet approved)`}
+                  </p>
+                ) : (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    All {poolHealth.total} {poolHealth.total === 1 ? "company" : "companies"} approved and compliant
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  The compliance score above only counts documents linked to sites. Pending contractors are tracked here separately.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex gap-4 text-center">
+                <div>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{poolHealth.compliant}</p>
+                  <p className="text-[11px] text-muted-foreground">Compliant</p>
+                </div>
+                <div>
+                  <p className={`text-lg font-bold ${poolHealth.needsAttention > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"}`}>{poolHealth.needsAttention}</p>
+                  <p className="text-[11px] text-muted-foreground">Attention</p>
+                </div>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/enterprise/contractor-pool">
+                    <Button size="sm" variant="outline" className={`shrink-0 ${poolHealth.needsAttention > 0 ? "border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-800/30" : ""}`}>
+                      <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                      View Pool
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Open the Contractor Pool to review pending companies</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        )}
 
         {/* ── Estate Map ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
