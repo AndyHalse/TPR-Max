@@ -609,6 +609,8 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS annual_leave_entitlement_days NUMERIC(4,1) DEFAULT 28`);
       await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS leave_year_start DATE`);
       await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS working_days_per_week NUMERIC(3,1) DEFAULT 5`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ALTER COLUMN updated_at SET DEFAULT NOW()`);
       logger.info(`✅ HR staff columns ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ HR staff column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
@@ -1219,6 +1221,72 @@ export class CustomerDatabaseService {
     // ─── END RA BUILDER TABLES ────────────────────────────────────────────────
 
     // ─── ENTERPRISE SITE COLUMNS ──────────────────────────────────────────────
+    // Create the sites (and site_user_roles) tables first — this is idempotent and safe
+    // for both enterprise and standard customers. Standard customers get one "Primary Site"
+    // row so that resolveDefaultSiteId() can return a valid siteId for write-stamping.
+    // Without the sites table, every getScopedDb() call crashes with 42P01 for standard
+    // customers whose schema was provisioned before migration 065 ran.
+    try {
+      await pool.query(`CREATE TABLE IF NOT EXISTS "${schemaName}".areas (
+        id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name        TEXT NOT NULL,
+        description TEXT,
+        created_at  TIMESTAMP DEFAULT NOW()
+      )`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS "${schemaName}".sites (
+        id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name        TEXT NOT NULL,
+        reference   TEXT UNIQUE,
+        address     TEXT,
+        postcode    TEXT,
+        region      TEXT,
+        area_id     VARCHAR REFERENCES "${schemaName}".areas(id),
+        status      TEXT NOT NULL DEFAULT 'active',
+        is_default  BOOLEAN NOT NULL DEFAULT false,
+        created_at  TIMESTAMP DEFAULT NOW(),
+        archived_at TIMESTAMP
+      )`);
+      // Insert a default "Primary Site" if no sites exist yet (idempotent)
+      await pool.query(`
+        INSERT INTO "${schemaName}".sites (id, name, reference, status, is_default, created_at)
+        SELECT gen_random_uuid()::text, 'Primary Site', 'SITE-001', 'active', true, NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM "${schemaName}".sites LIMIT 1)
+      `);
+      await pool.query(`CREATE TABLE IF NOT EXISTS "${schemaName}".site_user_roles (
+        id         VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        user_id    VARCHAR NOT NULL,
+        role       TEXT    NOT NULL,
+        area_id    VARCHAR REFERENCES "${schemaName}".areas(id)  ON DELETE CASCADE,
+        site_id    VARCHAR REFERENCES "${schemaName}".sites(id)  ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW()
+      )`);
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "${schemaName}_idx_sur_unique"
+          ON "${schemaName}".site_user_roles(user_id, role, COALESCE(area_id, ''), COALESCE(site_id, ''))
+      `);
+    } catch (err: any) {
+      logger.warn(`⚠️ sites/areas base tables for ${schemaName}: ${err.message?.substring(0, 120)}`);
+    }
+    // Ensure site_id column on all 34 site-scoped tables — idempotent backfill for customers
+    // that missed siteMigrations 065/066 or where that migration was tracked but did not fully complete.
+    // ALTER TABLE ... ADD COLUMN IF NOT EXISTS is a fast metadata-only op when column already exists.
+    {
+      const SITE_SCOPED_TABLES_ENSURE = [
+        'staff', 'visitors', 'members', 'visitor_history', 'staff_attendance_history',
+        'pre_bookings', 'departments', 'muster_points', 'evacuation_zones', 'safety_tokens',
+        'contractor_companies', 'contractor_workers', 'contractor_documents', 'compliance_documents',
+        'worker_certifications', 'rams_documents', 'induction_tokens', 'contractor_visits',
+        'contractor_prebookings', 'local_labour_records', 'meeting_rooms', 'room_bookings',
+        'ppm_assets', 'ppm_work_orders', 'cdm_projects', 'hs_incidents', 'fire_risk_assessments',
+        'compliance_certificates', 'permit_to_work', 'audit_records', 'ra_builder_assessments',
+        'incident_reports', 'lone_worker_sessions', 'help_desk_tickets',
+      ];
+      for (const tbl of SITE_SCOPED_TABLES_ENSURE) {
+        try {
+          await pool.query(`ALTER TABLE "${schemaName}".${tbl} ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+        } catch {}
+      }
+    }
     try {
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS login_slug TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".site_user_roles ADD COLUMN IF NOT EXISTS can_manage_site_users BOOLEAN NOT NULL DEFAULT FALSE`);
@@ -1359,6 +1427,10 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archived_by TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archive_reason TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ALTER COLUMN updated_at SET DEFAULT NOW()`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
       // Onboarding workflow columns on contractor_companies
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'not_started'`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS onboarding_submitted_at TIMESTAMP`);
@@ -1469,6 +1541,10 @@ export class CustomerDatabaseService {
         )
       `);
       await pool.query(`ALTER TABLE "${schemaName}".visitors ADD COLUMN IF NOT EXISTS visit_reason_id VARCHAR`);
+      await pool.query(`ALTER TABLE "${schemaName}".visitors ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
+      await pool.query(`ALTER TABLE "${schemaName}".visitors ALTER COLUMN updated_at SET DEFAULT NOW()`);
+      await pool.query(`ALTER TABLE "${schemaName}".members ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
+      await pool.query(`ALTER TABLE "${schemaName}".members ALTER COLUMN updated_at SET DEFAULT NOW()`);
       // Seed three default reasons only if the table is empty
       const vrCheck = await pool.query(`SELECT COUNT(*) as cnt FROM "${schemaName}".visit_reasons`);
       if (parseInt(vrCheck.rows[0]?.cnt || '0') === 0) {

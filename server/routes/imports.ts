@@ -669,7 +669,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         }).returning({ id: isolatedSchema.staff.id });
         if (inserted[0]?.id) staffIds.push(inserted[0].id);
         staffAdded++;
-      } catch (e) { logger.warn('Sample staff insert failed:', (e as any).message); }
+      } catch (e) { const c = (e as any)?.cause; logger.warn('Sample staff insert failed:', (e as any).message || c?.message || String(e), c?.code); }
     }
     // Wire up the reporting structure now that all IDs are known
     try {
@@ -731,7 +731,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         }).returning({ id: isolatedSchema.visitors.id });
         if (inserted[0]?.id) visitorIds.push(inserted[0].id);
         visitorsAdded++;
-      } catch (e) { logger.warn('Sample visitor insert failed:', (e as any).message); }
+      } catch (e) { const c = (e as any)?.cause; logger.warn('Sample visitor insert failed:', (e as any).message || c?.message || String(e), c?.code); }
     }
 
     // ── 5 contractor companies, each with 3–4 workers ────────────────────────
@@ -822,7 +822,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         }).returning({ id: isolatedSchema.members.id });
         if (inserted[0]?.id) memberIds.push(inserted[0].id);
         membersAdded++;
-      } catch (e) { logger.warn('Sample member insert failed:', (e as any).message); }
+      } catch (e) { const c = (e as any)?.cause; logger.warn('Sample member insert failed:', (e as any).message || c?.message || String(e), c?.code); }
     }
 
     // ── HR data for staff ─────────────────────────────────────────────────────

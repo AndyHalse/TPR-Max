@@ -70,15 +70,31 @@ async function resolveDefaultSiteId(
 ): Promise<string | null> {
   if (defaultSiteIdCache.has(customerId)) return defaultSiteIdCache.get(customerId)!;
 
-  const rows = await custDb
-    .select({ id: isolatedSchema.sites.id })
-    .from(isolatedSchema.sites)
-    .where(eq(isolatedSchema.sites.isDefault, true))
-    .limit(1);
+  try {
+    const rows = await custDb
+      .select({ id: isolatedSchema.sites.id })
+      .from(isolatedSchema.sites)
+      .where(eq(isolatedSchema.sites.isDefault, true))
+      .limit(1);
 
-  const id = rows[0]?.id ?? null;
-  if (id) defaultSiteIdCache.set(customerId, id);
-  return id;
+    const id = rows[0]?.id ?? null;
+    if (id) defaultSiteIdCache.set(customerId, id);
+    return id;
+  } catch (err: any) {
+    // 42P01 = relation does not exist — sites table not yet migrated for this customer.
+    // Safe to return null: non-enterprise reads need no site filter, and withSiteId()
+    // already handles null siteId gracefully for writes.  Do not throw — that would
+    // crash every data-loading API for standard customers that haven't run migration 065 yet.
+    const isMissingTable =
+      err?.cause?.code === '42P01' ||
+      err?.code === '42P01' ||
+      String(err?.message).includes('does not exist');
+    if (isMissingTable) {
+      logger.warn(`[siteScope] sites table missing for ${customerId} — ensureSitesTable will repair on next startup`);
+      return null;
+    }
+    throw err;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
