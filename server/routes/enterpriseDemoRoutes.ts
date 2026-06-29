@@ -9,7 +9,7 @@ import { geocodePostcodesBulk } from '../geocodeService';
 
 const customerDbService = CustomerDatabaseService.getInstance();
 
-// Tables that need is_demo added at runtime (PPM tables already have it in schema)
+// Tables that need is_demo added at runtime
 const DEMO_TABLES = [
   'areas', 'sites', 'site_user_roles', 'users',
   'compliance_certificate_types', 'compliance_certificates',
@@ -26,6 +26,75 @@ async function ensureDemoColumns(pool: any, sn: string): Promise<void> {
       );
     } catch { /* table may not exist — ignore */ }
   }
+}
+
+/**
+ * Ensures PPM tables exist and have the site_id + is_demo columns needed by the
+ * enterprise demo loader. The provisioning code in customerDatabase.ts creates these
+ * tables WITHOUT site_id on ppm_asset_groups/ppm_schedules and WITHOUT is_demo on
+ * any PPM table, so a fresh enterprise schema would fail on the PPM INSERTs.
+ */
+async function ensurePpmForDemo(pool: any, sn: string): Promise<void> {
+  const safe = async (sql: string) => { try { await pool.query(sql); } catch { /* non-fatal */ } };
+
+  // 1. Create tables if they don't exist (mirrors customerDatabase.ts provisioning)
+  await safe(`CREATE TABLE IF NOT EXISTS "${sn}".ppm_asset_groups (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL, description TEXT, created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await safe(`CREATE TABLE IF NOT EXISTS "${sn}".ppm_templates (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL, description TEXT, category TEXT,
+    type TEXT NOT NULL DEFAULT 'non-statutory', regulation_reference TEXT,
+    frequency TEXT NOT NULL DEFAULT 'monthly', custom_days INTEGER,
+    estimated_hours TEXT, checklist TEXT, created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await safe(`CREATE TABLE IF NOT EXISTS "${sn}".ppm_assets (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL, asset_ref TEXT, category TEXT, location TEXT,
+    manufacturer TEXT, model_number TEXT, serial_number TEXT,
+    install_date TEXT, notes TEXT, status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await safe(`CREATE TABLE IF NOT EXISTS "${sn}".ppm_schedules (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+    asset_id VARCHAR NOT NULL REFERENCES "${sn}".ppm_assets(id) ON DELETE CASCADE,
+    template_id VARCHAR REFERENCES "${sn}".ppm_templates(id) ON DELETE SET NULL,
+    title TEXT NOT NULL, frequency TEXT NOT NULL DEFAULT 'monthly',
+    custom_days INTEGER, start_date TEXT NOT NULL, next_due_date TEXT NOT NULL,
+    last_completed_date TEXT, assigned_to TEXT,
+    status TEXT NOT NULL DEFAULT 'scheduled', notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await safe(`CREATE TABLE IF NOT EXISTS "${sn}".ppm_work_orders (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+    schedule_id VARCHAR REFERENCES "${sn}".ppm_schedules(id) ON DELETE SET NULL,
+    asset_id VARCHAR REFERENCES "${sn}".ppm_assets(id) ON DELETE SET NULL,
+    title TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'scheduled',
+    contractor_company_id VARCHAR, contractor_company_name TEXT,
+    contractor_worker_id VARCHAR, contractor_worker_name TEXT,
+    assigned_email TEXT, due_date TEXT, completed_date TEXT,
+    notes TEXT, completion_notes TEXT, access_token VARCHAR,
+    requires_certificate BOOLEAN DEFAULT false, certificate_uploaded_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`);
+
+  // 2. Add columns that may be missing from older provisioned schemas
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_asset_groups ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_asset_groups ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_assets ADD COLUMN IF NOT EXISTS group_id VARCHAR REFERENCES "${sn}".ppm_asset_groups(id) ON DELETE SET NULL`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_assets ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_assets ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_schedules ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_schedules ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS group_id VARCHAR REFERENCES "${sn}".ppm_asset_groups(id) ON DELETE SET NULL`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS site_id VARCHAR`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMP`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS overdue_alerted_at TIMESTAMP`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS missing_cert_alerted_at TIMESTAMP`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS missing_docs_alerted_at TIMESTAMP`);
+  await safe(`ALTER TABLE IF EXISTS "${sn}".ppm_work_orders ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMP`);
 }
 
 async function getPool(customerId: string) {
@@ -111,6 +180,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
 
       const { pool, sn } = await getPool(cid);
       await ensureDemoColumns(pool, sn);
+      await ensurePpmForDemo(pool, sn);
 
       // Idempotency guard
       const existCheck = await pool.query(`SELECT COUNT(*)::int AS n FROM "${sn}".sites WHERE is_demo = true`);
@@ -653,6 +723,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
 
       const { pool, sn } = await getPool(cid);
       await ensureDemoColumns(pool, sn);
+      await ensurePpmForDemo(pool, sn);
 
       // Delete all is_demo=true rows in FK-safe order
       const deleted = await deleteAllDemoRows(pool, sn);
