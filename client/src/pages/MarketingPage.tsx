@@ -733,6 +733,7 @@ export default function MarketingPage() {
                   "HR Module — Full Staff Lifecycle",
                   "Time & Attendance + Payroll Export",
                   "Risk Assessment Builder (6 Types)",
+                  "SLA Contractor Reporting",
                 ].map((feature) => (
                   <div key={feature} className="flex items-center gap-3 bg-white/70 dark:bg-slate-800/50 rounded-lg px-4 py-2.5 border border-emerald-200 dark:border-emerald-700">
                     <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
