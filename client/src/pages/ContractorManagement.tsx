@@ -183,7 +183,7 @@ export default function ContractorManagement() {
       <ContractorSlaReportDialog
         contractor={st.slaReportContractor}
         open={!!st.slaReportContractor}
-        onOpenChange={(o) => { if (!o) st.setSlaReportContractor(null); }}
+        onClose={() => st.setSlaReportContractor(null)}
       />
 
       <ContractorAddCompanyDialog
