@@ -6,8 +6,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Wrench, CheckCircle2, Clock, AlertTriangle, FileText, Upload,
-  RefreshCw, Download, Building2, CalendarDays, User, X, Bell, Scan, MapPin
+  RefreshCw, Download, Building2, CalendarDays, User, X, Bell, Scan, MapPin, ClipboardList
 } from "lucide-react";
+
+interface Template {
+  name?: string | null;
+  description?: string | null;
+  type?: string | null;
+  regulationReference?: string | null;
+  estimatedHours?: string | null;
+  frequency?: string | null;
+  checklist?: string | null;
+}
 
 interface WorkOrder {
   id: string;
@@ -96,7 +106,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   const [updateMsg, setUpdateMsg] = useState("");
   const [arrivedMsg, setArrivedMsg] = useState("");
 
-  const { data, isLoading, error } = useQuery<{ workOrder: WorkOrder; documents: WODocument[]; asset: Asset | null }>({
+  const { data, isLoading, error } = useQuery<{ workOrder: WorkOrder; documents: WODocument[]; asset: Asset | null; template: Template | null }>({
     queryKey: ["/api/ppm/work-order/public", currentToken],
     queryFn: async () => {
       const res = await fetch(`/api/ppm/work-order/public/${currentToken}`);
@@ -109,6 +119,19 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   const wo = data?.workOrder;
   const docs = data?.documents ?? [];
   const asset = data?.asset ?? null;
+  const template = data?.template ?? null;
+
+  // Parse checklist JSON once
+  const checklistItems: string[] = (() => {
+    if (!template?.checklist) return [];
+    try {
+      const raw = JSON.parse(template.checklist);
+      if (!Array.isArray(raw)) return [];
+      return raw.map((item: unknown) =>
+        typeof item === "string" ? item : (item as { text?: string }).text ?? String(item)
+      );
+    } catch { return []; }
+  })();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -281,6 +304,55 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
               {asset.location && <span className="flex items-center gap-1"><span className="text-xs text-slate-400">Location:</span> {asset.location}</span>}
               {asset.manufacturer && <span className="flex items-center gap-1"><span className="text-xs text-slate-400">Manufacturer:</span> {asset.manufacturer}</span>}
             </div>
+          </div>
+        )}
+
+        {/* Maintenance Specification (from linked template) */}
+        {template && (
+          <div className="bg-white rounded-xl shadow-sm border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-blue-500" />
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Maintenance Specification</p>
+              {template.type === "statutory" && (
+                <span className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Statutory</span>
+              )}
+            </div>
+            {template.name && (
+              <p className="font-semibold text-slate-900">{template.name}</p>
+            )}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+              {template.regulationReference && (
+                <span className="flex items-center gap-1 text-sm">
+                  <span className="text-xs text-slate-400">Regulation:</span> {template.regulationReference}
+                </span>
+              )}
+              {template.estimatedHours && (
+                <span className="flex items-center gap-1 text-sm">
+                  <span className="text-xs text-slate-400">Estimated:</span> {template.estimatedHours} hrs
+                </span>
+              )}
+              {template.frequency && (
+                <span className="flex items-center gap-1 text-sm">
+                  <span className="text-xs text-slate-400">Frequency:</span> {template.frequency}
+                </span>
+              )}
+            </div>
+            {template.description && (
+              <p className="text-sm text-slate-600 border-l-2 border-slate-200 pl-3">{template.description}</p>
+            )}
+            {checklistItems.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Checklist</p>
+                {checklistItems.map((item, i) => (
+                  <div key={i} className="flex items-start gap-2.5 py-1 border-b border-slate-100 last:border-0">
+                    <div className="mt-0.5 h-4 w-4 shrink-0 rounded border border-slate-300 bg-slate-50 flex items-center justify-center">
+                      <span className="text-xs font-medium text-slate-400">{i + 1}</span>
+                    </div>
+                    <span className="text-sm text-slate-700">{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

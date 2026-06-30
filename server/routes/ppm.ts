@@ -18,6 +18,25 @@ import { evaluateSiteBackground } from '../complianceEngine';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Renders a template checklist as an inline HTML block for email bodies. */
+function buildEmailChecklistHtml(checklist: string | null | undefined): string {
+  if (!checklist) return "";
+  try {
+    const raw = JSON.parse(checklist);
+    if (!Array.isArray(raw) || raw.length === 0) return "";
+    const items: string[] = raw.map((item: unknown) =>
+      typeof item === "string" ? item : (item as { text?: string }).text ?? String(item)
+    );
+    return `
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px 16px;margin:12px 0">
+        <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#374151">Maintenance Checklist</p>
+        <ul style="margin:0;padding-left:18px">
+          ${items.map(t => `<li style="font-size:13px;color:#374151;margin-bottom:5px">${escapeHtml(t)}</li>`).join("")}
+        </ul>
+      </div>`;
+  } catch { return ""; }
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -922,6 +941,27 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
       .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), scopedWhere(siteContext, isolatedSchema.ppmWorkOrders)))
       .returning();
 
+    // Look up maintenance template (via schedule) to include specification + checklist in the email
+    let assignEmailTemplate: { name: string; checklist: string | null; regulationReference: string | null; estimatedHours: string | null; type: string } | null = null;
+    if (wo.scheduleId) {
+      try {
+        const [sched] = await custDb.select({ templateId: isolatedSchema.ppmSchedules.templateId })
+          .from(isolatedSchema.ppmSchedules)
+          .where(eq(isolatedSchema.ppmSchedules.id, wo.scheduleId));
+        if (sched?.templateId) {
+          const [tpl] = await custDb.select({
+            name: isolatedSchema.ppmTemplates.name,
+            checklist: isolatedSchema.ppmTemplates.checklist,
+            regulationReference: isolatedSchema.ppmTemplates.regulationReference,
+            estimatedHours: isolatedSchema.ppmTemplates.estimatedHours,
+            type: isolatedSchema.ppmTemplates.type,
+          }).from(isolatedSchema.ppmTemplates)
+            .where(eq(isolatedSchema.ppmTemplates.id, sched.templateId));
+          assignEmailTemplate = tpl ?? null;
+        }
+      } catch { /* non-fatal — template section is supplementary */ }
+    }
+
     // Send notification email to the assigned contractor (only if email provided — explicit no-notification semantics if omitted)
     let notificationSent = false;
     if (assignedEmail) {
@@ -935,6 +975,16 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
         const workOrderUrl = `${baseUrl}/ppm/work-order/${newAccessToken}`;
         const recipientName = contractorWorkerName || contractorCompanyName || "Contractor";
         const emailSvc = new EmailService(req.customerId!);
+        // Build optional maintenance specification block for the email
+        const templateSpecHtml = assignEmailTemplate ? `
+          <div style="margin:20px 0">
+            <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1f2937;text-transform:uppercase;letter-spacing:.05em">Maintenance Specification</p>
+            ${assignEmailTemplate.type === "statutory" ? `<p style="margin:0 0 4px;font-size:13px;color:#b45309"><strong>⚑ Statutory maintenance</strong></p>` : ""}
+            ${assignEmailTemplate.regulationReference ? `<p style="margin:0 0 4px;font-size:13px;color:#374151"><strong>Regulation:</strong> ${escapeHtml(assignEmailTemplate.regulationReference)}</p>` : ""}
+            ${assignEmailTemplate.estimatedHours ? `<p style="margin:0 0 4px;font-size:13px;color:#374151"><strong>Estimated duration:</strong> ${escapeHtml(assignEmailTemplate.estimatedHours)} hours</p>` : ""}
+            ${buildEmailChecklistHtml(assignEmailTemplate.checklist)}
+          </div>` : "";
+        const templateSpecText = assignEmailTemplate ? `\nMaintenance Specification\n${assignEmailTemplate.regulationReference ? `Regulation: ${assignEmailTemplate.regulationReference}\n` : ""}${assignEmailTemplate.estimatedHours ? `Estimated duration: ${assignEmailTemplate.estimatedHours} hours\n` : ""}` : "";
         await emailSvc.sendEmail({
           to: assignedEmail,
           subject: `PPM Work Order Assigned: ${wo.title}`,
@@ -954,10 +1004,11 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
                   ${wo.description ? `<p style="margin:0 0 8px;color:#374151;font-size:14px">${escapeHtml(wo.description)}</p>` : ""}
                   ${wo.dueDate ? `<p style="margin:0;color:#374151;font-size:14px"><strong>Due:</strong> ${new Date(wo.dueDate).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })}</p>` : ""}
                 </div>
+                ${templateSpecHtml}
                 <div style="text-align:center;margin:28px 0">
                   <a href="${workOrderUrl}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-weight:600;font-size:15px;display:inline-block">View Work Order</a>
                 </div>
-                <p style="color:#6b7280;font-size:13px">Use the button above to view details, update status, add notes and upload service documents. The link works on mobile and desktop.</p>
+                <p style="color:#6b7280;font-size:13px">Use the button above to view full details, update status, add notes and upload service documents. The link works on mobile and desktop.</p>
               </div>
               <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 28px;text-align:center">
                 <p style="margin:0;color:#9ca3af;font-size:12px">This email was sent by ${companyName} via TPR-Max PPM system.</p>
@@ -965,7 +1016,7 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
             </div>
             </body></html>
           `,
-          text: `PPM Work Order Assigned: ${wo.title}\n\nHello ${recipientName},\n\nYou have been assigned a PPM work order.\n\nTitle: ${wo.title}\n${wo.description ? `Description: ${wo.description}\n` : ""}${wo.dueDate ? `Due: ${wo.dueDate}\n` : ""}\nView your work order at:\n${workOrderUrl}\n\n${companyName}`,
+          text: `PPM Work Order Assigned: ${wo.title}\n\nHello ${recipientName},\n\nYou have been assigned a PPM work order.\n\nTitle: ${wo.title}\n${wo.description ? `Description: ${wo.description}\n` : ""}${wo.dueDate ? `Due: ${wo.dueDate}\n` : ""}${templateSpecText}\nView your work order at:\n${workOrderUrl}\n\n${companyName}`,
         });
         notificationSent = true;
       } catch (emailErr) {
@@ -2873,7 +2924,29 @@ app.get("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
       const { accessToken: _t, accessTokenExpiresAt: _e, overdueAlertedAt: _o, missingCertAlertedAt: _m, ...safeWo } = wo;
       // Populate cache so subsequent requests skip the full scan
       if (wo.accessTokenExpiresAt) ppmTokenCacheSet(token, customerId, new Date(wo.accessTokenExpiresAt));
-      return { workOrder: safeWo, documents: docs, asset };
+      // Resolve maintenance template for on-page specification panel
+      let template: Record<string, unknown> | null = null;
+      if (wo.scheduleId) {
+        try {
+          const [sched] = await custDb.select({ templateId: isolatedSchema.ppmSchedules.templateId })
+            .from(isolatedSchema.ppmSchedules)
+            .where(eq(isolatedSchema.ppmSchedules.id, wo.scheduleId));
+          if (sched?.templateId) {
+            const [tpl] = await custDb.select({
+              name: isolatedSchema.ppmTemplates.name,
+              description: isolatedSchema.ppmTemplates.description,
+              type: isolatedSchema.ppmTemplates.type,
+              regulationReference: isolatedSchema.ppmTemplates.regulationReference,
+              estimatedHours: isolatedSchema.ppmTemplates.estimatedHours,
+              frequency: isolatedSchema.ppmTemplates.frequency,
+              checklist: isolatedSchema.ppmTemplates.checklist,
+            }).from(isolatedSchema.ppmTemplates)
+              .where(eq(isolatedSchema.ppmTemplates.id, sched.templateId));
+            template = tpl ?? null;
+          }
+        } catch { /* non-fatal — template is supplementary */ }
+      }
+      return { workOrder: safeWo, documents: docs, asset, template };
     };
 
     // Fast path: cache hit avoids cross-tenant scan
