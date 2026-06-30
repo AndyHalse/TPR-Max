@@ -470,6 +470,7 @@ export default function MarketingPage() {
                   "Template Library — Pre-Built H&S Frameworks",
                   "Microsoft Teams Event Notifications",
                   "Outlook & Google Calendar Auto Visitor Sync",
+                  "SLA Contractor Reporting",
                   "Enterprise Multi-site Estate Management",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
@@ -4804,6 +4805,7 @@ export default function MarketingPage() {
                   "Template Library — 50+ pre-built H&S frameworks",
                   "Microsoft Teams event notifications",
                   "Outlook & Google Calendar auto visitor sync",
+                  "SLA Contractor Reporting",
                 ].map(f => (
                   <li key={f} className="flex items-start gap-3 text-sm text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
