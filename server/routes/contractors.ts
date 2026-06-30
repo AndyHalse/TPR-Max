@@ -1100,9 +1100,13 @@ export function registerContractorRoutes(app: Express): void {
 
       const db = await customerDbService.getCustomerDatabase(req.customerId);
       const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
-      // Use the real user UUID from the request body (set by the frontend from auth context).
-      // req.user?.id may be a dev-bypass placeholder that doesn't exist in the users table.
-      const cardData = { ...req.body, issuedBy: req.body.issuedBy || req.user?.id };
+      // Use req.user.id (real DB UUID in production for both standalone and enterprise).
+      // In dev-bypass mode req.user.id is 'dev-user-andy' (not a UUID) so fall back to
+      // the value sent by the frontend which comes from the /api/auth/me response.
+      const resolvedIssuedBy = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.user?.id ?? '')
+        ? req.user!.id
+        : req.body.issuedBy;
+      const cardData = { ...req.body, issuedBy: resolvedIssuedBy };
       logger.info(`Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
 
       const issue = await svcIssueCard(svcCtx, cardData);

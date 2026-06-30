@@ -380,7 +380,7 @@ export default function ContractorDetails() {
     // Prepare the data with required fields for the API
     const cardData = {
       ...data,
-      issuedBy: "b7b74fa2-1a48-43d1-b71c-39fd9697b2ea",  // Use actual developer user ID
+      issuedBy: currentUser?.id,
       status: "active",
       photos: [],
       contractorId: id
