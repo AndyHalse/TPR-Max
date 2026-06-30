@@ -6,6 +6,8 @@
  * if GCS is unavailable the buffer is returned for direct inline download.
  */
 
+import { existsSync } from 'fs';
+import { execFileSync } from 'child_process';
 import { eq, ne, and, inArray, lte, gte, or, isNull } from 'drizzle-orm';
 import * as iso from './isolatedSchema';
 import { objectStorageClient, parseObjectPath } from './objectStorage';
@@ -683,8 +685,6 @@ const NIX_CHROMIUM_CANDIDATES = [
 /** Detect a working Chromium binary, preferring nix-compiled versions whose
  *  shared-library deps are resolved via the nix store (no libglib issues). */
 function findChromiumExecutable(): string | undefined {
-  const { existsSync } = require('fs');
-
   // 1. Env override — set globally at startup by ensureChromeBinary() in index.ts,
   //    or pinned manually by ops.  This is the primary path in production.
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -696,7 +696,6 @@ function findChromiumExecutable(): string | undefined {
 
   // 3. PATH-based lookup (works in dev where nix bins are on PATH, or plain Linux envs)
   try {
-    const { execFileSync } = require('child_process');
     for (const cmd of ['chromium', 'chromium-browser', 'google-chrome-stable', 'google-chrome']) {
       try {
         const p = execFileSync('which', [cmd], { encoding: 'utf8', timeout: 3000 }).trim();
