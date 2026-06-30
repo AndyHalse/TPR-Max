@@ -1100,23 +1100,35 @@ export function registerContractorRoutes(app: Express): void {
 
       const db = await customerDbService.getCustomerDatabase(req.customerId);
       const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
-      // Resolve the issuer UUID. In production req.user.id is always a real UUID.
-      // In dev-bypass mode it is 'dev-user-andy' (not a UUID) — look up the real
-      // UUID by username so the FK constraint on card_issues.issued_by is satisfied.
+      // Resolve the issuer UUID. In production req.user.id is always a real UUID that
+      // already exists in the users table.  In dev-bypass mode it is 'dev-user-andy'
+      // (not a UUID).  We upsert a minimal dev-user row so the FK on issued_by is met.
       const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      let resolvedIssuedBy: string | null = UUID_RE.test(req.user?.id ?? '') ? req.user!.id : null;
-      if (!resolvedIssuedBy) {
+      let resolvedIssuedBy: string = req.user!.id;
+      if (!UUID_RE.test(resolvedIssuedBy)) {
         try {
-          const [u] = await db
-            .select({ id: isolatedSchema.users.id })
-            .from(isolatedSchema.users)
-            .where(eq(isolatedSchema.users.username, req.user!.username))
-            .limit(1);
-          resolvedIssuedBy = u?.id ?? null;
-        } catch { /* non-fatal — issuedBy will be null */ }
+          // Try to insert the dev user so the FK reference is valid.
+          // ON CONFLICT (id) → already exists, nothing to do.
+          // If username is taken by another row we fall back to that row's real UUID.
+          await db.execute(sql`
+            INSERT INTO users (id, username, role, is_active)
+            VALUES (${req.user!.id}, ${req.user!.username}, 'admin', true)
+            ON CONFLICT (id) DO NOTHING
+          `);
+        } catch {
+          // username unique-conflict: look up the existing user by username instead
+          try {
+            const [u] = await db
+              .select({ id: isolatedSchema.users.id })
+              .from(isolatedSchema.users)
+              .where(eq(isolatedSchema.users.username, req.user!.username))
+              .limit(1);
+            if (u?.id) resolvedIssuedBy = u.id;
+          } catch { /* leave as dev-user-andy — will likely fail FK, but tried */ }
+        }
       }
       const cardData = { ...req.body, issuedBy: resolvedIssuedBy };
-      logger.info(`Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
+      logger.info(`Card issue - resolved issuedBy: ${resolvedIssuedBy} (session user: ${req.user?.id})`);
 
       const issue = await svcIssueCard(svcCtx, cardData);
       logger.info(`Card issue created successfully for customer ${req.customerId}:`, issue);
