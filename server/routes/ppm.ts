@@ -89,6 +89,9 @@ async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> 
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS missing_docs_alerted_at TIMESTAMP`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMP`);
 
+    // ppm_work_order_documents — scanned_at added for document AI-scan tracking
+    await custDb.execute(sql`ALTER TABLE ppm_work_order_documents ADD COLUMN IF NOT EXISTS scanned_at TIMESTAMP`);
+
     // Contractor tables — is_demo flag added for safe demo-data scoping (Fix 3)
     await custDb.execute(sql`ALTER TABLE contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
     await custDb.execute(sql`ALTER TABLE contractor_workers   ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
