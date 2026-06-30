@@ -18,7 +18,9 @@ import {
   Zap,
   AlertTriangle,
   X,
+  BarChart3,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { type ExtendedContractorCompany, matchesSearch, getComplianceBadge } from "./types";
 
 interface ContractorCompaniesTabProps {
@@ -37,6 +39,7 @@ interface ContractorCompaniesTabProps {
   setShowAddWorkerDialog: (b: boolean) => void;
   setLocation: (path: string) => void;
   setShowAddContractorDialog: (b: boolean) => void;
+  setSlaReportContractor: (c: any) => void;
 }
 
 type DocTypeFilter = null | "insurance" | "publicLiability" | "employersLiability" | "healthSafety" | "cisRegistration";
@@ -74,6 +77,7 @@ export default function ContractorCompaniesTab({
   setShowAddWorkerDialog,
   setLocation,
   setShowAddContractorDialog,
+  setSlaReportContractor,
 }: ContractorCompaniesTabProps) {
   const { t } = useTranslation(['contractors', 'common']);
   const [docTypeFilter, setDocTypeFilter] = useState<DocTypeFilter>(() => {
@@ -295,70 +299,58 @@ export default function ContractorCompaniesTab({
                   </button>
                 )}
 
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleViewContractorDetails(company.id)}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                      data-testid={`button-workers-${company.id}`}
-                    >
-                      <Users className="h-3 w-3 mr-1" />
-                      {t('companies.workers')}
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 text-purple-600 border-purple-300 hover:bg-purple-50"
-                      onClick={() => setLocation(`/contractors/${company.id}?tab=documents`)}
-                      data-testid={`button-documents-${company.id}`}
-                    >
-                      <FileText className="h-3 w-3 mr-1" />
-                      {t('companies.documents')}
-                    </Button>
+                <TooltipProvider delayDuration={400}>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleViewContractorDetails(company.id)} data-testid={`button-workers-${company.id}`}>
+                          <Users className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('companies.workers')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-purple-600 border-purple-300 hover:bg-purple-50" onClick={() => setLocation(`/contractors/${company.id}?tab=documents`)} data-testid={`button-documents-${company.id}`}>
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('companies.documents')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 border-green-600 hover:bg-green-50" onClick={() => { setSelectedContractor(company); setShowAddWorkerDialog(true); }} data-testid={`button-add-worker-${company.id}`}>
+                          <UserPlus className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('companies.addWorker')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => setSlaReportContractor(company)}>
+                          <BarChart3 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>SLA Report</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleEditContractor(company.id)} data-testid={`button-edit-company-${company.id}`}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('common:edit')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleDeleteContractor(company.id, company.name)} disabled={deleteContractorMutation.isPending} data-testid={`button-delete-company-${company.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('common:delete')}</TooltipContent>
+                    </Tooltip>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
-                      onClick={() => {
-                        setSelectedContractor(company);
-                        setShowAddWorkerDialog(true);
-                      }}
-                      data-testid={`button-add-worker-${company.id}`}
-                    >
-                      <UserPlus className="h-3 w-3 mr-1" />
-                      {t('companies.addWorker')}
-                    </Button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 text-blue-600 hover:bg-blue-50"
-                      onClick={() => handleEditContractor(company.id)}
-                      data-testid={`button-edit-company-${company.id}`}
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      {t('common:edit')}
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeleteContractor(company.id, company.name)}
-                      disabled={deleteContractorMutation.isPending}
-                      data-testid={`button-delete-company-${company.id}`}
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      {t('common:delete')}
-                    </Button>
-                  </div>
-                </div>
+                </TooltipProvider>
               </div>
             </GlassCard>
             ) : (
@@ -412,56 +404,58 @@ export default function ContractorCompaniesTab({
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button
-                    size="sm"
-                    onClick={() => handleViewContractorDetails(company.id)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Users className="h-3 w-3 mr-1" />
-                    {t('companies.workers')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-purple-600 border-purple-300 hover:bg-purple-50"
-                    onClick={() => setLocation(`/contractors/${company.id}?tab=documents`)}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    {t('companies.documents')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-green-600 border-green-600 hover:bg-green-50"
-                    onClick={() => {
-                      setSelectedContractor(company);
-                      setShowAddWorkerDialog(true);
-                    }}
-                  >
-                    <UserPlus className="h-3 w-3 mr-1" />
-                    {t('companies.addWorker')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-blue-600 hover:bg-blue-50"
-                    onClick={() => handleEditContractor(company.id)}
-                  >
-                    <Edit className="h-3 w-3 mr-1" />
-                    {t('common:edit')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 hover:bg-red-50"
-                    onClick={() => handleDeleteContractor(company.id, company.name)}
-                    disabled={deleteContractorMutation.isPending}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    {t('common:delete')}
-                  </Button>
-                </div>
+                <TooltipProvider delayDuration={400}>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleViewContractorDetails(company.id)}>
+                          <Users className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('companies.workers')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-purple-600 border-purple-300 hover:bg-purple-50" onClick={() => setLocation(`/contractors/${company.id}?tab=documents`)}>
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('companies.documents')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 border-green-600 hover:bg-green-50" onClick={() => { setSelectedContractor(company); setShowAddWorkerDialog(true); }}>
+                          <UserPlus className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('companies.addWorker')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => setSlaReportContractor(company)}>
+                          <BarChart3 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>SLA Report</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleEditContractor(company.id)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('common:edit')}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleDeleteContractor(company.id, company.name)} disabled={deleteContractorMutation.isPending}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('common:delete')}</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
               </div>
             </GlassCard>
             )

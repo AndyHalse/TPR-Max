@@ -30,6 +30,7 @@ export function useContractorManagement() {
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
+  const [slaReportContractor, setSlaReportContractor] = useState<any>(null);
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showContractorEditModal, setShowContractorEditModal] = useState(false);
   const [showCompanyEditDialog, setShowCompanyEditDialog] = useState(false);
@@ -282,6 +283,7 @@ export function useContractorManagement() {
     showPassPreview, setShowPassPreview,
     selectedWorker, setSelectedWorker,
     selectedCompanyName, setSelectedCompanyName,
+    slaReportContractor, setSlaReportContractor,
     showAddContractorDialog, setShowAddContractorDialog,
     showContractorEditModal, setShowContractorEditModal,
     showCompanyEditDialog, setShowCompanyEditDialog,

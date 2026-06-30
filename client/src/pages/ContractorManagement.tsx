@@ -18,6 +18,7 @@ import ContractorTabNav from "./contractor/ContractorTabNav";
 import ContractorCO2Tab from "./contractor/ContractorCO2Tab";
 import ContractorAssignHSTab from "./contractor/ContractorAssignHSTab";
 import ContractorAddCompanyDialog from "./contractor/ContractorAddCompanyDialog";
+import ContractorSlaReportDialog from "./contractor/ContractorSlaReportDialog";
 import ContractorEditCompanyDialog from "./contractor/ContractorEditCompanyDialog";
 import ContractorAddWorkerDialog from "./contractor/ContractorAddWorkerDialog";
 import ContractorPreBookDialog from "./contractor/ContractorPreBookDialog";
@@ -155,6 +156,7 @@ export default function ContractorManagement() {
           setShowAddWorkerDialog={st.setShowAddWorkerDialog}
           setLocation={st.setLocation}
           setShowAddContractorDialog={st.setShowAddContractorDialog}
+          setSlaReportContractor={st.setSlaReportContractor}
         />
       )}
 
@@ -177,6 +179,12 @@ export default function ContractorManagement() {
       <ContractorEditModal worker={st.selectedWorkerForEdit} companyName={st.selectedWorkerCompanyName} open={st.showContractorEditModal} onOpenChange={st.setShowContractorEditModal} />
 
       <ContractorEditCompanyDialog open={st.showCompanyEditDialog} onOpenChange={st.setShowCompanyEditDialog} company={st.selectedContractor as any} customerId={st.customerId} />
+
+      <ContractorSlaReportDialog
+        contractor={st.slaReportContractor}
+        open={!!st.slaReportContractor}
+        onOpenChange={(o) => { if (!o) st.setSlaReportContractor(null); }}
+      />
 
       <ContractorAddCompanyDialog
         open={st.showAddContractorDialog}
