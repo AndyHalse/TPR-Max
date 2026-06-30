@@ -1100,8 +1100,9 @@ export function registerContractorRoutes(app: Express): void {
 
       const db = await customerDbService.getCustomerDatabase(req.customerId);
       const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
-      // Override issuedBy with the authenticated user's ID to satisfy the FK constraint
-      const cardData = { ...req.body, issuedBy: req.user?.id || req.body.issuedBy };
+      // Use the real user UUID from the request body (set by the frontend from auth context).
+      // req.user?.id may be a dev-bypass placeholder that doesn't exist in the users table.
+      const cardData = { ...req.body, issuedBy: req.body.issuedBy || req.user?.id };
       logger.info(`Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
 
       const issue = await svcIssueCard(svcCtx, cardData);
