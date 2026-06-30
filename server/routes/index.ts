@@ -50,6 +50,7 @@ import { registerContractorPortalRoutes } from './contractorPortal';
 import { registerContractorWorkerDbsRoutes } from './contractorWorkerDbs';
 import { registerContractorWorkerCertsRoutes } from './contractorWorkerCerts';
 import { registerContractorEquipmentRoutes } from './contractorEquipment';
+import { registerContractorSlaReportRoutes } from './contractorSlaReport';
 import { registerBugReportRoutes } from './bugReports';
 import { registerChatbotRoutes } from './chatbot';
 import { registerEnterpriseSiteRoutes } from './enterpriseSites';
@@ -118,6 +119,7 @@ export async function registerSplitRoutes(
   registerContractorWorkerDbsRoutes(app);
   registerContractorWorkerCertsRoutes(app);
   registerContractorEquipmentRoutes(app);
+  registerContractorSlaReportRoutes(app);
   registerBugReportRoutes(app);
   registerChatbotRoutes(app);
   registerEnterpriseSiteRoutes(app);

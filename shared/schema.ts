@@ -1585,6 +1585,7 @@ export const cardIssues = pgTable("card_issues", {
   cardType: text("card_type").notNull(), // red, yellow
   issuedBy: varchar("issued_by").notNull().references(() => users.id),
   issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  siteId: varchar("site_id"),
   description: text("description").notNull(),
   witness: text("witness"),
   location: text("location"),
@@ -2105,6 +2106,7 @@ export const contractorVisits = pgTable("contractor_visits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workerId: varchar("worker_id").references(() => contractorWorkers.id).notNull(),
   companyId: varchar("company_id").references(() => contractorCompanies.id).notNull(),
+  siteId: varchar("site_id"),
   purpose: text("purpose").default("Work"),
   checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
   checkedOutAt: timestamp("checked_out_at"),

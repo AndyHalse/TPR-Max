@@ -51,12 +51,14 @@ import {
   Sparkles,
   RotateCcw,
   UserCheck,
+  BarChart3,
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
 import HSDocumentAssignment from "@/components/HSDocumentAssignment";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ContractorSlaReportDialog from "@/pages/contractor/ContractorSlaReportDialog";
 
 interface CompanyComboboxProps {
   value: string;
@@ -292,6 +294,7 @@ export default function Contractors() {
   const [showWorkersModal, setShowWorkersModal] = useState(false);
   const [showEditContractorModal, setShowEditContractorModal] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
+  const [slaReportContractor, setSlaReportContractor] = useState<any>(null);
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [showViewWorkerModal, setShowViewWorkerModal] = useState(false);
   const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
@@ -1685,6 +1688,9 @@ export default function Contractors() {
                       <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm">
                         <UserPlus className="mr-1" size={13} />Add Worker
                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => setSlaReportContractor(contractor)} className="h-9 px-3 text-sm text-blue-700 border-blue-200 hover:bg-blue-50">
+                        <BarChart3 className="mr-1" size={13} />SLA Report
+                      </Button>
                     </div>
                   </div>
                   {/* Mobile: actions as bottom row */}
@@ -1702,6 +1708,9 @@ export default function Contractors() {
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm font-medium">
                         <UserPlus className="mr-1" size={13} />Add
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setSlaReportContractor(contractor)} className="h-9 px-3 text-sm font-medium text-blue-700 border-blue-200">
+                        <BarChart3 size={13} />
                       </Button>
                     </div>
                   </div>
@@ -3448,6 +3457,12 @@ export default function Contractors() {
         personSubtitle={(pendingNdaCheckin?.worker as any)?.companyName || ""}
         ndaContent={(companySettings as any)?.ndaContent || ""}
         requireSignature={!!(companySettings as any)?.ndaRequireSignature}
+      />
+
+      <ContractorSlaReportDialog
+        open={!!slaReportContractor}
+        onClose={() => setSlaReportContractor(null)}
+        contractor={slaReportContractor ? { id: slaReportContractor.id, name: slaReportContractor.name } : null}
       />
 
       <Dialog open={showComplianceView} onOpenChange={setShowComplianceView}>

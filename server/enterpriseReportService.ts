@@ -709,7 +709,7 @@ function findChromiumExecutable(): string | undefined {
   return undefined;
 }
 
-async function renderPdf(html: string): Promise<Buffer> {
+export async function renderPdf(html: string): Promise<Buffer> {
   const executablePath = findChromiumExecutable();
   logger.info('[renderPdf] launching Chromium', { executablePath: executablePath ?? 'bundled' });
 

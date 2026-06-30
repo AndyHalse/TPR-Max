@@ -2664,6 +2664,7 @@ export const hsIncidents = pgTable("hs_incidents", {
   // Photo evidence (induction walk-around reports or manual uploads)
   photoUrl: text("photo_url"),
   siteId: varchar("site_id"),
+  contractorCompanyId: varchar("contractor_company_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

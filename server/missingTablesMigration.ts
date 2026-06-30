@@ -1219,6 +1219,26 @@ const addReportsSiteIdColumnMigration: Migration = {
   }
 };
 
+const addContractorSlaColumnsForReportMigration: Migration = {
+  version: '20260630_001_contractor_sla_report_columns',
+  description: 'Add contractor_company_id to hs_incidents; site_id to contractor_visits and card_issues for SLA report scoping',
+  async up(db: any) {
+    const stmts = [
+      `ALTER TABLE hs_incidents ADD COLUMN IF NOT EXISTS contractor_company_id TEXT`,
+      `ALTER TABLE contractor_visits ADD COLUMN IF NOT EXISTS site_id TEXT`,
+      `ALTER TABLE card_issues ADD COLUMN IF NOT EXISTS site_id TEXT`,
+    ];
+    for (const sql of stmts) {
+      try {
+        await db.execute(sql);
+      } catch (err: any) {
+        logger.info(`ℹ️ SLA columns: ${(err?.message || '').substring(0, 80)}`);
+      }
+    }
+    logger.info('✅ SLA report columns ensured');
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -1250,4 +1270,5 @@ export const missingTablesMigrations = [
   addMeetingRoomsSiteIdMigration,
   addRoomBookingsSiteIdMigration,
   addRaBuilderAssessmentsSiteIdMigration,
+  addContractorSlaColumnsForReportMigration,
 ];
