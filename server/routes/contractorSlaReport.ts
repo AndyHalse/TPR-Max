@@ -67,13 +67,13 @@ async function collectSlaData(
   slaDays: number,
   activeSiteId?: string,
 ) {
-  // 1. Company info
-  const [company] = await db
-    .select()
-    .from(contractorCompanies)
-    .where(eq(contractorCompanies.id, companyId))
-    .limit(1);
-  if (!company) throw new Error('Contractor company not found');
+  // 1. Company info — raw SQL to avoid selecting columns that may not exist in DB yet
+  const companyRows = await pool.query(
+    `SELECT id, company_name FROM "${schemaName}"."contractor_companies" WHERE id = $1 LIMIT 1`,
+    [companyId],
+  );
+  if (!companyRows.rows.length) throw new Error('Contractor company not found');
+  const company = { companyName: companyRows.rows[0].company_name };
 
   // 2. Workers
   const workers = await db
