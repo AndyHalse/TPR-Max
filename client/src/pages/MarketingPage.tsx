@@ -159,6 +159,7 @@ export default function MarketingPage() {
           "template-library",
           "teams-integration",
           "calendar-integration",
+          "sla-report",
           "enterprise",
         ].includes(hash)
       ) {
@@ -1413,6 +1414,14 @@ export default function MarketingPage() {
               >
                 <CalendarClock className="h-4 w-4 mb-1" />
                 Cal Sync
+              </TabsTrigger>
+              <TabsTrigger
+                value="sla-report"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-orange-700 transition-all duration-200"
+                data-testid="tab-sla-report"
+              >
+                <BarChart3 className="h-4 w-4 mb-1" />
+                SLA Report
               </TabsTrigger>
               <TabsTrigger
                 value="enterprise"
@@ -4069,6 +4078,128 @@ export default function MarketingPage() {
                 <ScreenCaption
                   what="Outlook calendar event synced to TPR — visitor pre-registered automatically from the invite."
                   why="Diary entries become pre-registrations. Nothing to log twice."
+                />
+              </div>
+            </TabsContent>
+
+            {/* SLA Contractor Report Tab */}
+            <TabsContent value="sla-report" className="space-y-6" data-testid="content-sla-report">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-orange-600 text-white">
+                      <BarChart3 className="h-3 w-3 mr-1" />
+                      NEW — SLA Contractor Reporting
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      One Report. Every Obligation. Zero Surprises.
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      How confident are you that your contractors are actually meeting their obligations? Not just showing up — but returning documents on time, completing scheduled maintenance, carrying zero safety violations, and giving you a clean audit trail if you ever need it. The SLA Contractor Report gives you a single, downloadable PDF covering everything.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Compliance document turnaround:</strong> Pass/fail per document against your agreed SLA target — see exactly which contractor is late and by how many days.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>PPM completion:</strong> On-time vs overdue scheduled maintenance, with certificate evidence — so you always know what was done and when.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Safety violations:</strong> Yellow and red cards by individual worker — full name, offence, date, and issuing officer on record.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Equipment on site:</strong> What equipment they brought, its documentation status, and whether it was compliant at the time.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>H&S incidents:</strong> Near misses, good spots, and RIDDOR-reportable events linked to this contractor during the period.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Attendance:</strong> Days and hours per worker — who was on site, when, and for how long.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 px-4 py-3">
+                    <p className="text-sm font-semibold text-orange-900 dark:text-orange-200">Built for facilities and estates teams</p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-0.5">Pick a contractor. Pick a date range. Get a report you can stand behind at your next SLA review. Designed for teams managing multiple contractors across multiple sites.</p>
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-orange-600 hover:bg-orange-700">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Request a Demo
+                  </Button>
+                </div>
+                <div className="rounded-xl shadow-2xl border border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-800 p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/40">
+                        <BarChart3 className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white text-sm">SLA Contractor Report</h4>
+                        <p className="text-xs text-slate-500">Apex Facilities Ltd · Jan–Jun 2025</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800 border border-green-300 text-xs">PDF Ready</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "Doc Turnaround", value: "92%", pass: true },
+                      { label: "PPM On-Time", value: "87%", pass: true },
+                      { label: "Safety Cards", value: "2", pass: false },
+                    ].map((stat) => (
+                      <div key={stat.label} className={`rounded-lg border p-3 text-center ${stat.pass ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20" : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"}`}>
+                        <p className={`text-xl font-bold ${stat.pass ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{stat.value}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{stat.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Document Turnaround</p>
+                    {[
+                      { doc: "Public Liability Insurance", due: 5, actual: 3, pass: true },
+                      { doc: "RAMS — Site Access Plan", due: 7, actual: 7, pass: true },
+                      { doc: "Employer's Liability Certificate", due: 5, actual: 9, pass: false },
+                      { doc: "Method Statement — Electrical", due: 7, actual: 4, pass: true },
+                    ].map((d) => (
+                      <div key={d.doc} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30">
+                        <p className="text-[10px] text-slate-700 dark:text-slate-300 truncate flex-1">{d.doc}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] text-slate-400">{d.actual}d</span>
+                          {d.pass
+                            ? <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                            : <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">LATE</span>
+                          }
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">12 workers · 847 hrs on site</span>
+                    <span className="text-xs text-orange-600 font-semibold flex items-center gap-1">
+                      <FileText className="h-3 w-3" /> Export PDF
+                    </span>
+                  </div>
+                </div>
+                <ScreenCaption
+                  what="SLA Contractor Report — compliance document turnaround, PPM completion, safety cards, and attendance in one downloadable PDF."
+                  why="Pick a contractor, pick a date range, get a report you can stand behind at your next SLA review."
                 />
               </div>
             </TabsContent>
