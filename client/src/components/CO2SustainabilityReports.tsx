@@ -192,9 +192,15 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
       });
     },
     onError: (error: any) => {
+      const isAddressError = error.status === 400 && (
+        (error.message || "").toLowerCase().includes("address") ||
+        (error.error || "").toLowerCase().includes("address")
+      );
       toast({
-        title: "Calculation Failed",
-        description: error.message || "Unable to calculate CO2 emissions.",
+        title: isAddressError ? "Company Address Required" : "Calculation Failed",
+        description: isAddressError
+          ? "Your company address is not configured. Go to Settings → Company Settings and add your site address, then try again."
+          : (error.message || "Unable to calculate CO2 emissions."),
         variant: "destructive"
       });
     }

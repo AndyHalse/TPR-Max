@@ -1,0 +1,79 @@
+You are fixing a bug in the TPR Max codebase (React + TypeScript front end in
+client/src, Express + TypeScript API in server/). Use the report below to find
+the root cause and propose a fix. Do not guess — read the named source file
+first, and ask for the screenshots if you need them.
+
+# Bug BR-037
+- Reported: 30/06/2026, 13:50:45
+- Status: New
+- Reporter: Andy Halse <andy@acsltd.eu>
+- Customer / tenant: Cowiesburn
+- App version: v2026.06.30-b63ae6ad
+- Browser: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0
+- Screen: 1616x876
+
+## Where it happened
+- Route (URL path): /contractors
+- Likely source file: client/src/pages/ContractorManagement.tsx
+  (If the route is dynamic or unknown, say "Unknown — search client/src/pages".)
+
+## What the user reported
+Errror trying to calculate the C02 from deployed system
+
+## Console / network logs at the time
+[2026-06-30T12:40:15.633Z] [NETWORK] HTTP 401 GET /api/room-bookings/today?date=2026-06-30&days=1
+[2026-06-30T12:40:16.891Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:40:26.618Z] [NETWORK] HTTP 401 GET /api/rams?companyId=0de8eaaa-af3f-40ff-a709-b65fe0a239f1
+[2026-06-30T12:40:28.724Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:40:29.050Z] [NETWORK] HTTP 401 GET /api/contractors/workers/348a1068-edc3-4250-a24d-91dc3fa5ffce/certificates
+[2026-06-30T12:40:55.905Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:41:16.858Z] [NETWORK] HTTP 401 GET /api/room-bookings/today?date=2026-06-30&days=1
+[2026-06-30T12:41:17.561Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:41:41.099Z] [NETWORK] HTTP 401 GET /api/rams?companyId=0de8eaaa-af3f-40ff-a709-b65fe0a239f1
+[2026-06-30T12:43:21.219Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:43:46.665Z] [NETWORK] HTTP 401 GET /api/rams?companyId=0de8eaaa-af3f-40ff-a709-b65fe0a239f1
+[2026-06-30T12:43:49.476Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:44:14.869Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:44:47.466Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:45:13.422Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:45:35.322Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:45:58.031Z] [NETWORK] HTTP 401 GET /api/rams?companyId=f4998cb1-600d-45e7-bcf8-f08fb5ed2ce3
+[2026-06-30T12:46:07.956Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:46:08.473Z] [NETWORK] HTTP 401 GET /api/contractors/workers/451c19fa-6197-4af3-8b8b-b9c75f873fd7/certificates
+[2026-06-30T12:47:00.849Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:47:01.359Z] [NETWORK] HTTP 401 GET /api/contractors/workers/ca0f7b99-c285-4508-bd2c-0f2218623c81/certificates
+[2026-06-30T12:47:16.196Z] [NETWORK] HTTP 401 GET /api/room-bookings/today?date=2026-06-30&days=1
+[2026-06-30T12:47:49.457Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:47:54.414Z] [WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+[2026-06-30T12:49:30.601Z] [NETWORK] HTTP 400 POST /api/contractors/0de8eaaa-af3f-40ff-a709-b65fe0a239f1/co2/calculate-all
+[2026-06-30T12:49:30.601Z] [ERROR] API request failed: {"status":400,"error":"Company address not configured"}
+[2026-06-30T12:49:33.428Z] [NETWORK] HTTP 400 POST /api/contractors/0de8eaaa-af3f-40ff-a709-b65fe0a239f1/co2/calculate-all
+[2026-06-30T12:49:33.428Z] [ERROR] API request failed: {"status":400,"error":"Company address not configured"}
+[2026-06-30T12:49:59.059Z] [NETWORK] HTTP 400 POST /api/contractors/0de8eaaa-af3f-40ff-a709-b65fe0a239f1/co2/calculate-all
+[2026-06-30T12:49:59.060Z] [ERROR] API request failed: {"status":400,"error":"Company address not configured"}
+
+## What the user did just before (most recent last)
+[2026-06-30T12:48:56.068Z] [ROUTE] /contractors
+[2026-06-30T12:48:57.360Z] [CLICK] button:tab-contractors
+[2026-06-30T12:49:08.160Z] [CLICK] button:Close
+[2026-06-30T12:49:09.353Z] [CLICK] button:tab-co2-reports
+[2026-06-30T12:49:22.490Z] [CLICK] button:button-generate-report
+[2026-06-30T12:49:29.777Z] [CLICK] button:button-calculate-co2
+[2026-06-30T12:49:32.555Z] [CLICK] button:button-calculate-co2
+[2026-06-30T12:49:35.273Z] [CLICK] button:button-generate-report
+[2026-06-30T12:49:36.736Z] [CLICK] div:co2-sustainability-reports
+[2026-06-30T12:49:38.764Z] [CLICK] div:co2-sustainability-reports
+[2026-06-30T12:49:43.152Z] [CLICK] div:co2-sustainability-reports
+[2026-06-30T12:49:48.171Z] [CLICK] button:button-generate-report
+[2026-06-30T12:49:58.210Z] [CLICK] button:button-calculate-co2
+[2026-06-30T12:50:05.346Z] [CLICK] button:help-button
+[2026-06-30T12:50:44.721Z] [CLICK] button:Send Report
+
+## Screenshots
+1 image(s) were attached but are NOT included in this text. They are visible in Platform Admin and in the report PDF (use the "Download PDF" button). Ask the user to paste them if the cause isn't clear from the data above.
+
+## Your task
+1. Read the likely source file and trace the code path the user hit.
+2. Identify the root cause.
+3. Propose the smallest correct fix, and call out any tenant-isolation,
+   permissions, or input-validation concerns you notice while there.

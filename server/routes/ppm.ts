@@ -2850,6 +2850,9 @@ app.get("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
     // Helper: resolve work order from a known customer (used by both cache-hit and scan paths)
     const resolveFromCustomer = async (customerId: string) => {
       const custDb = await customerDbService.getCustomerDatabase(customerId);
+      // Ensure all schema columns exist before SELECT — covers standalone, enterprise-central
+      // and enterprise-independent customers that haven't hit an authenticated PPM route yet.
+      await ensurePpmColumns(custDb, customerId);
       const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
         .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
       if (!wo) return null;
