@@ -1100,12 +1100,21 @@ export function registerContractorRoutes(app: Express): void {
 
       const db = await customerDbService.getCustomerDatabase(req.customerId);
       const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
-      // Use req.user.id (real DB UUID in production for both standalone and enterprise).
-      // In dev-bypass mode req.user.id is 'dev-user-andy' (not a UUID) so fall back to
-      // the value sent by the frontend which comes from the /api/auth/me response.
-      const resolvedIssuedBy = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.user?.id ?? '')
-        ? req.user!.id
-        : req.body.issuedBy;
+      // Resolve the issuer UUID. In production req.user.id is always a real UUID.
+      // In dev-bypass mode it is 'dev-user-andy' (not a UUID) — look up the real
+      // UUID by username so the FK constraint on card_issues.issued_by is satisfied.
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let resolvedIssuedBy: string | null = UUID_RE.test(req.user?.id ?? '') ? req.user!.id : null;
+      if (!resolvedIssuedBy) {
+        try {
+          const [u] = await db
+            .select({ id: isolatedSchema.users.id })
+            .from(isolatedSchema.users)
+            .where(eq(isolatedSchema.users.username, req.user!.username))
+            .limit(1);
+          resolvedIssuedBy = u?.id ?? null;
+        } catch { /* non-fatal — issuedBy will be null */ }
+      }
       const cardData = { ...req.body, issuedBy: resolvedIssuedBy };
       logger.info(`Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
 
