@@ -1601,70 +1601,58 @@ export default function Contractors() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 lg:w-60">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setLocation(`/contractors/${contractor.id}`)}
-                    className="w-full"
-                    data-testid={`button-workers-${contractor.id}`}
-                  >
-                    <Users className="mr-2" size={14} />
-                    Workers
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setLocation(`/contractors/${contractor.id}?tab=documents`)}
-                    className="w-full"
-                    data-testid={`button-documents-${contractor.id}`}
-                  >
-                    <FileText className="mr-2" size={14} />
-                    Documents
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedContractor(contractor);
-                      setShowWorkersModal(true);
-                    }}
-                    className="w-full col-span-2"
-                    data-testid={`button-add-worker-${contractor.id}`}
-                  >
-                    <UserPlus className="mr-2" size={14} />
-                    Add Worker
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSlaReportContractor(contractor)}
-                    className="w-full col-span-2 text-blue-700 border-blue-200 hover:bg-blue-50"
-                  >
-                    <BarChart3 className="mr-2" size={14} />
-                    SLA Report
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditContractor(contractor)}
-                    className="w-full"
-                    data-testid={`button-edit-contractor-${contractor.id}`}
-                  >
-                    <Edit className="mr-2" size={14} />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteContractor(contractor.id)}
-                    className="w-full"
-                    data-testid={`button-delete-contractor-${contractor.id}`}
-                  >
-                    <Trash2 className="mr-2" size={14} />
-                    Delete
-                  </Button>
-                </div>
+                <TooltipProvider delayDuration={400}>
+                  <div className="flex flex-wrap items-center gap-1.5 lg:w-auto">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setLocation(`/contractors/${contractor.id}`)} data-testid={`button-workers-${contractor.id}`}>
+                          <Users size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Workers</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setLocation(`/contractors/${contractor.id}?tab=documents`)} data-testid={`button-documents-${contractor.id}`}>
+                          <FileText size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Documents</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} data-testid={`button-add-worker-${contractor.id}`}>
+                          <UserPlus size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Add Worker</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-8 w-8 text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => setSlaReportContractor(contractor)}>
+                          <BarChart3 size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>SLA Report</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditContractor(contractor)} data-testid={`button-edit-contractor-${contractor.id}`}>
+                          <Edit size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Edit</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleDeleteContractor(contractor.id)} data-testid={`button-delete-contractor-${contractor.id}`}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
               </div>
             </GlassCard>
           ) : (
@@ -1685,21 +1673,59 @@ export default function Contractors() {
                       </div>
                     </div>
                     {/* Desktop: actions inline */}
-                    <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                    <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
                       {complianceGapBadge}
                       {getStatusBadge(contractor.status)}
-                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm">
-                        <Users className="mr-1" size={13} />Workers
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}?tab=documents`)} className="h-9 px-3 text-sm">
-                        <FileText className="mr-1" size={13} />Documents
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm">
-                        <UserPlus className="mr-1" size={13} />Add Worker
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setSlaReportContractor(contractor)} className="h-9 px-3 text-sm text-blue-700 border-blue-200 hover:bg-blue-50">
-                        <BarChart3 className="mr-1" size={13} />SLA Report
-                      </Button>
+                      <TooltipProvider delayDuration={400}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setLocation(`/contractors/${contractor.id}`)}>
+                              <Users size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Workers</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setLocation(`/contractors/${contractor.id}?tab=documents`)}>
+                              <FileText size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Documents</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }}>
+                              <UserPlus size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Add Worker</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => setSlaReportContractor(contractor)}>
+                              <BarChart3 size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>SLA Report</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditContractor(contractor)}>
+                              <Edit size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleDeleteContractor(contractor.id)}>
+                              <Trash2 size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
                   {/* Mobile: actions as bottom row */}
