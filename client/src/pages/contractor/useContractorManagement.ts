@@ -24,8 +24,8 @@ export function useContractorManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [showAllWorkers, setShowAllWorkers] = useState(false);
-  const [showAllCompanies, setShowAllCompanies] = useState(false);
-  const [companyViewMode, setCompanyViewMode] = useState<"grid"|"list">("grid");
+  const [showAllCompanies, setShowAllCompanies] = useState(true);
+  const [companyViewMode, setCompanyViewMode] = useState<"grid"|"list">("list");
   const [previousViewMode, setPreviousViewMode] = useState<"grid"|"list">("list");
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);

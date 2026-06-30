@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import GlassCard from "@/components/GlassCard";
 import {
   Building2,
@@ -19,6 +20,7 @@ import {
   AlertTriangle,
   X,
   BarChart3,
+  ArrowUpDown,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { type ExtendedContractorCompany, matchesSearch, getComplianceBadge } from "./types";
@@ -84,13 +86,24 @@ export default function ContractorCompaniesTab({
     const v = new URLSearchParams(window.location.search).get("docType") as DocTypeFilter;
     return DOC_CHIPS.some(c => c.key === v) ? v : null;
   });
+  const [sortBy, setSortBy] = useState<string>("name-asc");
 
   const afterDocFilter = docTypeFilter
     ? companies.filter(c => hasDocGap(c, docTypeFilter))
     : companies;
 
   const afterSearch = afterDocFilter.filter(c => matchesSearch(c, searchTerm));
-  const displayed = afterSearch.slice(0, showAllCompanies ? afterSearch.length : 6);
+
+  const displayed = [...afterSearch].sort((a, b) => {
+    switch (sortBy) {
+      case "name-asc":  return a.companyName.localeCompare(b.companyName);
+      case "name-desc": return b.companyName.localeCompare(a.companyName);
+      case "status":    return (a.status ?? "").localeCompare(b.status ?? "");
+      case "workers-desc": return ((b as any).workerCount ?? 0) - ((a as any).workerCount ?? 0);
+      case "workers-asc":  return ((a as any).workerCount ?? 0) - ((b as any).workerCount ?? 0);
+      default: return 0;
+    }
+  });
 
   const missingCount = (key: DocTypeFilter) =>
     key ? companies.filter(c => hasDocGap(c, key)).length : companies.length;
@@ -179,13 +192,28 @@ export default function ContractorCompaniesTab({
           )}
         </div>
 
-        {/* Show All Button & View Toggle */}
+        {/* Count + Sort + View Toggle */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <div className="text-sm text-slate-600 dark:text-slate-300">
-            {t('companies.showingInfo', { count: displayed.length, total: afterSearch.length })}
-            {searchTerm && ` ${t('common:matching')} "${searchTerm}"`}
+            {afterSearch.length} {afterSearch.length === 1 ? 'company' : 'companies'}
+            {searchTerm && ` matching "${searchTerm}"`}
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <ArrowUpDown size={14} className="text-slate-400" />
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name-asc">Name A–Z</SelectItem>
+                  <SelectItem value="name-desc">Name Z–A</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="workers-desc">Most Workers</SelectItem>
+                  <SelectItem value="workers-asc">Fewest Workers</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex border rounded-lg overflow-hidden">
               <Button
                 size="sm"
@@ -206,14 +234,6 @@ export default function ContractorCompaniesTab({
                 <List size={14} />
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-purple-600 border-purple-600 hover:bg-purple-50 text-xs sm:text-sm whitespace-nowrap"
-              onClick={() => setShowAllCompanies(!showAllCompanies)}
-            >
-              {showAllCompanies ? t('common:showLess') : t('companies.showAll', { count: afterSearch.length })}
-            </Button>
           </div>
         </div>
 
