@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { getSessionToken } from "@/lib/queryClient";
+import { getSessionToken, getCsrfToken } from "@/lib/queryClient";
 import {
   BarChart3,
   Download,
@@ -124,11 +124,13 @@ export default function ContractorSlaReportDialog({ open, onClose, contractor }:
     setReportData(null);
     try {
       const token = getSessionToken();
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/contractors/${companyId}/sla-report`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         body: JSON.stringify({ dateFrom, dateTo, slaDays: Number(slaDays) }),
       });
@@ -151,11 +153,13 @@ export default function ContractorSlaReportDialog({ open, onClose, contractor }:
     setPdfLoading(true);
     try {
       const token = getSessionToken();
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/contractors/${companyId}/sla-report/pdf`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         body: JSON.stringify({ dateFrom, dateTo, slaDays: Number(slaDays) }),
       });
