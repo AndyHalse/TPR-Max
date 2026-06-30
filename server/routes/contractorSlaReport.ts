@@ -75,9 +75,9 @@ async function collectSlaData(
   if (!companyRows.rows.length) throw new Error('Contractor company not found');
   const company = { companyName: companyRows.rows[0].company_name };
 
-  // 2. Workers
+  // 2. Workers — explicit columns only to avoid selecting columns missing from DB
   const workers = await db
-    .select()
+    .select({ id: contractorWorkers.id, firstName: contractorWorkers.firstName, lastName: contractorWorkers.lastName })
     .from(contractorWorkers)
     .where(eq(contractorWorkers.companyId, companyId));
   const workerIds: string[] = workers.map((w: any) => w.id);
@@ -87,7 +87,12 @@ async function collectSlaData(
 
   // 3. Compliance document requests → company docs (raw SQL to avoid missing equipment_id)
   const docRequests = await db
-    .select()
+    .select({
+      id: contractorDocumentRequests.id,
+      createdAt: contractorDocumentRequests.createdAt,
+      status: contractorDocumentRequests.status,
+      requestedBy: contractorDocumentRequests.requestedBy,
+    })
     .from(contractorDocumentRequests)
     .where(
       and(
@@ -194,7 +199,17 @@ async function collectSlaData(
   try {
     const ppmWhere: any[] = [eq(iso.ppmWorkOrders.contractorCompanyId, companyId)];
     if (activeSiteId) ppmWhere.push(eq(iso.ppmWorkOrders.siteId, activeSiteId));
-    const all = await db.select().from(iso.ppmWorkOrders).where(and(...ppmWhere));
+    const all = await db.select({
+      id: iso.ppmWorkOrders.id,
+      contractorCompanyId: iso.ppmWorkOrders.contractorCompanyId,
+      siteId: iso.ppmWorkOrders.siteId,
+      status: iso.ppmWorkOrders.status,
+      title: iso.ppmWorkOrders.title,
+      dueDate: iso.ppmWorkOrders.dueDate,
+      completedDate: iso.ppmWorkOrders.completedDate,
+      requiresCertificate: iso.ppmWorkOrders.requiresCertificate,
+      certificateUploadedAt: iso.ppmWorkOrders.certificateUploadedAt,
+    }).from(iso.ppmWorkOrders).where(and(...ppmWhere));
     ppmOrders = all.filter((o: any) => {
       const due  = o.dueDate       ? new Date(o.dueDate)       : null;
       const done = o.completedDate ? new Date(o.completedDate) : null;
@@ -225,7 +240,17 @@ async function collectSlaData(
       lte(iso.hsIncidents.incidentDate, dateTo),
     ];
     if (activeSiteId) incWhere.push(eq(iso.hsIncidents.siteId, activeSiteId));
-    const all = await db.select().from(iso.hsIncidents).where(and(...incWhere));
+    const all = await db.select({
+      id: iso.hsIncidents.id,
+      incidentDate: iso.hsIncidents.incidentDate,
+      siteId: iso.hsIncidents.siteId,
+      contractorCompanyId: iso.hsIncidents.contractorCompanyId,
+      injuredPersonType: iso.hsIncidents.injuredPersonType,
+      title: iso.hsIncidents.title,
+      recordType: iso.hsIncidents.recordType,
+      injuredPerson: iso.hsIncidents.injuredPerson,
+      riddorCategory: iso.hsIncidents.riddorCategory,
+    }).from(iso.hsIncidents).where(and(...incWhere));
     incidents = all.filter(
       (i: any) =>
         i.contractorCompanyId === companyId || i.injuredPersonType === 'contractor',
@@ -238,7 +263,12 @@ async function collectSlaData(
   let allVisits: any[] = [];
   try {
     let v = await db
-      .select()
+      .select({
+        workerId: contractorVisits.workerId,
+        siteId: contractorVisits.siteId,
+        checkedInAt: contractorVisits.checkedInAt,
+        checkedOutAt: contractorVisits.checkedOutAt,
+      })
       .from(contractorVisits)
       .where(
         and(
