@@ -1638,6 +1638,15 @@ export default function Contractors() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setSlaReportContractor(contractor)}
+                    className="w-full col-span-2 text-blue-700 border-blue-200 hover:bg-blue-50"
+                  >
+                    <BarChart3 className="mr-2" size={14} />
+                    SLA Report
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleEditContractor(contractor)}
                     className="w-full"
                     data-testid={`button-edit-contractor-${contractor.id}`}
