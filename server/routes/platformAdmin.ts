@@ -434,9 +434,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       // Optionally flag as enterprise at creation time
       const isEnterpriseFlagSet = req.body.isEnterprise === true;
+      const siteManagementStyle = (req.body.siteManagementStyle === 'independent') ? 'independent' : 'central';
       if (isEnterpriseFlagSet) {
         await db.update(sharedSchema.customers)
-          .set({ isEnterprise: true, updatedAt: sql`NOW()` })
+          .set({ isEnterprise: true, siteManagementStyle, updatedAt: sql`NOW()` })
           .where(eq(sharedSchema.customers.id, result.customerId));
         const adminId = req.session.platformAdminId!;
         const [adminRow] = await db.select({ username: sharedSchema.platformAdmins.username }).from(sharedSchema.platformAdmins).where(eq(sharedSchema.platformAdmins.id, adminId)).limit(1);

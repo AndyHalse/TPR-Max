@@ -29,6 +29,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
     timezone: "Europe/London",
     currency: "GBP",
     isEnterprise: false,
+    siteManagementStyle: "central" as "central" | "independent",
   });
 
   const [createdCustomer, setCreatedCustomer] = useState<any>(null);
@@ -233,6 +234,39 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
             onCheckedChange={(v) => handleChange("isEnterprise", v)}
           />
         </div>
+
+        {formData.isEnterprise && (
+          <div className="rounded-lg border p-3 space-y-2">
+            <Label className="font-medium">Site management style</Label>
+            <p className="text-xs text-muted-foreground">Controls whether sites are managed centrally by HQ or independently by each site admin.</p>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handleChange("siteManagementStyle", "central")}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  formData.siteManagementStyle === "central"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                    : "border-muted hover:border-muted-foreground/40"
+                }`}
+              >
+                <div className="font-medium text-sm">Central</div>
+                <div className="text-xs text-muted-foreground mt-0.5">HQ manages all sites and users</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChange("siteManagementStyle", "independent")}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  formData.siteManagementStyle === "independent"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                    : "border-muted hover:border-muted-foreground/40"
+                }`}
+              >
+                <div className="font-medium text-sm">Independent</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Each site manages its own users</div>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Submit Button */}
