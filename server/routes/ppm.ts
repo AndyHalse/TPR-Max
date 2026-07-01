@@ -98,7 +98,9 @@ async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> 
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS completion_notes TEXT`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS assigned_email TEXT`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS contractor_company_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS contractor_company_name TEXT`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS contractor_worker_id TEXT`);
+    await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS contractor_worker_name TEXT`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS access_token TEXT`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMP`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS requires_certificate BOOLEAN NOT NULL DEFAULT FALSE`);
@@ -108,7 +110,8 @@ async function ensurePpmColumns(custDb: any, customerId: string): Promise<void> 
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS missing_docs_alerted_at TIMESTAMP`);
     await custDb.execute(sql`ALTER TABLE ppm_work_orders ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMP`);
 
-    // ppm_work_order_documents — scanned_at added for document AI-scan tracking
+    // ppm_work_order_documents — expiry_alerted_at and scanned_at added after initial migration
+    await custDb.execute(sql`ALTER TABLE ppm_work_order_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`);
     await custDb.execute(sql`ALTER TABLE ppm_work_order_documents ADD COLUMN IF NOT EXISTS scanned_at TIMESTAMP`);
 
     // Contractor tables — is_demo flag added for safe demo-data scoping (Fix 3)
@@ -589,29 +592,38 @@ app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
     if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
     const { db: custDb, siteContext } = await getScopedDb(req);
     await ensurePpmColumns(custDb, req.customerId!);
-    // Documents have no siteId — scope via parent work orders
-    const scopedWoRows = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
-      .from(isolatedSchema.ppmWorkOrders)
-      .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders));
-    const scopedWoIds = scopedWoRows.map(w => w.id);
-    const docs = scopedWoIds.length > 0
-      ? await custDb.select({ expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate })
-          .from(isolatedSchema.ppmWorkOrderDocuments)
-          .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, scopedWoIds))
-      : [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const in30Days = new Date(today);
-    in30Days.setDate(in30Days.getDate() + 30);
     let expiredCount = 0;
     let expiringSoonCount = 0;
-    for (const doc of docs) {
-      if (!doc.expiryDate) continue;
-      const exp = new Date(doc.expiryDate);
-      if (exp <= today) {
-        expiredCount++;
-      } else if (exp <= in30Days) {
-        expiringSoonCount++;
+    try {
+      // Documents have no siteId — scope via parent work orders
+      const scopedWoRows = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+        .from(isolatedSchema.ppmWorkOrders)
+        .where(scopedWhere(siteContext, isolatedSchema.ppmWorkOrders));
+      const scopedWoIds = scopedWoRows.map((w: { id: string }) => w.id);
+      const docs = scopedWoIds.length > 0
+        ? await custDb.select({ expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate })
+            .from(isolatedSchema.ppmWorkOrderDocuments)
+            .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, scopedWoIds))
+        : [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const in30Days = new Date(today);
+      in30Days.setDate(in30Days.getDate() + 30);
+      for (const doc of docs) {
+        if (!doc.expiryDate) continue;
+        const exp = new Date(doc.expiryDate);
+        if (exp <= today) {
+          expiredCount++;
+        } else if (exp <= in30Days) {
+          expiringSoonCount++;
+        }
+      }
+    } catch (tableErr: any) {
+      // PPM tables don't exist yet for this customer (older schema) — return zero counts
+      if (tableErr?.code === '42P01' || tableErr?.code === '42703') {
+        logger.warn(`[PPM] expiry-count: table/column missing for ${req.customerId} — returning zeros (${tableErr.code})`);
+      } else {
+        throw tableErr;
       }
     }
     res.json({ expiredCount, expiringSoonCount, total: expiredCount + expiringSoonCount });
