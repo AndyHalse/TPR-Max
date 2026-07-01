@@ -2213,9 +2213,19 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 <Select value={editWOForm.status} onValueChange={v => setEditWOForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                    {WO_STATUSES.map(s => {
+                      const certBlocksCompleted = s.value === "completed" && !!(editingWO?.requiresCertificate && !editingWO?.certificateUploadedAt);
+                      return (
+                        <SelectItem key={s.value} value={s.value} disabled={certBlocksCompleted}>
+                          {s.label}{certBlocksCompleted ? " (certificate required)" : ""}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
+                {editingWO?.requiresCertificate && !editingWO?.certificateUploadedAt && (
+                  <p className="text-xs text-amber-600 mt-1">Upload the service certificate before marking this job complete.</p>
+                )}
               </div>
             </div>
             <div>
@@ -2358,19 +2368,26 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 <div className="space-y-2 border-t pt-4">
                   <p className="text-sm font-semibold">{t("workOrders.changeStatus")}</p>
                   <div className="flex flex-wrap gap-2">
-                    {WO_STATUSES.map(s => (
-                      <Button
-                        key={s.value}
-                        size="sm"
-                        variant={effectiveWOStatus(selectedWO) === s.value ? "default" : "outline"}
-                        className="h-7 text-xs"
-                        disabled={effectiveWOStatus(selectedWO) === s.value || updateWOMutation.isPending}
-                        onClick={() => updateWOMutation.mutate({ id: selectedWO.id, data: { status: s.value } })}
-                      >
-                        {s.label}
-                      </Button>
-                    ))}
+                    {WO_STATUSES.map(s => {
+                      const certBlocksThis = s.value === "completed" && !!(selectedWO.requiresCertificate && !selectedWO.certificateUploadedAt);
+                      return (
+                        <Button
+                          key={s.value}
+                          size="sm"
+                          variant={effectiveWOStatus(selectedWO) === s.value ? "default" : "outline"}
+                          className="h-7 text-xs"
+                          disabled={effectiveWOStatus(selectedWO) === s.value || updateWOMutation.isPending || certBlocksThis}
+                          title={certBlocksThis ? "Upload the service certificate before marking this job complete." : undefined}
+                          onClick={() => updateWOMutation.mutate({ id: selectedWO.id, data: { status: s.value } })}
+                        >
+                          {s.label}
+                        </Button>
+                      );
+                    })}
                   </div>
+                  {selectedWO.requiresCertificate && !selectedWO.certificateUploadedAt && (
+                    <p className="text-xs text-amber-600">Upload the service certificate before marking this job complete.</p>
+                  )}
                 </div>
 
                 {/* Assign Contractor */}

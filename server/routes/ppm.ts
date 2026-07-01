@@ -775,20 +775,31 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     delete updates.createdAt;
     delete updates.accessToken;
     const siteFilter = scopedWhere(siteContext, isolatedSchema.ppmWorkOrders);
-    if ("contractorCompanyId" in updates || "contractorWorkerId" in updates) {
-      // Load existing row and merge so partial updates can't bypass the gate
-      // (e.g. caller sets only contractorCompanyId while the row already has a worker, or vice versa).
-      const [existing] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+    // Load existing row when contractor fields change OR when completing, so we can run both gates.
+    let existing: typeof isolatedSchema.ppmWorkOrders.$inferSelect | undefined;
+    if ("contractorCompanyId" in updates || "contractorWorkerId" in updates || updates.status === "completed") {
+      const [found] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
         .where(and(eq(isolatedSchema.ppmWorkOrders.id, id), siteFilter));
-      if (!existing) return res.status(404).json({ error: "Work order not found" });
-      const effectiveCompanyId = "contractorCompanyId" in updates
-        ? (updates.contractorCompanyId as string | null | undefined)
-        : existing.contractorCompanyId;
-      const effectiveWorkerId = "contractorWorkerId" in updates
-        ? (updates.contractorWorkerId as string | null | undefined)
-        : existing.contractorWorkerId;
-      const gate = await assertContractorClearance(custDb, effectiveCompanyId, effectiveWorkerId, req.customerId);
-      if (gate) return res.status(400).json(gate);
+      if (!found) return res.status(404).json({ error: "Work order not found" });
+      existing = found;
+      if ("contractorCompanyId" in updates || "contractorWorkerId" in updates) {
+        // Merge so partial updates can't bypass the clearance gate.
+        const effectiveCompanyId = "contractorCompanyId" in updates
+          ? (updates.contractorCompanyId as string | null | undefined)
+          : existing.contractorCompanyId;
+        const effectiveWorkerId = "contractorWorkerId" in updates
+          ? (updates.contractorWorkerId as string | null | undefined)
+          : existing.contractorWorkerId;
+        const gate = await assertContractorClearance(custDb, effectiveCompanyId, effectiveWorkerId, req.customerId);
+        if (gate) return res.status(400).json(gate);
+      }
+    }
+    // Certificate hard gate: block completion if a certificate is required but not yet uploaded.
+    if (updates.status === "completed" && existing?.requiresCertificate && !existing?.certificateUploadedAt) {
+      return res.status(400).json({
+        error: "This work order requires a service certificate. Please upload the certificate before marking it complete.",
+        code: "CERTIFICATE_REQUIRED",
+      });
     }
     if (updates.status === "completed" && !updates.completedDate) {
       updates.completedDate = new Date().toISOString().split("T")[0];
@@ -3009,6 +3020,10 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
         .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
       if (!wo) return null;
       if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) return { expired: true as const };
+      // Certificate hard gate: block completion if a certificate is required but not yet uploaded.
+      if (status === "completed" && wo.requiresCertificate && !wo.certificateUploadedAt) {
+        return { certRequired: true as const };
+      }
       const updates: Record<string, unknown> = {};
       if (status) updates.status = status;
       if (completionNotes !== undefined) updates.completionNotes = completionNotes;
@@ -3053,13 +3068,16 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
       return { ...safeUpdated, nextToken };
     };
 
+    const CERT_REQUIRED_BODY = { error: "This work order requires a service certificate. Please upload the certificate before marking it complete.", code: "CERTIFICATE_REQUIRED" };
+
     // Fast path: cache hit
     const cachedCustomerId = ppmTokenCacheGet(token);
     if (cachedCustomerId) {
       try {
         const result = await performUpdate(cachedCustomerId);
-        if (result && !("expired" in result)) return res.json(result);
+        if (result && "certRequired" in result) return res.status(400).json(CERT_REQUIRED_BODY);
         if (result && "expired" in result) return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+        if (result && !("expired" in result)) return res.json(result);
         ppmTokenCacheEvict(token);
       } catch { /* fall through to full scan */ }
     }
@@ -3070,6 +3088,7 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
       try {
         const result = await performUpdate(customer.id);
         if (!result) continue;
+        if ("certRequired" in result) return res.status(400).json(CERT_REQUIRED_BODY);
         if ("expired" in result) return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
         return res.json(result);
       } catch { /* skip */ }

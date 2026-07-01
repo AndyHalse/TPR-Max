@@ -250,6 +250,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
 
   const isCompleted = wo.status === "completed";
   const canComplete = wo.status === "scheduled" || wo.status === "in_progress" || wo.status === "on_site" || wo.status === "overdue";
+  const certBlocksCompletion = !!(wo.requiresCertificate && !wo.certificateUploadedAt);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -452,13 +453,18 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
                 </Button>
               )}
               {canComplete && (
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  disabled={updateMutation.isPending}
-                  onClick={() => updateMutation.mutate({ status: "completed", completionNotes: completionNotes || undefined })}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />Mark Completed
-                </Button>
+                <>
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    disabled={updateMutation.isPending || certBlocksCompletion}
+                    onClick={() => updateMutation.mutate({ status: "completed", completionNotes: completionNotes || undefined })}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />Mark Completed
+                  </Button>
+                  {certBlocksCompletion && (
+                    <p className="text-xs text-amber-600 text-center">Upload the service certificate before you can mark this job complete.</p>
+                  )}
+                </>
               )}
             </div>
             {updateMsg && <p className="text-sm text-green-700 text-center">{updateMsg}</p>}
