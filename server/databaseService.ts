@@ -1,5 +1,6 @@
 import { eq, and, ne, desc, asc, gte, lte, lt, gt, sql, isNull, inArray, or } from "drizzle-orm";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
+import { scopedWhere, type SiteContext } from "./siteScope";
 import type {
   Staff,
   InsertStaff,
@@ -1116,7 +1117,7 @@ export class DatabaseService {
   /**
    * STATISTICS METHODS - Customer Isolated
    */
-  async getStats(context: CustomerContext): Promise<{
+  async getStats(context: CustomerContext, siteContext?: SiteContext): Promise<{
     currentVisitors: number;
     todayCheckins: number;
     staffOnSite: number;
@@ -1125,12 +1126,13 @@ export class DatabaseService {
     totalPeople: number;
   }> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
-    
+    const siteFilter = (t: any) => siteContext ? scopedWhere(siteContext, t) : undefined;
+
     // Get current visitors count
     const currentVisitorsResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(isolatedSchema.visitors)
-      .where(eq(isolatedSchema.visitors.isCheckedIn, true));
+      .where(and(eq(isolatedSchema.visitors.isCheckedIn, true), siteFilter(isolatedSchema.visitors)));
     
     // Get today's check-ins
     const today = new Date();
@@ -1143,26 +1145,27 @@ export class DatabaseService {
       .from(isolatedSchema.visitors)
       .where(and(
         gte(isolatedSchema.visitors.checkedInAt, today),
-        lt(isolatedSchema.visitors.checkedInAt, tomorrow)
+        lt(isolatedSchema.visitors.checkedInAt, tomorrow),
+        siteFilter(isolatedSchema.visitors)
       ));
     
     // Get staff on site
     const staffOnSiteResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(isolatedSchema.staff)
-      .where(eq(isolatedSchema.staff.isCheckedIn, true));
+      .where(and(eq(isolatedSchema.staff.isCheckedIn, true), siteFilter(isolatedSchema.staff)));
     
     // Get checked-in contractors count directly from contractor_workers table
     const contractorsOnSiteResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(isolatedSchema.contractorWorkers)
-      .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true));
+      .where(and(eq(isolatedSchema.contractorWorkers.isCheckedIn, true), siteFilter(isolatedSchema.contractorWorkers)));
     
     // Get total staff
     const totalStaffResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(isolatedSchema.staff)
-      .where(eq(isolatedSchema.staff.isActive, true));
+      .where(and(eq(isolatedSchema.staff.isActive, true), siteFilter(isolatedSchema.staff)));
     
     const currentVisitors = parseInt(String(currentVisitorsResult[0]?.count)) || 0;
     const staffOnSite = parseInt(String(staffOnSiteResult[0]?.count)) || 0;

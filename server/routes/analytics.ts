@@ -28,7 +28,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       const spCheck = await (custDb as any).execute(sql`SHOW search_path`);
       const activeSchema = spCheck?.rows?.[0]?.search_path || 'unknown';
       
-      const stats = await databaseService.getStats(context);
+      const stats = await databaseService.getStats(context, analyticsSiteCtx);
       
       const contractorsOnSite = stats.contractorsOnSite || 0;
       
