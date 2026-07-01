@@ -135,20 +135,56 @@ export function registerEmergencyRoutes(app: Express): void {
       
       // Resolve enterprise site scope — fail-closed for enterprise, transparent for single-site
       const { siteContext } = await getScopedDb(req);
-      const strictSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
-      
-      // Get all checked-in staff using customer-isolated database service
-      const checkedInStaff = await databaseService.getCheckedInStaff(context);
-      
-      // Get all current visitors using customer-isolated database service
-      const currentVisitors = await databaseService.getCurrentVisitors(context);
-      
-      // Get all checked-in contractors using customer-isolated database service
-      const checkedInContractors = await databaseService.getCheckedInContractors(context);
-      
+
+      // Use a single custDb connection and scopedWhere for all people tables so
+      // enterprise site isolation is enforced at the DB level, not via post-filter.
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const checkedInStaff = await custDb
+        .select()
+        .from(isolatedSchema.staff)
+        .where(and(eq(isolatedSchema.staff.isCheckedIn, true), scopedWhere(siteContext, isolatedSchema.staff)))
+        .orderBy(desc(isolatedSchema.staff.checkedInAt));
+
+      const currentVisitors = await custDb
+        .select()
+        .from(isolatedSchema.visitors)
+        .where(and(eq(isolatedSchema.visitors.isCheckedIn, true), scopedWhere(siteContext, isolatedSchema.visitors)))
+        .orderBy(desc(isolatedSchema.visitors.checkedInAt));
+
+      const checkedInContractors = await custDb
+        .select({
+          id: isolatedSchema.contractorWorkers.id,
+          firstName: isolatedSchema.contractorWorkers.firstName,
+          lastName: isolatedSchema.contractorWorkers.lastName,
+          email: isolatedSchema.contractorWorkers.email,
+          isCheckedIn: isolatedSchema.contractorWorkers.isCheckedIn,
+          isAccountedFor: isolatedSchema.contractorWorkers.isAccountedFor,
+          checkedInAt: isolatedSchema.contractorWorkers.checkedInAt,
+          hsRulesAccepted: isolatedSchema.contractorWorkers.hsRulesAccepted,
+          hsRulesAcceptedAt: isolatedSchema.contractorWorkers.hsRulesAcceptedAt,
+          currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus,
+          companyId: isolatedSchema.contractorWorkers.companyId,
+          needsEvacuationAssistance: isolatedSchema.contractorWorkers.needsEvacuationAssistance,
+          siteId: isolatedSchema.contractorWorkers.siteId,
+          zoneId: isolatedSchema.contractorWorkers.zoneId,
+          companyName: isolatedSchema.contractorCompanies.companyName,
+          contactEmail: isolatedSchema.contractorCompanies.contactEmail,
+          contactPhone: isolatedSchema.contractorCompanies.contactPhone,
+        })
+        .from(isolatedSchema.contractorWorkers)
+        .leftJoin(
+          isolatedSchema.contractorCompanies,
+          eq(isolatedSchema.contractorWorkers.companyId, isolatedSchema.contractorCompanies.id)
+        )
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
+          eq(isolatedSchema.contractorWorkers.isActive, true),
+          scopedWhere(siteContext, isolatedSchema.contractorWorkers)
+        ));
+
       let checkedInMembers: any[] = [];
       try {
-        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
         const [settings] = await custDb
           .select()
           .from(isolatedSchema.companySettings)
@@ -217,19 +253,9 @@ export function registerEmergencyRoutes(app: Express): void {
         return zoneId ? `Zone ${zoneId}` : 'Not specified';
       };
 
-      // ── Enterprise site filtering — strict: records without siteId excluded for enterprise ──
-      const matchesSite = (record: any) => {
-        if (!strictSiteId) return true;
-        const sid = record.siteId ?? record.site_id;
-        return sid === strictSiteId;
-      };
-      const siteFilteredStaff       = checkedInStaff.filter(matchesSite);
-      const siteFilteredVisitors    = currentVisitors.filter(matchesSite);
-      const siteFilteredContractors = checkedInContractors.filter(matchesSite);
-      const siteFilteredMembers     = checkedInMembers.filter(matchesSite);
-
+      // Site filtering is now applied at DB level via scopedWhere above.
       const musterList = [
-        ...siteFilteredStaff.map(staff => ({
+        ...checkedInStaff.map(staff => ({
           id: staff.id,
           name: `${staff.firstName} ${staff.lastName}`,
           type: 'staff' as const,
@@ -241,7 +267,7 @@ export function registerEmergencyRoutes(app: Express): void {
           needsEvacuationAssistance: (staff as any).needsEvacuationAssistance ?? false,
           hasEmail: !!staff.email,
         })),
-        ...siteFilteredVisitors.map(visitor => ({
+        ...currentVisitors.map(visitor => ({
           id: visitor.id,
           name: `${visitor.firstName} ${visitor.lastName}`,
           type: 'visitor' as const,
@@ -253,19 +279,19 @@ export function registerEmergencyRoutes(app: Express): void {
           needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false,
           hasEmail: !!visitor.email,
         })),
-        ...siteFilteredContractors.map(contractor => ({
+        ...checkedInContractors.map(contractor => ({
           id: contractor.id,
           name: `${contractor.firstName} ${contractor.lastName}`,
           type: 'contractor' as const,
           company: contractor.companyName || contractor.company,
           checkedInAt: contractor.checkedInAt || contractor.createdAt,
-          location: resolveLocation((contractor as any).zoneId),
+          location: resolveLocation(contractor.zoneId),
           accounted: accountabilityMap.get(contractor.id) ?? false,
-          zoneId: (contractor as any).zoneId || null,
-          needsEvacuationAssistance: (contractor as any).needsEvacuationAssistance ?? false,
-          hasEmail: !!(contractor as any).email,
+          zoneId: contractor.zoneId || null,
+          needsEvacuationAssistance: contractor.needsEvacuationAssistance ?? false,
+          hasEmail: !!contractor.email,
         })),
-        ...siteFilteredMembers.map(member => ({
+        ...checkedInMembers.map(member => ({
           id: member.id,
           name: `${member.firstName} ${member.lastName}`,
           type: 'member' as const,
