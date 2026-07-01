@@ -8,6 +8,7 @@ import { comprehensiveSettingsMigrations } from './comprehensiveSettingsMigratio
 import { staffSessionsMigrations } from './staffSessionsMigration';
 import { missingTablesMigrations } from './missingTablesMigration';
 import { siteMigrations } from './siteMigrations';
+import { ssipMigrations } from './ssipMigration';
 import { logger } from './utils/logger';
 
 /**
@@ -1001,6 +1002,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
       }
     },
     addComplianceItemsUniqueIndexMigration,
+    ...ssipMigrations,
   ];
 
   allMigrations.forEach(migration => {

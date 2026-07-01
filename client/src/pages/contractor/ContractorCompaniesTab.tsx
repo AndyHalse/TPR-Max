@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,10 @@ export default function ContractorCompaniesTab({
   setSlaReportContractor,
 }: ContractorCompaniesTabProps) {
   const { t } = useTranslation(['contractors', 'common']);
+  const { data: allAccreditations } = useQuery<Record<string, any[]>>({
+    queryKey: ['/api/contractor-companies/accreditations'],
+    staleTime: 30000,
+  });
   const [docTypeFilter, setDocTypeFilter] = useState<DocTypeFilter>(() => {
     const v = new URLSearchParams(window.location.search).get("docType") as DocTypeFilter;
     return DOC_CHIPS.some(c => c.key === v) ? v : null;
@@ -291,22 +296,23 @@ export default function ContractorCompaniesTab({
                     </Badge>
                   )}
 
-                  {company.constructionlineGrade && company.constructionlineGrade !== "not_registered" && (
-                    <Badge className="bg-indigo-100 text-indigo-800 text-xs" title={t('companies.constructionlineGradeTooltip')}>
-                      CL {company.constructionlineGrade}
-                    </Badge>
-                  )}
-
-                  {company.chasCertified && (
-                    <Badge className="bg-teal-100 text-teal-800 text-xs" title={t('companies.chasAccreditedTooltip')}>
-                      CHAS
-                    </Badge>
-                  )}
-
-                  {company.smasAccredited && (
-                    <Badge className="bg-cyan-100 text-cyan-800 text-xs" title={t('companies.smasAccreditedTooltip')}>
-                      SMAS
-                    </Badge>
+                  {(allAccreditations?.[company.id] ?? []).slice(0, 3).map((accr: any) => {
+                    const label = accr.type_key === "other" ? (accr.custom_name || "Other") : accr.type_name;
+                    const statusClass = accr.status === "expired" ? "bg-red-100 text-red-800"
+                      : accr.status === "expiring_soon" ? "bg-amber-100 text-amber-800"
+                      : "bg-green-100 text-green-800";
+                    const ttipKey = accr.status === "expired" ? "companies.accreditationExpiredTooltip"
+                      : accr.status === "expiring_soon" ? "companies.accreditationExpiringSoonTooltip"
+                      : "companies.accreditationValidTooltip";
+                    return (
+                      <Badge key={accr.id} className={`${statusClass} text-xs`}
+                        title={`${label}${accr.expiry_date ? ` — expires ${accr.expiry_date}` : ''} | ${t(ttipKey)}`}>
+                        {label}{accr.grade ? ` (${accr.grade})` : ''}
+                      </Badge>
+                    );
+                  })}
+                  {(allAccreditations?.[company.id] ?? []).length > 3 && (
+                    <Badge className="bg-slate-100 text-slate-600 text-xs">+{(allAccreditations![company.id].length - 3)}</Badge>
                   )}
                 </div>
 
@@ -406,11 +412,16 @@ export default function ContractorCompaniesTab({
                           CDM: {company.cdmRole.replace(/_/g, ' ')}
                         </Badge>
                       )}
-                      {company.constructionlineGrade && company.constructionlineGrade !== "not_registered" && (
-                        <Badge className="bg-indigo-100 text-indigo-800 text-xs">CL {company.constructionlineGrade}</Badge>
+                      {(allAccreditations?.[company.id] ?? []).slice(0, 3).map((accr: any) => {
+                        const label = accr.type_key === "other" ? (accr.custom_name || "Other") : accr.type_name;
+                        const statusClass = accr.status === "expired" ? "bg-red-100 text-red-800"
+                          : accr.status === "expiring_soon" ? "bg-amber-100 text-amber-800"
+                          : "bg-green-100 text-green-800";
+                        return <Badge key={accr.id} className={`${statusClass} text-xs`}>{label}{accr.grade ? ` (${accr.grade})` : ''}</Badge>;
+                      })}
+                      {(allAccreditations?.[company.id] ?? []).length > 3 && (
+                        <Badge className="bg-slate-100 text-slate-600 text-xs">+{(allAccreditations![company.id].length - 3)}</Badge>
                       )}
-                      {company.chasCertified && <Badge className="bg-teal-100 text-teal-800 text-xs">CHAS</Badge>}
-                      {company.smasAccredited && <Badge className="bg-cyan-100 text-cyan-800 text-xs">SMAS</Badge>}
                       {(company as any).onboardingCompleted === false && (
                         <span className="text-xs text-amber-600 font-medium flex items-center gap-1 cursor-pointer hover:underline" onClick={() => handleViewContractorDetails(company.id)}>
                           <Zap className="w-3 h-3" /> {t('companies.finishSetup')}

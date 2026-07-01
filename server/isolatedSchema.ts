@@ -901,6 +901,35 @@ export const contractorCompanies = pgTable("contractor_companies", {
   isDemo: boolean("is_demo").notNull().default(false),
 });
 
+// ── SSIP / Accreditation Catalogue ────────────────────────────────────────────
+export const companyAccreditationTypes = pgTable("company_accreditation_types", {
+  key: text("key").primaryKey(),
+  name: text("name").notNull(),
+  isSsipMember: boolean("is_ssip_member").notNull().default(false),
+  hasGrade: boolean("has_grade").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  displayOrder: integer("display_order").notNull().default(99),
+});
+export type CompanyAccreditationType = typeof companyAccreditationTypes.$inferSelect;
+
+// ── Contractor Company Accreditations ─────────────────────────────────────────
+export const contractorCompanyAccreditations = pgTable("contractor_company_accreditations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull(),
+  typeKey: text("type_key").notNull(),
+  customName: text("custom_name"),
+  certificateNumber: text("certificate_number"),
+  grade: text("grade"),
+  expiryDate: text("expiry_date"),
+  notes: text("notes"),
+  isDemo: boolean("is_demo").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export const insertContractorCompanyAccreditationSchema = createInsertSchema(contractorCompanyAccreditations).omit({ id: true, createdAt: true, updatedAt: true });
+export type ContractorCompanyAccreditation = typeof contractorCompanyAccreditations.$inferSelect;
+export type InsertContractorCompanyAccreditation = z.infer<typeof insertContractorCompanyAccreditationSchema>;
+
 // Contractor Workers
 export const contractorWorkers = pgTable("contractor_workers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -200,6 +200,23 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         logger.warn('Pending insurance pre-fetch error (non-fatal):', e.message);
       }
 
+      // Pre-fetch all contractor accreditations with expiry dates (replaces hardcoded CHAS/SafeContractor checks)
+      const accrByCompany: Record<string, any[]> = {};
+      try {
+        const accrResult = await pool.query(
+          `SELECT a.company_id, a.type_key, a.expiry_date, t.name AS type_name
+           FROM "${schemaName}".contractor_company_accreditations a
+           JOIN "${schemaName}".company_accreditation_types t ON t.key = a.type_key
+           WHERE a.expiry_date IS NOT NULL AND t.is_active = true`
+        );
+        for (const row of accrResult.rows) {
+          if (!accrByCompany[row.company_id]) accrByCompany[row.company_id] = [];
+          accrByCompany[row.company_id].push(row);
+        }
+      } catch (e: any) {
+        logger.warn('Accreditation pre-fetch error (non-fatal, table may not exist yet):', e.message?.slice(0, 80));
+      }
+
       try {
         for (const c of companies) {
           ensureContractorRisk(c.id, c.company_name);
@@ -238,8 +255,18 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           checkInsurance(c.employers_liability_expiry_date, 'Employers Liability insurance', 'el');
           checkInsurance(c.professional_indemnity_expiry_date, 'Professional Indemnity insurance', 'pi');
           checkInsurance(c.health_safety_policy_expiry_date, 'Health & Safety Policy', 'hs');
-          if (c.chas_certified) checkInsurance(c.chas_expiry_date, 'CHAS certification', 'chas');
-          if (c.safe_contractor_certified) checkInsurance(c.safe_contractor_expiry_date, 'SafeContractor certification', 'sc');
+          // Dynamic accreditation checks (new system — replaces hardcoded CHAS/SafeContractor)
+          const companyAccrs = accrByCompany[c.id] ?? [];
+          for (const accr of companyAccrs) {
+            checkInsurance(accr.expiry_date, `${accr.type_name} certification`, `accr-${accr.type_key}`);
+          }
+          // Legacy fallback for companies whose data predates the migration
+          if (!companyAccrs.some((a: any) => a.type_key === 'chas') && c.chas_certified) {
+            checkInsurance(c.chas_expiry_date, 'CHAS certification', 'chas');
+          }
+          if (!companyAccrs.some((a: any) => a.type_key === 'safe_contractor') && c.safe_contractor_certified) {
+            checkInsurance(c.safe_contractor_expiry_date, 'SafeContractor certification', 'sc');
+          }
 
           // Missing-data blindness: companies with no PL and no EL expiry at all
           if (!c.public_liability_expiry_date && !c.employers_liability_expiry_date) {
