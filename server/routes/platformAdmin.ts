@@ -396,6 +396,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
       'featurePermitToWork', 'featureAuditEngine', 'featureHrModule', 'featureContractorPortal',
     ],
     tpr_max: [],
+    enterprise: [],
   };
 
   /**

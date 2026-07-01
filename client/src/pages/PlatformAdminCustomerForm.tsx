@@ -24,7 +24,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
     adminPassword: "",
     adminFirstName: "",
     adminLastName: "",
-    planType: "tpr_basic" as "trial" | "tpr_basic" | "tpr_pro" | "tpr_max",
+    planType: "tpr_basic" as "trial" | "tpr_basic" | "tpr_pro" | "tpr_max" | "enterprise",
     trialDays: 14,
     timezone: "Europe/London",
     currency: "GBP",
@@ -143,6 +143,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
                 <SelectItem value="tpr_basic">TPR Basic — £49/site/mo</SelectItem>
                 <SelectItem value="tpr_pro">TPR Pro — £89/site/mo</SelectItem>
                 <SelectItem value="tpr_max">TPR Max — £195/site/mo</SelectItem>
+                <SelectItem value="enterprise">Enterprise — priced per customer</SelectItem>
               </SelectContent>
             </Select>
           </div>
