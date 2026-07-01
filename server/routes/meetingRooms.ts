@@ -13,8 +13,15 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
 
+// ── Standard facility key set ────────────────────────────────────────────
+const STANDARD_KEYS = new Set(['projector', 'video_conference', 'whiteboard', 'tv', 'air_con', 'catering']);
+
 // ── Amenity helpers (Fix 3: map boolean fields ↔ equipment text array) ─────
-type AmenityBody = { hasProjector?: boolean; hasVideoConference?: boolean; hasWhiteboard?: boolean; hasTV?: boolean; hasAirCon?: boolean; hasCatering?: boolean };
+type AmenityBody = {
+  hasProjector?: boolean; hasVideoConference?: boolean; hasWhiteboard?: boolean;
+  hasTV?: boolean; hasAirCon?: boolean; hasCatering?: boolean;
+  customFacilities?: string[];
+};
 
 function amenitiesToEquipment(body: AmenityBody): string[] {
   const items: string[] = [];
@@ -24,6 +31,7 @@ function amenitiesToEquipment(body: AmenityBody): string[] {
   if (body.hasTV)              items.push('tv');
   if (body.hasAirCon)         items.push('air_con');
   if (body.hasCatering)       items.push('catering');
+  if (body.customFacilities)  items.push(...body.customFacilities);
   return items;
 }
 
@@ -36,6 +44,7 @@ function equipmentToAmenities(room: { equipment?: string[] | null }) {
     hasTV:              e.includes('tv'),
     hasAirCon:          e.includes('air_con'),
     hasCatering:        e.includes('catering'),
+    customFacilities:   e.filter(k => !STANDARD_KEYS.has(k)),
   };
 }
 
@@ -52,6 +61,7 @@ const roomCreateSchema = z.object({
   hasTV:              z.boolean().optional(),
   hasAirCon:          z.boolean().optional(),
   hasCatering:        z.boolean().optional(),
+  customFacilities:   z.array(z.string()).optional(),
 });
 const roomUpdateSchema = roomCreateSchema.partial();
 
@@ -127,13 +137,14 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid room data" });
       }
       const { id } = req.params;
-      const { hasProjector, hasVideoConference, hasWhiteboard, hasTV, hasAirCon, hasCatering, ...rest } = parsed.data;
+      const { hasProjector, hasVideoConference, hasWhiteboard, hasTV, hasAirCon, hasCatering, customFacilities, ...rest } = parsed.data;
       const { db: mrUpdateDb, siteContext: mrUpdateSiteContext } = await getScopedDb(req);
 
       // Fix 3: only update equipment when amenity flags are present in the payload
       const setObj: Record<string, any> = { ...rest };
       const amenityFlags = { hasProjector, hasVideoConference, hasWhiteboard, hasTV, hasAirCon, hasCatering };
-      if (Object.values(amenityFlags).some(v => v !== undefined)) {
+      const hasAnyAmenityFlag = Object.values(amenityFlags).some(v => v !== undefined) || customFacilities !== undefined;
+      if (hasAnyAmenityFlag) {
         // Merge with existing equipment so unmentioned flags are preserved
         const [existing] = await mrUpdateDb.select().from(isolatedSchema.meetingRooms).where(and(eq(isolatedSchema.meetingRooms.id, id), scopedWhere(mrUpdateSiteContext, isolatedSchema.meetingRooms)));
         if (existing) {
@@ -145,6 +156,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
             hasTV:              amenityFlags.hasTV              ?? cur.hasTV,
             hasAirCon:          amenityFlags.hasAirCon          ?? cur.hasAirCon,
             hasCatering:        amenityFlags.hasCatering        ?? cur.hasCatering,
+            customFacilities:   customFacilities                ?? cur.customFacilities,
           });
         }
       }
@@ -972,6 +984,105 @@ export function registerMeetingRoomRoutes(app: Express): void {
     } catch (error) {
       logger.error("Error fetching upcoming bookings:", error);
       res.status(500).json({ error: "Failed to fetch upcoming bookings" });
+    }
+  });
+
+  // ===== ROOM FACILITY TYPES (custom configurable facilities) =====
+
+  app.get("/api/meeting-room-facility-types", requireAuth, async (req, res) => {
+    try {
+      const { db: ftDb, siteContext } = await getScopedDb(req);
+      const types = await ftDb
+        .select()
+        .from(isolatedSchema.roomFacilityTypes)
+        .where(scopedWhere(siteContext, isolatedSchema.roomFacilityTypes));
+      res.json(types);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Error fetching room facility types:", err);
+      res.status(500).json({ error: "Failed to fetch room facility types" });
+    }
+  });
+
+  app.post("/api/meeting-room-facility-types", requireAuth, async (req, res) => {
+    try {
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: "Administrator or manager access required" });
+      }
+      const parsed = z.object({
+        name: z.string().min(1).max(100),
+        icon: z.string().max(10).optional(),
+        sortOrder: z.number().int().optional(),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid data" });
+
+      const { db: ftDb, siteId } = await getScopedDb(req);
+      const [created] = await ftDb.insert(isolatedSchema.roomFacilityTypes).values(
+        withSiteId(siteId, {
+          name: parsed.data.name,
+          icon: parsed.data.icon ?? '🏷',
+          sortOrder: parsed.data.sortOrder ?? 0,
+          isActive: true,
+        })
+      ).returning();
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Error creating room facility type:", err);
+      res.status(500).json({ error: "Failed to create room facility type" });
+    }
+  });
+
+  app.patch("/api/meeting-room-facility-types/:id", requireAuth, async (req, res) => {
+    try {
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: "Administrator or manager access required" });
+      }
+      const parsed = z.object({
+        name: z.string().min(1).max(100).optional(),
+        icon: z.string().max(10).optional(),
+        isActive: z.boolean().optional(),
+        sortOrder: z.number().int().optional(),
+      }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid data" });
+
+      const { db: ftDb, siteContext } = await getScopedDb(req);
+      const [updated] = await ftDb
+        .update(isolatedSchema.roomFacilityTypes)
+        .set(parsed.data)
+        .where(and(
+          eq(isolatedSchema.roomFacilityTypes.id, req.params.id),
+          scopedWhere(siteContext, isolatedSchema.roomFacilityTypes)
+        ))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Facility type not found" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Error updating room facility type:", err);
+      res.status(500).json({ error: "Failed to update room facility type" });
+    }
+  });
+
+  app.delete("/api/meeting-room-facility-types/:id", requireAuth, async (req, res) => {
+    try {
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: "Administrator or manager access required" });
+      }
+      const { db: ftDb, siteContext } = await getScopedDb(req);
+      const [deleted] = await ftDb
+        .delete(isolatedSchema.roomFacilityTypes)
+        .where(and(
+          eq(isolatedSchema.roomFacilityTypes.id, req.params.id),
+          scopedWhere(siteContext, isolatedSchema.roomFacilityTypes)
+        ))
+        .returning();
+      if (!deleted) return res.status(404).json({ error: "Facility type not found" });
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Error deleting room facility type:", err);
+      res.status(500).json({ error: "Failed to delete room facility type" });
     }
   });
 

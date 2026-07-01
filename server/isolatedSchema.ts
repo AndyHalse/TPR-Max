@@ -825,6 +825,17 @@ export const roomBookingAttendees = pgTable("room_booking_attendees", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Room Facility Types (configurable per customer)
+export const roomFacilityTypes = pgTable("room_facility_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  icon: text("icon").default('🏷'),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  siteId: varchar("site_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // CONTRACTOR MANAGEMENT SYSTEM
 // Core contractor tables
 

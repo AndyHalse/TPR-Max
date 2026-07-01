@@ -601,6 +601,24 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ CDM 2015 migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // ─── ROOM FACILITY TYPES TABLE ─────────────────────────────────────────────
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".room_facility_types (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          icon TEXT DEFAULT '🏷',
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          site_id VARCHAR,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      logger.info(`✅ room_facility_types table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ room_facility_types migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // ─── HR MODULE TABLES ─────────────────────────────────────────────────────
     try {
       // Section 1 – Extended Employee Record columns on staff table

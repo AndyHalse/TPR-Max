@@ -2315,6 +2315,17 @@ export type InsertRoomBookingAttendee = z.infer<typeof insertRoomBookingAttendee
 export type RoomBookingWaitlist = typeof roomBookingWaitlist.$inferSelect;
 export type InsertRoomBookingWaitlist = z.infer<typeof insertRoomBookingWaitlistSchema>;
 
+// Room Facility Type — custom facility items configurable per customer/site
+export interface RoomFacilityType {
+  id: string;
+  name: string;
+  icon: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  siteId: string | null;
+  createdAt: string;
+}
+
 // Room booking with related data for API responses
 export type RoomBookingWithRelations = RoomBooking & {
   room: MeetingRoom;
