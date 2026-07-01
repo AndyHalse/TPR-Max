@@ -1,0 +1,79 @@
+You are fixing a bug in the TPR Max codebase (React + TypeScript front end in
+client/src, Express + TypeScript API in server/). Use the report below to find
+the root cause and propose a fix. Do not guess — read the named source file
+first, and ask for the screenshots if you need them.
+
+# Bug BR-034
+- Reported: 29/06/2026, 05:14:42
+- Status: New
+- Reporter: Andy Halse <andy@acsltd.eu>
+- Customer / tenant: Cowiesburn
+- App version: v2026.06.29-8ecadc52
+- Browser: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0
+- Screen: 1393x876
+
+## Where it happened
+- Route (URL path): /settings
+- Likely source file: client/src/pages/Settings.tsx
+  (If the route is dynamic or unknown, say "Unknown — search client/src/pages".)
+
+## What the user reported
+Do we have all the necessary columns in the database for standard customers, both central and independent enterprises, and any new enterprise sites with a site ID? If not, please fix them all.
+
+## Console / network logs at the time
+[2026-06-29T03:50:31.614Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:50:34.945Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:51:06.027Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:51:08.381Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:51:39.260Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:51:41.600Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:52:12.747Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:52:14.874Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:52:45.608Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:52:48.155Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:53:19.079Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:53:20.719Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:53:52.283Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:53:54.267Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:54:25.496Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:54:27.482Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:54:58.350Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:55:00.698Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:55:32.096Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:55:34.200Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:56:05.082Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:56:07.375Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:56:38.573Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:56:40.441Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:57:11.626Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:57:13.705Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:57:44.766Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T03:57:46.844Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T04:14:14.577Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+[2026-06-29T04:14:16.467Z] [NETWORK] HTTP 500 GET /api/ppm/expiry-count
+
+## What the user did just before (most recent last)
+[2026-06-29T03:23:59.571Z] [ROUTE] /contractors
+[2026-06-29T03:24:01.663Z] [CLICK] button:tab-contractors
+[2026-06-29T03:24:02.726Z] [CLICK] button:tab-previous-contractors
+[2026-06-29T03:24:03.602Z] [CLICK] a:Visitors
+[2026-06-29T03:24:03.602Z] [ROUTE] /visitors
+[2026-06-29T03:24:06.015Z] [CLICK] a:Settings
+[2026-06-29T03:24:06.015Z] [ROUTE] /settings
+[2026-06-29T03:24:07.831Z] [CLICK] button:System
+[2026-06-29T03:24:10.873Z] [CLICK] button:button-clear-sample-data
+[2026-06-29T03:24:11.847Z] [CLICK] button:Yes, Delete All Demo Data
+[2026-06-29T03:24:20.303Z] [CLICK] button:button-load-sample-data
+[2026-06-29T03:41:26.543Z] [CLICK] button:button-clear-sample-data
+[2026-06-29T03:41:27.884Z] [CLICK] button:Yes, Delete All Demo Data
+[2026-06-29T03:41:41.326Z] [CLICK] button:button-load-sample-data
+[2026-06-29T04:14:42.099Z] [CLICK] button:Send Report
+
+## Screenshots
+No screenshots were attached.
+
+## Your task
+1. Read the likely source file and trace the code path the user hit.
+2. Identify the root cause.
+3. Propose the smallest correct fix, and call out any tenant-isolation,
+   permissions, or input-validation concerns you notice while there.

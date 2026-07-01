@@ -14,10 +14,11 @@ export const addAllMissingCompanySettingsColumnsMigration: Migration = {
   async up(db: any) {
     logger.info('🔄 Ensuring ALL company_settings columns exist...');
     
-    // Get existing columns
+    // Get existing columns — must scope to current_schema() to avoid reading
+    // from public.company_settings which shares the same table_name across schemas
     const existingColumns = await db.execute(`
       SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'company_settings'
+      WHERE table_name = 'company_settings' AND table_schema = current_schema()
     `);
     
     const existingColumnNames = new Set(existingColumns.rows.map((row: any) => row.column_name));
@@ -232,7 +233,7 @@ export const syncAllCompanySettingsColumnsMigration: Migration = {
 
     const existingColumns = await db.execute(`
       SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'company_settings'
+      WHERE table_name = 'company_settings' AND table_schema = current_schema()
     `);
     const existing = new Set(existingColumns.rows.map((r: any) => r.column_name));
 
@@ -326,7 +327,155 @@ export const syncAllCompanySettingsColumnsMigration: Migration = {
   }
 };
 
+export const fixSchemaIsolatedColumnsMigration: Migration = {
+  version: '20260701_102_fix_schema_isolated_columns',
+  description: 'Add columns missing due to schema-isolation bug in migrations 100/101 — ensures induction_allow_hazard_report and all current schema columns exist',
+  async up(db: any) {
+    logger.info('🔄 [102] Fixing schema-isolated missing columns...');
+
+    // Must scope to current_schema() — migrations 100 and 101 previously queried
+    // without this filter, so they saw public.company_settings columns and skipped
+    // adding columns to the customer schema.
+    const existingColumns = await db.execute(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'company_settings' AND table_schema = current_schema()
+    `);
+    const existing = new Set(existingColumns.rows.map((r: any) => r.column_name));
+
+    const cols: Array<[string, string]> = [
+      // Confirmed missing due to schema-isolation query bug in migrations 100/101
+      ['induction_allow_hazard_report', 'BOOLEAN DEFAULT true'],
+
+      // Additional columns from isolatedSchema.ts not yet in any migration column list
+      ['feature_staff_kiosk', 'BOOLEAN DEFAULT true'],
+      ['feature_contractor_page', 'BOOLEAN DEFAULT true'],
+      ['feature_members', 'BOOLEAN DEFAULT true'],
+      ['feature_help_desk', 'BOOLEAN DEFAULT false'],
+      ['feature_compliance_certificates', 'BOOLEAN DEFAULT true'],
+      ['feature_permit_to_work', 'BOOLEAN DEFAULT true'],
+      ['feature_audit_engine', 'BOOLEAN DEFAULT true'],
+      ['feature_ra_builder', 'BOOLEAN DEFAULT true'],
+      ['feature_ppm', 'BOOLEAN DEFAULT true'],
+      ['zones_enabled', 'BOOLEAN DEFAULT false'],
+      ['zone_map_url', 'TEXT'],
+      ['paxton_enabled', 'BOOLEAN DEFAULT false'],
+      ['paxton_server_url', "TEXT DEFAULT ''"],
+      ['paxton_port', "TEXT DEFAULT '8080'"],
+      ['paxton_client_id', "TEXT DEFAULT ''"],
+      ['paxton_username', "TEXT DEFAULT ''"],
+      ['paxton_password', "TEXT DEFAULT ''"],
+      ['paxton_sync_users', 'BOOLEAN DEFAULT true'],
+      ['paxton_sync_events', 'BOOLEAN DEFAULT true'],
+      ['paxton_sync_interval', "TEXT DEFAULT '300'"],
+      ['paxton_default_access_level', "TEXT DEFAULT ''"],
+      ['paxton_visitor_access_level', "TEXT DEFAULT ''"],
+      ['paxton_contractor_access_level', "TEXT DEFAULT ''"],
+      ['paxton_auto_grant_access', 'BOOLEAN DEFAULT false'],
+      ['paxton_auto_revoke_on_checkout', 'BOOLEAN DEFAULT true'],
+      ['paxton_last_sync', 'TIMESTAMP'],
+      ['paxton_webhook_secret', "TEXT DEFAULT ''"],
+      ['api_webhooks_enabled', 'BOOLEAN DEFAULT false'],
+      ['api_key', "TEXT DEFAULT ''"],
+      ['api_webhook_url', "TEXT DEFAULT ''"],
+      ['api_webhook_secret', "TEXT DEFAULT ''"],
+      ['api_webhook_events', 'TEXT[] DEFAULT ARRAY[]::TEXT[]'],
+      ['api_rate_limit', "TEXT DEFAULT '100'"],
+      ['api_last_activity', 'TIMESTAMP'],
+      ['biostar_last_sync', 'TIMESTAMP'],
+      ['biostar_webhook_secret', 'TEXT'],
+      ['claude_model', "TEXT DEFAULT 'claude-3-5-sonnet'"],
+
+      // Ensure all columns from 101 list that may also be missing
+      ['cdm_alerts_email', "TEXT DEFAULT ''"],
+      ['nav_banner_color', 'TEXT'],
+      ['nav_banner_invert', 'BOOLEAN DEFAULT false'],
+      ['kiosk_notice_message', "TEXT DEFAULT 'All visitors must sign in before entering the building.'"],
+      ['site_address', 'TEXT'],
+      ['induction_hazards', 'TEXT'],
+      ['induction_ppe', 'TEXT'],
+      ['assembly_point', 'TEXT'],
+      ['first_aid_location', 'TEXT'],
+      ['emergency_contact', 'TEXT'],
+      ['induction_site_rules', 'TEXT'],
+      ['induction_industry', 'TEXT'],
+      ['induction_validity_period', "TEXT DEFAULT 'none'"],
+      ['induction_expiry_reminder_days', "TEXT DEFAULT '30'"],
+      ['nda_enabled', 'BOOLEAN DEFAULT false'],
+      ['nda_content', "TEXT DEFAULT ''"],
+      ['nda_require_signature', 'BOOLEAN DEFAULT false'],
+      ['nda_applies_to', "TEXT DEFAULT 'visitors'"],
+      ['phone_provider', "TEXT DEFAULT '8x8'"],
+      ['voice_notifications_enabled', 'BOOLEAN DEFAULT false'],
+      ['eight_by_x_api_key', "TEXT DEFAULT ''"],
+      ['eight_by_x_api_secret', "TEXT DEFAULT ''"],
+      ['eight_by_x_account_id', "TEXT DEFAULT ''"],
+      ['eight_by_x_base_url', "TEXT DEFAULT 'https://vcc-eu.8x8.com/api/v1'"],
+      ['default_voice_language', "TEXT DEFAULT 'en-GB'"],
+      ['default_voice_profile', "TEXT DEFAULT 'en-GB-Standard-A'"],
+      ['feature_email_outbox', 'BOOLEAN DEFAULT true'],
+      ['feature_martyn_law', 'BOOLEAN DEFAULT true'],
+      ['feature_incident_reports', 'BOOLEAN DEFAULT true'],
+      ['feature_hs_incidents', 'BOOLEAN DEFAULT true'],
+      ['feature_bbs', 'BOOLEAN DEFAULT false'],
+      ['feature_fire_risk_assessment', 'BOOLEAN DEFAULT true'],
+      ['feature_compliance_dashboard', 'BOOLEAN DEFAULT true'],
+      ['compliance_cert_alert_hour', 'INTEGER DEFAULT 7'],
+      ['ptw_alert_hour', 'INTEGER DEFAULT 7'],
+      ['feature_hr_module', 'BOOLEAN DEFAULT false'],
+      ['feature_template_library', 'BOOLEAN DEFAULT true'],
+      ['feature_teams_integration', 'BOOLEAN DEFAULT false'],
+      ['feature_calendar_integration', 'BOOLEAN DEFAULT false'],
+      ['feature_dashboard', 'BOOLEAN DEFAULT true'],
+      ['feature_visitors', 'BOOLEAN DEFAULT true'],
+      ['feature_contractors', 'BOOLEAN DEFAULT true'],
+      ['feature_staff', 'BOOLEAN DEFAULT true'],
+      ['feature_muster_list', 'BOOLEAN DEFAULT true'],
+      ['feature_reports', 'BOOLEAN DEFAULT true'],
+      ['feature_settings_page', 'BOOLEAN DEFAULT true'],
+      ['incident_manager_url_id', 'TEXT'],
+      ['notify_on_document_deletion', 'BOOLEAN DEFAULT true'],
+      ['notify_on_document_expiry', 'BOOLEAN DEFAULT true'],
+      ['lone_worker_enabled', 'BOOLEAN DEFAULT false'],
+      ['lone_worker_check_interval_mins', 'INTEGER DEFAULT 30'],
+      ['lone_worker_grace_period_mins', 'INTEGER DEFAULT 10'],
+      ['lone_worker_l1_name', "TEXT DEFAULT ''"],
+      ['lone_worker_l1_email', "TEXT DEFAULT ''"],
+      ['lone_worker_l2_name', "TEXT DEFAULT ''"],
+      ['lone_worker_l2_email', "TEXT DEFAULT ''"],
+      ['lone_worker_l2_delay_mins', 'INTEGER DEFAULT 15'],
+      ['lone_worker_l3_delay_mins', 'INTEGER DEFAULT 30'],
+      ['sso_login_mode', "TEXT DEFAULT 'standard'"],
+      ['sso_auto_provision', 'BOOLEAN DEFAULT true'],
+      ['sso_default_role', "TEXT DEFAULT 'user'"],
+      ['sso_tenant_id', 'VARCHAR'],
+      ['sso_client_id', 'VARCHAR'],
+      ['sso_client_secret', 'VARCHAR'],
+      ['sso_client_secret_iv', 'VARCHAR'],
+      ['sso_client_secret_tag', 'VARCHAR'],
+      ['sso_redirect_uri', 'VARCHAR'],
+      ['onboarding_checklist_dismissed', 'BOOLEAN DEFAULT false'],
+      ['quick_setup_dismissed', 'BOOLEAN DEFAULT false'],
+      ['feature_contractor_portal', 'BOOLEAN DEFAULT false'],
+    ];
+
+    let added = 0;
+    for (const [col, def] of cols) {
+      if (!existing.has(col)) {
+        try {
+          await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col} ${def}`);
+          added++;
+          logger.info(`✅ [102] Added missing column: ${col}`);
+        } catch (err: any) {
+          logger.warn(`⚠️ [102] add ${col}: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    }
+    logger.info(`✅ [102] Schema column fix complete — ${added} columns added`);
+  }
+};
+
 export const comprehensiveSettingsMigrations: Migration[] = [
   addAllMissingCompanySettingsColumnsMigration,
   syncAllCompanySettingsColumnsMigration,
+  fixSchemaIsolatedColumnsMigration,
 ];
