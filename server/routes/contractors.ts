@@ -412,11 +412,37 @@ export function registerContractorRoutes(app: Express): void {
   // Get checked-in contractors endpoint
   app.get("/api/contractors/checked-in", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const checkedInContractors = await databaseService.getCheckedInContractors(context);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const checkedInContractors = await custDb
+        .select({
+          id: isolatedSchema.contractorWorkers.id,
+          firstName: isolatedSchema.contractorWorkers.firstName,
+          lastName: isolatedSchema.contractorWorkers.lastName,
+          email: isolatedSchema.contractorWorkers.email,
+          isCheckedIn: isolatedSchema.contractorWorkers.isCheckedIn,
+          isAccountedFor: isolatedSchema.contractorWorkers.isAccountedFor,
+          checkedInAt: isolatedSchema.contractorWorkers.checkedInAt,
+          hsRulesAccepted: isolatedSchema.contractorWorkers.hsRulesAccepted,
+          hsRulesAcceptedAt: isolatedSchema.contractorWorkers.hsRulesAcceptedAt,
+          currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus,
+          companyId: isolatedSchema.contractorWorkers.companyId,
+          needsEvacuationAssistance: isolatedSchema.contractorWorkers.needsEvacuationAssistance,
+          siteId: isolatedSchema.contractorWorkers.siteId,
+          zoneId: isolatedSchema.contractorWorkers.zoneId,
+          companyName: isolatedSchema.contractorCompanies.companyName,
+          contactEmail: isolatedSchema.contractorCompanies.contactEmail,
+          contactPhone: isolatedSchema.contractorCompanies.contactPhone,
+        })
+        .from(isolatedSchema.contractorWorkers)
+        .leftJoin(
+          isolatedSchema.contractorCompanies,
+          eq(isolatedSchema.contractorWorkers.companyId, isolatedSchema.contractorCompanies.id)
+        )
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
+          eq(isolatedSchema.contractorWorkers.isActive, true),
+          scopedWhere(siteContext, isolatedSchema.contractorWorkers)
+        ));
       res.json(checkedInContractors);
     } catch (error) {
       logger.error("Failed to fetch checked-in contractors:", error);

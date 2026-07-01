@@ -1644,11 +1644,12 @@ export function registerStaffRoutes(app: Express): void {
 
   app.get("/api/staff/checked-in", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      const { db: custDb, siteContext } = await getScopedDb(req);
+      const checkedInStaff = await custDb
+        .select()
+        .from(isolatedSchema.staff)
+        .where(and(eq(isolatedSchema.staff.isCheckedIn, true), scopedWhere(siteContext, isolatedSchema.staff)))
+        .orderBy(desc(isolatedSchema.staff.checkedInAt));
       res.json(checkedInStaff);
     } catch (error) {
       logger.error("Failed to fetch checked-in staff:", error);

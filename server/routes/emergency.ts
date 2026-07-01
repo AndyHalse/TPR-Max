@@ -5369,17 +5369,15 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.get("/api/members/checked-in", requireAuth, async (req, res) => {
     try {
-      const customerId = req.customerId;
-      if (!customerId) return res.status(401).json({ error: "No tenant context" });
-      const customerDb = await customerDbService.getCustomerDatabase(customerId);
-      
+      const { db: customerDb, siteContext } = await getScopedDb(req);
       const checkedIn = await customerDb
         .select()
         .from(isolatedSchema.members)
         .where(
           and(
             eq(isolatedSchema.members.isActive, true),
-            eq(isolatedSchema.members.isCheckedIn, true)
+            eq(isolatedSchema.members.isCheckedIn, true),
+            scopedWhere(siteContext, isolatedSchema.members)
           )
         )
         .orderBy(desc(isolatedSchema.members.checkedInAt));
