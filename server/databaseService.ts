@@ -1853,7 +1853,7 @@ export class DatabaseService {
   }
 
   // Get all contractor workers for current customer 
-  async getAllContractorWorkers(context: CustomerContext): Promise<ContractorWorker[]> {
+  async getAllContractorWorkers(context: CustomerContext, siteId?: string | null): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const companies = await db
@@ -1871,7 +1871,13 @@ export class DatabaseService {
       .from(isolatedSchema.contractorWorkers)
       .where(and(
         inArray(isolatedSchema.contractorWorkers.companyId, companyIds),
-        eq(isolatedSchema.contractorWorkers.isActive, true)
+        eq(isolatedSchema.contractorWorkers.isActive, true),
+        siteId
+          ? or(
+              eq(isolatedSchema.contractorWorkers.siteId, siteId),
+              isNull(isolatedSchema.contractorWorkers.siteId)
+            )
+          : undefined
       ))
       .orderBy(asc(isolatedSchema.contractorWorkers.firstName));
 

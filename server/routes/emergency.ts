@@ -210,7 +210,7 @@ export function registerEmergencyRoutes(app: Express): void {
           .where(and(
             eq(evacuations.customerId, customerId),
             eq(evacuations.status, 'active'),
-            strictSiteId ? eq(evacuations.siteId, strictSiteId) : undefined
+            siteContext.activeSiteId ? eq(evacuations.siteId, siteContext.activeSiteId) : undefined
           ))
           .orderBy(desc(evacuations.createdAt))
           .limit(1);

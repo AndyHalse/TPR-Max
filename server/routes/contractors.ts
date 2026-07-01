@@ -460,18 +460,16 @@ export function registerContractorRoutes(app: Express): void {
   // Get all contractor workers - MUST COME BEFORE :id route
   app.get("/api/contractors/workers/all", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Use customer-isolated database service to get all contractor workers
-      const workers = await databaseService.getAllContractorWorkers(context);
-      
+      const { siteContext } = await getScopedDb(req);
+      const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
+      const workers = await databaseService.getAllContractorWorkers(context, filterSiteId);
       logger.info(`Retrieved ${workers.length} contractor workers for customer ${context.customerId}`);
-      
       res.json(workers);
-    } catch (error) {
-      logger.error("Error fetching all workers:", error);
+    } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
+      logger.error("Error fetching all workers:", err);
       res.status(500).json({ error: "Failed to fetch all workers" });
     }
   });
