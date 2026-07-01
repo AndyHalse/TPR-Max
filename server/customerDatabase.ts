@@ -1312,10 +1312,25 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS property_type TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS client_name TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS managing_surveyor TEXT`);
-      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS floor_area DOUBLE PRECISION`);
+      await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS floor_area TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS unit_count INTEGER`);
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS what3words TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".sites ADD COLUMN IF NOT EXISTS map_link TEXT`);
+      // floor_area was previously created as DOUBLE PRECISION in some schemas — convert to TEXT
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = '${schemaName}'
+              AND table_name = 'sites'
+              AND column_name = 'floor_area'
+              AND data_type = 'double precision'
+          ) THEN
+            ALTER TABLE "${schemaName}".sites ALTER COLUMN floor_area TYPE TEXT USING floor_area::TEXT;
+          END IF;
+        END $$
+      `);
       logger.info(`✅ Enterprise site columns ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Enterprise site columns migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
