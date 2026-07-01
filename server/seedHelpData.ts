@@ -44,6 +44,14 @@ const NEW_CATEGORIES = [
     color: "#0ea5e9",
     sortOrder: 16,
     isActive: true
+  },
+  {
+    name: "Enterprise Multi-site",
+    description: "Managing multi-site portfolios, enterprise dashboards, site coordinators, contractor pools, and centralised compliance standards",
+    icon: "building-2",
+    color: "#2460A9",
+    sortOrder: 17,
+    isActive: true
   }
 ];
 
@@ -2132,6 +2140,201 @@ On passing the quiz, your induction is marked complete. You will see a confirmat
       helpfulCount: 0,
       notHelpfulCount: 0,
       viewCount: 0
+    },
+
+    // ─── SSIP ACCREDITATION TRACKING ─────────────────────────────────────────
+    {
+      categoryId: categoryMap["Contractor Management"],
+      title: "SSIP Accreditation Tracking",
+      slug: createSlug("SSIP Accreditation Tracking"),
+      summary: "How to record, manage, and track SSIP and other accreditations for contractor companies — CHAS, SafeContractor, Constructionline, SMAS, Acclaim, JOSCAR, ISO certifications, and more",
+      content: `# SSIP Accreditation Tracking
+
+TPR includes a comprehensive accreditation management system for contractor companies, replacing the old fixed CHAS/SMAS checkboxes with a flexible catalogue that supports all major SSIP schemes and custom certifications.
+
+## What Is SSIP?
+The Safety Schemes in Procurement (SSIP) is an umbrella organisation of mutual-recognition safety schemes. Member schemes include CHAS, SafeContractor, Constructionline, SMAS Worksafe, Acclaim, and others. Holding any one SSIP accreditation is mutually recognised across all member schemes, reducing the burden of multiple assessments.
+
+## Accessing Accreditations
+1. Go to **Contractors** > **Companies** tab
+2. Click **Edit** on a contractor company
+3. Scroll to the **SSIP & Other Accreditations** section
+
+## Adding an Accreditation
+1. Click **Add Accreditation**
+2. Select the scheme from the dropdown — SSIP member schemes are labelled **(SSIP)**
+3. For **Other**, enter a custom scheme name
+4. Enter the **Certificate Number** (optional but recommended)
+5. For schemes with grade levels (e.g. Constructionline), select the **Grade** (Registered / Silver / Gold / Platinum)
+6. Enter the **Expiry Date**
+7. Click **Save**
+
+## Accreditation Status
+Each accreditation automatically shows a status badge:
+
+- **Valid** (green) — current, not approaching expiry
+- **Expiring soon** (amber) — expires within 90 days
+- **Expired** (red) — expiry date has passed
+
+## Accreditation Badges on the Companies List
+The Contractor Companies tab and list view show coloured accreditation badges for each company at a glance. Status colours match the expiry state. Up to three accreditations are shown per card; additional accreditations are indicated with a "+N more" badge.
+
+## Supported Schemes
+The catalogue includes:
+- **CHAS** (SSIP member)
+- **SafeContractor** (SSIP member)
+- **SMAS Worksafe** (SSIP member)
+- **Constructionline** (SSIP member — with grade)
+- **Acclaim Accreditation** (SSIP member)
+- **SSIP Alliance** (SSIP member)
+- **JOSCAR** — Joint Supply Chain Accreditation Register (aerospace/defence)
+- **ISO 9001** — Quality Management
+- **ISO 14001** — Environmental Management
+- **ISO 45001** — Occupational Health & Safety
+- **Other** — for any custom or emerging scheme
+
+## Compliance Dashboard Integration
+The compliance dashboard's **contractor insurance & certification** score now uses the new accreditation table rather than the old checkboxes. If an accreditation has an expiry date, it feeds into the expiry alert engine. Companies with no recorded accreditations but legacy CHAS/SafeContractor data will continue to be picked up by the fallback check until records are migrated.
+
+## Deleting an Accreditation
+Click the **trash icon** next to any accreditation in the Edit Company dialog. Deletions take effect immediately.
+
+## Tips
+- Always record the certificate number — it makes audit responses much faster
+- Set a calendar reminder 30 days before expiry to ensure renewal before the amber window
+- Use the Contractor Portal to let companies self-report their own accreditation renewals`,
+      targetPages: ["contractors", "/contractors"],
+      searchKeywords: ["SSIP", "CHAS", "SafeContractor", "Constructionline", "SMAS", "accreditation", "contractor accreditation", "JOSCAR", "ISO", "certification expiry", "compliance scheme"],
+      estimatedReadTime: 5,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 10,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── ENTERPRISE MULTI-SITE MANAGEMENT ────────────────────────────────────
+    {
+      categoryId: categoryMap["Enterprise Multi-site"],
+      title: "Enterprise Multi-site Management",
+      slug: createSlug("Enterprise Multi-site Management"),
+      summary: "Overview of the enterprise console — managing multiple sites, area/region grouping, site coordinators, compliance dashboards, contractor pool, and centralised compliance standards",
+      content: `# Enterprise Multi-site Management
+
+TPR's Enterprise tier is purpose-built for organisations running multiple sites — business parks, multi-campus universities, NHS trusts, retail chains, and construction portfolios. A single enterprise admin account provides compliance oversight across the entire estate, while each site stays completely isolated.
+
+## Setting Up Sites
+1. Log in as an **Enterprise Admin**
+2. Go to **Enterprise** in the main navigation
+3. Under the **Sites** tab, click **Add Site**
+4. Enter site name, address, area/region, and contact details
+5. The new site appears in the estate dashboard
+
+## Area & Region Grouping
+Organise sites into logical clusters (e.g. "North", "South", "Campus A/B") to roll up compliance reporting by geography or business unit. This is set per site under the site settings.
+
+## Site Coordinators
+Each site has one or more **Site Coordinators** — local administrators who manage their own site's visitors, contractors, staff, and compliance without access to other sites.
+
+### Managing Coordinators
+- **Add coordinator**: Enterprise Admin → Site → Coordinators → Add
+- **Reset password**: Click the key icon next to the coordinator
+- **Replace coordinator**: Remove the old coordinator and invite a new user
+- **Deactivate**: Toggle the coordinator's active status — they lose access immediately
+
+Coordinators only ever see their own site. Enterprise Admins have read-across visibility across all sites.
+
+## Estate Overview Dashboard
+The dashboard header shows:
+- **Estate Compliance Score** — weighted average across all sites
+- **On-Site Now** — total headcount across the estate in real time
+- **Open Alerts** — expiring documents or compliance gaps across all sites
+
+Below this, each site is listed with its individual score (colour-coded), on-site count, area, and active alerts.
+
+## Per-Site Compliance Dashboard
+Each site has its own weighted compliance health score, covering:
+- Contractor insurance (public liability, employers liability, professional indemnity)
+- RAMS and induction completions
+- PPM work order completion rates
+- Certificate register expiries
+- Fire Risk Assessment status
+- Right to Work and training expiries
+
+Clicking a site card drills down to its full compliance breakdown.
+
+## Enterprise Standards Push-down
+Enterprise Admins can define **site standards** that apply across all sites in the group:
+- Induction pass mark thresholds
+- Kiosk check-in mode settings
+- Visit reason / induction category defaults
+
+Sites can optionally override these with site-specific settings.
+
+## Contractor Pool
+The **Enterprise Contractor Pool** lets you share approved contractor companies and their compliance records across all sites in your estate:
+- A pool-approved company is visible to every site coordinator for check-in and scheduling
+- Compliance documents (insurance, RAMS, accreditations) held at the pool level are accessible estate-wide
+- Individual sites can still add site-specific contractors outside the pool
+
+## Site-Branded Login Pages
+Each site can have its own branded login URL and display name. When a coordinator (or visitor at kiosk) navigates to a site-specific URL, the login page shows the site name and branding automatically. Configure under **Enterprise** > **Site** > **Login Settings**.
+
+## Reporting Across the Estate
+The **Enterprise Compliance** tab shows expiry alerts across all sites. Filters allow you to focus on specific sites, areas, or compliance categories. Reports can be exported as CSV or emailed on a schedule.
+
+## Data Isolation
+Each site's data is completely segregated in the database. Coordinators cannot access other sites' records. Enterprise Admins can view (but not edit as coordinator) any site's data for oversight purposes.`,
+      targetPages: ["enterprise", "/enterprise"],
+      searchKeywords: ["enterprise", "multi-site", "estate", "portfolio", "site coordinator", "compliance dashboard", "contractor pool", "enterprise admin", "multi campus", "area grouping"],
+      estimatedReadTime: 8,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 1,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── ENTERPRISE SITE LOGIN NAMES ─────────────────────────────────────────
+    {
+      categoryId: categoryMap["Enterprise Multi-site"],
+      title: "Site-Branded Login Pages",
+      slug: createSlug("Enterprise Site-Branded Login Pages"),
+      summary: "Configure per-site login URLs and branding so each location has its own named sign-in experience",
+      content: `# Site-Branded Login Pages
+
+Enterprise organisations can give each site its own branded login experience using **Site Login Names**. When users navigate to a site-specific URL, the login screen displays the site's name automatically.
+
+## How It Works
+Each site can be assigned a short, URL-friendly login name (e.g. "london-hq" or "manchester-office"). The login page at that path shows the site name in the header, helping coordinators and returning users quickly confirm they are signing into the correct location.
+
+## Setting Up a Site Login Name
+1. Go to **Enterprise** > select a site > **Settings**
+2. Under **Login**, enter a site login name (lowercase letters, numbers, and hyphens only)
+3. Save — the site is now accessible at the platform URL followed by the site name
+4. Share the site-specific URL with the site coordinator and any kiosk devices at that location
+
+## Tips
+- Use the site's common short name rather than a long formal name
+- If a name is already taken, the system will suggest an alternative (e.g. appending a number)
+- Kiosks should be configured to load the site-specific URL at startup so visitors always reach the right site's induction flow`,
+      targetPages: ["enterprise", "/enterprise"],
+      searchKeywords: ["site login", "branded login", "login name", "site URL", "kiosk URL", "enterprise login"],
+      estimatedReadTime: 3,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 2,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
     }
   ];
 }
@@ -2247,6 +2450,25 @@ export async function seedHelpData() {
           })
           .where(eq(helpArticles.id, article.id));
         logger.info('🔄 Migrated Payroll Export article (removed Beta warning, added sick-day filter note)');
+      }
+    }
+
+    // ── Migrate CDM 2015 article: update old checkbox reference to new SSIP system ──
+    const cdmArticles = await db.select().from(helpArticles)
+      .where(like(helpArticles.slug, 'cdm-2015-compliance'));
+    for (const article of cdmArticles) {
+      if (article.content.includes('CHAS Accredited') && !article.content.includes('SSIP')) {
+        await db.update(helpArticles)
+          .set({
+            summary: "Managing CDM 2015 obligations, project registers, contractor notifiability, F10 notifications, and SSIP accreditation tracking",
+            content: article.content
+              .replace(
+                '- **CHAS Accredited**: Toggle to record CHAS, Constructionline, or SafeContractor status\n- **CDM Duty Role**: Client / Principal Designer / Principal Contractor / Contractor\n- **CDM Notes**: Free-text field for compliance notes, accreditation numbers, or expiry dates',
+                '- **CDM Duty Role**: Client / Principal Designer / Principal Contractor / Contractor / Designer\n- **Principal Designer Professional Body**: Record the relevant professional body (e.g. RIBA, ARB, ICE, CIOB)\n\nAccreditation details such as CHAS, SafeContractor, Constructionline, SMAS, and other SSIP scheme records are now managed via the **SSIP & Other Accreditations** section in the Edit Company dialog — see the *SSIP Accreditation Tracking* article for full details.'
+              ),
+          })
+          .where(eq(helpArticles.id, article.id));
+        logger.info('🔄 Migrated CDM 2015 article: updated old CHAS checkbox reference to new SSIP system');
       }
     }
 

@@ -417,7 +417,7 @@ export default function MarketingPage() {
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
-                  30 Modules · One Platform
+                  32 Modules · One Platform
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-violet-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -927,7 +927,7 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              30 Modules. One{" "}
+              32 Modules. One{" "}
               <span style={{ color: "#2460A9" }}>Connected Workforce & Site Safety Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
@@ -983,7 +983,7 @@ export default function MarketingPage() {
                 color: "text-amber-600",
                 bg: "bg-amber-50 dark:bg-amber-900/20",
                 border: "border-amber-200 dark:border-amber-800",
-                desc: "Worker and company tracking, red/yellow card compliance alerts, certification and insurance expiry monitoring.",
+                desc: "Worker and company tracking, red/yellow card compliance alerts, SSIP accreditation tracking, certification and insurance expiry monitoring.",
               },
               {
                 icon: Brain,
@@ -1159,7 +1159,15 @@ export default function MarketingPage() {
                 color: "text-blue-700",
                 bg: "bg-blue-50 dark:bg-blue-900/20",
                 border: "border-blue-200 dark:border-blue-800",
-                desc: "Manage an entire portfolio of sites from one enterprise console. Per-site compliance dashboards, area/region grouping, site-scoped coordinators, and real-time estate-wide compliance scoring.",
+                desc: "Manage an entire portfolio of sites from one enterprise console. Per-site compliance dashboards, area/region grouping, site-scoped coordinators, contractor pool, enterprise standards push-down, and real-time estate-wide compliance scoring.",
+              },
+              {
+                icon: ShieldCheck,
+                name: "SSIP Accreditation",
+                color: "text-teal-700",
+                bg: "bg-teal-50 dark:bg-teal-900/20",
+                border: "border-teal-200 dark:border-teal-800",
+                desc: "Catalogue-driven SSIP & other accreditation tracking — CHAS, SafeContractor, Constructionline, SMAS, Acclaim, JOSCAR, ISO 9001/14001/45001, and custom schemes. Expiry status badges, grade recording, and compliance dashboard integration.",
               },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
@@ -4266,6 +4274,24 @@ export default function MarketingPage() {
                         <strong>Expiry Alerts Across the Estate:</strong> Upcoming certificate, insurance, and document expiries are surfaced at the enterprise level so nothing slips through at a quiet site
                       </span>
                     </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Enterprise Standards Push-down:</strong> Centrally define induction pass thresholds, kiosk settings, and site safety rules that cascade to every site — with optional per-site overrides
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Contractor Pool:</strong> Share approved contractor companies and their compliance documents (insurance, RAMS, SSIP accreditations) across every site in the estate — any location can engage a pool-approved contractor without re-uploading
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Site-Branded Login Pages:</strong> Give each site its own named login URL (e.g. "london-hq") so coordinators and kiosks always connect to the right site automatically
+                      </span>
+                    </div>
                   </div>
 
                   <Button
@@ -5092,7 +5118,7 @@ export default function MarketingPage() {
               <ul className="space-y-2 text-sm text-slate-300">
                 {[
                   ["Emergency Mustering", "features"],
-                  ["All 30 Modules", "modules"],
+                  ["All 32 Modules", "modules"],
                   ["CDM 2015 Compliance", "features"],
                   ["Industries We Serve", "industries"],
                   ["Book a Demo", "contact"],
@@ -5113,7 +5139,7 @@ export default function MarketingPage() {
             <div>
               <h3 className="text-base font-semibold mb-4 text-white">About TPR</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
-                The UK's Connected Workforce &amp; Site Safety Platform. 30 modules covering contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, enterprise multi-site management, Teams notifications, calendar sync, and more — all in one subscription.
+                The UK's Connected Workforce &amp; Site Safety Platform. 32 modules covering contractor compliance, SSIP accreditation tracking, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, enterprise multi-site management, Teams notifications, calendar sync, and more — all in one subscription.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["GDPR Compliant", "UK-Built", "Multi-Tenant", "BioStar 2 Ready"].map(tag => (
