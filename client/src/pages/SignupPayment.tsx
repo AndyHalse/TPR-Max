@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { takePendingPassword } from "@/lib/signupStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,7 +34,7 @@ interface PendingSignup {
   adminEmail: string;
   adminFirstName: string;
   adminLastName: string;
-  adminPassword: string;
+  adminPassword?: string;
   industry?: string;
   employeeCount?: number;
   address?: string;
@@ -110,9 +111,12 @@ export default function SignupPayment() {
     mutationFn: async (signupData: PendingSignup) => {
       setIsProcessing(true);
       
+      // Re-join the password from the in-memory store (never persisted to sessionStorage)
+      const password = takePendingPassword() ?? signupData.adminPassword;
       // Create secure signup session on the server
       const response = await apiRequest("POST", "/api/onboarding/create-signup-session", {
         ...signupData,
+        adminPassword: password,
         billingCycle: 'monthly'
       });
       

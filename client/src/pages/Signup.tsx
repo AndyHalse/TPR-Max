@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { setPendingPassword } from "@/lib/signupStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -153,8 +154,10 @@ export default function Signup() {
         createSubscription: false, // We'll handle this in the payment step
       };
 
-      // Store signup data in session storage for payment step
-      sessionStorage.setItem('pendingSignup', JSON.stringify(requestData));
+      // Keep the password in memory only — never persist it to sessionStorage
+      setPendingPassword(requestData.adminPassword);
+      const { adminPassword: _pw, ...storedData } = requestData;
+      sessionStorage.setItem('pendingSignup', JSON.stringify(storedData));
       
       return { success: true, data: requestData };
     },

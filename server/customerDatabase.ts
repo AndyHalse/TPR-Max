@@ -1674,7 +1674,8 @@ export class CustomerDatabaseService {
       if (isProduction) {
         logger.info(`✅ Admin user seeded for customer ${customerId} (username: Admin) - password must be changed on first login`);
       } else {
-        logger.info(`✅ Admin user seeded for customer ${customerId} (username: Admin, temp password: ${tempPassword})`);
+        logger.info(`✅ Admin user seeded for customer ${customerId} (username: Admin, temp password: [REDACTED])`);
+        // Temp password delivered to the provisioning caller only — never logged in plain text
       }
     } catch (error) {
       logger.error(`❌ Failed to seed admin user for ${customerId}:`, error);

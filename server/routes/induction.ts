@@ -1607,24 +1607,7 @@ export function registerInductionRoutes(app: Express): void {
         return res.status(404).json({ error: "Contractor worker not found" });
       }
 
-      // CRITICAL FIX: Database service already returns correctly mapped fields
-      // Log all fields to verify they're properly mapped
-      logger.info(`✅ API ROUTE - Retrieved contractor worker:`, {
-        id: worker.id,
-        firstName: worker.firstName,
-        lastName: worker.lastName,
-        transportMethod: worker.transportMethod,
-        cscsCard: worker.cscsCard,
-        cscsStatus: worker.cscsStatus,
-        rightToWork: worker.rightToWork,
-        ipafStatus: worker.ipafStatus,
-        asbestosAwareness: worker.asbestosAwareness,
-        manualHandling: worker.manualHandling,
-        inductionCompleted: worker.inductionCompleted,
-        phone: worker.phone,
-        email: worker.email,
-        postcode: worker.postcode,
-      });
+      // Fields are correctly mapped by the database service
       
       // Ensure all fields are included in the response
       const responseWorker = {
