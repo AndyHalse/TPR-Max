@@ -319,9 +319,8 @@ export default function Layout({ children }: LayoutProps) {
     }
     if (!settings) return (item as any).alwaysVisible;
     if (item.featureKey) {
-      // Admins always see the Settings and Staff Kiosk pages — they must never be locked out
+      // Admins always see the Settings page — they must never be locked out of changing settings
       if (item.path === '/settings' && user?.role === 'admin') return true;
-      if (item.path === '/staff-kiosk' && user?.role === 'admin') return true;
       const val = (settings as any)[item.featureKey];
       const platformDisabled = (settings as any).platformDisabledFeatures;
       if (Array.isArray(platformDisabled) && platformDisabled.includes(item.featureKey)) return false;
