@@ -17,11 +17,10 @@ import { customerDbService } from '../customerDatabase';
 import * as iso from '../isolatedSchema';
 import { logger } from '../utils/logger';
 
-// ─── Role helper ─────────────────────────────────────────────────────────────
-
-function callerIsAdmin(req: any): boolean {
-  return req.enterpriseGrants?.roles?.includes('enterprise_admin') ?? false;
-}
+// Role gating is enforced entirely by `requireEnterpriseRole(...)` middleware,
+// which attaches resolved grants to `req.enterpriseGrants`. Do NOT add a local
+// role helper here — read scope from `req.enterpriseGrants` if a handler ever
+// needs it, so all enterprise role logic stays on the single shared path.
 
 // ─── Built-in default schedules ───────────────────────────────────────────────
 
