@@ -231,10 +231,23 @@ export default function StaffManagement() {
 
   // Determine if this is a tenant-specific view or building-wide view
   const isTenantView = location.startsWith('/tenant/');
-  
+
+  // Read activeSiteId from the auth user so switching sites busts the cache
+  const { data: authUser } = useQuery<{ activeSiteId?: string | null } | null>({
+    queryKey: ["/api/auth/me"],
+    staleTime: 5 * 60 * 1000,
+  });
+  const activeSiteId = authUser?.activeSiteId ?? null;
+
+  // Canonical cache key for this page — includes activeSiteId so site switching
+  // gives an immediate cache-miss and triggers a fresh fetch.
+  const staffQueryKey = isTenantView
+    ? [`/api/tenants/${slug}/staff`]
+    : ["/api/staff", activeSiteId];
+
   // GDPR-compliant staff query: Use tenant-specific or building-wide endpoint based on context
   const { data: staff, isLoading } = useQuery<Staff[]>({
-    queryKey: isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"],
+    queryKey: staffQueryKey,
     enabled: isTenantView ? !!slug : true,
   });
 
@@ -243,9 +256,7 @@ export default function StaffManagement() {
       return apiRequest("DELETE", `/api/staff/${id}`);
     },
     onSuccess: () => {
-      // Invalidate the correct query based on context
-      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: staffQueryKey });
       toast({
         title: t('toasts.deletedTitle'),
         description: t('toasts.deletedDesc'),
@@ -263,8 +274,7 @@ export default function StaffManagement() {
   const archiveMutation = useMutation({
     mutationFn: async (id: string) => apiRequest("PATCH", `/api/staff/${id}/archive`),
     onSuccess: () => {
-      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: staffQueryKey });
       queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({ title: t('toasts.archivedTitle'), description: t('toasts.archivedDesc') });
@@ -277,8 +287,7 @@ export default function StaffManagement() {
   const unarchiveMutation = useMutation({
     mutationFn: async (id: string) => apiRequest("PATCH", `/api/staff/${id}/unarchive`),
     onSuccess: () => {
-      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: staffQueryKey });
       toast({ title: t('toasts.unarchivedTitle'), description: t('toasts.unarchivedDesc') });
     },
     onError: () => {
@@ -292,7 +301,7 @@ export default function StaffManagement() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: staffQueryKey });
       setShowRemoveDuplicatesConfirm(false);
       setRemoveDuplicatesResult(data);
     },
@@ -306,7 +315,6 @@ export default function StaffManagement() {
       return apiRequest("POST", `/api/staff/${id}/checkin`, { manual: true });
     },
     onMutate: async (id: string) => {
-      const staffQueryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
       await queryClient.cancelQueries({ queryKey: staffQueryKey });
       const previousStaff = queryClient.getQueryData<any[]>(staffQueryKey);
       queryClient.setQueryData(staffQueryKey, (old: any[] | undefined) =>
@@ -334,7 +342,6 @@ export default function StaffManagement() {
       return apiRequest("POST", `/api/staff/${id}/checkout`);
     },
     onMutate: async (id: string) => {
-      const staffQueryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
       await queryClient.cancelQueries({ queryKey: staffQueryKey });
       const previousStaff = queryClient.getQueryData<any[]>(staffQueryKey);
       queryClient.setQueryData(staffQueryKey, (old: any[] | undefined) =>
