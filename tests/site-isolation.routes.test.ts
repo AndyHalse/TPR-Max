@@ -1908,6 +1908,102 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
   }, 60_000);
 
   /**
+   * Dashboard stats — GET /api/stats counts are site-scoped.
+   *
+   * Creates and checks in 2 staff + 1 visitor at Site A, then verifies that
+   * Site A's stats reflect those people while Site B's stats stay at baseline.
+   *
+   * PROVE-IT-BITES: in server/routes/analytics.ts change:
+   *   const stats = await databaseService.getStats(context, analyticsSiteCtx);
+   * back to:
+   *   const stats = await databaseService.getStats(context);
+   * Run the suite → Site B's staffOnSite / currentVisitors will rise to the
+   * estate-wide estate total instead of staying at baseline → RED. Restore → GREEN.
+   */
+  it("dashboard stats — GET /api/stats counts are site-scoped", async () => {
+    const agentA = await agentForSite(seed.siteAId);
+    const agentB = await agentForSite(seed.siteBId);
+    const ts = Date.now();
+
+    // Capture Site B baseline BEFORE touching Site A so the isolation assertion
+    // is resilient even if prior tests left checked-in people at Site B.
+    const baselineB = await agentB.get("/api/stats").expect(200);
+    const baseStaffB    = baselineB.body.staffOnSite      as number;
+    const baseVisitorsB = baselineB.body.currentVisitors  as number;
+    const baseTotalB    = baselineB.body.totalPeopleOnSite as number;
+
+    // ── Site A: create + check in 2 staff ──────────────────────────────────
+    let checkedInStaff = 0;
+    for (let i = 1; i <= 2; i++) {
+      const staffRes = await agentA.post("/api/staff").send({
+        firstName:  "StatsIso",
+        lastName:   `Stats-SiteA-${i}-${ts}`,
+        email:      `stats-iso-staff-${i}-${ts}@test.example`,
+        department: "ISO Stats Dept",
+        jobTitle:   "Stats Tester",
+        employeeId: `STATS-A-${i}-${ts}`,
+      });
+      expect([200, 201], `Site A staff ${i} create (${staffRes.status}): ${JSON.stringify(staffRes.body)}`).toContain(staffRes.status);
+      const staffId: string | undefined = staffRes.body?.id;
+      if (staffId) {
+        const ciRes = await agentA.post(`/api/staff/${staffId}/checkin`).send({ manual: true });
+        if ([200, 201].includes(ciRes.status)) checkedInStaff++;
+      }
+    }
+
+    // ── Site A: check in 1 visitor ─────────────────────────────────────────
+    let checkedInVisitor = false;
+    const visRes = await agentA.post("/api/visitors/checkin").send({
+      firstName:       "StatsIso",
+      lastName:        `Stats-SiteA-Vis-${ts}`,
+      email:           `stats-iso-vis-${ts}@test.example`,
+      company:         "ISO Stats Co",
+      purpose:         "stats-isolation-test",
+      hsRulesAccepted: true,
+    });
+    if ([200, 201].includes(visRes.status)) checkedInVisitor = true;
+
+    // At least one person must have checked in at Site A for the test to be meaningful
+    expect(
+      checkedInStaff + (checkedInVisitor ? 1 : 0),
+      `At least one person must check in at Site A for the stats isolation test to be meaningful (staff=${checkedInStaff}, visitor=${checkedInVisitor})`
+    ).toBeGreaterThan(0);
+
+    // ── Site A must see its own people ─────────────────────────────────────
+    const statsA = await agentA.get("/api/stats").expect(200);
+    if (checkedInStaff > 0) {
+      expect(
+        statsA.body.staffOnSite,
+        `[stats] Site A staffOnSite must be >= ${checkedInStaff} (got ${statsA.body.staffOnSite})`
+      ).toBeGreaterThanOrEqual(checkedInStaff);
+    }
+    if (checkedInVisitor) {
+      expect(
+        statsA.body.currentVisitors,
+        `[stats] Site A currentVisitors must be >= 1 (got ${statsA.body.currentVisitors})`
+      ).toBeGreaterThanOrEqual(1);
+    }
+
+    // ── Site B stats must NOT change — cross-site isolation ────────────────
+    // If the site context is NOT passed to getStats, it returns estate-wide
+    // totals and Site B's counts jump to include Site A's newly checked-in
+    // people → the assertions below go RED.
+    const statsB = await agentB.get("/api/stats").expect(200);
+    expect(
+      statsB.body.staffOnSite,
+      `[stats] Site B staffOnSite must stay at baseline ${baseStaffB} — cross-site stats leak! (got ${statsB.body.staffOnSite})`
+    ).toBe(baseStaffB);
+    expect(
+      statsB.body.currentVisitors,
+      `[stats] Site B currentVisitors must stay at baseline ${baseVisitorsB} — cross-site stats leak! (got ${statsB.body.currentVisitors})`
+    ).toBe(baseVisitorsB);
+    expect(
+      statsB.body.totalPeopleOnSite,
+      `[stats] Site B totalPeopleOnSite must stay at baseline ${baseTotalB} — cross-site stats leak! (got ${statsB.body.totalPeopleOnSite})`
+    ).toBe(baseTotalB);
+  }, 30_000);
+
+  /**
    * Emergency muster points — GET /api/muster-points list isolation.
    *
    * Before the fix in server/routes/emergency.ts, GET /api/muster-points
