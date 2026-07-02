@@ -186,6 +186,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       lastName: "", 
       email: "", 
       department: "", 
+      jobTitle: "",
       employeeId: "", 
       biostarUserId: "",
       paxtonUserId: "",
@@ -193,13 +194,15 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       accessLevel: "staff", 
       password: "", 
       isFireMarshal: false,
+      needsEvacuationAssistance: false,
       phoneNumber: "",
+      memberNumber: "",
+      barcodeNumber: "",
       voiceNotificationsEnabled: false,
       preferredNotificationMethod: "email",
       voiceLanguage: "en-GB",
       voiceProfile: "en-GB-Standard-A",
       zoneId: "",
-      needsEvacuationAssistance: false,
     });
     setUploadedPhoto(null);
     onClose();
