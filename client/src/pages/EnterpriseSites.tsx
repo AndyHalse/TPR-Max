@@ -130,8 +130,8 @@ interface EnterpriseUser {
 interface ComplianceSiteData {
   siteId: string;
   siteName: string;
-  score: number;
-  categoryScores: Record<string, number>;
+  score: number | null;
+  categoryScores: Record<string, number | null>;
   openCriticals: number;
   openWarnings: number;
   contractorCount: number;
@@ -162,21 +162,25 @@ const CATEGORY_LABELS: Record<string, string> = {
   rtw:          "Right to Work",
 };
 
-function scoreColor(score: number): string {
+function scoreColor(score: number | null | undefined): string {
+  if (score == null) return "#94a3b8";
   if (score >= 80) return "#22c55e";
   if (score >= 50) return "#f59e0b";
   return "#ef4444";
 }
 
-function scoreStatusLabel(score: number): "compliant" | "warning" | "critical" {
+function scoreStatusLabel(score: number | null | undefined): "compliant" | "warning" | "critical" | "nodata" {
+  if (score == null) return "nodata";
   if (score >= 80) return "compliant";
   if (score >= 50) return "warning";
   return "critical";
 }
 
-function worstCategory(categoryScores: Record<string, number>): string | null {
+function worstCategory(categoryScores: Record<string, number | null>): string | null {
   if (!categoryScores || Object.keys(categoryScores).length === 0) return null;
-  const [worst] = Object.entries(categoryScores).sort(([, a], [, b]) => a - b);
+  const entries = Object.entries(categoryScores).filter(([, v]) => v !== null) as [string, number][];
+  if (entries.length === 0) return null;
+  const [worst] = entries.sort(([, a], [, b]) => a - b);
   return worst ? CATEGORY_LABELS[worst[0]] ?? worst[0] : null;
 }
 
@@ -205,10 +209,11 @@ function canManageSite(site: Site, myGrants: MyGrants | undefined): boolean {
 
 // ── Small score ring for the card ─────────────────────────────────────────────
 
-function ScoreRingSmall({ score }: { score: number }) {
+function ScoreRingSmall({ score }: { score: number | null }) {
   const R = 16;
   const circ = 2 * Math.PI * R;
-  const dash = (Math.min(100, Math.max(0, score)) / 100) * circ;
+  const fill = score == null ? 0 : Math.min(100, Math.max(0, score));
+  const dash = (fill / 100) * circ;
   const color = scoreColor(score);
   return (
     <div className="relative flex items-center justify-center shrink-0" style={{ width: 40, height: 40 }}>
@@ -218,15 +223,22 @@ function ScoreRingSmall({ score }: { score: number }) {
         <circle cx="20" cy="20" r={R} fill="none" stroke={color} strokeWidth="4"
           strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round" />
       </svg>
-      <span className="absolute text-[11px] font-bold" style={{ color }}>{score}</span>
+      <span className="absolute text-[11px] font-bold" style={{ color }}>
+        {score == null ? "—" : score}
+      </span>
     </div>
   );
 }
 
 // ── Compliance status chip ────────────────────────────────────────────────────
 
-function ComplianceChip({ score }: { score: number }) {
+function ComplianceChip({ score }: { score: number | null }) {
   const s = scoreStatusLabel(score);
+  if (s === "nodata") return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+      <ShieldCheck size={10} /> No data
+    </span>
+  );
   if (s === "compliant") return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
       <ShieldCheck size={10} /> Compliant

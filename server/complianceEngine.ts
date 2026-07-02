@@ -37,15 +37,15 @@ interface ItemDef {
 
 interface CategoryResult {
   items: ItemDef[];
-  score: number;         // 0-100
+  score: number | null;  // null = no tracked items for this category
   criticalCount: number;
   warningCount: number;
 }
 
 export interface SiteScore {
   siteId: string;
-  score: number;
-  categoryScores: Record<string, number>;
+  score: number | null;                    // null = no tracked items at all
+  categoryScores: Record<string, number | null>;
   openCriticals: number;
 }
 
@@ -65,29 +65,30 @@ export const CATEGORIES: Category[] = ['insurance', 'rams', 'inductions', 'certi
 
 // ── Score formula ─────────────────────────────────────────────────────────────
 
-export function calcCategoryScore(items: ItemDef[]): number {
-  if (items.length === 0) return 100; // empty category not penalised
+export function calcCategoryScore(items: ItemDef[]): number | null {
+  if (items.length === 0) return null; // no data — not penalised, but also not 100%
   const current  = items.filter(i => i.status === 'current').length;
   const expiring = items.filter(i => i.status === 'expiring').length;
   return Math.round(100 * (current + 0.5 * expiring) / items.length);
 }
 
 export function calcSiteScore(
-  categoryScores: Record<string, number>,
+  categoryScores: Record<string, number | null>,
   weights: Record<Category, number>,
   openCriticals: number,
   penalty: number,
-): number {
+): number | null {
   const cats = Object.keys(categoryScores) as Category[];
-  if (cats.length === 0) return 100;
   let totalWeight = 0;
   let weightedSum = 0;
   for (const cat of cats) {
+    if (categoryScores[cat] === null) continue; // skip categories with no data
     const w = weights[cat] ?? 10;
-    weightedSum += categoryScores[cat] * w;
+    weightedSum += (categoryScores[cat] as number) * w;
     totalWeight += w;
   }
-  const base = totalWeight > 0 ? weightedSum / totalWeight : 100;
+  if (totalWeight === 0) return null; // all categories have no data
+  const base = weightedSum / totalWeight;
   return Math.max(0, Math.round(base - openCriticals * penalty));
 }
 
@@ -634,7 +635,7 @@ export async function runDailyComplianceJob(customerId: string): Promise<void> {
     .from(iso.sites)
     .where(ne(iso.sites.status, 'archived'));
 
-  const siteScores: number[] = [];
+  const siteScores: (number | null)[] = [];
 
   for (const site of sites) {
     // Evaluate all categories for this site
@@ -656,8 +657,8 @@ export async function runDailyComplianceJob(customerId: string): Promise<void> {
         eq(iso.complianceAlerts.status, 'open'),
       ));
 
-    // Category scores
-    const catScores: Record<string, number> = {};
+    // Category scores (null = no tracked items for this category)
+    const catScores: Record<string, number | null> = {};
     for (const cat of CATEGORIES) {
       const catItems = items.filter((i: any) => i.category === cat);
       catScores[cat] = calcCategoryScore(catItems);
@@ -678,9 +679,10 @@ export async function runDailyComplianceJob(customerId: string): Promise<void> {
   }
 
   // Estate-level snapshot (site_id NULL)
-  const estateScore = siteScores.length > 0
-    ? Math.round(siteScores.reduce((a, b) => a + b, 0) / siteScores.length)
-    : 100;
+  const nonNullSiteScores = siteScores.filter((s): s is number => s !== null);
+  const estateScore: number | null = nonNullSiteScores.length > 0
+    ? Math.round(nonNullSiteScores.reduce((a, b) => a + b, 0) / nonNullSiteScores.length)
+    : null;
 
   await custDb.execute(sql`
     DELETE FROM compliance_snapshots WHERE site_id IS NULL AND date = ${today}
@@ -779,7 +781,7 @@ export async function computeContractorPoolCategoryScores(
 export async function computeLiveScores(
   custDb: any,
   allowedSiteIds: string[] | 'all',
-): Promise<{ estateScore: number; siteScores: SiteScore[]; categoryScores: Record<string, number> }> {
+): Promise<{ estateScore: number | null; siteScores: SiteScore[]; categoryScores: Record<string, number | null> }> {
   const { weights, penalty } = await loadWeightsConfig(custDb);
 
   let sitesQuery = custDb.select({ id: iso.sites.id }).from(iso.sites).where(ne(iso.sites.status, 'archived'));
@@ -789,7 +791,7 @@ export async function computeLiveScores(
     );
   }
   const sites = await sitesQuery;
-  if (sites.length === 0) return { estateScore: 100, siteScores: [], categoryScores: {} };
+  if (sites.length === 0) return { estateScore: null, siteScores: [], categoryScores: {} };
 
   const allSiteIds = sites.map((s: any) => s.id);
 
@@ -815,63 +817,75 @@ export async function computeLiveScores(
   const poolCatScore = await computeContractorPoolCategoryScores(custDb);
   const hasPool = Object.keys(poolCatScore).length > 0;
 
-  const blendPool = (cat: string, rawScore: number): number => {
+  // Pool blending: if rawScore is null (no site-linked items) but the pool has
+  // a score, use the pool score alone.  Both defined → average them.
+  const blendPool = (cat: string, rawScore: number | null): number | null => {
     if (!hasPool) return rawScore;
     const poolScore = poolCatScore[cat as Category];
     if (poolScore === undefined) return rawScore;
+    if (rawScore === null) return poolScore;  // pool provides data when site has none
     return Math.round((rawScore + poolScore) / 2);
   };
 
   const siteResults: SiteScore[] = [];
   const estateCategory: Record<string, number[]> = {};
   let rawSiteScoreSum = 0;
+  let nonNullSiteCount = 0;
 
   for (const site of sites) {
     const siteItems = items.filter((i: any) => i.siteId === site.id);
     const siteCriticals = openAlerts.filter((a: any) => a.siteId === site.id && a.severity === 'critical').length;
-    const rawCatScores: Record<string, number> = {};
-    const catScores: Record<string, number> = {};
+    const rawCatScores: Record<string, number | null> = {};
+    const catScores: Record<string, number | null> = {};
     for (const cat of CATEGORIES) {
       const catItems = siteItems.filter((i: any) => i.category === cat);
-      const raw = calcCategoryScore(catItems);
+      const raw = calcCategoryScore(catItems); // null when no items
       rawCatScores[cat] = raw;
-      // Estate averages use RAW site-linked scores so the estate calc is unchanged.
+      // Estate averages use RAW site-linked scores.  Only push non-null values.
       if (!estateCategory[cat]) estateCategory[cat] = [];
-      estateCategory[cat].push(raw);
+      if (raw !== null) estateCategory[cat].push(raw);
       // The site's DISPLAYED category score blends in the shared pool.
       catScores[cat] = blendPool(cat, raw);
     }
-    // Keep a raw (pool-free) site score for the estate average, exactly as before.
-    rawSiteScoreSum += calcSiteScore(rawCatScores, weights, siteCriticals, penalty);
+    // Keep a raw (pool-free) site score for the estate average.
+    const rawSiteScore = calcSiteScore(rawCatScores, weights, siteCriticals, penalty);
+    if (rawSiteScore !== null) {
+      rawSiteScoreSum += rawSiteScore;
+      nonNullSiteCount++;
+    }
     const score = calcSiteScore(catScores, weights, siteCriticals, penalty);
     siteResults.push({ siteId: site.id, score, categoryScores: catScores, openCriticals: siteCriticals });
   }
 
-  const estateCategoryScores: Record<string, number> = {};
+  const estateCategoryScores: Record<string, number | null> = {};
   for (const cat of CATEGORIES) {
     const vals = estateCategory[cat] ?? [];
-    estateCategoryScores[cat] = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 100;
+    estateCategoryScores[cat] = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
   }
 
-  // Estate score = average of RAW per-site scores (unchanged from previous logic).
-  let estateScore = siteResults.length > 0
-    ? Math.round(rawSiteScoreSum / siteResults.length)
-    : 100;
+  // Estate score = average of RAW per-site scores (null when no data yet).
+  let estateScore: number | null = nonNullSiteCount > 0
+    ? Math.round(rawSiteScoreSum / nonNullSiteCount)
+    : null;
 
-  // ── Contractor pool health injection (estate-level, structurally unchanged) ──
-  // Blend the pool into the estate category scores and recompute the estate score
-  // from the blended categories. Only applies when pool data exists, so customers
-  // without contractor companies keep their previous estate score exactly.
+  // ── Contractor pool health injection (estate-level) ────────────────────────
+  // Blend the pool into the estate category scores and recompute the estate score.
+  // Handles null site category scores: pool provides the score when site has none.
   if (hasPool) {
     for (const cat of POOL_CATEGORIES) {
       if (poolCatScore[cat] === undefined) continue;
-      const siteCatScore = estateCategoryScores[cat] ?? 100;
-      estateCategoryScores[cat] = Math.round((siteCatScore + (poolCatScore[cat] as number)) / 2);
+      const siteCatScore = estateCategoryScores[cat];
+      if (siteCatScore === null) {
+        estateCategoryScores[cat] = poolCatScore[cat] as number;
+      } else {
+        estateCategoryScores[cat] = Math.round((siteCatScore + (poolCatScore[cat] as number)) / 2);
+      }
     }
     let totalWeight = 0; let weightedSum = 0;
     for (const cat of CATEGORIES) {
+      if (estateCategoryScores[cat] === null) continue;
       const w = weights[cat] ?? 10;
-      weightedSum += (estateCategoryScores[cat] ?? 100) * w;
+      weightedSum += (estateCategoryScores[cat] as number) * w;
       totalWeight += w;
     }
     estateScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : estateScore;

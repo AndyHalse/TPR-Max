@@ -179,7 +179,7 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
         expiringItems,
         siteScores: siteScores
           .map(s => ({ siteId: s.siteId, siteName: siteNames.get(s.siteId) ?? 'Unnamed site', score: s.score }))
-          .sort((a, b) => a.score - b.score),   // worst-first so problem sites surface without scrolling
+          .sort((a, b) => (a.score ?? -1) - (b.score ?? -1)),  // null (no data) sorts first
         generatedAt: new Date().toISOString(),
       };
 
@@ -495,7 +495,7 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
       return res.json({
         siteId,
         siteName: nameMap.get(siteId) ?? siteId,
-        score: siteScore?.score ?? 100,
+        score: siteScore?.score ?? null,
         categoryScores: siteScore?.categoryScores ?? {},
         openCriticals: alerts.filter((a: any) => a.severity === 'critical').length,
         openWarnings:  alerts.filter((a: any) => a.severity === 'warning').length,

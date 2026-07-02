@@ -42,8 +42,8 @@ interface SiteInfo {
 interface SiteCompliance {
   siteId: string;
   siteName: string;
-  score: number;
-  categoryScores: Record<string, number>;
+  score: number | null;
+  categoryScores: Record<string, number | null>;
   openCriticals: number;
   openWarnings: number;
   totalItems: number;
@@ -137,13 +137,15 @@ function daysUntil(iso: string | null | undefined): number | null {
   return Math.ceil(diff / 86_400_000);
 }
 
-function scoreColor(score: number): string {
+function scoreColor(score: number | null): string {
+  if (score === null) return "#94a3b8";
   if (score >= 80) return "#22c55e";
   if (score >= 50) return "#f59e0b";
   return "#ef4444";
 }
 
-function scoreStatus(score: number): { label: string; bg: string; text: string } {
+function scoreStatus(score: number | null): { label: string; bg: string; text: string } {
+  if (score === null) return { label: "No Data", bg: "#f1f5f9", text: "#64748b" };
   if (score >= 80) return { label: "Compliant", bg: "#dcfce7", text: "#166534" };
   if (score >= 50) return { label: "Warning",   bg: "#fef3c7", text: "#92400e" };
   return               { label: "Critical",     bg: "#fee2e2", text: "#991b1b" };
@@ -170,10 +172,11 @@ function itemStatusChip(status: string, expiresAt: string | null) {
 
 // ── Score Ring ────────────────────────────────────────────────────────────────
 
-function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
+function ScoreRing({ score, size = 80 }: { score: number | null; size?: number }) {
   const R = size / 2 - 7;
   const circ = 2 * Math.PI * R;
-  const dash = (Math.min(100, Math.max(0, score)) / 100) * circ;
+  const fill = score === null ? 0 : Math.min(100, Math.max(0, score));
+  const dash = (fill / 100) * circ;
   const color = scoreColor(score);
   return (
     <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
@@ -183,23 +186,28 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
         <circle cx={size / 2} cy={size / 2} r={R} fill="none" stroke={color} strokeWidth="6"
           strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round" />
       </svg>
-      <span className="absolute font-bold text-lg" style={{ color }}>{score}</span>
+      <span className="absolute font-bold text-lg" style={{ color }}>
+        {score === null ? "—" : score}
+      </span>
     </div>
   );
 }
 
 // ── Category Bar ──────────────────────────────────────────────────────────────
 
-function CategoryBar({ label, score }: { label: string; score: number }) {
+function CategoryBar({ label, score }: { label: string; score: number | null }) {
   const color = scoreColor(score);
+  const pct = score ?? 0;
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="text-slate-600 dark:text-slate-400">{label}</span>
-        <span className="font-semibold" style={{ color }}>{score}</span>
+        <span className="font-semibold" style={{ color }}>{score === null ? "—" : score}</span>
       </div>
       <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: color }} />
+        {score !== null && (
+          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+        )}
       </div>
     </div>
   );
@@ -277,8 +285,8 @@ export default function EnterpriseSiteDetail() {
   const sortedCategoryScores = useMemo(() => {
     if (!compliance?.categoryScores) return [];
     return Object.entries(compliance.categoryScores)
-      .map(([cat, score]) => ({ cat, label: CATEGORY_LABELS[cat] ?? cat, score: score as number }))
-      .sort((a, b) => a.score - b.score);
+      .map(([cat, score]) => ({ cat, label: CATEGORY_LABELS[cat] ?? cat, score: score as number | null }))
+      .sort((a, b) => (a.score ?? -1) - (b.score ?? -1));
   }, [compliance]);
 
   const status = compliance ? scoreStatus(compliance.score) : null;
@@ -316,7 +324,7 @@ export default function EnterpriseSiteDetail() {
   }
 
   const siteName = site?.name ?? compliance?.siteName ?? "Site";
-  const score = compliance?.score ?? 100;
+  const score = compliance?.score ?? null;
 
   return (
     <TooltipProvider>

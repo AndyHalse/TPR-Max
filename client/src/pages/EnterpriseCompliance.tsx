@@ -71,22 +71,22 @@ const SOURCE_TABLE_LABELS: Record<string, string> = {
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface SummaryData {
-  estateScore: number;
-  categoryScores: Record<string, number>;
+  estateScore: number | null;
+  categoryScores: Record<string, number | null>;
   siteCount: number;
   openCriticals: number;
   openWarnings: number;
   totalItems: number;
   expiringItems: number;
-  siteScores: { siteId: string; siteName: string; score: number }[];
+  siteScores: { siteId: string; siteName: string; score: number | null }[];
   generatedAt: string;
 }
 
 interface SiteRow {
   siteId: string;
   siteName: string;
-  score: number;
-  categoryScores: Record<string, number>;
+  score: number | null;
+  categoryScores: Record<string, number | null>;
   openCriticals: number;
   openWarnings: number;
 }
@@ -221,14 +221,16 @@ function daysUntil(iso: string | null | undefined): number | null {
 
 // ── Estate Map ───────────────────────────────────────────────────────────────────
 
-function mapPinColor(score: number): string {
+function mapPinColor(score: number | null | undefined): string {
+  if (score == null) return "#94a3b8";
   if (score >= 90) return "#16a34a";
   if (score >= 70) return "#d97706";
   if (score >= 50) return "#ea580c";
   return "#dc2626";
 }
 
-function scoreBand(score: number): "good" | "amber" | "warning" | "critical" {
+function scoreBand(score: number | null | undefined): "good" | "amber" | "warning" | "critical" {
+  if (score == null) return "critical";
   if (score >= 90) return "good";
   if (score >= 70) return "amber";
   if (score >= 50) return "warning";
@@ -289,7 +291,7 @@ function MapCore({
   height,
   mapKey,
 }: {
-  sitePins: Array<{ siteId: string; siteLabelName: string; lat: number; lng: number; score: number }>;
+  sitePins: Array<{ siteId: string; siteLabelName: string; lat: number; lng: number; score: number | null }>;
   noData: boolean;
   onPinClick: (siteId: string) => void;
   height: number | string;
@@ -320,7 +322,7 @@ function MapCore({
           >
             <LeafletTooltip>
               <span style={{ fontWeight: 600 }}>{pin.siteLabelName}</span>
-              {!noData && <span style={{ marginLeft: 6, color: mapPinColor(pin.score) }}>{pin.score}%</span>}
+              {!noData && pin.score != null && <span style={{ marginLeft: 6, color: mapPinColor(pin.score) }}>{pin.score}%</span>}
             </LeafletTooltip>
           </CircleMarker>
         ))}
@@ -533,7 +535,7 @@ function SiteScoresPanel({
   noData,
   onSiteClick,
 }: {
-  siteScores: { siteId: string; siteName: string; score: number }[];
+  siteScores: { siteId: string; siteName: string; score: number | null }[];
   noData: boolean;
   onSiteClick: (siteId: string) => void;
 }) {
@@ -550,8 +552,8 @@ function SiteScoresPanel({
     if (filter !== "all") {
       list = list.filter(s => scoreBand(s.score) === filter);
     }
-    if (sort === "score-asc") list.sort((a, b) => a.score - b.score);
-    else if (sort === "score-desc") list.sort((a, b) => b.score - a.score);
+    if (sort === "score-asc") list.sort((a, b) => (a.score ?? -1) - (b.score ?? -1));
+    else if (sort === "score-desc") list.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
     else list.sort((a, b) => a.siteName.localeCompare(b.siteName));
     return list;
   }, [siteScores, search, filter, sort]);
@@ -630,13 +632,14 @@ function SiteScoresPanel({
           <div className="text-center py-8 text-xs text-slate-400">No sites match your search</div>
         ) : (
           filtered.map((ss) => {
-            const band = scoreBand(ss.score);
+            const band = ss.score != null ? scoreBand(ss.score) : null;
             const barColor = mapPinColor(ss.score);
-            const pct = ss.score;
+            const pct = ss.score ?? 0;
             const textColor = band === "good" ? "text-green-600 dark:text-green-400" :
                               band === "amber" ? "text-amber-600 dark:text-amber-400" :
                               band === "warning" ? "text-orange-600 dark:text-orange-400" :
-                              "text-red-600 dark:text-red-400";
+                              band === "critical" ? "text-red-600 dark:text-red-400" :
+                              "text-slate-400 dark:text-slate-500";
             return (
               <button
                 key={ss.siteId}
@@ -648,7 +651,9 @@ function SiteScoresPanel({
                   <div className="w-full rounded-full transition-all" style={{ height: `${pct}%`, background: barColor, marginTop: `${100 - pct}%` }} />
                 </div>
                 <span className="flex-1 text-xs font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-slate-900 dark:group-hover:text-white">{ss.siteName}</span>
-                <span className={`text-sm font-bold tabular-nums shrink-0 ${textColor}`}>{ss.score}%</span>
+                <span className={`text-sm font-bold tabular-nums shrink-0 ${textColor}`}>
+                  {ss.score != null ? `${ss.score}%` : "—"}
+                </span>
                 <ExternalLink size={11} className="shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition-colors" />
               </button>
             );
@@ -981,7 +986,7 @@ export default function EnterpriseCompliance() {
 
   // ── Derived values ───────────────────────────────────────────────────────────
 
-  const noData = !summaryLoading && (summary?.siteCount === 0);
+  const noData = !summaryLoading && summary != null && (summary.siteCount === 0 || summary.estateScore == null);
 
   const estateScore = summary?.estateScore ?? 0;
 
@@ -992,7 +997,7 @@ export default function EnterpriseCompliance() {
   }, [trend]);
 
   const sitesFullyCompliant = useMemo(
-    () => (summary?.siteScores ?? []).filter((s) => s.score >= 95).length,
+    () => (summary?.siteScores ?? []).filter((s) => (s.score ?? 0) >= 95).length,
     [summary],
   );
 
@@ -1615,7 +1620,7 @@ export default function EnterpriseCompliance() {
                           })}
                           <td className="py-2.5 px-2 text-center">
                             <div className="flex items-center justify-center gap-1">
-                              {site.score >= 80 ? (
+                              {(site.score ?? 0) >= 80 ? (
                                 <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
                               ) : (
                                 <>
