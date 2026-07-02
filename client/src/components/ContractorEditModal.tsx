@@ -93,7 +93,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange, i
     firstName: worker?.firstName || '',
     lastName: worker?.lastName || '',
     email: worker?.email || '',
-    phone: worker?.phoneNumber || '',
+    phone: (worker as any)?.phoneNumber || worker?.phone || '',
     postcode: worker?.postcode || '',
     transportMethod: worker?.transportMethod || '',
     rightToWork: worker?.rightToWork || 'pending',
@@ -124,11 +124,11 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange, i
 
     const inductionVal = target.inductionCompleted === true || (target as any).siteInductionCompleted === true;
     console.info('🔍 FORM INIT - inductionCompleted:', inductionVal, 'source:', freshWorker ? 'fresh API' : 'prop');
-    setFormData({
+    setFormData(prev => ({
       firstName: target.firstName || '',
       lastName: target.lastName || '',
       email: target.email || '',
-      phone: (target as any).phoneNumber || (target as any).phone || '',
+      phone: (target as any).phoneNumber || (target as any).phone || prev.phone || '',
       postcode: target.postcode || '',
       transportMethod: target.transportMethod || '',
       rightToWork: target.rightToWork || 'pending',
@@ -139,7 +139,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange, i
       manualHandling: target.manualHandling || false,
       inductionCompleted: inductionVal,
       companyId: target.companyId || '',
-    });
+    }));
   }, [open, freshWorker, activeWorker]);
 
   // Fetch contractor visit history
