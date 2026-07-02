@@ -1146,8 +1146,11 @@ function SiteFormDialog({
   const [region, setRegion]       = useState(site?.region ?? "");
   const [areaId, setAreaId]       = useState(site?.areaId ?? "none");
   const [status, setStatus]       = useState<string>(site?.status ?? "active");
-  // On-site contact
-  const [siteContactName, setSiteContactName]   = useState((site as any)?.siteContactName ?? "");
+  // On-site contact — split into first / last name (stored as combined siteContactName on the site record)
+  const _existingContactName = (site as any)?.siteContactName ?? "";
+  const _contactNameParts    = _existingContactName.trim().split(/\s+/);
+  const [siteContactFirstName, setSiteContactFirstName] = useState(_contactNameParts[0] ?? "");
+  const [siteContactLastName,  setSiteContactLastName]  = useState(_contactNameParts.slice(1).join(" ") ?? "");
   const [siteContactRole, setSiteContactRole]   = useState((site as any)?.siteContactRole ?? "");
   const [siteContactPhone, setSiteContactPhone] = useState((site as any)?.siteContactPhone ?? "");
   const [siteContactEmail, setSiteContactEmail] = useState((site as any)?.siteContactEmail ?? "");
@@ -1179,7 +1182,7 @@ function SiteFormDialog({
     emailRegex.test(adminEmail.trim()) &&
     adminPassword.length >= 8;
 
-  const canSubmit = !!name.trim() && (isEdit || adminValid);
+  const canSubmit = !!name.trim() && !!address.trim() && !!city.trim() && !!postcode.trim() && (isEdit || adminValid);
 
   function resetAdmin() {
     setAdminFirstName(""); setAdminLastName(""); setAdminUsername("");
@@ -1260,7 +1263,8 @@ function SiteFormDialog({
       region:           region.trim()           || null,
       areaId:           areaId === "none" ? null : areaId,
       status,
-      siteContactName:  siteContactName.trim()  || null,
+      siteContactFirstName: siteContactFirstName.trim() || null,
+      siteContactLastName:  siteContactLastName.trim()  || null,
       siteContactRole:  siteContactRole.trim()  || null,
       siteContactPhone: siteContactPhone.trim() || null,
       siteContactEmail: siteContactEmail.trim() || null,
@@ -1304,8 +1308,8 @@ function SiteFormDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="site-address">Address line 1</Label>
-            <Input id="site-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street address" />
+            <Label htmlFor="site-address">Address line 1 *</Label>
+            <Input id="site-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street address" required />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="site-address2">Address line 2</Label>
@@ -1313,8 +1317,8 @@ function SiteFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="site-city">Town / City</Label>
-              <Input id="site-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="London" />
+              <Label htmlFor="site-city">Town / City *</Label>
+              <Input id="site-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="London" required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="site-county">County</Label>
@@ -1323,9 +1327,9 @@ function SiteFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="site-postcode">Postcode</Label>
-              <Input id="site-postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="SW1A 1AA" />
-              <p className="text-xs text-muted-foreground">The postcode places this site on the Estate Map — please fill it in.</p>
+              <Label htmlFor="site-postcode">Postcode *</Label>
+              <Input id="site-postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="SW1A 1AA" required />
+              <p className="text-xs text-muted-foreground">The postcode places this site on the Estate Map.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="site-region">Region</Label>
@@ -1349,16 +1353,23 @@ function SiteFormDialog({
 
           {/* ── On-site Contact ─────────────────────────── */}
           <div className="border-t border-border/60 pt-4 space-y-3">
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">On-site Contact</p>
+            <div className="flex items-baseline gap-2">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">On-site Contact</p>
+              <span className="text-xs text-muted-foreground">If an email is provided, a staff record is created automatically.</span>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="contact-name">Contact name</Label>
-                <Input id="contact-name" value={siteContactName} onChange={(e) => setSiteContactName(e.target.value)} placeholder="Jane Smith" />
+                <Label htmlFor="contact-first-name">First Name</Label>
+                <Input id="contact-first-name" value={siteContactFirstName} onChange={(e) => setSiteContactFirstName(e.target.value)} placeholder="Jane" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="contact-role">Role</Label>
-                <Input id="contact-role" value={siteContactRole} onChange={(e) => setSiteContactRole(e.target.value)} placeholder="Facilities Manager" />
+                <Label htmlFor="contact-last-name">Last Name</Label>
+                <Input id="contact-last-name" value={siteContactLastName} onChange={(e) => setSiteContactLastName(e.target.value)} placeholder="Smith" />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-role">Role</Label>
+              <Input id="contact-role" value={siteContactRole} onChange={(e) => setSiteContactRole(e.target.value)} placeholder="Facilities Manager" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

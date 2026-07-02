@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { geocodePostcode, geocodePostcodesBulk } from '../geocodeService';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -171,6 +171,8 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     region: z.string().max(100).optional().nullable(),
     areaId: z.string().optional().nullable(),
     status: z.enum(['active', 'onboarding', 'archived']).default('active'),
+    siteContactFirstName: z.string().max(100).optional().nullable(),
+    siteContactLastName: z.string().max(100).optional().nullable(),
     siteContactName: z.string().max(200).optional().nullable(),
     siteContactRole: z.string().max(200).optional().nullable(),
     siteContactPhone: z.string().max(50).optional().nullable(),
@@ -226,7 +228,9 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
           isDefault: false,
           latitude,
           longitude,
-          siteContactName: body.data.siteContactName ?? null,
+          siteContactName: (body.data.siteContactFirstName?.trim() && body.data.siteContactLastName?.trim())
+            ? `${body.data.siteContactFirstName.trim()} ${body.data.siteContactLastName.trim()}`
+            : (body.data.siteContactName ?? null),
           siteContactRole: body.data.siteContactRole ?? null,
           siteContactPhone: body.data.siteContactPhone ?? null,
           siteContactEmail: body.data.siteContactEmail ?? null,
@@ -240,6 +244,39 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
           mapLink: body.data.mapLink ?? null,
         })
         .returning();
+
+      // Auto-create a staff member for the on-site contact (if first+last+email are provided)
+      if (body.data.siteContactFirstName?.trim() && body.data.siteContactLastName?.trim() && body.data.siteContactEmail?.trim()) {
+        try {
+          const contactQrCode = `STF-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
+          const contactEmployeeId = `SC-${Date.now()}`;
+          await custDb.insert(isolatedSchema.staff).values({
+            firstName: body.data.siteContactFirstName.trim(),
+            lastName: body.data.siteContactLastName.trim(),
+            email: body.data.siteContactEmail.trim(),
+            department: body.data.siteContactRole?.trim() || 'On-site Contact',
+            jobTitle: body.data.siteContactRole?.trim() || null,
+            employeeId: contactEmployeeId,
+            siteId: created.id,
+            accessLevel: 'staff',
+            phoneNumber: body.data.siteContactPhone?.trim() || null,
+            isCheckedIn: false,
+            isAccountedFor: false,
+            isFireMarshal: false,
+            needsEvacuationAssistance: false,
+            inductionCompleted: false,
+            isActive: true,
+            qrCode: contactQrCode,
+          });
+          logger.info(`[enterprise/sites] Auto-created on-site contact staff member for site ${created.id}`);
+        } catch (staffErr: any) {
+          if (staffErr?.code === '23505') {
+            logger.warn(`[enterprise/sites] On-site contact staff already exists (email conflict) — skipping auto-create`);
+          } else {
+            logger.warn(`[enterprise/sites] Failed to auto-create on-site contact staff (non-fatal):`, staffErr);
+          }
+        }
+      }
 
       // Register a global site login name so users can log in by typing the site name.
       let finalSite: typeof created = created;
@@ -341,6 +378,8 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     region: z.string().max(100).optional().nullable(),
     areaId: z.string().optional().nullable(),
     status: z.enum(['active', 'onboarding', 'archived']).optional(),
+    siteContactFirstName: z.string().max(100).optional().nullable(),
+    siteContactLastName: z.string().max(100).optional().nullable(),
     siteContactName: z.string().max(200).optional().nullable(),
     siteContactRole: z.string().max(200).optional().nullable(),
     siteContactPhone: z.string().max(50).optional().nullable(),
@@ -376,6 +415,12 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
       }
 
       const updateValues: Record<string, any> = { ...body.data };
+      // Compute combined siteContactName from first+last if provided
+      if (body.data.siteContactFirstName?.trim() && body.data.siteContactLastName?.trim()) {
+        updateValues.siteContactName = `${body.data.siteContactFirstName.trim()} ${body.data.siteContactLastName.trim()}`;
+      }
+      delete updateValues.siteContactFirstName;
+      delete updateValues.siteContactLastName;
       if (body.data.status === 'archived') {
         updateValues.archivedAt = new Date();
       } else if (body.data.status && body.data.status !== 'archived') {
