@@ -81,16 +81,7 @@ async function getOpsEmail(): Promise<string | null> {
     _cachedOpsEmail = envEmail;
     return envEmail;
   }
-  try {
-    const { db } = await import('./db');
-    const { platformBrandingSettings } = await import('@shared/schema');
-    const { desc } = await import('drizzle-orm');
-    const [settings] = await db.select({ companyName: platformBrandingSettings.companyName }).from(platformBrandingSettings).limit(1).orderBy(desc(platformBrandingSettings.updatedAt));
-    const fromUser = process.env.SMTP_USER;
-    _cachedOpsEmail = fromUser || null;
-  } catch {
-    _cachedOpsEmail = process.env.SMTP_USER || null;
-  }
+  _cachedOpsEmail = process.env.SMTP_USER || null;
   return _cachedOpsEmail || null;
 }
 

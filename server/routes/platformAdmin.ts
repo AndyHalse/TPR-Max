@@ -2029,7 +2029,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
       } else {
         await db
           .update(sharedSchema.platformBrandingSettings)
-          .set({ lastManualRestoreAt: new Date(), lastManualRestoreBy: by });
+          .set({ lastManualRestoreAt: new Date(), lastManualRestoreBy: by })
+          .where(eq(sharedSchema.platformBrandingSettings.id, existing.id));
       }
       res.json({ success: true, recordedAt: new Date().toISOString(), recordedBy: by });
     } catch (error) {

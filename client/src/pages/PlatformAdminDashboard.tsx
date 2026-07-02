@@ -229,42 +229,25 @@ function HealthCard({ ok, label, icon }: { ok: boolean | null; label: string; ic
 function SystemHealthTab() {
   const { toast } = useToast();
 
+  // Note: no custom queryFn here — the default query fetcher (getQueryFn in
+  // queryClient.ts) automatically attaches the x-pa-token header for
+  // /platform-admin/* routes, which a bare fetch() would miss.
   const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<DeepHealthData>({
     queryKey: ['/platform-admin/ops/health'],
-    queryFn: async () => {
-      const res = await fetch('/platform-admin/ops/health', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch health data');
-      return res.json();
-    },
     refetchInterval: 30_000,
   });
 
   const { data: spikeData } = useQuery<ErrorSpikeState>({
     queryKey: ['/platform-admin/ops/error-spike'],
-    queryFn: async () => {
-      const res = await fetch('/platform-admin/ops/error-spike', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch error spike state');
-      return res.json();
-    },
     refetchInterval: 15_000,
   });
 
   const { data: backupData, isLoading: backupLoading, refetch: refetchBackups } = useQuery<{ checks: BackupCheck[] }>({
     queryKey: ['/platform-admin/ops/backup-checks'],
-    queryFn: async () => {
-      const res = await fetch('/platform-admin/ops/backup-checks', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch backup checks');
-      return res.json();
-    },
   });
 
   const { data: restoreData, refetch: refetchRestore } = useQuery<ManualRestoreRecord>({
     queryKey: ['/platform-admin/ops/manual-restore'],
-    queryFn: async () => {
-      const res = await fetch('/platform-admin/ops/manual-restore', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed');
-      return res.json();
-    },
   });
 
   const runBackupMutation = useMutation({

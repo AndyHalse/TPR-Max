@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { takePendingPassword } from "@/lib/signupStore";
+import { peekPendingPassword, clearPendingPassword, hasPendingPassword } from "@/lib/signupStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -84,6 +84,18 @@ export default function SignupPayment() {
     if (storedData) {
       try {
         const data = JSON.parse(storedData);
+        // The password never lives in sessionStorage — it's held in memory only
+        // (signupStore.ts). If it's gone (e.g. the page was refreshed, or the
+        // browser was closed and reopened), the in-memory value is lost too, so
+        // send the user back to re-enter it rather than submitting undefined.
+        if (!hasPendingPassword()) {
+          toast({
+            title: "Please re-enter your password",
+            description: "For security, your password isn't kept across page reloads. Just enter it again to continue.",
+          });
+          setLocation("/signup");
+          return;
+        }
         setPendingSignup(data);
       } catch (error) {
         console.error('Error parsing stored signup data:', error);
@@ -111,8 +123,9 @@ export default function SignupPayment() {
     mutationFn: async (signupData: PendingSignup) => {
       setIsProcessing(true);
       
-      // Re-join the password from the in-memory store (never persisted to sessionStorage)
-      const password = takePendingPassword() ?? signupData.adminPassword;
+      // Re-join the password from the in-memory store (never persisted to sessionStorage).
+      // Use peek (not take) so a failed/retried request can still resend the password.
+      const password = peekPendingPassword() ?? signupData.adminPassword;
       // Create secure signup session on the server
       const response = await apiRequest("POST", "/api/onboarding/create-signup-session", {
         ...signupData,
@@ -129,6 +142,8 @@ export default function SignupPayment() {
       return data;
     },
     onSuccess: (data) => {
+      // The signup session now holds the password server-side — safe to drop our copy.
+      clearPendingPassword();
       // Store session ID for payment flow
       sessionStorage.setItem('signupSessionId', data.sessionId);
       

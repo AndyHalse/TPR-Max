@@ -7,7 +7,10 @@ import { registerCronJob } from '../opsMonitoring';
 import { logger } from '../utils/logger';
 import nodemailer from 'nodemailer';
 
-const CORE_TABLES = ['users', 'visitors', 'contractors', 'staff'];
+// 'contractors' is not a real table — contractor data lives in
+// contractor_companies/contractor_workers/etc. Use contractor_companies as the
+// representative core table (verified against a live customer schema).
+const CORE_TABLES = ['users', 'visitors', 'contractor_companies', 'staff'];
 
 interface SchemaStats {
   schema: string;
@@ -20,7 +23,7 @@ async function getSchemaStats(schemaName: string): Promise<SchemaStats | null> {
     const result = await pool.query(`
       SELECT
         COUNT(*)::int AS table_count,
-        COALESCE(SUM(c.reltuples::bigint), 0)::int AS estimated_rows
+        COALESCE(SUM(GREATEST(c.reltuples, 0)::bigint), 0) AS estimated_rows
       FROM information_schema.tables t
       JOIN pg_class c ON c.relname = t.table_name
       JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = t.table_schema
@@ -32,6 +35,8 @@ async function getSchemaStats(schemaName: string): Promise<SchemaStats | null> {
     return {
       schema: schemaName,
       tableCount: Number(row?.table_count ?? 0),
+      // estimated_rows comes back as a bigint (string) from pg — Number() is
+      // safe here since row-count estimates never approach MAX_SAFE_INTEGER.
       estimatedRows: Number(row?.estimated_rows ?? 0),
     };
   } catch (err: any) {
@@ -135,7 +140,10 @@ export async function runBackupVerification(): Promise<void> {
     totalTables += stats.tableCount;
     totalRows += stats.estimatedRows;
 
-    const isCustomerSchema = schema.startsWith('cust_') || schema.startsWith('customer_');
+    // Customer (tenant) schemas are named c_<8-char-uuid-prefix> — see
+    // customerDatabase.ts generateSchemaName(). 'cust_'/'customer_' never matched
+    // any real schema, so this check silently never ran for any tenant.
+    const isCustomerSchema = /^c_[0-9a-f]{8}$/.test(schema);
     if (isCustomerSchema) {
       const missing = await checkCoreTables(schema);
       if (missing.length > 0) {

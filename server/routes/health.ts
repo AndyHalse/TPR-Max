@@ -4,14 +4,7 @@ import { pool } from '../db';
 import { objectStorageClient } from '../objectStorage';
 import { getUptimeSeconds, getCronCount } from '../opsMonitoring';
 import { logger } from '../utils/logger';
-
-const PACKAGE_VERSION = (() => {
-  try {
-    return require('../../package.json').version as string;
-  } catch {
-    return 'unknown';
-  }
-})();
+import { APP_VERSION } from '@shared/version';
 
 const healthRateLimit = rateLimit({
   windowMs: 60_000,
@@ -70,7 +63,7 @@ export function registerPublicHealthRoute(app: Express): void {
       status,
       db: dbOk,
       uptimeSeconds: getUptimeSeconds(),
-      version: PACKAGE_VERSION,
+      version: APP_VERSION,
       timestamp: new Date().toISOString(),
     };
     res.status(dbOk ? 200 : 503).json(body);
@@ -90,7 +83,7 @@ export async function buildDeepHealthPayload() {
     storage: storageOk,
     cronCount,
     uptimeSeconds: getUptimeSeconds(),
-    version: PACKAGE_VERSION,
+    version: APP_VERSION,
     timestamp: new Date().toISOString(),
   };
 }

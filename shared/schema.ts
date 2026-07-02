@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, numeric, index, uniqueIndex, check, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, bigint, uuid, doublePrecision, numeric, index, uniqueIndex, check, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -2843,12 +2843,15 @@ export const pageViews = pgTable("page_views", {
 export type PageView = typeof pageViews.$inferSelect;
 
 // ── Ops Backup Checks ─ daily automated backup-verification job results ───────
+// NOTE: this table was created directly via raw SQL (drizzle-kit push got stuck
+// on an unrelated interactive rename prompt); the column types below intentionally
+// match the live DB (uuid / timestamptz / bigint), not the original draft.
 export const opsBackupChecks = pgTable("ops_backup_checks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  ranAt: timestamp("ran_at").notNull().defaultNow(),
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  ranAt: timestamp("ran_at", { withTimezone: true }).notNull().defaultNow(),
   status: text("status").notNull().$type<"pass" | "fail">(),
   tablesChecked: integer("tables_checked").notNull().default(0),
-  totalRows: integer("total_rows").notNull().default(0),
+  totalRows: bigint("total_rows", { mode: "number" }).notNull().default(0),
   durationMs: integer("duration_ms").notNull().default(0),
   notes: text("notes"),
 }, (t) => ({
