@@ -223,18 +223,27 @@ function RoleScopePickers({
       {role === "area_manager" && (
         <div className="space-y-1.5">
           <Label>Area</Label>
-          <Select value={areaId} onValueChange={setAreaId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select an area…" />
-            </SelectTrigger>
-            <SelectContent>
-              {areas.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {areas.length === 0 ? (
+            <div className="flex items-start gap-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5">
+              <AlertTriangle size={13} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                No areas have been created yet. Use <strong>Manage Areas</strong> to set up areas before assigning this role.
+              </p>
+            </div>
+          ) : (
+            <Select value={areaId} onValueChange={setAreaId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an area…" />
+              </SelectTrigger>
+              <SelectContent>
+                {areas.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       )}
 
@@ -860,6 +869,14 @@ export default function EnterpriseAccess() {
   const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", username: "" });
   const [newPassword, setNewPassword] = useState("");
   const [showPwSection, setShowPwSection] = useState(false);
+  const [showAddGrantInEdit, setShowAddGrantInEdit] = useState(false);
+  const [editGrantRole, setEditGrantRole] = useState<EnterpriseRole | "">("");
+  const [editGrantAreaId, setEditGrantAreaId] = useState("");
+  const [editGrantSiteId, setEditGrantSiteId] = useState("");
+
+  // Area management dialog
+  const [manageAreasOpen, setManageAreasOpen] = useState(false);
+  const [newAreaName, setNewAreaName] = useState("");
 
   function openEdit(ug: UserGrantGroup) {
     setEditTarget(ug);
@@ -871,6 +888,10 @@ export default function EnterpriseAccess() {
     });
     setNewPassword("");
     setShowPwSection(false);
+    setShowAddGrantInEdit(false);
+    setEditGrantRole("");
+    setEditGrantAreaId("");
+    setEditGrantSiteId("");
   }
 
   const editUserMutation = useMutation({
@@ -911,9 +932,68 @@ export default function EnterpriseAccess() {
     onError: (err: Error) => toast({ title: "Failed to reset password", description: err.message, variant: "destructive" }),
   });
 
+  const createAreaMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/enterprise/areas", { name });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create area");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/areas"] });
+      toast({ title: "Area created", description: "The area is now available for role assignments." });
+      setNewAreaName("");
+    },
+    onError: (err: Error) => toast({ title: "Failed to create area", description: err.message, variant: "destructive" }),
+  });
+
+  const addGrantForEditMutation = useMutation({
+    mutationFn: async ({ userId, role, areaId, siteId }: { userId: string; role: string; areaId?: string; siteId?: string }) => {
+      const body: Record<string, any> = { userId, role };
+      if (areaId) body.areaId = areaId;
+      if (siteId) body.siteId = siteId;
+      const res = await apiRequest("POST", "/api/enterprise/role-grants", body);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to add role");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/enterprise/role-grants"] });
+      toast({ title: "Role added", description: "The role grant has been created." });
+      setShowAddGrantInEdit(false);
+      setEditGrantRole("");
+      setEditGrantAreaId("");
+      setEditGrantSiteId("");
+    },
+    onError: (err: Error) => toast({ title: "Failed to add role", description: err.message, variant: "destructive" }),
+  });
+
   const isAdmin = myGrants?.roles.includes("enterprise_admin") ?? false;
   const isAreaManager = myGrants?.roles.includes("area_manager") ?? false;
   const canManage = isAdmin || isAreaManager;
+
+  const availableRoles: EnterpriseRole[] = isAdmin
+    ? ["enterprise_admin", "area_manager", "site_coordinator"]
+    : ["site_coordinator"];
+
+  const allowedSites = useMemo(() => {
+    if (!myGrants) return [];
+    if (myGrants.allowedSiteIds === "all") return sites.filter((s) => s.status !== "archived");
+    return sites.filter(
+      (s) => s.status !== "archived" && (myGrants.allowedSiteIds as string[]).includes(s.id),
+    );
+  }, [myGrants, sites]);
+
+  const canAddGrantInEdit =
+    !!editGrantRole && (
+      editGrantRole === "enterprise_admin" ||
+      (editGrantRole === "area_manager" && !!editGrantAreaId) ||
+      (editGrantRole === "site_coordinator" && !!editGrantSiteId)
+    );
 
   const adminGrantCount = grants.filter((g) => g.role === "enterprise_admin").length;
 
@@ -1003,15 +1083,28 @@ export default function EnterpriseAccess() {
               )}
             </p>
           </div>
-          {canManage && (
-            <Button
-              onClick={() => setAddOpen(true)}
-              className="flex items-center gap-2 flex-shrink-0"
-            >
-              <UserPlus size={15} />
-              Add User
-            </Button>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isAdmin && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" onClick={() => setManageAreasOpen(true)} className="flex items-center gap-2">
+                    <MapPin size={15} />
+                    Manage Areas
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Create and manage geographic areas for Area Manager role assignments</TooltipContent>
+              </Tooltip>
+            )}
+            {canManage && (
+              <Button
+                onClick={() => setAddOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <UserPlus size={15} />
+                Add User
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Summary cards */}
@@ -1145,8 +1238,16 @@ export default function EnterpriseAccess() {
         )}
 
         {/* Edit User Dialog */}
-        <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-          <DialogContent className="max-w-md">
+        <Dialog open={!!editTarget} onOpenChange={(o) => {
+          if (!o) {
+            setEditTarget(null);
+            setShowAddGrantInEdit(false);
+            setEditGrantRole("");
+            setEditGrantAreaId("");
+            setEditGrantSiteId("");
+          }
+        }}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Pencil size={16} className="text-blue-600" />
@@ -1172,6 +1273,92 @@ export default function EnterpriseAccess() {
                 <Label>Username</Label>
                 <Input value={editForm.username} onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))} placeholder="username" />
                 <p className="text-xs text-muted-foreground">Letters, numbers, underscores and hyphens only.</p>
+              </div>
+
+              {/* Roles & Access section */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <ShieldCheck size={13} className="text-muted-foreground" />
+                  Roles &amp; Access
+                </Label>
+                <div className="space-y-1.5">
+                  {editTarget?.grants.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">No roles assigned.</p>
+                  )}
+                  {editTarget?.grants.map((grant) => {
+                    const cfg = ROLE_CONFIG[grant.role];
+                    const RoleIcon = cfg.icon;
+                    const scope = grantScopeLabel(grant, areas, sites);
+                    const showScope = grant.role !== "enterprise_admin";
+                    const revocable = canRevokeGrant(grant);
+                    return (
+                      <div key={grant.id} className="flex items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5 border border-border/50">
+                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${cfg.className}`}>
+                          <RoleIcon size={10} />
+                          {cfg.label}
+                          {showScope && <span className="opacity-75">· {scope}</span>}
+                        </span>
+                        {revocable && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-30 p-0.5"
+                                disabled={grant.role === "enterprise_admin" && adminGrantCount <= 1}
+                                onClick={() => setRevokeTarget(grant)}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Revoke this role</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {isAdmin && (
+                  showAddGrantInEdit ? (
+                    <div className="rounded-md border border-border p-3 space-y-3 bg-muted/20">
+                      <RoleScopePickers
+                        role={editGrantRole}
+                        setRole={(r) => { setEditGrantRole(r as EnterpriseRole | ""); setEditGrantAreaId(""); setEditGrantSiteId(""); }}
+                        areaId={editGrantAreaId}
+                        setAreaId={setEditGrantAreaId}
+                        siteId={editGrantSiteId}
+                        setSiteId={setEditGrantSiteId}
+                        availableRoles={availableRoles}
+                        allowedSites={allowedSites}
+                        areas={areas}
+                        isAdmin={isAdmin}
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="h-7 text-xs flex-1"
+                          onClick={() => { setShowAddGrantInEdit(false); setEditGrantRole(""); setEditGrantAreaId(""); setEditGrantSiteId(""); }}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" className="h-7 text-xs flex-1"
+                          disabled={!canAddGrantInEdit || addGrantForEditMutation.isPending}
+                          onClick={() => {
+                            if (!editTarget || !editGrantRole) return;
+                            addGrantForEditMutation.mutate({
+                              userId: editTarget.userId,
+                              role: editGrantRole,
+                              areaId: editGrantAreaId || undefined,
+                              siteId: editGrantSiteId || undefined,
+                            });
+                          }}>
+                          {addGrantForEditMutation.isPending ? "Adding…" : "Add Role"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                      onClick={() => setShowAddGrantInEdit(true)}>
+                      <Plus size={11} /> Add Role
+                    </Button>
+                  )
+                )}
               </div>
 
               {/* Password reset section */}
@@ -1214,6 +1401,57 @@ export default function EnterpriseAccess() {
               >
                 {editUserMutation.isPending ? "Saving…" : "Save Changes"}
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Manage Areas Dialog */}
+        <Dialog open={manageAreasOpen} onOpenChange={(v) => { setManageAreasOpen(v); if (!v) setNewAreaName(""); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin size={16} className="text-blue-600" />
+                Manage Areas
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-1">
+              <p className="text-sm text-muted-foreground">
+                Areas group sites geographically. Assign an Area Manager to oversee all sites within an area.
+              </p>
+              {areas.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                  <MapPin size={28} className="text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">No areas yet. Create your first area below.</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {areas.map((a) => (
+                    <div key={a.id} className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
+                      <MapPin size={12} className="text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm font-medium flex-1">{a.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={newAreaName}
+                  onChange={(e) => setNewAreaName(e.target.value)}
+                  placeholder="New area name…"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newAreaName.trim()) createAreaMutation.mutate(newAreaName.trim());
+                  }}
+                />
+                <Button
+                  disabled={!newAreaName.trim() || createAreaMutation.isPending}
+                  onClick={() => createAreaMutation.mutate(newAreaName.trim())}
+                >
+                  {createAreaMutation.isPending ? "…" : "Add"}
+                </Button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setManageAreasOpen(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
