@@ -38,6 +38,59 @@ import { resolveEnterpriseGrants } from './enterpriseRoles';
 import { logger } from './utils/logger';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Contractor Pool Scope
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ContractorPoolScope {
+  /** 'shared' = estate-wide pool (default, unchanged behaviour).
+   *  'independent' = each site approves its own contractor firms. */
+  mode: 'shared' | 'independent';
+  /** The active site from session (null when none selected or non-enterprise). */
+  activeSiteId: string | null;
+}
+
+/**
+ * ONE RESOLVER FOR ALL CONTRACTOR-POOL LOGIC.
+ *
+ * Every contractor-company list read and every approval/reject/suspend write
+ * MUST call this before deciding how to scope the query.
+ *
+ * Non-enterprise → always { mode: 'shared', activeSiteId: null }.
+ * Enterprise shared → { mode: 'shared', activeSiteId: <session> }.
+ * Enterprise independent → { mode: 'independent', activeSiteId: <session> }.
+ *
+ * Cached on req.contractorPoolScope for the lifetime of the request.
+ */
+export async function resolveContractorPoolScope(req: Request): Promise<ContractorPoolScope> {
+  if ((req as any).contractorPoolScope) return (req as any).contractorPoolScope;
+
+  const customerId = req.customerId!;
+  let scope: ContractorPoolScope;
+
+  try {
+    const rows = await managementDb
+      .select({ isEnterprise: customers.isEnterprise, contractorPoolMode: customers.contractorPoolMode })
+      .from(customers)
+      .where(eq(customers.id, customerId))
+      .limit(1);
+
+    const row = rows[0];
+    const isEnterprise = row?.isEnterprise ?? false;
+    const mode: 'shared' | 'independent' =
+      isEnterprise && row?.contractorPoolMode === 'independent' ? 'independent' : 'shared';
+
+    const activeSiteId: string | null = (req.session as any)?.activeSiteId ?? null;
+    scope = { mode, activeSiteId };
+  } catch (err) {
+    logger.warn('[contractorPoolScope] Failed to resolve — defaulting to shared:', err);
+    scope = { mode: 'shared', activeSiteId: null };
+  }
+
+  (req as any).contractorPoolScope = scope;
+  return scope;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 

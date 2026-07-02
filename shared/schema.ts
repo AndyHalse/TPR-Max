@@ -55,6 +55,8 @@ export const customers = pgTable("customers", {
   enterpriseRole: text("enterprise_role"), // reserved — e.g. 'hq'; NULL for normal members
   // Enterprise site-management behaviour: 'central' (HQ manages all) | 'independent' (each site self-manages)
   siteManagementStyle: text("site_management_style").notNull().default("central"),
+  // Enterprise contractor pool mode: 'shared' (one estate-wide pool) | 'independent' (each site approves its own)
+  contractorPoolMode: text("contractor_pool_mode").notNull().default("shared"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

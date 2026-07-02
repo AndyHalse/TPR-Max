@@ -912,6 +912,31 @@ export const contractorCompanies = pgTable("contractor_companies", {
   isDemo: boolean("is_demo").notNull().default(false),
 });
 
+// ── Contractor Site Approvals — independent pool mode ─────────────────────────
+// In 'independent' contractor pool mode, each site approves its own contractor
+// firms independently.  One row per (company_id, site_id) pair.
+// In 'shared' mode this table is unused (global company.status is used instead).
+export const contractorSiteApprovals = pgTable("contractor_site_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull(),
+  siteId: varchar("site_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected | suspended
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertContractorSiteApprovalSchema = createInsertSchema(contractorSiteApprovals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ContractorSiteApproval = typeof contractorSiteApprovals.$inferSelect;
+export type InsertContractorSiteApproval = z.infer<typeof insertContractorSiteApprovalSchema>;
+
 // ── SSIP / Accreditation Catalogue ────────────────────────────────────────────
 export const companyAccreditationTypes = pgTable("company_accreditation_types", {
   key: text("key").primaryKey(),

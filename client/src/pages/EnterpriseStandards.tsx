@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Plus, Pencil, Trash2, RotateCcw, AlertTriangle, Building2, CheckCircle, Info } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, RotateCcw, AlertTriangle, Building2, CheckCircle, Info, Users } from "lucide-react";
 
 interface VisitReason {
   id: string;
@@ -551,6 +551,153 @@ function InductionStandardsTab() {
 }
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
+// ── Contractor Pool Mode tab ──────────────────────────────────────────────
+function ContractorPoolTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [confirmMode, setConfirmMode] = useState<'shared' | 'independent' | null>(null);
+
+  const { data: poolData, isLoading } = useQuery<{ mode: string }>({
+    queryKey: ['/api/enterprise/contractor-pool-mode'],
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+  const currentMode = (poolData?.mode ?? 'shared') as 'shared' | 'independent';
+
+  const updateMutation = useMutation({
+    mutationFn: async (mode: 'shared' | 'independent') => {
+      const res = await apiRequest('PUT', '/api/enterprise/contractor-pool-mode', { mode });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any)?.error ?? 'Failed to update contractor pool mode.');
+      }
+      return res.json();
+    },
+    onSuccess: (_data, mode) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/enterprise/contractor-pool-mode'] });
+      setConfirmMode(null);
+      toast({ title: 'Setting saved', description: `Contractor pool mode switched to ${mode === 'independent' ? 'Independent per site' : 'Shared across estate'}.` });
+    },
+    onError: (err: any) => {
+      setConfirmMode(null);
+      toast({ title: 'Error', description: err?.message ?? 'Failed to update contractor pool mode.', variant: 'destructive' });
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-300">
+        <Info size={15} className="mt-0.5 flex-shrink-0" />
+        <p>
+          Controls how contractor firms are approved across your estate. This is a global setting — all sites use the same mode.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users size={16} />
+            Contractor Pool Mode
+          </CardTitle>
+          <CardDescription className="text-sm">
+            Choose how contractor firms are approved and made visible across your sites.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <>
+              {/* Shared mode option */}
+              <div
+                role="button"
+                tabIndex={0}
+                className={`flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                  currentMode === 'shared'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/40'
+                }`}
+                onClick={() => currentMode !== 'shared' && setConfirmMode('shared')}
+                onKeyDown={e => e.key === 'Enter' && currentMode !== 'shared' && setConfirmMode('shared')}
+              >
+                <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center flex-shrink-0">
+                  {currentMode === 'shared' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Shared across estate</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    A contractor is vetted and approved once at head-office level. Every site sees the full approved pool automatically.
+                    Best for centrally managed estates.
+                  </p>
+                </div>
+                {currentMode === 'shared' && (
+                  <Badge variant="outline" className="ml-auto text-xs text-primary border-primary/40 flex-shrink-0">
+                    Active
+                  </Badge>
+                )}
+              </div>
+
+              {/* Independent mode option */}
+              <div
+                role="button"
+                tabIndex={0}
+                className={`flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                  currentMode === 'independent'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/40'
+                }`}
+                onClick={() => currentMode !== 'independent' && setConfirmMode('independent')}
+                onKeyDown={e => e.key === 'Enter' && currentMode !== 'independent' && setConfirmMode('independent')}
+              >
+                <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center flex-shrink-0">
+                  {currentMode === 'independent' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Independent per site</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Each site approves its own contractor firms independently. Compliance documents are still entered once
+                    (no re-keying), but approval is site-by-site. Best for sites that operate autonomously.
+                  </p>
+                </div>
+                {currentMode === 'independent' && (
+                  <Badge variant="outline" className="ml-auto text-xs text-primary border-primary/40 flex-shrink-0">
+                    Active
+                  </Badge>
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Confirmation dialog */}
+      <AlertDialog open={!!confirmMode} onOpenChange={open => { if (!open) setConfirmMode(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmMode === 'independent' ? 'Switch to Independent mode?' : 'Switch back to Shared mode?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmMode === 'independent'
+                ? 'Every currently-approved contractor will be seeded as approved at all active sites, so no site loses access immediately. From this point, new contractors added to the pool will start as "pending" and require per-site approval.'
+                : 'Switching back to Shared mode makes the estate-wide contractor list visible to all sites again. Per-site approval records are preserved but will no longer filter the list.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmMode && updateMutation.mutate(confirmMode)}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? 'Switching…' : `Switch to ${confirmMode === 'independent' ? 'Independent' : 'Shared'}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export default function EnterpriseStandards() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -570,6 +717,7 @@ export default function EnterpriseStandards() {
         <TabsList>
           <TabsTrigger value="visit-reasons">Visit Reasons</TabsTrigger>
           <TabsTrigger value="inductions">Inductions</TabsTrigger>
+          <TabsTrigger value="contractor-pool">Contractor Pool</TabsTrigger>
         </TabsList>
 
         <TabsContent value="visit-reasons" className="mt-4">
@@ -578,6 +726,10 @@ export default function EnterpriseStandards() {
 
         <TabsContent value="inductions" className="mt-4">
           <InductionStandardsTab />
+        </TabsContent>
+
+        <TabsContent value="contractor-pool" className="mt-4">
+          <ContractorPoolTab />
         </TabsContent>
       </Tabs>
     </div>

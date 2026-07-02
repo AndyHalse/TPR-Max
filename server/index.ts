@@ -166,6 +166,11 @@ async function runStartupMigrations(): Promise<void> {
                ADD COLUMN IF NOT EXISTS site_management_style TEXT NOT NULL DEFAULT 'central'`,
     },
     {
+      label: "customers contractor_pool_mode column",
+      stmt: `ALTER TABLE customers
+               ADD COLUMN IF NOT EXISTS contractor_pool_mode TEXT NOT NULL DEFAULT 'shared'`,
+    },
+    {
       label: "site_login_names table",
       stmt: `CREATE TABLE IF NOT EXISTS site_login_names (
                id          VARCHAR     PRIMARY KEY DEFAULT gen_random_uuid(),

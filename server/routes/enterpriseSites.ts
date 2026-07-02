@@ -1199,6 +1199,102 @@ export function registerEnterpriseSiteRoutes(app: Express): void {
     'help_desk_tickets',
   ] as const;
 
+  // ── Contractor pool mode — GET ────────────────────────────────────────────
+  app.get('/api/enterprise/contractor-pool-mode', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const grants = await resolveGrantsForReq(req);
+      if (!grants.allowedSiteIds) return res.status(403).json({ error: 'Enterprise access required.' });
+      const rows = await managementDb
+        .select({ contractorPoolMode: customers.contractorPoolMode, isEnterprise: customers.isEnterprise })
+        .from(customers)
+        .where(eq(customers.id, customerId))
+        .limit(1);
+      const row = rows[0];
+      if (!row?.isEnterprise) return res.status(403).json({ error: 'Enterprise feature only.' });
+      return res.json({ mode: row.contractorPoolMode ?? 'shared' });
+    } catch (err) {
+      logger.error('[enterprise] contractor-pool-mode GET error:', err);
+      return res.status(500).json({ error: 'Failed to fetch contractor pool mode.' });
+    }
+  });
+
+  // ── Contractor pool mode — PUT (enterprise_admin only) ────────────────────
+  app.put('/api/enterprise/contractor-pool-mode', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const { mode } = req.body as { mode?: string };
+      if (mode !== 'shared' && mode !== 'independent') {
+        return res.status(400).json({ error: 'mode must be "shared" or "independent".' });
+      }
+
+      // Read current mode to detect direction of change
+      const rows = await managementDb
+        .select({ contractorPoolMode: customers.contractorPoolMode, isEnterprise: customers.isEnterprise })
+        .from(customers)
+        .where(eq(customers.id, customerId))
+        .limit(1);
+      const current = rows[0];
+      if (!current?.isEnterprise) return res.status(403).json({ error: 'Enterprise feature only.' });
+      const previousMode = current.contractorPoolMode ?? 'shared';
+
+      // Persist the mode change
+      await managementDb
+        .update(customers)
+        .set({ contractorPoolMode: mode, updatedAt: sql`NOW()` })
+        .where(eq(customers.id, customerId));
+
+      // Backfill: shared → independent seeds approved rows for all sites × approved companies
+      // so no site is locked out on day one (Andy's continuity rule).
+      if (previousMode === 'shared' && mode === 'independent') {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customerId);
+          const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+          const schemaName = customerDbService.generateSchemaName(customerId);
+          if (pool) {
+            // Ensure the table exists first
+            await pool.query(`
+              CREATE TABLE IF NOT EXISTS "${schemaName}".contractor_site_approvals (
+                id          VARCHAR     PRIMARY KEY DEFAULT gen_random_uuid(),
+                company_id  VARCHAR     NOT NULL,
+                site_id     VARCHAR     NOT NULL,
+                status      TEXT        NOT NULL DEFAULT 'pending',
+                approved_by VARCHAR,
+                approved_at TIMESTAMP,
+                reason      TEXT,
+                created_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+                updated_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+              )
+            `);
+            await pool.query(`
+              CREATE UNIQUE INDEX IF NOT EXISTS contractor_site_approvals_company_site_idx
+                ON "${schemaName}".contractor_site_approvals (company_id, site_id)
+            `);
+            // Seed approved rows: every approved company × every active site
+            await pool.query(`
+              INSERT INTO "${schemaName}".contractor_site_approvals (company_id, site_id, status, approved_at)
+              SELECT cc.id, s.id, 'approved', NOW()
+              FROM "${schemaName}".contractor_companies cc
+              CROSS JOIN "${schemaName}".sites s
+              WHERE cc.is_active = TRUE AND cc.status = 'approved'
+                AND s.is_active = TRUE
+              ON CONFLICT (company_id, site_id) DO NOTHING
+            `);
+            logger.info(`[enterprise] contractor-pool-mode backfill complete for ${customerId}`);
+          }
+        } catch (backfillErr: any) {
+          // Non-fatal — log but do not fail the mode switch
+          logger.warn('[enterprise] contractor-pool-mode backfill error:', backfillErr?.message);
+        }
+      }
+
+      return res.json({ success: true, mode });
+    } catch (err) {
+      logger.error('[enterprise] contractor-pool-mode PUT error:', err);
+      return res.status(500).json({ error: 'Failed to update contractor pool mode.' });
+    }
+  });
+
   app.get('/api/enterprise/diagnostics/site-id-integrity', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
     try {
       const { customerId } = (req as any).customerContext;

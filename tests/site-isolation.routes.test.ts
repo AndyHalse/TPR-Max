@@ -54,6 +54,11 @@ import {
   deleteHelpdeskTicketRaw,
   seedLoneWorkerSession,
   cleanupLoneWorkerSession,
+  setContractorPoolMode,
+  ensureContractorSiteApprovalsTable,
+  seedTestContractorCompany,
+  cleanupTestContractorCompany,
+  seedContractorSiteApproval,
   type SeedResult,
 } from "./helpers/seedEnterprise";
 
@@ -2017,6 +2022,128 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
    * the .where() clause → Site B receives Site A's muster point in its list
    * → RED.  Restore → GREEN.
    */
+  // ── Contractor Pool Mode isolation tests ─────────────────────────────────
+  /*
+   * These tests verify that in INDEPENDENT pool mode a contractor firm linked
+   * only to Site B is invisible to Site A, and vice-versa.
+   *
+   * BITE-CHECK (deliberate break built-in):
+   * The final assertion on the shared-mode test expects the estate-wide
+   * company to be visible to BOTH sites.  If the GET handler forgets to
+   * return companies in shared mode the test will fail with
+   * "Shared mode: company must be visible to Site B" — RED.
+   */
+
+  it("contractor pool — independent mode: Site A cannot see Site B's contractors", async () => {
+    await ensureContractorSiteApprovalsTable();
+    const ts = Date.now();
+    const companyName = `POOL-TEST-INDEP-${ts}`;
+    const companyId = await seedTestContractorCompany(companyName);
+    try {
+      // Only link to Site B
+      await seedContractorSiteApproval(companyId, seed.siteBId, 'approved');
+      await setContractorPoolMode('independent');
+      // Invalidate the in-process cache so the resolver re-reads the DB
+      clearCustomerEnterpriseCache(seed.customerId);
+
+      const agentA = await agentForSite(seed.siteAId);
+      const agentB = await agentForSite(seed.siteBId);
+
+      // Site A must NOT see the company (only linked to Site B)
+      const listA = await agentA.get('/api/contractors');
+      expect(
+        [200, 403],
+        `Site A GET /api/contractors status (${listA.status}): ${JSON.stringify(listA.body).slice(0,200)}`
+      ).toContain(listA.status);
+      if (listA.status === 200) {
+        const items: { id?: string }[] = Array.isArray(listA.body) ? listA.body : [];
+        expect(
+          items.some(c => c.id === companyId),
+          `Site A must NOT see a company approved only for Site B (companyId=${companyId})`
+        ).toBe(false);
+      }
+
+      // Site B must see the company
+      const listB = await agentB.get('/api/contractors');
+      expect(
+        [200],
+        `Site B GET /api/contractors status (${listB.status})`
+      ).toContain(listB.status);
+      const itemsB: { id?: string }[] = Array.isArray(listB.body) ? listB.body : [];
+      expect(
+        itemsB.some(c => c.id === companyId),
+        `Site B must see its own approved company (companyId=${companyId})`
+      ).toBe(true);
+    } finally {
+      await cleanupTestContractorCompany(companyId);
+      await setContractorPoolMode('shared');
+      clearCustomerEnterpriseCache(seed.customerId);
+    }
+  }, 45_000);
+
+  it("contractor pool — shared mode: estate-wide list visible to all sites", async () => {
+    await ensureContractorSiteApprovalsTable();
+    const ts = Date.now();
+    const companyName = `POOL-TEST-SHARED-${ts}`;
+    const companyId = await seedTestContractorCompany(companyName);
+    try {
+      await setContractorPoolMode('shared');
+      clearCustomerEnterpriseCache(seed.customerId);
+
+      const agentA = await agentForSite(seed.siteAId);
+      const agentB = await agentForSite(seed.siteBId);
+
+      // Both sites must see the company (no site-approval filter in shared mode)
+      const listA = await agentA.get('/api/contractors');
+      expect([200], `Site A GET /api/contractors status (${listA.status})`).toContain(listA.status);
+      const itemsA: { id?: string }[] = Array.isArray(listA.body) ? listA.body : [];
+      expect(
+        itemsA.some(c => c.id === companyId),
+        `Shared mode: company must be visible to Site A (companyId=${companyId})`
+      ).toBe(true);
+
+      const listB = await agentB.get('/api/contractors');
+      expect([200], `Site B GET /api/contractors status (${listB.status})`).toContain(listB.status);
+      const itemsB: { id?: string }[] = Array.isArray(listB.body) ? listB.body : [];
+      expect(
+        itemsB.some(c => c.id === companyId),
+        `Shared mode: company must be visible to Site B (companyId=${companyId})`
+      ).toBe(true);
+    } finally {
+      await cleanupTestContractorCompany(companyId);
+    }
+  }, 45_000);
+
+  it("contractor pool — independent mode: fail-closed when no active site", async () => {
+    await ensureContractorSiteApprovalsTable();
+    await setContractorPoolMode('independent');
+    clearCustomerEnterpriseCache(seed.customerId);
+    try {
+      // Session with NO activeSiteId (agentForSite would set one; use a raw admin session)
+      const noSiteAgent = request.agent(app);
+      await noSiteAgent
+        .post("/api/__test__/session")
+        .send({ userId: seed.adminUserId, customerId: seed.customerId })
+        .expect(200);
+
+      const listRes = await noSiteAgent.get('/api/contractors');
+      // Must return empty array, not an error and not an estate-wide leak
+      if (listRes.status === 200) {
+        const items: any[] = Array.isArray(listRes.body) ? listRes.body : [];
+        expect(
+          items.length,
+          `Fail-closed: independent mode with no active site must return [] (got ${items.length} items)`
+        ).toBe(0);
+      } else {
+        // 403 / 400 also acceptable — must not be 200 with data
+        expect([400, 403]).toContain(listRes.status);
+      }
+    } finally {
+      await setContractorPoolMode('shared');
+      clearCustomerEnterpriseCache(seed.customerId);
+    }
+  }, 30_000);
+
   it("emergency muster points — GET /api/muster-points list isolation", async () => {
     const agentA = await agentForSite(seed.siteAId);
     const agentB = await agentForSite(seed.siteBId);

@@ -67,7 +67,7 @@ import {
   isNotNull,
 } from 'drizzle-orm';
 import { logger } from '../utils/logger';
-import { getScopedDb, scopedWhere, withSiteId, SiteContextError } from '../siteScope';
+import { getScopedDb, scopedWhere, withSiteId, SiteContextError, resolveContractorPoolScope } from '../siteScope';
 
 // ─── Module-scope helpers ────────────────────────────────────────────────────
 
@@ -147,6 +147,35 @@ async function ensureContractorColumns(custDb: any, customerId: string): Promise
     logger.info(`✅ Contractor schema columns ensured for ${customerId}`);
   } catch (e: any) {
     logger.warn('ensureContractorColumns: error adding columns — continuing:', e?.message);
+  }
+}
+
+// Ensure contractor_site_approvals table exists for independent pool mode.
+// Called lazily per-customer; idempotent (IF NOT EXISTS / IF NOT EXISTS index).
+const _contractorSiteApprovalsEnsured = new Set<string>();
+async function ensureContractorSiteApprovals(pool: any, schemaName: string, customerId: string): Promise<void> {
+  if (_contractorSiteApprovalsEnsured.has(customerId)) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "${schemaName}".contractor_site_approvals (
+        id          VARCHAR     PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id  VARCHAR     NOT NULL,
+        site_id     VARCHAR     NOT NULL,
+        status      TEXT        NOT NULL DEFAULT 'pending',
+        approved_by VARCHAR,
+        approved_at TIMESTAMP,
+        reason      TEXT,
+        created_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS contractor_site_approvals_company_site_idx
+        ON "${schemaName}".contractor_site_approvals (company_id, site_id)
+    `);
+    _contractorSiteApprovalsEnsured.add(customerId);
+  } catch (e: any) {
+    logger.warn('[ensureContractorSiteApprovals] error — continuing:', e?.message);
   }
 }
 
@@ -253,9 +282,22 @@ export function registerContractorRoutes(app: Express): void {
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
-      const { rows } = await pool.query(
-        `SELECT COUNT(*)::int AS count FROM "${schemaName}".contractor_documents WHERE status = 'pending' AND is_active = TRUE`
-      );
+      const poolScope = await resolveContractorPoolScope(req);
+      await ensureContractorSiteApprovals(pool, schemaName, req.customerId!);
+      let query: string;
+      let params: any[];
+      if (poolScope.mode === 'independent' && poolScope.activeSiteId) {
+        query = `SELECT COUNT(*)::int AS count FROM "${schemaName}".contractor_documents
+                 WHERE status = 'pending' AND is_active = TRUE
+                   AND company_id IN (
+                     SELECT company_id FROM "${schemaName}".contractor_site_approvals WHERE site_id = $1
+                   )`;
+        params = [poolScope.activeSiteId];
+      } else {
+        query = `SELECT COUNT(*)::int AS count FROM "${schemaName}".contractor_documents WHERE status = 'pending' AND is_active = TRUE`;
+        params = [];
+      }
+      const { rows } = await pool.query(query, params);
       return res.json({ count: rows[0]?.count ?? 0 });
     } catch (error) {
       logger.error("Error fetching pending docs count:", error);
@@ -272,8 +314,18 @@ export function registerContractorRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const poolScope = await resolveContractorPoolScope(req);
+      await ensureContractorSiteApprovals(pool, schemaName, req.customerId!);
       const now = new Date();
       const ago12Months = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+      // Build company-scope filter for independent mode
+      const siteFilter = poolScope.mode === 'independent' && poolScope.activeSiteId
+        ? `AND id IN (SELECT company_id FROM "${schemaName}".contractor_site_approvals WHERE site_id = '${poolScope.activeSiteId.replace(/'/g, "''")}')`
+        : '';
+      const workerSiteFilter = poolScope.mode === 'independent' && poolScope.activeSiteId
+        ? `AND company_id IN (SELECT company_id FROM "${schemaName}".contractor_site_approvals WHERE site_id = '${poolScope.activeSiteId.replace(/'/g, "''")}')`
+        : '';
 
       const breakdown = { insurance: 0, rams: 0, inductions: 0, workerRightToWork: 0, workerDbs: 0, workerCertifications: 0, equipment: 0 };
 
@@ -293,7 +345,7 @@ export function registerContractorRoutes(app: Express): void {
           `SELECT id, public_liability_expiry_date, employers_liability_expiry_date,
                   professional_indemnity_expiry_date, health_safety_policy_expiry_date,
                   chas_expiry_date, chas_certified, safe_contractor_expiry_date, safe_contractor_certified
-           FROM "${schemaName}".contractor_companies WHERE is_active = TRUE`
+           FROM "${schemaName}".contractor_companies WHERE is_active = TRUE ${siteFilter}`
         );
         for (const c of rows) {
           const expiries = [
@@ -312,10 +364,10 @@ export function registerContractorRoutes(app: Express): void {
         }
       } catch { /* non-fatal */ }
 
-      // 2. RAMS — expired docs
+      // 2. RAMS — expired docs (company-level, use siteFilter)
       try {
         const { rows } = await pool.query(
-          `SELECT expiry_date, status FROM "${schemaName}".rams_documents WHERE is_active = TRUE`
+          `SELECT expiry_date, status FROM "${schemaName}".rams_documents WHERE is_active = TRUE ${siteFilter.replace('AND id IN', 'AND company_id IN')}`
         );
         for (const r of rows) {
           const days = r.expiry_date ? Math.ceil((new Date(r.expiry_date).getTime() - now.getTime()) / 86400000) : null;
@@ -326,7 +378,7 @@ export function registerContractorRoutes(app: Express): void {
       // 3. Inductions — active workers with expired induction
       try {
         const { rows } = await pool.query(
-          `SELECT id, site_induction_expiry_date FROM "${schemaName}".contractor_workers WHERE is_active = TRUE`
+          `SELECT id, site_induction_expiry_date FROM "${schemaName}".contractor_workers WHERE is_active = TRUE ${workerSiteFilter}`
         );
         for (const w of rows) {
           if (!activeWorkerIds.has(w.id)) continue;
@@ -341,7 +393,7 @@ export function registerContractorRoutes(app: Express): void {
         const { rows } = await pool.query(
           `SELECT id, right_to_work_status, right_to_work_expiry_date
            FROM "${schemaName}".contractor_workers
-           WHERE is_active = TRUE AND (right_to_work_status IS NOT NULL OR right_to_work_expiry_date IS NOT NULL)`
+           WHERE is_active = TRUE AND (right_to_work_status IS NOT NULL OR right_to_work_expiry_date IS NOT NULL) ${workerSiteFilter}`
         );
         for (const w of rows) {
           if (!activeWorkerIds.has(w.id)) continue;
@@ -358,7 +410,7 @@ export function registerContractorRoutes(app: Express): void {
           `SELECT d.worker_id, d.policy_expiry_date
            FROM "${schemaName}".contractor_worker_dbs d
            JOIN "${schemaName}".contractor_workers cw ON cw.id = d.worker_id
-           WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND cw.is_active = TRUE`
+           WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND cw.is_active = TRUE ${workerSiteFilter.replace('AND company_id IN', 'AND cw.company_id IN')}`
         );
         for (const r of rows) {
           if (!activeWorkerIds.has(r.worker_id)) continue;
@@ -375,7 +427,7 @@ export function registerContractorRoutes(app: Express): void {
            FROM "${schemaName}".contractor_documents cd
            JOIN "${schemaName}".contractor_workers cw ON cw.id = cd.worker_id
            WHERE cd.worker_id IS NOT NULL AND cd.is_active = TRUE
-             AND cd.document_type NOT IN ('right_to_work', 'dbs_certificate')`
+             AND cd.document_type NOT IN ('right_to_work', 'dbs_certificate') ${workerSiteFilter.replace('AND company_id IN', 'AND cw.company_id IN')}`
         );
         for (const r of rows) {
           const docStatus = r.status ?? 'pending';
@@ -393,7 +445,7 @@ export function registerContractorRoutes(app: Express): void {
         const { rows } = await pool.query(
           `SELECT cd.expiry_date
            FROM "${schemaName}".contractor_documents cd
-           WHERE cd.equipment_id IS NOT NULL AND cd.is_active = TRUE AND cd.expiry_date IS NOT NULL`
+           WHERE cd.equipment_id IS NOT NULL AND cd.is_active = TRUE AND cd.expiry_date IS NOT NULL ${siteFilter.replace('AND id IN', 'AND cd.company_id IN')}`
         );
         for (const r of rows) {
           const days = Math.ceil((new Date(r.expiry_date).getTime() - now.getTime()) / 86400000);
@@ -896,11 +948,59 @@ export function registerContractorRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       await getScopedDb(req); // validates session / enterprise site context
-      // Ensure is_demo column exists — SELECT * includes it via Drizzle schema
       const listDb = await customerDbService.getCustomerDatabase(context.customerId);
       await ensureContractorColumns(listDb, context.customerId);
-      // For enterprise customers, contractor companies are estate-wide (not site-scoped).
-      // Non-enterprise: null = no extra filter (single-site, already isolated by schema).
+
+      const poolScope = await resolveContractorPoolScope(req);
+      const schemaName = customerDbService.generateSchemaName(context.customerId);
+      const pool = (listDb as any).$client ?? (listDb as any).session?.client;
+      await ensureContractorSiteApprovals(pool, schemaName, context.customerId);
+
+      if (poolScope.mode === 'independent') {
+        if (!poolScope.activeSiteId) {
+          // Fail closed: independent mode with no active site → empty list.
+          return res.json([]);
+        }
+        // Fetch companies linked to this site + per-site status
+        const { rows: approvalRows } = await pool.query(
+          `SELECT company_id, status, approved_at, approved_by, reason, id AS approval_id
+           FROM "${schemaName}".contractor_site_approvals WHERE site_id = $1`,
+          [poolScope.activeSiteId]
+        );
+        if (approvalRows.length === 0) return res.json([]);
+
+        // Build a map of companyId → site-approval data
+        const approvalMap = new Map<string, { siteStatus: string; siteApprovedAt: any; siteApprovedBy: any; siteReason: any; siteApprovalId: string }>();
+        for (const r of approvalRows) {
+          approvalMap.set(r.company_id, {
+            siteStatus: r.status,
+            siteApprovedAt: r.approved_at,
+            siteApprovedBy: r.approved_by,
+            siteReason: r.reason,
+            siteApprovalId: r.approval_id,
+          });
+        }
+
+        // Fetch all companies (estate-wide), then filter + augment
+        const allContractors = await databaseService.getAllContractorCompanies(context, null);
+        const filtered = allContractors
+          .filter(c => approvalMap.has(c.id))
+          .map(c => {
+            const approval = approvalMap.get(c.id)!;
+            return {
+              ...c,
+              status: approval.siteStatus,       // surface per-site status, not global
+              siteApprovalStatus: approval.siteStatus,
+              siteApprovedAt: approval.siteApprovedAt,
+              siteApprovedBy: approval.siteApprovedBy,
+              siteReason: approval.siteReason,
+              siteApprovalId: approval.siteApprovalId,
+            };
+          });
+        return res.json(filtered);
+      }
+
+      // Shared mode (default): estate-wide list, global status unchanged
       const contractors = await databaseService.getAllContractorCompanies(context, null);
       res.json(contractors);
     } catch (err) {
@@ -5975,6 +6075,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       const { id } = req.params;
       const customerId = req.customerId!;
       const actor = (req.user as any)?.email || (req.user as any)?.username || 'admin';
+      const actorId = (req.user as any)?.id ?? null;
       const { overrideReason } = req.body as { overrideReason?: string };
       const db = await customerDbService.getCustomerDatabase(customerId);
       const pool = (db as any).$client ?? (db as any).session?.client;
@@ -5983,6 +6084,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         logger.error('[portal-admin] approve-for-site: pool unavailable', { customerId, id });
         return res.status(500).json({ error: 'Database connection unavailable.', detail: 'pool_undefined' });
       }
+
+      const poolScope = await resolveContractorPoolScope(req);
+      await ensureContractorSiteApprovals(pool, schemaName, customerId);
 
       // Check compliance before approving
       const compliance = await getCompanyComplianceStatus(db, id);
@@ -6001,12 +6105,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         auditReason = `Override: ${overrideReason.trim()} | Missing: ${compliance.reasons.join('; ')}`;
       }
 
-      await pool.query(
-        `UPDATE "${schemaName}".contractor_companies
-         SET status = 'approved', onboarding_status = 'approved', onboarding_approved_at = NOW(), updated_at = NOW()
-         WHERE id = $1`,
-        [id]
-      );
+      if (poolScope.mode === 'independent') {
+        // Independent mode: write per-site approval row only; do NOT touch global company.status
+        if (!poolScope.activeSiteId) {
+          return res.status(400).json({ error: 'No active site selected. Select a site before approving.' });
+        }
+        await pool.query(
+          `INSERT INTO "${schemaName}".contractor_site_approvals
+             (company_id, site_id, status, approved_by, approved_at, reason, updated_at)
+           VALUES ($1, $2, 'approved', $3, NOW(), $4, NOW())
+           ON CONFLICT (company_id, site_id) DO UPDATE SET
+             status = 'approved', approved_by = EXCLUDED.approved_by,
+             approved_at = EXCLUDED.approved_at, reason = EXCLUDED.reason, updated_at = NOW()`,
+          [id, poolScope.activeSiteId, actorId, auditReason]
+        );
+      } else {
+        // Shared mode: global approval (original behaviour)
+        await pool.query(
+          `UPDATE "${schemaName}".contractor_companies
+           SET status = 'approved', onboarding_status = 'approved', onboarding_approved_at = NOW(), updated_at = NOW()
+           WHERE id = $1`,
+          [id]
+        );
+      }
+
       await pool.query(
         `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor, reason) VALUES ($1, $2, $3, $4)`,
         [id, auditAction, actor, auditReason]
@@ -6052,6 +6174,136 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         stack: error?.stack?.split('\n').slice(0, 6).join('\n'),
       });
       return res.status(500).json({ error: 'Failed to approve contractor.', detail: error?.message });
+    }
+  });
+
+  // ── Contractor Portal: Reject company for site ────────────────────────────
+  app.post('/api/contractors/:id/reject-for-site', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customerId = req.customerId!;
+      const actor = (req.user as any)?.email || (req.user as any)?.username || 'admin';
+      const { reason } = req.body as { reason?: string };
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) return res.status(500).json({ error: 'Database connection unavailable.' });
+
+      const poolScope = await resolveContractorPoolScope(req);
+      await ensureContractorSiteApprovals(pool, schemaName, customerId);
+
+      if (poolScope.mode === 'independent') {
+        if (!poolScope.activeSiteId) return res.status(400).json({ error: 'No active site selected.' });
+        await pool.query(
+          `INSERT INTO "${schemaName}".contractor_site_approvals
+             (company_id, site_id, status, reason, updated_at)
+           VALUES ($1, $2, 'rejected', $3, NOW())
+           ON CONFLICT (company_id, site_id) DO UPDATE SET
+             status = 'rejected', reason = EXCLUDED.reason, updated_at = NOW()`,
+          [id, poolScope.activeSiteId, reason ?? null]
+        );
+      } else {
+        await pool.query(
+          `UPDATE "${schemaName}".contractor_companies
+           SET status = 'rejected', updated_at = NOW()
+           WHERE id = $1`,
+          [id]
+        );
+      }
+
+      await pool.query(
+        `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor, reason) VALUES ($1, $2, $3, $4)`,
+        [id, 'rejected_for_site', actor, reason ?? null]
+      );
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[portal-admin] reject-for-site error', { message: error?.message });
+      return res.status(500).json({ error: 'Failed to reject contractor.', detail: error?.message });
+    }
+  });
+
+  // ── Contractor Portal: Suspend company for site ───────────────────────────
+  app.post('/api/contractors/:id/suspend-for-site', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customerId = req.customerId!;
+      const actor = (req.user as any)?.email || (req.user as any)?.username || 'admin';
+      const { reason } = req.body as { reason?: string };
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) return res.status(500).json({ error: 'Database connection unavailable.' });
+
+      const poolScope = await resolveContractorPoolScope(req);
+      await ensureContractorSiteApprovals(pool, schemaName, customerId);
+
+      if (poolScope.mode === 'independent') {
+        if (!poolScope.activeSiteId) return res.status(400).json({ error: 'No active site selected.' });
+        await pool.query(
+          `INSERT INTO "${schemaName}".contractor_site_approvals
+             (company_id, site_id, status, reason, updated_at)
+           VALUES ($1, $2, 'suspended', $3, NOW())
+           ON CONFLICT (company_id, site_id) DO UPDATE SET
+             status = 'suspended', reason = EXCLUDED.reason, updated_at = NOW()`,
+          [id, poolScope.activeSiteId, reason ?? null]
+        );
+      } else {
+        await pool.query(
+          `UPDATE "${schemaName}".contractor_companies
+           SET status = 'suspended', suspended_reason = $2, updated_at = NOW()
+           WHERE id = $1`,
+          [id, reason ?? null]
+        );
+      }
+
+      await pool.query(
+        `INSERT INTO "${schemaName}".contractor_onboarding_audit (company_id, action, actor, reason) VALUES ($1, $2, $3, $4)`,
+        [id, 'suspended_for_site', actor, reason ?? null]
+      );
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[portal-admin] suspend-for-site error', { message: error?.message });
+      return res.status(500).json({ error: 'Failed to suspend contractor.', detail: error?.message });
+    }
+  });
+
+  // ── Contractor Portal: Link existing company to active site (independent mode) ──
+  // Creates a pending contractor_site_approvals row so the site can see + review the firm.
+  app.post('/api/contractors/:id/link-to-site', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const pool = (db as any).$client ?? (db as any).session?.client;
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!pool) return res.status(500).json({ error: 'Database connection unavailable.' });
+
+      const poolScope = await resolveContractorPoolScope(req);
+      if (poolScope.mode !== 'independent') {
+        return res.status(400).json({ error: 'Link-to-site is only available in Independent pool mode.' });
+      }
+      if (!poolScope.activeSiteId) {
+        return res.status(400).json({ error: 'No active site selected.' });
+      }
+      await ensureContractorSiteApprovals(pool, schemaName, customerId);
+
+      // Verify company exists
+      const { rows } = await pool.query(
+        `SELECT id FROM "${schemaName}".contractor_companies WHERE id = $1 AND is_active = TRUE`,
+        [id]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'Contractor company not found.' });
+
+      await pool.query(
+        `INSERT INTO "${schemaName}".contractor_site_approvals (company_id, site_id, status)
+         VALUES ($1, $2, 'pending')
+         ON CONFLICT (company_id, site_id) DO NOTHING`,
+        [id, poolScope.activeSiteId]
+      );
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[portal-admin] link-to-site error', { message: error?.message });
+      return res.status(500).json({ error: 'Failed to link contractor to site.', detail: error?.message });
     }
   });
 

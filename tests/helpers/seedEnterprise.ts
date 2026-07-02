@@ -436,6 +436,114 @@ export async function cleanupLoneWorkerSession(sessionId: string): Promise<void>
   }
 }
 
+// ── Contractor Pool helpers ────────────────────────────────────────────────
+
+/**
+ * Set contractor_pool_mode on the management-DB customers row.
+ * Resets to 'shared' in cleanup so the mode change doesn't leak between tests.
+ */
+export async function setContractorPoolMode(mode: 'shared' | 'independent'): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `UPDATE customers SET contractor_pool_mode = $1 WHERE id = $2`,
+      [mode, TEST_CUSTOMER_ID]
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
+/** Ensure contractor_site_approvals table exists in the test schema. */
+export async function ensureContractorSiteApprovalsTable(): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const s = TEST_CUSTOMER_SCHEMA;
+    await pg.query(`
+      CREATE TABLE IF NOT EXISTS "${s}".contractor_site_approvals (
+        id          VARCHAR     PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id  VARCHAR     NOT NULL,
+        site_id     VARCHAR     NOT NULL,
+        status      TEXT        NOT NULL DEFAULT 'pending',
+        approved_by VARCHAR,
+        approved_at TIMESTAMP,
+        reason      TEXT,
+        created_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pg.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS contractor_site_approvals_company_site_idx
+        ON "${s}".contractor_site_approvals (company_id, site_id)
+    `).catch(() => {});
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Seed a minimal contractor company in the isolated schema.
+ * Returns the new company's id.
+ * Uses a unique name to avoid clashing with real data.
+ */
+export async function seedTestContractorCompany(name: string): Promise<string> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const s = TEST_CUSTOMER_SCHEMA;
+    // Ensure required columns exist (is_demo, onboarding_status)
+    await pg.query(`ALTER TABLE "${s}".contractor_companies ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {});
+    await pg.query(`ALTER TABLE "${s}".contractor_companies ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'not_started'`).catch(() => {});
+    const { rows } = await pg.query(
+      `INSERT INTO "${s}".contractor_companies
+         (company_name, contact_email, contact_first_name, contact_last_name, status, is_active)
+       VALUES ($1, $2, 'Test', 'Company', 'approved', TRUE)
+       ON CONFLICT (company_name) DO UPDATE SET status = 'approved', is_active = TRUE
+       RETURNING id`,
+      [name, `test-${randomUUID()}@example.com`]
+    );
+    return rows[0].id as string;
+  } finally {
+    await pg.end();
+  }
+}
+
+/** Delete a test contractor company and its site approvals. */
+export async function cleanupTestContractorCompany(companyId: string): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const s = TEST_CUSTOMER_SCHEMA;
+    await pg.query(`DELETE FROM "${s}".contractor_site_approvals WHERE company_id = $1`, [companyId]).catch(() => {});
+    await pg.query(`DELETE FROM "${s}".contractor_companies WHERE id = $1`, [companyId]).catch(() => {});
+  } finally {
+    await pg.end();
+  }
+}
+
+/** Seed a contractor_site_approvals row for a given company + site. */
+export async function seedContractorSiteApproval(
+  companyId: string,
+  siteId: string,
+  status: string,
+): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const s = TEST_CUSTOMER_SCHEMA;
+    await pg.query(
+      `INSERT INTO "${s}".contractor_site_approvals (company_id, site_id, status)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (company_id, site_id) DO UPDATE SET status = EXCLUDED.status`,
+      [companyId, siteId, status]
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
 export async function ensureCdmProjectsColumns(): Promise<void> {
   const pg = new PgClient({ connectionString: getDbUrl() });
   await pg.connect();
