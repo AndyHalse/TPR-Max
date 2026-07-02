@@ -32,3 +32,4 @@
 - [Nix chromium path for Puppeteer in production](nix-chromium-path.md) — production container has /nix/store but NOT chromium in PATH; use known hash path + set PUPPETEER_EXECUTABLE_PATH at startup.
 - [information_schema schema-scoping bug](information-schema-schema-scope.md) — always add AND table_schema = current_schema() when querying information_schema.columns for schema-isolated customers; omitting it causes queries to match same-named tables in other schemas.
 - [ensurePpmColumns coverage rule](ensure-ppm-columns-coverage.md) — ensurePpmColumns in ppm.ts must list EVERY column in isolatedSchema.ppmWorkOrders/ppmWorkOrderDocuments; Drizzle SELECT includes all schema columns so any omission causes 42703 on older customer schemas.
+- [Enterprise test role elevation](enterprise-test-role-elevation.md) — seed.adminUserId has users.role='admin' which auto-elevates to enterprise_admin; role-gate tests must use seedRoleScopeUser (users.role='user').

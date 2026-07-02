@@ -7,7 +7,8 @@
  */
 
 import cron from 'node-cron';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 import { customerDbService } from './customerDatabase';
 import * as iso from './isolatedSchema';
 import { generateReport, type ReportType } from './enterpriseReportService';
@@ -136,15 +137,18 @@ function buildEmailHtml(schedule: typeof iso.scheduledReports.$inferSelect, comp
 async function runScheduler(): Promise<void> {
   const timeParts = getLondonTimeParts();
 
-  let customers: { id: string }[] = [];
+  // Only process enterprise customers — non-enterprise tenants have no scheduled reports
+  let allCustomers: any[] = [];
   try {
-    customers = await customerDbService.getAllCustomers();
+    allCustomers = await customerDbService.getAllCustomers();
   } catch (err: any) {
     logger.error('[ScheduleRunner] Could not fetch customers:', err.message);
     return;
   }
+  const enterpriseCustomers = allCustomers.filter((c: any) => c.isEnterprise);
+  if (enterpriseCustomers.length === 0) return;
 
-  for (const customer of customers) {
+  for (const customer of enterpriseCustomers) {
     try {
       const db = await customerDbService.getCustomerDatabase(customer.id);
 
@@ -166,11 +170,70 @@ async function runScheduler(): Promise<void> {
           .where(eq(iso.scheduledReports.id, schedule.id));
 
         try {
-          // Critical-issues digest: skip if no open critical alerts
-          if (schedule.reportType === 'critical_issues_digest') {
+          // ── Resolve allowedSiteIds from schedule scope ──────────────────────
+          const scope = schedule.scope ?? 'estate';
+          let allowedSiteIds: string[] | 'all';
+          if (scope === 'estate') {
+            allowedSiteIds = 'all';
+          } else if (scope === 'site') {
+            if (!schedule.scopeId) {
+              await db.update(iso.scheduledReports)
+                .set({ lastRunStatus: 'failed', lastRunError: 'site scope requires scopeId', updatedAt: new Date() })
+                .where(eq(iso.scheduledReports.id, schedule.id));
+              continue;
+            }
+            allowedSiteIds = [schedule.scopeId];
+          } else if (scope === 'area') {
+            if (!schedule.scopeId) {
+              await db.update(iso.scheduledReports)
+                .set({ lastRunStatus: 'failed', lastRunError: 'area scope requires scopeId', updatedAt: new Date() })
+                .where(eq(iso.scheduledReports.id, schedule.id));
+              continue;
+            }
+            const sitesInArea = await db
+              .select({ id: iso.sites.id })
+              .from(iso.sites)
+              .where(eq(iso.sites.areaId, schedule.scopeId));
+            if (sitesInArea.length === 0) {
+              await db.update(iso.scheduledReports)
+                .set({ lastRunStatus: 'failed', lastRunError: `No sites found for area ${schedule.scopeId}`, updatedAt: new Date() })
+                .where(eq(iso.scheduledReports.id, schedule.id));
+              continue;
+            }
+            allowedSiteIds = sitesInArea.map((s: any) => s.id);
+          } else {
+            allowedSiteIds = 'all';
+          }
+
+          // ── Resolve effective type + params (FIX 6: criticalOnly) ──────────
+          // Legacy rows stored with reportType='critical_issues_digest' are treated
+          // as portfolio_compliance_snapshot with criticalOnly=true to avoid crashes.
+          const effectiveType: ReportType =
+            schedule.reportType === 'critical_issues_digest'
+              ? 'portfolio_compliance_snapshot'
+              : (schedule.reportType as ReportType);
+
+          const baseParams = (schedule.parameters ?? {}) as Record<string, any>;
+          const effectiveParams: Record<string, any> = {
+            ...baseParams,
+            ...(schedule.reportType === 'critical_issues_digest' ? { criticalOnly: true } : {}),
+          };
+
+          // Inject siteId for site-scoped report types when not already set
+          if (
+            ['single_site_report', 'evacuation_muster_log'].includes(effectiveType) &&
+            !effectiveParams.siteId &&
+            scope === 'site' &&
+            schedule.scopeId
+          ) {
+            effectiveParams.siteId = schedule.scopeId;
+          }
+
+          // ── criticalOnly digest: skip when no open critical alerts ──────────
+          if (effectiveParams.criticalOnly === true) {
             const hasCritical = await hasCriticalAlerts(db);
             if (!hasCritical) {
-              logger.info(`[ScheduleRunner] Skipping critical_issues_digest — no open critical alerts for ${customer.id}`);
+              logger.info(`[ScheduleRunner] Skipping criticalOnly digest — no open critical alerts for ${customer.id}`);
               await db
                 .update(iso.scheduledReports)
                 .set({ lastRunStatus: 'skipped', updatedAt: new Date() })
@@ -179,15 +242,7 @@ async function runScheduler(): Promise<void> {
             }
           }
 
-          // Generate PDF
-          const params = (schedule.parameters ?? {}) as Record<string, any>;
-          const pdfBuffer = await generateReport(
-            customer.id,
-            schedule.reportType as ReportType,
-            params,
-          );
-
-          // Get company name for email
+          // ── Fetch company name for email and PDF header ─────────────────────
           let companyName = 'TPR Max';
           try {
             const settings = await db
@@ -197,7 +252,19 @@ async function runScheduler(): Promise<void> {
             companyName = settings[0]?.companyName ?? 'TPR Max';
           } catch { /* fallback */ }
 
-          // Send to each recipient
+          // ── Generate PDF (correct signature) ────────────────────────────────
+          const reportId = randomUUID();
+          const result = await generateReport(
+            db,
+            effectiveType,
+            allowedSiteIds,
+            effectiveParams,
+            customer.id,
+            reportId,
+            companyName,
+          );
+
+          // ── Send to each recipient ──────────────────────────────────────────
           const recipients = Array.isArray(schedule.recipients)
             ? (schedule.recipients as string[])
             : [];
@@ -220,7 +287,7 @@ async function runScheduler(): Promise<void> {
               attachments: [
                 {
                   filename: `${schedule.reportTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
-                  content: pdfBuffer,
+                  content: result.pdfBuffer,
                   contentType: 'application/pdf',
                 },
               ],
@@ -228,20 +295,20 @@ async function runScheduler(): Promise<void> {
             if (!sent) allSent = false;
           }
 
-          // Record in enterprise_reports history
+          // ── Record in enterprise_reports history ────────────────────────────
           try {
             await db.insert(iso.enterpriseReports).values({
-              id: crypto.randomUUID(),
-              reportType: schedule.reportType,
+              id: reportId,
+              reportType: effectiveType,
               reportTitle: `${schedule.reportTitle} (Scheduled)`,
               scope: schedule.scope as any,
               scopeId: schedule.scopeId ?? null,
-              parameters: params,
+              parameters: effectiveParams,
               generatedBy: schedule.createdBy ?? 'scheduler',
               generatedByName: `Scheduled — ${schedule.frequency}`,
               status: 'ready',
-              storagePath: null,
-              fileSizeBytes: pdfBuffer.length,
+              storagePath: result.storagePath,
+              fileSizeBytes: result.fileSizeBytes,
               errorMessage: null,
               createdAt: new Date(),
               completedAt: new Date(),

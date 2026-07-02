@@ -259,6 +259,25 @@ export function registerEnterpriseContractorPoolRoutes(app: Application) {
 
         const db = await customerDbService.getCustomerDatabase(req.customerId!);
 
+        // Scope check: area_manager must only grant clearance for sites in their area.
+        // enterprise_admin gets allowedSiteIds='all' (bypass); others are limited to
+        // the resolved site list attached by requireEnterpriseRole middleware.
+        const grants = req.enterpriseGrants;
+        if (grants?.allowedSiteIds !== 'all') {
+          const allowed = Array.isArray(grants?.allowedSiteIds) ? grants!.allowedSiteIds : [];
+          if (!allowed.includes(siteId)) {
+            return res.status(403).json({ error: 'Site is outside your managed scope' });
+          }
+        }
+
+        // Verify the siteId actually exists in this customer's sites table
+        const [siteRow] = await db
+          .select({ id: isolatedSchema.sites.id })
+          .from(isolatedSchema.sites)
+          .where(eq(isolatedSchema.sites.id, siteId))
+          .limit(1);
+        if (!siteRow) return res.status(404).json({ error: 'Site not found' });
+
         const [worker] = await db
           .select({ id: isolatedSchema.contractorWorkers.id, companyId: isolatedSchema.contractorWorkers.companyId })
           .from(isolatedSchema.contractorWorkers)

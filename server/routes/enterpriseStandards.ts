@@ -173,6 +173,30 @@ export function registerEnterpriseStandardsRoutes(app: Express): void {
 
   // ── Induction Standards ──────────────────────────────────────────────────────
 
+  // GET /api/enterprise/standards/induction/overrides
+  // Returns which sites have per-site induction setting overrides
+  // MUST be registered BEFORE /induction/:roleType to avoid Express matching
+  // the literal string 'overrides' as the :roleType parameter.
+  app.get('/api/enterprise/standards/induction/overrides', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req: any, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const overrides = await custDb
+        .select({
+          roleType: isolatedSchema.inductionSettings.roleType,
+          siteId: isolatedSchema.inductionSettings.siteId,
+        })
+        .from(isolatedSchema.inductionSettings)
+        .where(and(
+          eq(isolatedSchema.inductionSettings.scope, 'site'),
+          isNotNull(isolatedSchema.inductionSettings.siteId),
+        ));
+      return res.json(overrides);
+    } catch (err: any) {
+      logger.error('[enterprise/standards] GET induction/overrides error:', err);
+      return res.status(500).json({ error: 'Failed to fetch induction overrides' });
+    }
+  });
+
   // GET /api/enterprise/standards/induction/:roleType
   // Returns the enterprise-level induction settings for a given role type
   app.get('/api/enterprise/standards/induction/:roleType', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req: any, res) => {
@@ -193,28 +217,6 @@ export function registerEnterpriseStandardsRoutes(app: Express): void {
     } catch (err: any) {
       logger.error('[enterprise/standards] GET induction/:roleType error:', err);
       return res.status(500).json({ error: 'Failed to fetch induction standard' });
-    }
-  });
-
-  // GET /api/enterprise/standards/induction/overrides
-  // Returns which sites have per-site induction setting overrides
-  app.get('/api/enterprise/standards/induction/overrides', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req: any, res) => {
-    try {
-      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
-      const overrides = await custDb
-        .select({
-          roleType: isolatedSchema.inductionSettings.roleType,
-          siteId: isolatedSchema.inductionSettings.siteId,
-        })
-        .from(isolatedSchema.inductionSettings)
-        .where(and(
-          eq(isolatedSchema.inductionSettings.scope, 'site'),
-          isNotNull(isolatedSchema.inductionSettings.siteId),
-        ));
-      return res.json(overrides);
-    } catch (err: any) {
-      logger.error('[enterprise/standards] GET induction/overrides error:', err);
-      return res.status(500).json({ error: 'Failed to fetch induction overrides' });
     }
   });
 

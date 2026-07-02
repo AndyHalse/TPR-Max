@@ -27,6 +27,17 @@ export type ReportType =
   | 'evacuation_muster_log'
   | 'audit_trail_export';
 
+/** Single source of truth for valid report types — import in route files instead of redefining. */
+export const VALID_REPORT_TYPES: ReportType[] = [
+  'portfolio_compliance_snapshot',
+  'single_site_report',
+  'contractor_compliance_report',
+  'expiry_forecast',
+  'ppm_performance',
+  'evacuation_muster_log',
+  'audit_trail_export',
+];
+
 export interface ReportParams {
   siteId?: string;
   period?: number;   // days for expiry / date range (30|60|90)

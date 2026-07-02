@@ -59,6 +59,11 @@ import {
   seedTestContractorCompany,
   cleanupTestContractorCompany,
   seedContractorSiteApproval,
+  seedTestArea,
+  assignSiteToArea,
+  cleanupTestArea,
+  seedTestContractorWorker,
+  cleanupTestContractorWorker,
   type SeedResult,
 } from "./helpers/seedEnterprise";
 
@@ -2199,5 +2204,211 @@ describe("HTTP route site isolation — enterprise multi-site", () => {
       await agentA.delete(`/api/muster-points/${mpId}`);
     }
   }, 30_000);
+
+  // ── FIX 3: Enterprise demo routes — enterprise_admin only ─────────────────────
+  it("enterprise demo /load and /reset — non-admin gets 403", async () => {
+    // Use seedRoleScopeUser so the test user has users.role='user' (not 'admin').
+    // seed.adminUserId has users.role='admin' which auto-elevates to enterprise_admin
+    // in resolveEnterpriseGrants, so it must NOT be used here.
+    const coordUser = await seedRoleScopeUser(seed, {
+      role: 'site_coordinator',
+      siteId: seed.siteAId,
+    });
+    const adminUser = await seedRoleScopeUser(seed, { role: 'enterprise_admin' });
+    try {
+      const coordinatorAgent = request.agent(app);
+      await coordinatorAgent
+        .post("/api/__test__/session")
+        .send({ userId: coordUser.userId, customerId: seed.customerId })
+        .expect(200);
+
+      const loadRes = await coordinatorAgent.post("/api/enterprise-demo/load").send({});
+      expect(
+        loadRes.status,
+        `site_coordinator must be denied /enterprise-demo/load (status: ${loadRes.status})`
+      ).toBe(403);
+
+      const resetRes = await coordinatorAgent.post("/api/enterprise-demo/reset").send({});
+      expect(
+        resetRes.status,
+        `site_coordinator must be denied /enterprise-demo/reset (status: ${resetRes.status})`
+      ).toBe(403);
+
+      // enterprise_admin is allowed past the auth guard (may 200 or 500 depending on DB state)
+      const adminAgent = request.agent(app);
+      await adminAgent
+        .post("/api/__test__/session")
+        .send({ userId: adminUser.userId, customerId: seed.customerId })
+        .expect(200);
+
+      const adminLoadRes = await adminAgent.post("/api/enterprise-demo/load").send({});
+      expect(
+        adminLoadRes.status,
+        `enterprise_admin must NOT get 403 on /enterprise-demo/load (status: ${adminLoadRes.status})`
+      ).not.toBe(403);
+    } finally {
+      await cleanupRoleScopeUser(seed, coordUser.userId);
+      await cleanupRoleScopeUser(seed, adminUser.userId);
+    }
+  }, 45_000);
+
+  // ── FIX 4: Standards route ordering — /induction/overrides not shadowed by /:roleType ──
+  it("enterprise standards — GET /induction/overrides returns [] not 400", async () => {
+    const adminUser = await seedRoleScopeUser(seed, { role: 'enterprise_admin' });
+    try {
+      const adminAgent = request.agent(app);
+      await adminAgent
+        .post("/api/__test__/session")
+        .send({ userId: adminUser.userId, customerId: seed.customerId })
+        .expect(200);
+
+      const overridesRes = await adminAgent.get("/api/enterprise/standards/induction/overrides");
+      expect(
+        overridesRes.status,
+        `GET /induction/overrides must return 200 not 400 — route shadowed by /:roleType if wrong order (status: ${overridesRes.status}, body: ${JSON.stringify(overridesRes.body)})`
+      ).toBe(200);
+      expect(
+        Array.isArray(overridesRes.body),
+        `GET /induction/overrides must return an array (got: ${typeof overridesRes.body})`
+      ).toBe(true);
+    } finally {
+      await cleanupRoleScopeUser(seed, adminUser.userId);
+    }
+  }, 30_000);
+
+  // ── FIX 5: Scheduled reports — input validation (reportType + recipients) ────
+  it("enterprise scheduled reports — POST rejects invalid reportType and bad recipients", async () => {
+    const adminUser = await seedRoleScopeUser(seed, { role: 'enterprise_admin' });
+    try {
+      const adminAgent = request.agent(app);
+      await adminAgent
+        .post("/api/__test__/session")
+        .send({ userId: adminUser.userId, customerId: seed.customerId })
+        .expect(200);
+
+      // Bad reportType → 400
+      const badTypeRes = await adminAgent.post("/api/enterprise/scheduled-reports").send({
+        reportType: 'non_existent_type',
+        reportTitle: 'Test ISO Report',
+        frequency: 'daily',
+        recipients: ['valid@example.com'],
+        scope: 'estate',
+      });
+      expect(
+        badTypeRes.status,
+        `Invalid reportType must return 400 (status: ${badTypeRes.status}, body: ${JSON.stringify(badTypeRes.body)})`
+      ).toBe(400);
+
+      // Bad recipient email → 400
+      const badEmailRes = await adminAgent.post("/api/enterprise/scheduled-reports").send({
+        reportType: 'portfolio_compliance_snapshot',
+        reportTitle: 'Test ISO Report',
+        frequency: 'daily',
+        recipients: ['not-an-email'],
+        scope: 'estate',
+      });
+      expect(
+        badEmailRes.status,
+        `Invalid recipient email must return 400 (status: ${badEmailRes.status}, body: ${JSON.stringify(badEmailRes.body)})`
+      ).toBe(400);
+
+      // runAtHour out of range → 400
+      const badHourRes = await adminAgent.post("/api/enterprise/scheduled-reports").send({
+        reportType: 'portfolio_compliance_snapshot',
+        reportTitle: 'Test ISO Report',
+        frequency: 'daily',
+        recipients: ['valid@example.com'],
+        scope: 'estate',
+        runAtHour: 25,
+      });
+      expect(
+        badHourRes.status,
+        `runAtHour=25 must return 400 (status: ${badHourRes.status})`
+      ).toBe(400);
+
+      // site_coordinator (users.role='user', NOT 'admin') gets 403 on POST (admin-only endpoint)
+      // Must use seedRoleScopeUser to get a user with role='user' so they aren't
+      // auto-elevated to enterprise_admin by resolveEnterpriseGrants.
+      const coordUser2 = await seedRoleScopeUser(seed, { role: 'site_coordinator', siteId: seed.siteAId });
+      try {
+        const coordAgent = request.agent(app);
+        await coordAgent
+          .post("/api/__test__/session")
+          .send({ userId: coordUser2.userId, customerId: seed.customerId })
+          .expect(200);
+        const coordRes = await coordAgent.post("/api/enterprise/scheduled-reports").send({
+          reportType: 'portfolio_compliance_snapshot',
+          reportTitle: 'Coord should fail',
+          frequency: 'daily',
+          recipients: [],
+          scope: 'estate',
+        });
+        expect(
+          coordRes.status,
+          `site_coordinator must be denied POST /scheduled-reports (status: ${coordRes.status})`
+        ).toBe(403);
+      } finally {
+        await cleanupRoleScopeUser(seed, coordUser2.userId);
+      }
+    } finally {
+      await cleanupRoleScopeUser(seed, adminUser.userId);
+    }
+  }, 30_000);
+
+  // ── FIX 2: Contractor pool clear — area_manager scoped to Area A denied for Area B site ──
+  it("contractor pool clear — area_manager can't clear outside their area", async () => {
+    await ensureContractorSiteApprovalsTable();
+
+    const areaAId = await seedTestArea(`__IsoTest_Area_A_${Date.now()}`);
+    try {
+      // Assign siteA to areaA; siteB is NOT in areaA
+      await assignSiteToArea(seed.siteAId, areaAId);
+
+      const areaManagerUser = await seedRoleScopeUser(seed, {
+        role: 'area_manager',
+        areaId: areaAId,
+      });
+      const companyId = await seedTestContractorCompany(`__IsoTest_PoolClear_${Date.now()}`);
+
+      let workerId: string | null = null;
+      try {
+        workerId = await seedTestContractorWorker(companyId);
+        clearCustomerEnterpriseCache(seed.customerId);
+
+        const amAgent = request.agent(app);
+        await amAgent
+          .post("/api/__test__/session")
+          .send({ userId: areaManagerUser.userId, customerId: seed.customerId })
+          .expect(200);
+
+        // area_manager trying to clear a worker at siteBId (outside their area) → 403
+        const deniedRes = await amAgent
+          .post(`/api/enterprise/contractor-pool/workers/${workerId}/clear`)
+          .send({ siteId: seed.siteBId, status: 'approved' });
+        expect(
+          deniedRes.status,
+          `area_manager must be denied clear for site outside their area (status: ${deniedRes.status}, body: ${JSON.stringify(deniedRes.body)})`
+        ).toBe(403);
+
+        // area_manager CAN clear a worker at siteAId (inside their area) → not 403
+        const allowedRes = await amAgent
+          .post(`/api/enterprise/contractor-pool/workers/${workerId}/clear`)
+          .send({ siteId: seed.siteAId, status: 'approved' });
+        expect(
+          allowedRes.status,
+          `area_manager must succeed clearing a site in their area (status: ${allowedRes.status}, body: ${JSON.stringify(allowedRes.body)})`
+        ).not.toBe(403);
+      } finally {
+        if (workerId) await cleanupTestContractorWorker(workerId);
+        await cleanupTestContractorCompany(companyId);
+        await cleanupRoleScopeUser(seed, areaManagerUser.userId);
+      }
+    } finally {
+      // Reset the area_id on siteA and delete the test area
+      await assignSiteToArea(seed.siteAId, null);
+      await cleanupTestArea(areaAId);
+      clearCustomerEnterpriseCache(seed.customerId);
+    }
+  }, 45_000);
 
 });

@@ -15,7 +15,55 @@ import { requireAuth } from '../auth';
 import { requireEnterpriseRole } from '../enterpriseRoles';
 import { customerDbService } from '../customerDatabase';
 import * as iso from '../isolatedSchema';
+import { VALID_REPORT_TYPES } from '../enterpriseReportService';
 import { logger } from '../utils/logger';
+
+// ─── Input validation helpers ──────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_RECIPIENTS = 20;
+
+function validateRecipients(recipients: unknown): string | null {
+  if (!Array.isArray(recipients)) return 'recipients must be an array of email strings';
+  if (recipients.length > MAX_RECIPIENTS) return `recipients must not exceed ${MAX_RECIPIENTS} entries`;
+  for (const entry of recipients) {
+    const addr = (typeof entry === 'string' ? entry : '').trim().toLowerCase();
+    if (!EMAIL_RE.test(addr)) return `Invalid recipient email: "${entry}"`;
+  }
+  return null;
+}
+
+function validateTimingFields(body: Record<string, any>): string | null {
+  const { runAtHour, runAtMinute, dayOfWeek, dayOfMonth } = body;
+  if (runAtHour !== undefined && (typeof runAtHour !== 'number' || !Number.isInteger(runAtHour) || runAtHour < 0 || runAtHour > 23)) {
+    return 'runAtHour must be an integer 0–23';
+  }
+  if (runAtMinute !== undefined && (typeof runAtMinute !== 'number' || !Number.isInteger(runAtMinute) || runAtMinute < 0 || runAtMinute > 59)) {
+    return 'runAtMinute must be an integer 0–59';
+  }
+  if (dayOfWeek !== undefined && dayOfWeek !== null && (typeof dayOfWeek !== 'number' || !Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7)) {
+    return 'dayOfWeek must be an integer 1–7 or null';
+  }
+  if (dayOfMonth !== undefined && dayOfMonth !== null && (typeof dayOfMonth !== 'number' || !Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 28)) {
+    return 'dayOfMonth must be an integer 1–28 or null';
+  }
+  return null;
+}
+
+async function validateScope(db: any, scope: string, scopeId: string | null | undefined): Promise<string | null> {
+  if (!['estate', 'area', 'site'].includes(scope)) return "scope must be 'estate', 'area', or 'site'";
+  if (scope === 'site') {
+    if (!scopeId) return "scopeId is required when scope is 'site'";
+    const [row] = await db.select({ id: iso.sites.id }).from(iso.sites).where(eq(iso.sites.id, scopeId)).limit(1);
+    if (!row) return `scopeId '${scopeId}' does not match any site`;
+  }
+  if (scope === 'area') {
+    if (!scopeId) return "scopeId is required when scope is 'area'";
+    const [row] = await db.select({ id: iso.areas.id }).from(iso.areas).where(eq(iso.areas.id, scopeId)).limit(1);
+    if (!row) return `scopeId '${scopeId}' does not match any area`;
+  }
+  return null;
+}
 
 // Role gating is enforced entirely by `requireEnterpriseRole(...)` middleware,
 // which attaches resolved grants to `req.enterpriseGrants`. Do NOT add a local
@@ -87,7 +135,7 @@ const DEFAULT_SCHEDULES: Omit<
     reportTitle: 'Critical Issues Digest',
     scope: 'estate',
     scopeId: null,
-    parameters: {},
+    parameters: { criticalOnly: true },
     recipients: [],
     frequency: 'daily',
     runAtHour: 7,
@@ -189,14 +237,24 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
         if (!reportType || !reportTitle || !frequency) {
           return res.status(400).json({ error: 'reportType, reportTitle, and frequency are required' });
         }
+        if (!VALID_REPORT_TYPES.includes(reportType)) {
+          return res.status(400).json({ error: `Invalid reportType: '${reportType}'. Must be one of: ${VALID_REPORT_TYPES.join(', ')}` });
+        }
         if (!['daily', 'weekly', 'monthly'].includes(frequency)) {
           return res.status(400).json({ error: 'frequency must be daily|weekly|monthly' });
         }
-        if (!Array.isArray(recipients)) {
-          return res.status(400).json({ error: 'recipients must be an array of email strings' });
-        }
+
+        const recipientsErr = validateRecipients(recipients);
+        if (recipientsErr) return res.status(400).json({ error: recipientsErr });
+
+        const timingErr = validateTimingFields({ runAtHour, runAtMinute, dayOfWeek, dayOfMonth });
+        if (timingErr) return res.status(400).json({ error: timingErr });
 
         const db = await customerDbService.getCustomerDatabase(customerId);
+
+        const scopeErr = await validateScope(db, scope, scopeId);
+        if (scopeErr) return res.status(400).json({ error: scopeErr });
+
         const now = new Date();
         const id = randomUUID();
 
@@ -250,6 +308,24 @@ export function registerEnterpriseScheduledReportRoutes(app: Application) {
           .where(eq(iso.scheduledReports.id, id));
 
         if (!existing) return res.status(404).json({ error: 'Schedule not found' });
+
+        // Validate incoming fields before accepting them
+        if ('reportType' in req.body && !VALID_REPORT_TYPES.includes(req.body.reportType)) {
+          return res.status(400).json({ error: `Invalid reportType: '${req.body.reportType}'. Must be one of: ${VALID_REPORT_TYPES.join(', ')}` });
+        }
+        if ('recipients' in req.body) {
+          const recipientsErr = validateRecipients(req.body.recipients);
+          if (recipientsErr) return res.status(400).json({ error: recipientsErr });
+        }
+        const timingErr = validateTimingFields(req.body);
+        if (timingErr) return res.status(400).json({ error: timingErr });
+
+        if ('scope' in req.body || 'scopeId' in req.body) {
+          const scope = req.body.scope ?? existing.scope;
+          const scopeId = ('scopeId' in req.body ? req.body.scopeId : existing.scopeId) ?? null;
+          const scopeErr = await validateScope(db, scope, scopeId);
+          if (scopeErr) return res.status(400).json({ error: scopeErr });
+        }
 
         const allowed = [
           'reportTitle', 'recipients', 'frequency', 'runAtHour', 'runAtMinute',

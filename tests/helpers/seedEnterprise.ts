@@ -263,8 +263,9 @@ export async function deleteTestInductionToken(tokenId: string): Promise<void> {
 export async function seedRoleScopeUser(
   seed: SeedResult,
   options: {
-    role: "enterprise_admin" | "site_coordinator";
+    role: "enterprise_admin" | "area_manager" | "site_coordinator";
     siteId?: string;
+    areaId?: string;
   },
 ): Promise<RoleScopeUser> {
   const pg = new PgClient({ connectionString: getDbUrl() });
@@ -282,11 +283,12 @@ export async function seedRoleScopeUser(
     );
 
     // Insert the enterprise role grant
+    // area_manager uses area_id; site_coordinator uses site_id; enterprise_admin uses neither
     await pg.query(
       `INSERT INTO "${seed.customerSchema}".site_user_roles
-         (id, user_id, role, site_id)
-       VALUES (gen_random_uuid(), $1, $2, $3)`,
-      [userId, options.role, options.siteId ?? null]
+         (id, user_id, role, site_id, area_id)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+      [userId, options.role, options.siteId ?? null, options.areaId ?? null]
     );
 
     return { userId };
@@ -538,6 +540,103 @@ export async function seedContractorSiteApproval(
        VALUES ($1, $2, $3)
        ON CONFLICT (company_id, site_id) DO UPDATE SET status = EXCLUDED.status`,
       [companyId, siteId, status]
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
+// ── Area helpers (used by FIX 2 contractor-pool-clear scope test) ─────────────
+
+/**
+ * Create an area in the isolated schema.  Returns the new area id.
+ */
+export async function seedTestArea(name: string): Promise<string> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const { rows } = await pg.query<{ id: string }>(
+      `INSERT INTO "${TEST_CUSTOMER_SCHEMA}".areas (name) VALUES ($1) RETURNING id`,
+      [name],
+    );
+    return rows[0].id;
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Set or clear the area_id for a site.  Pass null to unset.
+ */
+export async function assignSiteToArea(siteId: string, areaId: string | null): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `UPDATE "${TEST_CUSTOMER_SCHEMA}".sites SET area_id = $1 WHERE id = $2`,
+      [areaId, siteId],
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Delete a test area row (resets any sites' area_id first to avoid FK errors).
+ */
+export async function cleanupTestArea(areaId: string): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `UPDATE "${TEST_CUSTOMER_SCHEMA}".sites SET area_id = NULL WHERE area_id = $1`,
+      [areaId],
+    ).catch(() => {});
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".areas WHERE id = $1`,
+      [areaId],
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Seed a contractor worker for a given company.  Returns the worker id.
+ */
+export async function seedTestContractorWorker(companyId: string): Promise<string> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    const s = TEST_CUSTOMER_SCHEMA;
+    const ts = Date.now();
+    const { rows } = await pg.query<{ id: string }>(
+      `INSERT INTO "${s}".contractor_workers
+         (first_name, last_name, email, company_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [`IsoTest`, `Worker-${ts}`, `iso-worker-${ts}@test.example`, companyId],
+    );
+    return rows[0].id;
+  } finally {
+    await pg.end();
+  }
+}
+
+/**
+ * Delete a test contractor worker.
+ */
+export async function cleanupTestContractorWorker(workerId: string): Promise<void> {
+  const pg = new PgClient({ connectionString: getDbUrl() });
+  await pg.connect();
+  try {
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".contractor_site_clearances WHERE worker_id = $1`,
+      [workerId],
+    ).catch(() => {});
+    await pg.query(
+      `DELETE FROM "${TEST_CUSTOMER_SCHEMA}".contractor_workers WHERE id = $1`,
+      [workerId],
     );
   } finally {
     await pg.end();

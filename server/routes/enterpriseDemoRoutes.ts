@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireEnterpriseRole } from '../enterpriseRoles';
 import { CustomerDatabaseService } from '../customerDatabase';
 import { db } from '../db';
 import { customers } from '../../shared/schema';
@@ -179,7 +180,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
   });
 
   // ── Load Enterprise Demo ─────────────────────────────────────────────────────
-  app.post('/api/enterprise-demo/load', requireAuth, async (req, res) => {
+  app.post('/api/enterprise-demo/load', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
     let _step = 'init';
     try {
       const cid = req.customerId!;
@@ -743,7 +744,7 @@ export function registerEnterpriseDemoRoutes(app: Express): void {
   });
 
   // ── Reset — Remove All Demo Data ────────────────────────────────────────────
-  app.post('/api/enterprise-demo/reset', requireAuth, async (req, res) => {
+  app.post('/api/enterprise-demo/reset', requireAuth, requireEnterpriseRole('enterprise_admin'), async (req, res) => {
     try {
       const cid = req.customerId!;
 
