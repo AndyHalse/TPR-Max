@@ -54,6 +54,17 @@ async function ensureFraTables(custDb: any, schemaName: string) {
   // Fix 2: soft-delete columns (idempotent)
   await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fire_risk_assessments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`));
   await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fire_risk_assessments ADD COLUMN IF NOT EXISTS deleted_by TEXT DEFAULT NULL`));
+  await custDb.execute(sql.raw(`ALTER TABLE ${schemaName}.fire_risk_assessments ADD COLUMN IF NOT EXISTS site_id VARCHAR DEFAULT NULL`));
+  // Backfill existing FRAs with the default site_id so enterprise scopedWhere can match them
+  try {
+    await custDb.execute(sql.raw(`
+      UPDATE ${schemaName}.fire_risk_assessments
+      SET site_id = (SELECT id FROM ${schemaName}.sites WHERE is_default = true LIMIT 1)
+      WHERE site_id IS NULL
+    `));
+  } catch (_backfillErr) {
+    // sites table may not exist yet for brand-new customers — non-fatal
+  }
 
   await custDb.execute(sql.raw(`
     CREATE TABLE IF NOT EXISTS ${schemaName}.fra_action_items (
@@ -561,7 +572,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
 
       if (body.priority === 'critical') {
         const settingsRows = await custDb.execute(sql.raw(
-          `SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`
+          `SELECT company_name, email FROM ${schemaName}.company_settings LIMIT 1`
         ));
         const settings = settingsRows.rows[0] as any;
         if (settings?.email) {
@@ -571,6 +582,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
 
       res.status(201).json(created);
     } catch (err) {
+      if (err instanceof SiteContextError) return res.status(err.statusCode).json({ error: err.message });
       logger.error('Error creating FRA action:', err);
       res.status(500).json({ error: 'Failed to create action item' });
     }
@@ -769,11 +781,11 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
           await ensureFraTables(custDb, schemaName);
 
           const settingsRows = await custDb.execute(sql.raw(
-            `SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`
+            `SELECT company_name, email FROM ${schemaName}.company_settings LIMIT 1`
           ));
           const settings = settingsRows.rows[0] as any;
           const companyName = settings?.company_name || 'TPR Max';
-          const siteName = settings?.site_name || companyName;
+          const siteName = companyName;
           const adminEmail = settings?.email as string | undefined;
           if (!adminEmail) continue;
 
