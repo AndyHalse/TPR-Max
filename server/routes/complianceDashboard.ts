@@ -922,13 +922,9 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         loadErrors.push('Staff Right to Work');
       }
 
-      // rtwTracked counts staff with expiry-dated RTW records. Zero means no
-      // time-limited RTW on file — score 100 when HR module is active (all clear).
       let rtwScore: number | null;
       if (rtwTracked > 0) {
         rtwScore = Math.round((rtwCompliant / rtwTracked) * 100);
-      } else if (rtwEnabled && rtwQuerySucceeded) {
-        rtwScore = 100;
       } else {
         rtwScore = null;
       }
@@ -1117,14 +1113,9 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         loadErrors.push('Permits to Work');
       }
 
-      // If the feature is enabled and the query succeeded, a zero total means
-      // no active/outstanding permits — score 100 (all clear).
-      // If the feature is disabled or the query failed, return null (not tracked).
       let permitsScore: number | null;
       if (permitsTotal > 0) {
         permitsScore = Math.round((permitsCompliant / permitsTotal) * 100);
-      } else if (ptwEnabled && ptwQuerySucceeded) {
-        permitsScore = 100;
       } else {
         permitsScore = null;
       }
@@ -1179,8 +1170,6 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       let raScore: number | null;
       if (raTotal > 0) {
         raScore = Math.round((raCompliant / raTotal) * 100);
-      } else if (raEnabled && raQuerySucceeded) {
-        raScore = 100;
       } else {
         raScore = null;
       }
@@ -1273,8 +1262,6 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       let auditsScore: number | null;
       if (auditsTotal > 0) {
         auditsScore = Math.round((auditsCompliant / auditsTotal) * 100);
-      } else if (auditsEnabled && auditsQuerySucceeded) {
-        auditsScore = 100;
       } else {
         auditsScore = null;
       }
