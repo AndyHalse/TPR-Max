@@ -63,12 +63,13 @@ export function useContractorManagement() {
     }
   }, []);
 
-  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role?: string }>({
+  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role?: string; activeSiteId?: string | null }>({
     queryKey: ["/api/auth/me"],
     retry: false,
   });
 
   const customerId = currentUser?.customerId;
+  const activeSiteId = currentUser?.activeSiteId ?? null;
 
   const { data: companies = [] } = useQuery<ExtendedContractorCompany[]>({
     queryKey: ["/api/contractors", customerId],
@@ -86,7 +87,7 @@ export function useContractorManagement() {
   const headerF10OverdueCount = allCdmProjects.filter(isF10Overdue).length;
 
   const { data: allWorkers = [], refetch: refetchWorkers } = useQuery<ContractorWorker[]>({
-    queryKey: ["/api/contractors/workers/all", customerId],
+    queryKey: ["/api/contractors/workers/all", customerId, activeSiteId],
     enabled: activeTab === "previous" && !!customerId,
     refetchOnWindowFocus: true,
     refetchInterval: 30000,

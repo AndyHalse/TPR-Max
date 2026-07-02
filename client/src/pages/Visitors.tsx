@@ -59,6 +59,13 @@ export default function Visitors() {
   // Detect if we're in tenant context
   const { slug } = useParams<{ slug?: string }>();
   const isTenantView = !!slug;
+
+  // Read activeSiteId so switching sites busts the visitor cache immediately
+  const { data: authUser } = useQuery<{ activeSiteId?: string | null } | null>({
+    queryKey: ["/api/auth/me"],
+    staleTime: 5 * 60 * 1000,
+  });
+  const activeSiteId = authUser?.activeSiteId ?? null;
   
   // Tab state
   const [activeTab, setActiveTab] = useState("existing");
@@ -168,8 +175,9 @@ export default function Visitors() {
   });
 
   // GDPR FIX: Use tenant-specific endpoint when in tenant view
+  // Include activeSiteId in key so switching sites triggers a fresh fetch
   const { data: allVisitors } = useQuery<Visitor[]>({
-    queryKey: isTenantView ? [`/api/tenants/${slug}/visitors`] : ["/api/visitors"],
+    queryKey: isTenantView ? [`/api/tenants/${slug}/visitors`] : ["/api/visitors", activeSiteId],
   });
 
   const { data: companies = [] } = useQuery<string[]>({

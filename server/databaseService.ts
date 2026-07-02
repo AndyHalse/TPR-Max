@@ -1873,10 +1873,7 @@ export class DatabaseService {
         inArray(isolatedSchema.contractorWorkers.companyId, companyIds),
         eq(isolatedSchema.contractorWorkers.isActive, true),
         siteId
-          ? or(
-              eq(isolatedSchema.contractorWorkers.siteId, siteId),
-              isNull(isolatedSchema.contractorWorkers.siteId)
-            )
+          ? eq(isolatedSchema.contractorWorkers.siteId, siteId)
           : undefined
       ))
       .orderBy(asc(isolatedSchema.contractorWorkers.firstName));
