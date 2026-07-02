@@ -16,6 +16,9 @@ import { customerOnboardingRequestSchema, type CustomerOnboardingRequest } from 
 import { customerOnboardingService } from '../customerOnboardingService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { logger } from '../utils/logger';
+import { buildDeepHealthPayload } from './health';
+import { getErrorSpikeState } from '../opsMonitoring';
+import { runBackupVerification } from './backupVerification';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1964,6 +1967,94 @@ export function registerPlatformAdminRoutes(app: Express): void {
     } catch (error) {
       logger.error('Error fetching traffic data:', error);
       res.status(500).json({ error: 'Failed to fetch traffic data' });
+    }
+  });
+
+  // ── Ops: deep health ──────────────────────────────────────────────────────
+  app.get('/platform-admin/ops/health', requirePlatformAdmin, async (_req, res) => {
+    try {
+      const payload = await buildDeepHealthPayload();
+      res.json(payload);
+    } catch (error) {
+      logger.error('Error building deep health payload:', error);
+      res.status(500).json({ error: 'Failed to fetch health data' });
+    }
+  });
+
+  // ── Ops: error spike state ─────────────────────────────────────────────────
+  app.get('/platform-admin/ops/error-spike', requirePlatformAdmin, (_req, res) => {
+    res.json(getErrorSpikeState());
+  });
+
+  // ── Ops: backup checks (last 14 rows) ─────────────────────────────────────
+  app.get('/platform-admin/ops/backup-checks', requirePlatformAdmin, async (_req, res) => {
+    try {
+      const rows = await db
+        .select()
+        .from(sharedSchema.opsBackupChecks)
+        .orderBy(desc(sharedSchema.opsBackupChecks.ranAt))
+        .limit(14);
+      res.json({ checks: rows });
+    } catch (error) {
+      logger.error('Error fetching backup checks:', error);
+      res.status(500).json({ error: 'Failed to fetch backup checks' });
+    }
+  });
+
+  // ── Ops: trigger manual backup check ─────────────────────────────────────
+  app.post('/platform-admin/ops/backup-checks/run', requirePlatformAdmin, async (_req, res) => {
+    try {
+      await runBackupVerification();
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Error running manual backup check:', error);
+      res.status(500).json({ error: 'Backup check failed' });
+    }
+  });
+
+  // ── Ops: record manual restore test ───────────────────────────────────────
+  app.post('/platform-admin/ops/manual-restore', requirePlatformAdmin, async (req, res) => {
+    try {
+      const admin = (req as any).platformAdmin;
+      const by = admin?.username ?? 'platform-admin';
+      const [existing] = await db
+        .select({ id: sharedSchema.platformBrandingSettings.id })
+        .from(sharedSchema.platformBrandingSettings)
+        .limit(1);
+      if (!existing) {
+        await db.insert(sharedSchema.platformBrandingSettings).values({
+          lastManualRestoreAt: new Date(),
+          lastManualRestoreBy: by,
+        } as any);
+      } else {
+        await db
+          .update(sharedSchema.platformBrandingSettings)
+          .set({ lastManualRestoreAt: new Date(), lastManualRestoreBy: by });
+      }
+      res.json({ success: true, recordedAt: new Date().toISOString(), recordedBy: by });
+    } catch (error) {
+      logger.error('Error recording manual restore test:', error);
+      res.status(500).json({ error: 'Failed to record restore test' });
+    }
+  });
+
+  // ── Ops: get manual restore test record ───────────────────────────────────
+  app.get('/platform-admin/ops/manual-restore', requirePlatformAdmin, async (_req, res) => {
+    try {
+      const [row] = await db
+        .select({
+          lastManualRestoreAt: sharedSchema.platformBrandingSettings.lastManualRestoreAt,
+          lastManualRestoreBy: sharedSchema.platformBrandingSettings.lastManualRestoreBy,
+        })
+        .from(sharedSchema.platformBrandingSettings)
+        .limit(1);
+      res.json({
+        lastManualRestoreAt: row?.lastManualRestoreAt ?? null,
+        lastManualRestoreBy: row?.lastManualRestoreBy ?? null,
+      });
+    } catch (error) {
+      logger.error('Error fetching manual restore record:', error);
+      res.status(500).json({ error: 'Failed to fetch restore record' });
     }
   });
 }

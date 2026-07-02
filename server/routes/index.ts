@@ -63,6 +63,8 @@ import { registerEnterpriseScheduledReportRoutes } from './enterpriseScheduledRe
 import { registerEnterpriseDemoRoutes } from './enterpriseDemoRoutes';
 import { startEnterpriseScheduleRunner } from '../enterpriseScheduleRunner';
 import { initComplianceEngine } from '../complianceEngine';
+import { startBackupVerificationCron } from './backupVerification';
+import { sendStartupEmail } from '../opsMonitoring';
 import { registerSeoRoutes } from '../seo';
 
 export async function registerSplitRoutes(
@@ -133,5 +135,7 @@ export async function registerSplitRoutes(
   registerEnterpriseDemoRoutes(app);
   startEnterpriseScheduleRunner();
   initComplianceEngine();
+  startBackupVerificationCron();
+  sendStartupEmail().catch(() => {});
   await registerRemainingRoutes(app, server);
 }

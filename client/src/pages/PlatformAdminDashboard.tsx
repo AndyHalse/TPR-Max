@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug, TrendingUp, RotateCcw, FlameKindling, ClipboardList, Layers, Star } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug, TrendingUp, RotateCcw, FlameKindling, ClipboardList, Layers, Star, Activity, Database, Mail, HardDrive, Clock, RefreshCw, PlayCircle } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -172,6 +172,299 @@ function AuditLogTab() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+interface DeepHealthData {
+  status: 'ok' | 'degraded' | 'down';
+  db: boolean;
+  email: boolean;
+  storage: boolean;
+  cronCount: number;
+  uptimeSeconds: number;
+  version: string;
+  timestamp: string;
+}
+
+interface ErrorSpikeState {
+  countInWindow: number;
+  windowMinutes: number;
+  threshold: number;
+  lastAlertSentAt: number | null;
+  cooldownMinutes: number;
+}
+
+interface BackupCheck {
+  id: string;
+  ranAt: string;
+  status: 'pass' | 'fail';
+  tablesChecked: number;
+  totalRows: number;
+  durationMs: number;
+  notes: string | null;
+}
+
+interface ManualRestoreRecord {
+  lastManualRestoreAt: string | null;
+  lastManualRestoreBy: string | null;
+}
+
+function HealthCard({ ok, label, icon }: { ok: boolean | null; label: string; icon: React.ReactNode }) {
+  const colour = ok === null ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200' : ok ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200' : 'bg-red-50 dark:bg-red-900/20 border-red-200';
+  const dot = ok === null ? 'bg-gray-400' : ok ? 'bg-emerald-500' : 'bg-red-500';
+  return (
+    <div className={`rounded-lg border p-4 flex items-center gap-3 ${colour}`}>
+      <div className="text-gray-500">{icon}</div>
+      <div className="flex-1">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</p>
+        <p className={`text-xs font-semibold mt-0.5 ${ok === null ? 'text-gray-500' : ok ? 'text-emerald-600' : 'text-red-600'}`}>
+          {ok === null ? 'Checking…' : ok ? 'OK' : 'UNAVAILABLE'}
+        </p>
+      </div>
+      <span className={`w-2.5 h-2.5 rounded-full ${dot}`} />
+    </div>
+  );
+}
+
+function SystemHealthTab() {
+  const { toast } = useToast();
+
+  const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<DeepHealthData>({
+    queryKey: ['/platform-admin/ops/health'],
+    queryFn: async () => {
+      const res = await fetch('/platform-admin/ops/health', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch health data');
+      return res.json();
+    },
+    refetchInterval: 30_000,
+  });
+
+  const { data: spikeData } = useQuery<ErrorSpikeState>({
+    queryKey: ['/platform-admin/ops/error-spike'],
+    queryFn: async () => {
+      const res = await fetch('/platform-admin/ops/error-spike', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch error spike state');
+      return res.json();
+    },
+    refetchInterval: 15_000,
+  });
+
+  const { data: backupData, isLoading: backupLoading, refetch: refetchBackups } = useQuery<{ checks: BackupCheck[] }>({
+    queryKey: ['/platform-admin/ops/backup-checks'],
+    queryFn: async () => {
+      const res = await fetch('/platform-admin/ops/backup-checks', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch backup checks');
+      return res.json();
+    },
+  });
+
+  const { data: restoreData, refetch: refetchRestore } = useQuery<ManualRestoreRecord>({
+    queryKey: ['/platform-admin/ops/manual-restore'],
+    queryFn: async () => {
+      const res = await fetch('/platform-admin/ops/manual-restore', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+  });
+
+  const runBackupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/platform-admin/ops/backup-checks/run', {});
+      if (!res.ok) throw new Error('Backup check failed');
+    },
+    onSuccess: () => {
+      toast({ title: 'Backup check complete', description: 'Results have been recorded.' });
+      refetchBackups();
+    },
+    onError: () => toast({ title: 'Backup check failed', variant: 'destructive' }),
+  });
+
+  const recordRestoreMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/platform-admin/ops/manual-restore', {});
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Manual restore test recorded' });
+      refetchRestore();
+    },
+    onError: () => toast({ title: 'Failed to record restore test', variant: 'destructive' }),
+  });
+
+  const checks = backupData?.checks ?? [];
+  const latestCheck = checks[0];
+  const hoursAgo = latestCheck ? (Date.now() - new Date(latestCheck.ranAt).getTime()) / 3_600_000 : Infinity;
+  const backupAlert = !latestCheck || hoursAgo > 48 || latestCheck.status === 'fail';
+
+  const statusColour = health?.status === 'ok' ? 'text-emerald-600' : health?.status === 'degraded' ? 'text-amber-600' : 'text-red-600';
+  const statusBg = health?.status === 'ok' ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200' : health?.status === 'degraded' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200' : 'bg-red-50 dark:bg-red-900/20 border-red-200';
+
+  return (
+    <div className="space-y-6">
+      {/* ── Current Health ── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Activity className="w-5 h-5 text-[#2460A9]" />Current System Health</CardTitle>
+            <CardDescription>Live status — refreshes every 30 seconds</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetchHealth()} disabled={healthLoading}>
+            <RefreshCw className="w-4 h-4 mr-2" />Refresh
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {healthLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500"><div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" /> Checking…</div>
+          ) : (
+            <>
+              <div className={`rounded-lg border p-3 flex items-center justify-between ${statusBg}`}>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Overall status</span>
+                <span className={`text-sm font-black uppercase ${statusColour}`}>{health?.status ?? '—'}</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <HealthCard ok={health?.db ?? null} label="Database" icon={<Database className="w-4 h-4" />} />
+                <HealthCard ok={health?.email ?? null} label="Email service" icon={<Mail className="w-4 h-4" />} />
+                <HealthCard ok={health?.storage ?? null} label="File storage" icon={<HardDrive className="w-4 h-4" />} />
+                <HealthCard ok={health ? true : null} label={`Cron jobs (${health?.cronCount ?? 0})`} icon={<Clock className="w-4 h-4" />} />
+              </div>
+              <p className="text-xs text-gray-400">
+                Uptime: {health ? `${Math.floor((health.uptimeSeconds ?? 0) / 3600)}h ${Math.floor(((health.uptimeSeconds ?? 0) % 3600) / 60)}m` : '—'} · Version: {health?.version ?? '—'} · Checked: {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString('en-GB') : '—'}
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Error Spike Alerting ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-[#2460A9]" />Error Spike Alerting</CardTitle>
+          <CardDescription>In-memory rolling 5-minute error counter</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {spikeData ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <p className={`text-3xl font-black ${spikeData.countInWindow >= spikeData.threshold ? 'text-red-600' : 'text-emerald-600'}`}>{spikeData.countInWindow}</p>
+                <p className="text-xs text-gray-500 mt-1">Errors in {spikeData.windowMinutes}min window</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-black text-gray-700 dark:text-gray-300">{spikeData.threshold}</p>
+                <p className="text-xs text-gray-500 mt-1">Alert threshold</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-black text-gray-700 dark:text-gray-300">{spikeData.cooldownMinutes}m</p>
+                <p className="text-xs text-gray-500 mt-1">Alert cooldown</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1">
+                  {spikeData.lastAlertSentAt
+                    ? new Date(spikeData.lastAlertSentAt).toLocaleString('en-GB')
+                    : 'Never'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Last alert sent</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Loading…</p>
+          )}
+          <p className="text-xs text-gray-400 mt-3">Configure via <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">OPS_ERROR_ALERT_THRESHOLD</code> and <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">OPS_ALERT_EMAIL</code> environment variables.</p>
+        </CardContent>
+      </Card>
+
+      {/* ── Backup Checks ── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5 text-[#2460A9]" />Backup Verification</CardTitle>
+            <CardDescription>Daily automated checks at 03:30 Europe/London</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => runBackupMutation.mutate()} disabled={runBackupMutation.isPending}>
+            <PlayCircle className="w-4 h-4 mr-2" />{runBackupMutation.isPending ? 'Running…' : 'Run now'}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {backupAlert && (
+            <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 p-3">
+              <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-red-700 dark:text-red-400">
+                {!latestCheck ? 'No backup checks have run yet.' : hoursAgo > 48 ? `Last check ran ${Math.round(hoursAgo)}h ago — expected within 48h.` : 'Latest backup check FAILED. Investigate immediately.'}
+              </p>
+            </div>
+          )}
+          {backupLoading ? (
+            <p className="text-sm text-gray-500 text-center py-4">Loading…</p>
+          ) : checks.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No checks recorded yet — run manually or wait for the 03:30 cron.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs text-gray-500 uppercase">
+                    <th className="pb-2 pr-4">Date / Time</th>
+                    <th className="pb-2 pr-4">Status</th>
+                    <th className="pb-2 pr-4">Tables</th>
+                    <th className="pb-2 pr-4">~Rows</th>
+                    <th className="pb-2 pr-4">Duration</th>
+                    <th className="pb-2">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {checks.map(c => (
+                    <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                      <td className="py-2 pr-4 text-xs text-gray-500 whitespace-nowrap">{new Date(c.ranAt).toLocaleString('en-GB')}</td>
+                      <td className="py-2 pr-4">
+                        <Badge variant={c.status === 'pass' ? 'default' : 'destructive'} className={`text-xs ${c.status === 'pass' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0' : ''}`}>
+                          {c.status.toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-xs">{c.tablesChecked}</td>
+                      <td className="py-2 pr-4 text-xs">{c.totalRows.toLocaleString()}</td>
+                      <td className="py-2 pr-4 text-xs">{c.durationMs}ms</td>
+                      <td className="py-2 text-xs text-gray-400 max-w-xs truncate">{c.notes ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Manual Restore Test ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-[#2460A9]" />Manual Restore Test</CardTitle>
+          <CardDescription>Record when a human last verified a database restore from Neon backup</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 p-3 text-sm text-amber-800 dark:text-amber-300">
+            The automated job checks data is readable, but cannot verify a full restore. Periodically perform a manual Neon restore test on a staging environment and record it here.
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Last manual restore test</p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {restoreData?.lastManualRestoreAt
+                  ? `${new Date(restoreData.lastManualRestoreAt).toLocaleString('en-GB')} by ${restoreData.lastManualRestoreBy ?? 'unknown'}`
+                  : '— Not recorded yet'}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => recordRestoreMutation.mutate()}
+              disabled={recordRestoreMutation.isPending}
+              className="border-[#2460A9] text-[#2460A9] hover:bg-blue-50"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              {recordRestoreMutation.isPending ? 'Recording…' : 'Record restore test done today'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1211,6 +1504,9 @@ export default function PlatformAdminDashboard() {
             <TabsTrigger value="traffic">
               <TrendingUp className="w-4 h-4 mr-2" />Traffic
             </TabsTrigger>
+            <TabsTrigger value="system-health">
+              <Activity className="w-4 h-4 mr-2" />System Health
+            </TabsTrigger>
             {isSuperAdmin && (
               <TabsTrigger value="audit">
                 <ClipboardList className="w-4 h-4 mr-2" />Audit Log
@@ -1667,6 +1963,11 @@ export default function PlatformAdminDashboard() {
                 </>
               )}
             </div>
+          </TabsContent>
+
+          {/* ── System Health Tab ─────────────────────────────────── */}
+          <TabsContent value="system-health">
+            <SystemHealthTab />
           </TabsContent>
 
           {/* ── Audit Log Tab (super admin only) ─────────────────── */}

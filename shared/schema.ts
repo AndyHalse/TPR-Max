@@ -2589,6 +2589,9 @@ export const platformBrandingSettings = pgTable("platform_branding_settings", {
   // Metadata
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: varchar("updated_by").references(() => platformAdmins.id),
+  // Manual restore test tracking
+  lastManualRestoreAt: timestamp("last_manual_restore_at"),
+  lastManualRestoreBy: text("last_manual_restore_by"),
 });
 
 // Insert schemas for UK H&S document system
@@ -2838,3 +2841,18 @@ export const pageViews = pgTable("page_views", {
 }));
 
 export type PageView = typeof pageViews.$inferSelect;
+
+// ── Ops Backup Checks ─ daily automated backup-verification job results ───────
+export const opsBackupChecks = pgTable("ops_backup_checks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ranAt: timestamp("ran_at").notNull().defaultNow(),
+  status: text("status").notNull().$type<"pass" | "fail">(),
+  tablesChecked: integer("tables_checked").notNull().default(0),
+  totalRows: integer("total_rows").notNull().default(0),
+  durationMs: integer("duration_ms").notNull().default(0),
+  notes: text("notes"),
+}, (t) => ({
+  ranAtIdx: index("ops_backup_checks_ran_at_idx").on(t.ranAt),
+}));
+
+export type OpsBackupCheck = typeof opsBackupChecks.$inferSelect;

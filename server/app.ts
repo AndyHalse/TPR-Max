@@ -22,6 +22,8 @@ import type { Server } from "http";
 import { registerRoutes, createHttpServer } from "./routes";
 import { loadUser } from "./auth";
 import { logger, requestLoggingMiddleware } from "./utils/logger";
+import { registerPublicHealthRoute } from "./routes/health";
+import { recordError } from "./opsMonitoring";
 
 // ── Express type augmentation ─────────────────────────────────────────────────
 declare global {
@@ -224,6 +226,9 @@ export async function createApp(): Promise<{
 
   app.use(compression({ level: 6, threshold: 1024 }));
   app.set("trust proxy", 1);
+
+  // Health check — registered BEFORE the readiness guard so uptime monitors always get JSON
+  registerPublicHealthRoute(app);
 
   // Readiness guard — returns a loading page until setAppReady() is called
   app.use((req, res, next) => {
@@ -498,6 +503,10 @@ export async function createApp(): Promise<{
     const message = err.message || "Internal Server Error";
     const responseMessage =
       process.env.NODE_ENV === "production" ? "Internal Server Error" : message;
+    // Track 5xx errors for spike alerting (never for health-check or 4xx)
+    if (status >= 500 && !req.url.startsWith('/api/health')) {
+      recordError(message, `${req.method} ${req.url}`);
+    }
     if (!res.headersSent) res.status(status).json({ error: responseMessage, errorId });
   });
 
