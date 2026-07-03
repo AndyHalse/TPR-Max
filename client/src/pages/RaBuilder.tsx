@@ -222,13 +222,20 @@ export default function RaBuilder() {
     }, 400);
   }, [assessments, showEditor]);
 
-  const { data: loadedAssessment, isLoading: editorLoading } = useQuery<Assessment>({
+  const {
+    data: loadedAssessment,
+    isLoading: editorLoading,
+    isError: editorError,
+    error: editorErrorObj,
+    refetch: refetchAssessment,
+  } = useQuery<Assessment>({
     queryKey: ["/api/ra-builder/assessments", currentAssessmentId],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/ra-builder/assessments/${currentAssessmentId}`);
       return res.json();
     },
     enabled: !!currentAssessmentId && showEditor,
+    retry: false,
   });
 
   useEffect(() => {
@@ -620,6 +627,45 @@ export default function RaBuilder() {
   // ── Editor view ───────────────────────────────────────────────────────────
 
   if (showEditor) {
+    if (currentAssessmentId && editorLoading) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-slate-500">
+            <Loader2 className="h-8 w-8 animate-spin text-[#2460A9]" />
+            <p className="text-sm">Loading assessment…</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentAssessmentId && editorError) {
+      const message = (editorErrorObj as any)?.message || "We couldn't reach the server.";
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4 md:p-6">
+          <button onClick={closeEditor} className="flex items-center gap-2 text-slate-600 hover:text-[#2460A9] text-sm font-medium mb-6">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Assessments
+          </button>
+          <div className="max-w-md mx-auto mt-16 text-center space-y-4">
+            <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              Couldn't load this assessment
+            </h2>
+            <p className="text-sm text-slate-500">
+              Your data hasn't been lost — it's still saved on the server. We just couldn't load it just now
+              ({message}).
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button variant="outline" onClick={closeEditor}>Back to Assessments</Button>
+              <Button style={{ backgroundColor: "#2460A9" }} onClick={() => refetchAssessment()}>
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const raType = (assessment.raType || "general") as RAType;
 
     return (
