@@ -1876,7 +1876,10 @@ export class DatabaseService {
           ? eq(isolatedSchema.contractorWorkers.siteId, siteId)
           : undefined
       ))
-      .orderBy(asc(isolatedSchema.contractorWorkers.firstName));
+      .orderBy(
+        sql`${isolatedSchema.contractorWorkers.checkedInAt} DESC NULLS LAST`,
+        asc(isolatedSchema.contractorWorkers.firstName)
+      );
 
     const activeCardRows2 = await db
       .select({ workerId: isolatedSchema.cardIssues.workerId })
