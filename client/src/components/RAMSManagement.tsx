@@ -55,6 +55,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 
+// A RAMS doc's documentUrl can point to either:
+//   (a) a real uploaded file in object storage (external, opens fine in a new tab), or
+//   (b) an internal SPA deep-link like `/ra-builder?open=<id>` created when an RA
+//       Builder assessment is approved into the RAMS tab.
+// Internal links MUST be opened in the SAME tab — opening them via
+// `target="_blank" rel="noopener"` gives the new tab a fresh, empty sessionStorage
+// (no per-tab Bearer session token), so it silently falls back to whatever the
+// shared session cookie currently points to, which can be a different
+// user/customer than the tab that generated the link — causing a false
+// "Assessment not found" error even though the assessment exists.
+function isInternalAppLink(url: string): boolean {
+  return url.startsWith("/ra-builder?open=");
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface RamsDoc {
@@ -500,11 +514,22 @@ function DetailDialog({ doc, workers, onClose, onApprove, onReject, onNewVersion
             <Button onClick={onNewVersion} size="sm" variant="outline" className="gap-1">
               <RefreshCw size={14} /> Upload New Version
             </Button>
-            <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
-              <Button size="sm" variant="outline" className="gap-1">
-                <Download size={14} /> Download
+            {isInternalAppLink(doc.documentUrl) ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() => { window.location.href = doc.documentUrl; }}
+              >
+                <Download size={14} /> Open
               </Button>
-            </a>
+            ) : (
+              <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" className="gap-1">
+                  <Download size={14} /> Download
+                </Button>
+              </a>
+            )}
           </div>
         )}
 
@@ -578,9 +603,19 @@ function DetailDialog({ doc, workers, onClose, onApprove, onReject, onNewVersion
               </div>
             )}
 
-            <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline">
-              <Download size={14} /> View / Download Document
-            </a>
+            {isInternalAppLink(doc.documentUrl) ? (
+              <button
+                type="button"
+                onClick={() => { window.location.href = doc.documentUrl; }}
+                className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline"
+              >
+                <Download size={14} /> Open Assessment
+              </button>
+            ) : (
+              <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline">
+                <Download size={14} /> View / Download Document
+              </a>
+            )}
           </TabsContent>
 
           {/* ── Acknowledgements ── */}
