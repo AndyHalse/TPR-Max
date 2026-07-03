@@ -261,6 +261,7 @@ export const visitors = pgTable("visitors", {
   // Visit reason tracking
   visitReasonId: varchar("visit_reason_id"),
   siteId: varchar("site_id"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -13,6 +13,15 @@
   "checkIn": "Entrada",
   "checkOut": "Salida",
   "addVisitor": "Añadir visitante",
+  "sorting": {
+    "firstName": "Nombre (A-Z)",
+    "lastName": "Apellido (A-Z)",
+    "recentCheckIn": "Registrado más recientemente"
+  },
+  "showArchived": "Mostrar archivados",
+  "hideArchived": "Ocultar archivados",
+  "archiveVisitor": "Archivar",
+  "unarchiveVisitor": "Restaurar",
   "addVisitorTitle": "Añadir manualmente un nuevo perfil de visitante",
   "scanQrTitle": "Escanee un código QR de visitante o contratista para registrar su entrada",
   "previousVisitorsSubtitle": "Seleccione un visitante que haya estado antes en las instalaciones",
@@ -112,7 +121,13 @@
     "validationError": "Error de validación",
     "fillRequiredFields": "Por favor, complete todos los campos obligatorios resaltados en rojo.",
     "ndaRequired": "Se requiere la aceptación del NDA para registrarse.",
-    "hsRequired": "Debe aceptar las normas de Salud y Seguridad para registrarse."
+    "hsRequired": "Debe aceptar las normas de Salud y Seguridad para registrarse.",
+    "archivedTitle": "Visitante archivado",
+    "archivedDesc": "El visitante ha sido archivado.",
+    "archiveError": "Error al archivar el visitante",
+    "unarchivedTitle": "Visitante restaurado",
+    "unarchivedDesc": "El visitante ha sido restaurado.",
+    "unarchiveError": "Error al restaurar el visitante"
   },
   "dialogs": {
     "selectHost": "Seleccionar anfitrión para {{name}}",

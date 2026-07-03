@@ -587,6 +587,38 @@ export function registerVisitorRoutes(app: Express): void {
     }
   });
 
+  // Archive visitor — soft-delete (isActive=false)
+  app.patch("/api/visitors/:id/archive", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const existing = await databaseService.getVisitorById(context, id);
+      if (!existing) return res.status(404).json({ error: "Visitor not found" });
+      const updated = await databaseService.updateVisitor(context, id, { isActive: false } as any);
+      res.json(updated);
+    } catch (error) {
+      logger.error("Failed to archive visitor:", error);
+      res.status(500).json({ error: "Failed to archive visitor" });
+    }
+  });
+
+  // Unarchive visitor — restore (isActive=true)
+  app.patch("/api/visitors/:id/unarchive", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const existing = await databaseService.getVisitorById(context, id);
+      if (!existing) return res.status(404).json({ error: "Visitor not found" });
+      const updated = await databaseService.updateVisitor(context, id, { isActive: true } as any);
+      res.json(updated);
+    } catch (error) {
+      logger.error("Failed to unarchive visitor:", error);
+      res.status(500).json({ error: "Failed to unarchive visitor" });
+    }
+  });
+
   app.post("/api/visitors/:id/checkout", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;

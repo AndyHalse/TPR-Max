@@ -412,6 +412,7 @@ export const visitors = pgTable("visitors", {
   // Notes field for additional visitor information
   notes: text("notes"),
   photoUrl: text("photo_url"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

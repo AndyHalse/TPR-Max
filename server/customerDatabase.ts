@@ -1609,6 +1609,10 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".visitors ADD COLUMN IF NOT EXISTS visit_reason_id VARCHAR`);
       await pool.query(`ALTER TABLE "${schemaName}".visitors ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
       await pool.query(`ALTER TABLE "${schemaName}".visitors ALTER COLUMN updated_at SET DEFAULT NOW()`);
+      await pool.query(`ALTER TABLE "${schemaName}".visitors ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
+      await pool.query(`ALTER TABLE "${schemaName}".visitors ALTER COLUMN is_active SET DEFAULT TRUE`);
+      await pool.query(`UPDATE "${schemaName}".visitors SET is_active = TRUE WHERE is_active IS NULL`);
+      await pool.query(`ALTER TABLE "${schemaName}".visitors ALTER COLUMN is_active SET NOT NULL`);
       await pool.query(`ALTER TABLE "${schemaName}".members ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
       await pool.query(`ALTER TABLE "${schemaName}".members ALTER COLUMN updated_at SET DEFAULT NOW()`);
       // Seed three default reasons only if the table is empty

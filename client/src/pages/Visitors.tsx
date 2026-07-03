@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import PassPreviewModal from "@/components/PassPreviewModal";
@@ -40,7 +41,9 @@ import {
   Phone,
   Briefcase,
   Camera,
-  Trash2
+  Trash2,
+  Archive,
+  ArchiveRestore
 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor, CompanySettings } from "@shared/schema";
@@ -141,6 +144,8 @@ export default function Visitors() {
 
   // View mode state for existing visitors
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [sortBy, setSortBy] = useState<'firstName' | 'lastName' | 'recentCheckIn'>('firstName');
+  const [showArchived, setShowArchived] = useState(false);
 
   // H&S modal state
   const [showHSModal, setShowHSModal] = useState(false);
@@ -189,19 +194,56 @@ export default function Visitors() {
   });
 
   // Filter existing visitors based on search (exclude visitors with missing essential data)
-  const filteredVisitors = allVisitors?.filter(visitor => {
+  const filteredVisitors = (allVisitors?.filter(visitor => {
     // Skip visitors with missing essential data
     if (!visitor.firstName || !visitor.lastName) {
       return false;
     }
-    
+
+    if (showArchived ? visitor.isActive : !visitor.isActive) return false;
+
     return (
       `${visitor.firstName} ${visitor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       visitor.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       visitor.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (visitor.company && visitor.company.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }) || [];
+  }) || []).sort((a, b) => {
+    if (sortBy === 'firstName') return (a.firstName || '').localeCompare(b.firstName || '');
+    if (sortBy === 'lastName') return (a.lastName || '').localeCompare(b.lastName || '');
+    return new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime();
+  });
+
+  // Archive/unarchive visitor mutations
+  const archiveVisitorMutation = useMutation({
+    mutationFn: async (visitorId: string) => apiRequest("PATCH", `/api/visitors/${visitorId}/archive`),
+    onSuccess: () => {
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      }
+      toast({ title: t('toasts.archivedTitle'), description: t('toasts.archivedDesc') });
+    },
+    onError: () => {
+      toast({ title: t('common:error'), description: t('toasts.archiveError'), variant: "destructive" });
+    },
+  });
+
+  const unarchiveVisitorMutation = useMutation({
+    mutationFn: async (visitorId: string) => apiRequest("PATCH", `/api/visitors/${visitorId}/unarchive`),
+    onSuccess: () => {
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      }
+      toast({ title: t('toasts.unarchivedTitle'), description: t('toasts.unarchivedDesc') });
+    },
+    onError: () => {
+      toast({ title: t('common:error'), description: t('toasts.unarchiveError'), variant: "destructive" });
+    },
+  });
 
   // Visitor checkout mutation
   const checkoutVisitorMutation = useMutation({
@@ -926,6 +968,27 @@ export default function Visitors() {
                   data-testid="input-search-visitors"
                 />
               </div>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+                <SelectTrigger className="w-44 h-9 text-sm" data-testid="select-sort-visitors">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="firstName">{t('sorting.firstName')}</SelectItem>
+                  <SelectItem value="lastName">{t('sorting.lastName')}</SelectItem>
+                  <SelectItem value="recentCheckIn">{t('sorting.recentCheckIn')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant={showArchived ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowArchived(v => !v)}
+                className={showArchived ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 gap-1.5" : "text-amber-700 border-amber-300 hover:bg-amber-50 gap-1.5"}
+                title={showArchived ? t('hideArchived') : t('showArchived')}
+                data-testid="button-toggle-archived-visitors"
+              >
+                <Archive size={13} />
+                <span className="hidden sm:inline text-xs">{showArchived ? t('hideArchived') : t('showArchived')}</span>
+              </Button>
               <div className="flex items-center gap-1">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -1052,6 +1115,31 @@ export default function Visitors() {
                           >
                             <CalendarPlus size={15} />
                           </Button>
+                          {!showArchived ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => { e.stopPropagation(); archiveVisitorMutation.mutate(visitor.id); }}
+                              disabled={archiveVisitorMutation.isPending}
+                              data-testid={`button-archive-visitor-${visitor.id}`}
+                              className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                              title={t('archiveVisitor')}
+                            >
+                              <Archive size={15} />
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => { e.stopPropagation(); unarchiveVisitorMutation.mutate(visitor.id); }}
+                              disabled={unarchiveVisitorMutation.isPending}
+                              data-testid={`button-unarchive-visitor-${visitor.id}`}
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              title={t('unarchiveVisitor')}
+                            >
+                              <ArchiveRestore size={15} />
+                            </Button>
+                          )}
                         </div>
                         {visitor.isCheckedIn ? (
                           <Button 
@@ -1111,6 +1199,11 @@ export default function Visitors() {
                           </Badge>
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title={t('editProfile')}><Edit size={14} /></Button>
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title={t('preBookTitle')}><CalendarPlus size={14} /></Button>
+                          {!showArchived ? (
+                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); archiveVisitorMutation.mutate(visitor.id); }} disabled={archiveVisitorMutation.isPending} className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50" title={t('archiveVisitor')} data-testid={`button-archive-visitor-list-${visitor.id}`}><Archive size={14} /></Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); unarchiveVisitorMutation.mutate(visitor.id); }} disabled={unarchiveVisitorMutation.isPending} className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" title={t('unarchiveVisitor')} data-testid={`button-unarchive-visitor-list-${visitor.id}`}><ArchiveRestore size={14} /></Button>
+                          )}
                           {visitor.isCheckedIn ? (
                             <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-${visitor.id}`} className="h-9 px-3 text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"><UserX size={15} className="mr-1" />{t('checkOut')}</Button>
                           ) : (
@@ -1127,6 +1220,11 @@ export default function Visitors() {
                         <div className="flex items-center gap-2">
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title={t('common:edit')}><Edit size={14} /></Button>
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title={t('preBook')}><CalendarPlus size={14} /></Button>
+                          {!showArchived ? (
+                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); archiveVisitorMutation.mutate(visitor.id); }} disabled={archiveVisitorMutation.isPending} className="h-9 w-9 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50" title={t('archiveVisitor')} data-testid={`button-archive-visitor-list-mob-${visitor.id}`}><Archive size={14} /></Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); unarchiveVisitorMutation.mutate(visitor.id); }} disabled={unarchiveVisitorMutation.isPending} className="h-9 w-9 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" title={t('unarchiveVisitor')} data-testid={`button-unarchive-visitor-list-mob-${visitor.id}`}><ArchiveRestore size={14} /></Button>
+                          )}
                           {visitor.isCheckedIn ? (
                             <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-mob-${visitor.id}`} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><UserX size={14} className="mr-1" />{t('checkOut')}</Button>
                           ) : (

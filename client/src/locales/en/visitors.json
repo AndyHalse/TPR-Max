@@ -13,6 +13,15 @@
   "checkIn": "Check In",
   "checkOut": "Check Out",
   "addVisitor": "Add Visitor",
+  "sorting": {
+    "firstName": "First name (A-Z)",
+    "lastName": "Last name (A-Z)",
+    "recentCheckIn": "Most recently checked in"
+  },
+  "showArchived": "Show Archived",
+  "hideArchived": "Hide Archived",
+  "archiveVisitor": "Archive",
+  "unarchiveVisitor": "Restore",
   "addVisitorTitle": "Manually add a new visitor profile",
   "scanQrTitle": "Scan a visitor or contractor QR code to check them in",
   "previousVisitorsSubtitle": "Select a visitor who has been onsite before",
@@ -112,7 +121,13 @@
     "validationError": "Validation Error",
     "fillRequiredFields": "Please fill in all required fields highlighted in red.",
     "ndaRequired": "NDA acceptance is required to check in.",
-    "hsRequired": "You must accept the Health & Safety rules to check in."
+    "hsRequired": "You must accept the Health & Safety rules to check in.",
+    "archivedTitle": "Visitor archived",
+    "archivedDesc": "The visitor has been archived.",
+    "archiveError": "Failed to archive visitor",
+    "unarchivedTitle": "Visitor restored",
+    "unarchivedDesc": "The visitor has been restored.",
+    "unarchiveError": "Failed to restore visitor"
   },
   "dialogs": {
     "selectHost": "Select Host for {{name}}",
