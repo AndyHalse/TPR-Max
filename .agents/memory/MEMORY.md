@@ -36,3 +36,4 @@
 - [Raw-SQL DDL bypass causes schema drift](ops-schema-raw-sql-drift.md) — when a table is created via hand-written SQL instead of drizzle-kit push, re-verify column types/indexes against the live DB before trusting shared/schema.ts.
 - [Customer schema naming convention](customer-schema-naming.md) — real tenant schemas are named c_<8-hex>, not cust_/customer_; schema-matching code must use the real prefix or it silently no-ops.
 - [contractor_workers siteId stamping gap](contractor-worker-siteid-stamping.md) — createWorker's 3 origins didn't stamp siteId, silently zeroing Enterprise Dashboard/Muster counts; fixed at creation + self-healed at check-in + backfilled from contractor_visits history.
+- [PPM role-gating removal](ppm-role-gating.md) — PPM had blanket admin-only checks on ~31 backend routes + 3 frontend isAdmin gates; check both sides when a "role X should access Y" bug is reported.

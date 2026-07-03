@@ -294,7 +294,6 @@ app.get("/api/ppm/assets", requireAuth, async (req, res) => {
 });
 
 app.post("/api/ppm/assets", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const parsed = isolatedSchema.insertPpmAssetSchema.parse(req.body);
     const { db: custDb, siteId } = await getScopedDb(req);
@@ -309,7 +308,6 @@ app.post("/api/ppm/assets", requireAuth, async (req, res) => {
 });
 
 app.put("/api/ppm/assets/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const parsed = isolatedSchema.insertPpmAssetSchema.partial().parse(req.body);
@@ -329,7 +327,6 @@ app.put("/api/ppm/assets/:id", requireAuth, async (req, res) => {
 });
 
 app.delete("/api/ppm/assets/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
@@ -389,7 +386,6 @@ app.get("/api/ppm/asset-groups", requireAuth, async (req, res) => {
 });
 
 app.post("/api/ppm/asset-groups", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const parsed = isolatedSchema.insertPpmAssetGroupSchema.parse(req.body);
     const { db: custDb, siteId } = await getScopedDb(req);
@@ -404,7 +400,6 @@ app.post("/api/ppm/asset-groups", requireAuth, async (req, res) => {
 });
 
 app.put("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const parsed = isolatedSchema.insertPpmAssetGroupSchema.partial().parse(req.body);
@@ -423,7 +418,6 @@ app.put("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
 });
 
 app.delete("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
@@ -456,7 +450,6 @@ app.get("/api/ppm/templates", requireAuth, async (req, res) => {
 });
 
 app.post("/api/ppm/templates", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const parsed = isolatedSchema.insertPpmTemplateSchema.parse(req.body);
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
@@ -470,7 +463,6 @@ app.post("/api/ppm/templates", requireAuth, async (req, res) => {
 });
 
 app.put("/api/ppm/templates/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const parsed = isolatedSchema.insertPpmTemplateSchema.partial().parse(req.body);
@@ -486,7 +478,6 @@ app.put("/api/ppm/templates/:id", requireAuth, async (req, res) => {
 });
 
 app.delete("/api/ppm/templates/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
@@ -522,7 +513,6 @@ app.get("/api/ppm/schedules", requireAuth, async (req, res) => {
 });
 
 app.post("/api/ppm/schedules", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const body = req.body;
     const nextDueDate = calcNextDueDate(body.startDate, body.frequency, body.customDays);
@@ -540,7 +530,6 @@ app.post("/api/ppm/schedules", requireAuth, async (req, res) => {
 });
 
 app.put("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const body = req.body;
@@ -565,7 +554,6 @@ app.put("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
 });
 
 app.delete("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
@@ -589,7 +577,6 @@ app.delete("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
 app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
   try {
     if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
-    if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
     const { db: custDb, siteContext } = await getScopedDb(req);
     await ensurePpmColumns(custDb, req.customerId!);
     let expiredCount = 0;
@@ -637,7 +624,6 @@ app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
 // GET /api/ppm/work-orders — list work orders for customer (admin or manager; tokens omitted from list)
 app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
   try {
-    if (!["admin", "manager"].includes(req.user!.role)) return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteContext } = await getScopedDb(req);
 
     // Optional year filter — use EXTRACT(YEAR FROM due_date) for robustness.
@@ -720,7 +706,6 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
 // GET /api/ppm/work-orders/:id/token — return the contractor link for a specific work order (admin only)
 app.get("/api/ppm/work-orders/:id/token", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
     const [wo] = await custDb.select({
@@ -746,7 +731,6 @@ app.get("/api/ppm/work-orders/:id/token", requireAuth, async (req, res) => {
 // POST /api/ppm/work-orders — create a new work order
 app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteId } = await getScopedDb(req);
     const accessToken = randomBytes(24).toString("hex");
     const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
@@ -767,7 +751,6 @@ app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
 // PUT /api/ppm/work-orders/:id — update a work order
 app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
     const updates: Record<string, unknown> = { ...req.body };
@@ -854,7 +837,6 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
 // DELETE /api/ppm/work-orders/:id — delete a work order
 app.delete("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
     const [existing] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id, status: isolatedSchema.ppmWorkOrders.status, title: isolatedSchema.ppmWorkOrders.title })
@@ -877,7 +859,6 @@ app.delete("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
 // POST /api/ppm/work-orders/:id/duplicate — clone a work order, resetting status/completion fields
 app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { db: custDb, siteId, siteContext } = await getScopedDb(req);
     const [original] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
@@ -922,7 +903,6 @@ app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => 
 // POST /api/ppm/work-orders/:id/assign — assign contractor and send email
 app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail } = req.body;
     const { db: custDb, siteContext } = await getScopedDb(req);
@@ -1058,7 +1038,6 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
 // GET /api/ppm/work-orders/:id/documents — list documents for a work order (admin only)
 app.get("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
     const wo = await fetchWoInScope(custDb, id, siteContext);
@@ -1077,7 +1056,6 @@ app.get("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
 // POST /api/ppm/work-orders/:id/documents — upload a document (admin only)
 app.post("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { fileName, fileUrl, fileType, uploadedBy, expiryDate, referenceNumber, issuedBy } = req.body;
     if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
@@ -1126,7 +1104,6 @@ app.post("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => 
 // DELETE /api/ppm/work-orders/:id/documents/:docId — remove a document
 app.delete("/api/ppm/work-orders/:id/documents/:docId", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id, docId } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
     // Verify work order exists and is in caller's allowed site(s)
@@ -1176,7 +1153,6 @@ app.delete("/api/ppm/work-orders/:id/documents/:docId", requireAuth, async (req,
 // POST /api/ppm/work-orders/:id/documents/:docId/resend-alert — resend expiry alert email immediately
 app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id, docId } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
     // Verify work order exists and is in caller's allowed site(s)
@@ -1338,7 +1314,6 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
 // Admin receives a consolidated digest; each work order's assigned contractor (if any) receives a per-document email.
 app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteContext } = await getScopedDb(req);
 
     const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
@@ -1525,7 +1500,6 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
 // GET /api/ppm/work-orders/export-all — bulk PDF export for all matching work orders
 app.get("/api/ppm/work-orders/export-all", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteContext } = await getScopedDb(req);
     const { status, dateFrom, dateTo } = req.query as { status?: string; dateFrom?: string; dateTo?: string };
 
@@ -1685,7 +1659,6 @@ ${wos.length === 0 ? `<p style="color:#6b7280;font-size:14px;text-align:center;p
 // POST /api/ppm/documents/bulk-resend-alert — send a single digest covering ALL expired/expiring-soon PPM documents
 app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { db: custDb, siteContext } = await getScopedDb(req);
     // Fetch company settings
     const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
@@ -1808,7 +1781,6 @@ app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) =
 // GET /api/ppm/work-orders/:id/export — generate a PDF summary of a work order
 app.get("/api/ppm/work-orders/:id/export", requireAuth, async (req, res) => {
   try {
-    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const { id } = req.params;
     const { db: custDb, siteContext } = await getScopedDb(req);
 
@@ -1958,7 +1930,6 @@ Generated by TPR Max — PPM Work Order Export &nbsp;·&nbsp; ${generatedAt}${pr
 // POST /api/ppm/demo-data — seed typical UK facility PPM assets + templates
 
 app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
-  if (!["admin", "manager"].includes(req.user!.role)) return res.status(403).json({ error: "Administrator access required" });
   try {
     const { db: custDb, siteId, siteContext } = await getScopedDb(req);
     await ensurePpmColumns(custDb, req.customerId!);
@@ -2563,7 +2534,6 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 // Contractor-company cleanup remains name-based (only known demo companies).
 // FK-safe order: WO docs → work orders → schedules → assets → asset groups.
 app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
-  if (!["admin", "manager"].includes(req.user!.role)) return res.status(403).json({ error: "Administrator access required" });
   try {
     const { db: custDb, siteContext } = await getScopedDb(req);
     await ensurePpmColumns(custDb, req.customerId!);
@@ -2761,7 +2731,6 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
 // POST /api/ppm/annual-planner/email — send a formatted annual planner to an email address
 app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
-  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { email, year, message } = req.body as { email?: string; year?: number; message?: string };
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

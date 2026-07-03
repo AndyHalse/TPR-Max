@@ -1163,9 +1163,6 @@ function SchedulesTab() {
 function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialStatusFilter?: string; initialWorkOrderId?: string }) {
   const { toast } = useToast();
   const { t } = useTranslation("ppm");
-  const { data: currentUser } = useQuery<{ id: string; username: string; role: string }>({ queryKey: ["/api/auth/me"] });
-  const isAdmin = currentUser?.role === "admin";
-
   // Filters
   const [filterStatus, setFilterStatus] = useState(initialStatusFilter || "all");
   const [filterAsset, setFilterAsset] = useState("all");
@@ -1420,7 +1417,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
   });
 
   const bulkResendAlertsMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/ppm/documents/bulk-resend-alerts`),
+    mutationFn: () => apiRequest("POST", `/api/ppm/documents/bulk-resend-alerts`).then(r => r.json()),
     onSuccess: (data: { documentsAlerted: number; contractorEmailsSent: number }) => {
       toast({
         title: t("workOrders.toast.bulkAlertsMaySent"),
@@ -1597,16 +1594,14 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{t("workOrders.descriptionText")}</p>
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="sm" variant="outline" onClick={() => setShowExportDialog(true)}>
-                  <FileDown className="h-4 w-4 mr-1" />{t("workOrders.exportAll")}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom"><p className="text-xs">Export work orders to CSV or PDF with optional filters</p></TooltipContent>
-            </Tooltip>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="outline" onClick={() => setShowExportDialog(true)}>
+                <FileDown className="h-4 w-4 mr-1" />{t("workOrders.exportAll")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">Export work orders to CSV or PDF with optional filters</p></TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -1682,25 +1677,23 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
             </TooltipTrigger>
             <TooltipContent side="bottom"><p className="text-xs">Show only work orders that have expired or soon-to-expire documents attached</p></TooltipContent>
           </Tooltip>
-          {isAdmin && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs gap-1"
-                  disabled={bulkResendAlertsMutation.isPending || !notifyOnDocumentExpiry}
-                  onClick={() => bulkResendAlertsMutation.mutate()}
-                >
-                  {bulkResendAlertsMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                  {t("workOrders.resendAllAlerts")}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p className="text-xs">{notifyOnDocumentExpiry ? "Send expiry alert emails to all assigned contractors with expiring documents" : t("workOrders.expiryNotificationsDisabledShort")}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs gap-1"
+                disabled={bulkResendAlertsMutation.isPending || !notifyOnDocumentExpiry}
+                onClick={() => bulkResendAlertsMutation.mutate()}
+              >
+                {bulkResendAlertsMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                {t("workOrders.resendAllAlerts")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="text-xs">{notifyOnDocumentExpiry ? "Send expiry alert emails to all assigned contractors with expiring documents" : t("workOrders.expiryNotificationsDisabledShort")}</p>
+            </TooltipContent>
+          </Tooltip>
           {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo || filterExpiringDocs) && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -2625,7 +2618,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                                 </TooltipTrigger>
                                 <TooltipContent side="top"><p className="text-xs">Download document</p></TooltipContent>
                               </Tooltip>
-                              {isAdmin && (isExpired || isExpiringSoon) && (
+                              {(isExpired || isExpiringSoon) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="inline-flex">
