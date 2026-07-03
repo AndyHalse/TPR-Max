@@ -100,6 +100,49 @@
     "successAdded": "Contratista añadido con éxito",
     "registeredInfo": "<0>{{name}}</0> ha sido registrado. Cargue sus documentos de cumplimiento desde la página de detalles en cualquier momento.",
     "creating": "Creando...",
+    "done": "Hecho",
+    "docs": {
+      "publicLiability": {
+        "name": "Seguro de Responsabilidad Civil",
+        "basis": "Normalmente cobertura de 5 millones de libras o más",
+        "note": "Cubre reclamaciones por lesiones o daños a terceros en la obra"
+      },
+      "employersLiability": {
+        "name": "Seguro de Responsabilidad del Empleador",
+        "basis": "Legalmente requerido — Ley de Responsabilidad del Empleador de 1969",
+        "note": "Cobertura mínima de 5 millones de libras, obligatoria si el contratista tiene empleados"
+      },
+      "cisRegistration": {
+        "name": "Registro CIS",
+        "basis": "Requerido bajo el Esquema de la Industria de la Construcción de HMRC",
+        "note": "Confirma la situación fiscal para los pagos a subcontratistas"
+      },
+      "healthSafetyPolicy": {
+        "name": "Política de Salud y Seguridad",
+        "basis": "Requerido bajo la Ley de Salud y Seguridad en el Trabajo de 1974",
+        "note": "Se requiere una política escrita para empresas con 5 o más empleados"
+      },
+      "rams": {
+        "name": "RAMS (Evaluación de Riesgos y Declaración de Método)",
+        "basis": "Requerido antes de que comience el trabajo en la obra",
+        "note": "Documenta cómo se realizará el trabajo de forma segura"
+      },
+      "modernSlavery": {
+        "name": "Declaración de Esclavitud Moderna",
+        "basis": "Requerido bajo la Ley de Esclavitud Moderna de 2015 para organizaciones más grandes",
+        "note": "Confirma las medidas adoptadas para prevenir el trabajo forzado en las cadenas de suministro"
+      },
+      "environmentalPolicy": {
+        "name": "Política Medioambiental",
+        "basis": "Buena práctica para el cumplimiento de la sostenibilidad en la obra",
+        "note": "Describe cómo el contratista gestiona su impacto medioambiental"
+      },
+      "professionalIndemnity": {
+        "name": "Seguro de Indemnización Profesional",
+        "basis": "Recomendado para trabajos de diseño o asesoramiento",
+        "note": "Cubre reclamaciones derivadas de errores o negligencia profesional"
+      }
+    },
     "industries": {
       "construction": "Construcción",
       "electrical": "Electricidad",

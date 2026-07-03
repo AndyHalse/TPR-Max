@@ -100,6 +100,49 @@
     "successAdded": "Contractor Added Successfully",
     "registeredInfo": "<0>{{name}}</0> has been registered. Upload their compliance documents from the detail page at any time.",
     "creating": "Creating...",
+    "done": "Done",
+    "docs": {
+      "publicLiability": {
+        "name": "Public Liability Insurance",
+        "basis": "Typically £5m+ cover",
+        "note": "Covers injury or property damage claims from third parties on site"
+      },
+      "employersLiability": {
+        "name": "Employers' Liability Insurance",
+        "basis": "Legally required — Employers' Liability Act 1969",
+        "note": "Minimum £5m cover, mandatory if the contractor has employees"
+      },
+      "cisRegistration": {
+        "name": "CIS Registration",
+        "basis": "Required under HMRC's Construction Industry Scheme",
+        "note": "Confirms tax status for payments made to subcontractors"
+      },
+      "healthSafetyPolicy": {
+        "name": "Health & Safety Policy",
+        "basis": "Required under the Health and Safety at Work Act 1974",
+        "note": "A written policy is required for companies with 5 or more employees"
+      },
+      "rams": {
+        "name": "RAMS (Risk Assessment & Method Statement)",
+        "basis": "Required before work commences on site",
+        "note": "Documents how the work will be carried out safely"
+      },
+      "modernSlavery": {
+        "name": "Modern Slavery Statement",
+        "basis": "Required under the Modern Slavery Act 2015 for larger organisations",
+        "note": "Confirms steps taken to prevent forced labour in supply chains"
+      },
+      "environmentalPolicy": {
+        "name": "Environmental Policy",
+        "basis": "Good practice for site sustainability compliance",
+        "note": "Outlines how the contractor manages their environmental impact"
+      },
+      "professionalIndemnity": {
+        "name": "Professional Indemnity Insurance",
+        "basis": "Recommended for design or advisory work",
+        "note": "Covers claims arising from professional errors or negligence"
+      }
+    },
     "industries": {
       "construction": "Construction",
       "electrical": "Electrical",
