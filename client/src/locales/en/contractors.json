@@ -8,6 +8,15 @@
   "walkinSub": "Register new contractor with document upload for clearance",
   "walkinDesc": "Register a new contractor who is visiting for the first time",
   "startWalkin": "Start Walk-in Registration",
+  "sorting": {
+    "firstName": "First name (A–Z)",
+    "lastName": "Last name (A–Z)",
+    "recentCheckIn": "Most recently checked in"
+  },
+  "showArchived": "Show Archived",
+  "hideArchived": "Hide Archived",
+  "archiveWorker": "Archive",
+  "unarchiveWorker": "Restore",
   "tabs": {
     "workers": "Contractor Workers",
     "companies": "Contractor Companies",
@@ -409,10 +418,6 @@
     "lastVisit": "Last visit: {{date}}",
     "unknown": "Unknown",
     "searchPlaceholder": "Search workers by name, company, or email...",
-    "showingRange": "Showing {{start}} of {{total}}",
-    "matching": " matching \"{{search}}\"",
-    "showLess": "Show Less",
-    "showAll": "Show All {{count}} Workers",
     "noMatchSearch": "No workers found matching \"{{term}}\"",
     "searchWorkers": "Search workers by name, company, or email...",
     "allWorkers": "All Workers",

@@ -516,7 +516,8 @@ export function registerContractorRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const { siteContext } = await getScopedDb(req);
       const filterSiteId = siteContext.isEnterprise ? siteContext.activeSiteId : null;
-      const workers = await databaseService.getAllContractorWorkers(context, filterSiteId);
+      const includeInactive = req.query.includeArchived === 'true';
+      const workers = await databaseService.getAllContractorWorkers(context, filterSiteId, includeInactive);
       logger.info(`Retrieved ${workers.length} contractor workers for customer ${context.customerId}`);
       res.json(workers);
     } catch (err) {

@@ -1853,7 +1853,7 @@ export class DatabaseService {
   }
 
   // Get all contractor workers for current customer 
-  async getAllContractorWorkers(context: CustomerContext, siteId?: string | null): Promise<ContractorWorker[]> {
+  async getAllContractorWorkers(context: CustomerContext, siteId?: string | null, includeInactive: boolean = false): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const companies = await db
@@ -1871,7 +1871,7 @@ export class DatabaseService {
       .from(isolatedSchema.contractorWorkers)
       .where(and(
         inArray(isolatedSchema.contractorWorkers.companyId, companyIds),
-        eq(isolatedSchema.contractorWorkers.isActive, true),
+        includeInactive ? undefined : eq(isolatedSchema.contractorWorkers.isActive, true),
         siteId
           ? eq(isolatedSchema.contractorWorkers.siteId, siteId)
           : undefined

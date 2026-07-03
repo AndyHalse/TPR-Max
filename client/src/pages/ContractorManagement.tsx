@@ -87,11 +87,12 @@ export default function ContractorManagement() {
       {st.activeTab === "previous" && (
         <ContractorPreviousTab
           previousContractors={st.previousContractors}
-          totalWorkerCount={st.allWorkers.length}
           searchTerm={st.searchTerm}
           setSearchTerm={st.setSearchTerm}
-          showAllWorkers={st.showAllWorkers}
-          setShowAllWorkers={st.setShowAllWorkers}
+          previousSortBy={st.previousSortBy}
+          setPreviousSortBy={st.setPreviousSortBy}
+          showArchivedWorkers={st.showArchivedWorkers}
+          setShowArchivedWorkers={st.setShowArchivedWorkers}
           previousViewMode={st.previousViewMode}
           setPreviousViewMode={st.setPreviousViewMode}
           zones={st.zones}
@@ -116,6 +117,8 @@ export default function ContractorManagement() {
           setSelectedWorker={st.setSelectedWorker}
           setSelectedCompanyName={st.setSelectedCompanyName}
           setShowPassPreview={st.setShowPassPreview}
+          archiveWorkerMutation={st.archiveWorkerMutation}
+          unarchiveWorkerMutation={st.unarchiveWorkerMutation}
           toast={st.toast}
         />
       )}

@@ -8,6 +8,15 @@
   "walkinSub": "Registrar nuevo contratista con carga de documentos para su autorización",
   "walkinDesc": "Registrar a un nuevo contratista que visita por primera vez",
   "startWalkin": "Iniciar registro de entrada directa",
+  "sorting": {
+    "firstName": "Nombre (A-Z)",
+    "lastName": "Apellido (A-Z)",
+    "recentCheckIn": "Entrada más reciente"
+  },
+  "showArchived": "Ver archivados",
+  "hideArchived": "Ocultar archivados",
+  "archiveWorker": "Archivar",
+  "unarchiveWorker": "Restaurar",
   "tabs": {
     "workers": "Trabajadores contratistas",
     "companies": "Empresas contratistas",
@@ -409,10 +418,6 @@
     "lastVisit": "Última visita: {{date}}",
     "unknown": "Desconocido",
     "searchPlaceholder": "Buscar trabajadores por nombre, empresa o correo electrónico...",
-    "showingRange": "Mostrando {{start}} de {{total}}",
-    "matching": " que coinciden con \"{{search}}\"",
-    "showLess": "Mostrar menos",
-    "showAll": "Mostrar todos ({{count}})",
     "noMatchSearch": "No se encontraron trabajadores que coincidan con \"{{term}}\"",
     "searchWorkers": "Buscar trabajadores por nombre, empresa o correo electrónico...",
     "allWorkers": "Todos los trabajadores",

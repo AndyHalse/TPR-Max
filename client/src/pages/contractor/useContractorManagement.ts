@@ -23,10 +23,11 @@ export function useContractorManagement() {
   const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
-  const [showAllWorkers, setShowAllWorkers] = useState(false);
   const [showAllCompanies, setShowAllCompanies] = useState(true);
   const [companyViewMode, setCompanyViewMode] = useState<"grid"|"list">("list");
   const [previousViewMode, setPreviousViewMode] = useState<"grid"|"list">("list");
+  const [previousSortBy, setPreviousSortBy] = useState<"firstName"|"lastName"|"recentCheckIn">("firstName");
+  const [showArchivedWorkers, setShowArchivedWorkers] = useState(false);
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
@@ -87,7 +88,7 @@ export function useContractorManagement() {
   const headerF10OverdueCount = allCdmProjects.filter(isF10Overdue).length;
 
   const { data: allWorkers = [], refetch: refetchWorkers } = useQuery<ContractorWorker[]>({
-    queryKey: ["/api/contractors/workers/all", customerId, activeSiteId],
+    queryKey: [`/api/contractors/workers/all${showArchivedWorkers ? '?includeArchived=true' : ''}`, customerId, activeSiteId],
     enabled: activeTab === "previous" && !!customerId,
     refetchOnWindowFocus: true,
     refetchInterval: 30000,
@@ -160,17 +161,47 @@ export function useContractorManagement() {
     onError: () => toast({ title: "Error", description: "Failed to delete contractor", variant: "destructive" }),
   });
 
+  const invalidateAllWorkersQueries = () => {
+    queryClient.invalidateQueries({
+      predicate: (query) => typeof query.queryKey[0] === "string" && query.queryKey[0].startsWith("/api/contractors/workers/all"),
+    });
+  };
+
   const deleteWorkerMutation = useMutation({
     mutationFn: async (workerId: string) => {
       const response = await apiRequest("DELETE", `/api/workers/${workerId}`);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
+      invalidateAllWorkersQueries();
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       toast({ title: "Success", description: "Worker deleted successfully" });
     },
     onError: () => toast({ title: "Error", description: "Failed to delete worker", variant: "destructive" }),
+  });
+
+  const archiveWorkerMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/archive`);
+      return response.json();
+    },
+    onSuccess: () => {
+      invalidateAllWorkersQueries();
+      toast({ title: "Success", description: "Worker archived successfully" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to archive worker", variant: "destructive" }),
+  });
+
+  const unarchiveWorkerMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/unarchive`);
+      return response.json();
+    },
+    onSuccess: () => {
+      invalidateAllWorkersQueries();
+      toast({ title: "Success", description: "Worker unarchived successfully" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to unarchive worker", variant: "destructive" }),
   });
 
   const checkInMutation = useMutation({
@@ -261,13 +292,27 @@ export function useContractorManagement() {
         const company = companyMap.get(worker.companyId);
         return { ...worker, companyName: company?.name || "Unknown Company", companyStatus: company?.status || "unknown" };
       })
+      .filter((c) => (showArchivedWorkers ? c.isActive === false : c.isActive !== false))
       .filter((c) =>
         (c.firstName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.lastName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.email || "").toLowerCase().includes(searchTerm.toLowerCase())
-      );
-  }, [allWorkers, companies, searchTerm]);
+      )
+      .sort((a, b) => {
+        if (previousSortBy === 'firstName') {
+          return (a.firstName || "").localeCompare(b.firstName || "") || (a.lastName || "").localeCompare(b.lastName || "");
+        }
+        if (previousSortBy === 'lastName') {
+          return (a.lastName || "").localeCompare(b.lastName || "") || (a.firstName || "").localeCompare(b.firstName || "");
+        }
+        // recentCheckIn — most recent first, never-checked-in go to end
+        if (!a.checkedInAt && !b.checkedInAt) return 0;
+        if (!a.checkedInAt) return 1;
+        if (!b.checkedInAt) return -1;
+        return new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime();
+      });
+  }, [allWorkers, companies, searchTerm, showArchivedWorkers, previousSortBy]);
 
   return {
     toast,
@@ -277,10 +322,11 @@ export function useContractorManagement() {
     selectedCO2CompanyId, setSelectedCO2CompanyId,
     searchTerm, setSearchTerm,
     showWalkInForm, setShowWalkInForm,
-    showAllWorkers, setShowAllWorkers,
     showAllCompanies, setShowAllCompanies,
     companyViewMode, setCompanyViewMode,
     previousViewMode, setPreviousViewMode,
+    previousSortBy, setPreviousSortBy,
+    showArchivedWorkers, setShowArchivedWorkers,
     showPassPreview, setShowPassPreview,
     selectedWorker, setSelectedWorker,
     selectedCompanyName, setSelectedCompanyName,
@@ -323,6 +369,8 @@ export function useContractorManagement() {
     handleEditContractor,
     handleDeleteContractor,
     handleDeleteWorker,
+    archiveWorkerMutation,
+    unarchiveWorkerMutation,
     previousContractors,
   };
 }

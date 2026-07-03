@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import GlassCard from "@/components/GlassCard";
 import { useLocation } from "wouter";
 import {
@@ -19,16 +20,19 @@ import {
   LogOut,
   Shield,
   ShieldOff,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface ContractorPreviousTabProps {
   previousContractors: any[];
-  totalWorkerCount: number;
   searchTerm: string;
   setSearchTerm: (s: string) => void;
-  showAllWorkers: boolean;
-  setShowAllWorkers: (b: boolean) => void;
+  previousSortBy: "firstName" | "lastName" | "recentCheckIn";
+  setPreviousSortBy: (v: "firstName" | "lastName" | "recentCheckIn") => void;
+  showArchivedWorkers: boolean;
+  setShowArchivedWorkers: (b: boolean) => void;
   previousViewMode: "grid" | "list";
   setPreviousViewMode: (v: "grid" | "list") => void;
   zones: any[];
@@ -53,16 +57,19 @@ interface ContractorPreviousTabProps {
   setSelectedWorker: (w: any) => void;
   setSelectedCompanyName: (s: string) => void;
   setShowPassPreview: (b: boolean) => void;
+  archiveWorkerMutation: any;
+  unarchiveWorkerMutation: any;
   toast: (opts: any) => void;
 }
 
 export default function ContractorPreviousTab({
   previousContractors,
-  totalWorkerCount,
   searchTerm,
   setSearchTerm,
-  showAllWorkers,
-  setShowAllWorkers,
+  previousSortBy,
+  setPreviousSortBy,
+  showArchivedWorkers,
+  setShowArchivedWorkers,
   previousViewMode,
   setPreviousViewMode,
   zones,
@@ -87,6 +94,8 @@ export default function ContractorPreviousTab({
   setSelectedWorker,
   setSelectedCompanyName,
   setShowPassPreview,
+  archiveWorkerMutation,
+  unarchiveWorkerMutation,
   toast,
 }: ContractorPreviousTabProps) {
   const { t, i18n } = useTranslation(["contractors", "common"]);
@@ -119,47 +128,54 @@ export default function ContractorPreviousTab({
               />
             </div>
 
-            {/* Show All Button & View Toggle */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <div className="text-sm text-slate-600 dark:text-slate-300">
-                {t("previousWorkers.showingRange", { start: showAllWorkers ? previousContractors.length : Math.min(6, previousContractors.length), total: previousContractors.length })}
-                {searchTerm && t("previousWorkers.matching", { search: searchTerm })}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex border rounded-lg overflow-hidden">
-                  <Button
-                    size="sm"
-                    variant={previousViewMode === 'grid' ? 'default' : 'outline'}
-                    className="rounded-none border-0 px-2"
-                    onClick={() => setPreviousViewMode('grid')}
-                    title={t("common:gridView")}
-                  >
-                    <LayoutGrid size={14} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={previousViewMode === 'list' ? 'default' : 'outline'}
-                    className="rounded-none border-0 px-2"
-                    onClick={() => setPreviousViewMode('list')}
-                    title={t("common:listView")}
-                  >
-                    <List size={14} />
-                  </Button>
-                </div>
-                <Button 
-                  variant="outline" 
+            {/* Sort, Archive & View Toggle */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <Select value={previousSortBy} onValueChange={(v) => setPreviousSortBy(v as typeof previousSortBy)}>
+                <SelectTrigger className="w-44 h-9 text-sm" data-testid="select-sort-workers">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="firstName">{t("sorting.firstName")}</SelectItem>
+                  <SelectItem value="lastName">{t("sorting.lastName")}</SelectItem>
+                  <SelectItem value="recentCheckIn">{t("sorting.recentCheckIn")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant={showArchivedWorkers ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowArchivedWorkers(!showArchivedWorkers)}
+                className={showArchivedWorkers ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 gap-1.5" : "text-amber-700 border-amber-300 hover:bg-amber-50 gap-1.5"}
+                title={showArchivedWorkers ? t("hideArchived") : t("showArchived")}
+                data-testid="button-show-archived-workers"
+              >
+                <Archive size={13} />
+                <span className="hidden sm:inline text-xs">{showArchivedWorkers ? t("hideArchived") : t("showArchived")}</span>
+              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant={previousViewMode === 'grid' ? 'default' : 'outline'}
                   size="sm"
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs sm:text-sm whitespace-nowrap"
-                  onClick={() => setShowAllWorkers(!showAllWorkers)}
+                  onClick={() => setPreviousViewMode('grid')}
+                  className="h-8 w-8 p-0"
+                  title={t("common:gridView")}
                 >
-                  {showAllWorkers ? t("previousWorkers.showLess") : t("previousWorkers.showAll", { count: totalWorkerCount })}
+                  <LayoutGrid size={14} />
+                </Button>
+                <Button
+                  variant={previousViewMode === 'list' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPreviousViewMode('list')}
+                  className="h-8 w-8 p-0"
+                  title={t("common:listView")}
+                >
+                  <List size={14} />
                 </Button>
               </div>
             </div>
 
             {/* Contractors Grid/List */}
             <div className={previousViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6" : "space-y-2"}>
-              {previousContractors.slice(0, showAllWorkers ? previousContractors.length : 6).map((contractor) => (
+              {previousContractors.map((contractor) => (
                 previousViewMode === 'grid' ? (
                 <GlassCard 
                   key={contractor.id} 
@@ -269,6 +285,31 @@ export default function ContractorPreviousTab({
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
+                      {contractor.isActive !== false ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                          onClick={(e) => { e.stopPropagation(); archiveWorkerMutation.mutate(contractor.id); }}
+                          disabled={archiveWorkerMutation.isPending}
+                          title={t("archiveWorker")}
+                          data-testid={`button-archive-worker-${contractor.id}`}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={(e) => { e.stopPropagation(); unarchiveWorkerMutation.mutate(contractor.id); }}
+                          disabled={unarchiveWorkerMutation.isPending}
+                          title={t("unarchiveWorker")}
+                          data-testid={`button-unarchive-worker-${contractor.id}`}
+                        >
+                          <ArchiveRestore className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button 
                         size="sm" 
                         variant="ghost" 
@@ -452,6 +493,11 @@ export default function ContractorPreviousTab({
                         <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                           {lwSession && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse"><Shield className="h-3 w-3" />{getLoneWorkerCountdown(lwSession)}</span>}
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title={t("common:edit")}><Edit className="h-3.5 w-3.5" /></Button>
+                          {contractor.isActive !== false ? (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); archiveWorkerMutation.mutate(contractor.id); }} disabled={archiveWorkerMutation.isPending} title={t("archiveWorker")} data-testid={`button-archive-worker-${contractor.id}`}><Archive className="h-3.5 w-3.5" /></Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); unarchiveWorkerMutation.mutate(contractor.id); }} disabled={unarchiveWorkerMutation.isPending} title={t("unarchiveWorker")} data-testid={`button-unarchive-worker-${contractor.id}`}><ArchiveRestore className="h-3.5 w-3.5" /></Button>
+                          )}
                           {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title={t("previousWorkers.preBookWorker")}><CalendarPlus className="h-3.5 w-3.5" /></Button>}
                           {lwSession ? (
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title={t("previousWorkers.endLoneWorker")}><ShieldOff className="h-3.5 w-3.5" /></Button>
@@ -479,6 +525,11 @@ export default function ContractorPreviousTab({
                       <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5">
                           <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title={t("common:edit")}><Edit className="h-4 w-4" /></Button>
+                          {contractor.isActive !== false ? (
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); archiveWorkerMutation.mutate(contractor.id); }} disabled={archiveWorkerMutation.isPending} title={t("archiveWorker")} data-testid={`button-archive-worker-mobile-${contractor.id}`}><Archive className="h-4 w-4" /></Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); unarchiveWorkerMutation.mutate(contractor.id); }} disabled={unarchiveWorkerMutation.isPending} title={t("unarchiveWorker")} data-testid={`button-unarchive-worker-mobile-${contractor.id}`}><ArchiveRestore className="h-4 w-4" /></Button>
+                          )}
                           {isClear && <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title={t("previousWorkers.preBookWorker")}><CalendarPlus className="h-4 w-4" /></Button>}
                           {lwSession ? (
                             <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title={t("previousWorkers.endLoneWorker")}><ShieldOff className="h-4 w-4" /></Button>
