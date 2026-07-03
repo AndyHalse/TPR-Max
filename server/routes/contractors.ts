@@ -2598,9 +2598,6 @@ export function registerContractorRoutes(app: Express): void {
   // Approve a company document
   app.patch("/api/contractors/:companyId/documents/:documentId/approve", requireAuth, async (req, res) => {
     try {
-      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
-        return res.status(403).json({ error: 'Manager or administrator access required' });
-      }
       const { companyId, documentId } = req.params;
       const username = req.user!.username;
       const displayName = req.user!.firstName && req.user!.lastName
