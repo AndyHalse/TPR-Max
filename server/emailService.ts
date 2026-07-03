@@ -1534,7 +1534,7 @@ For questions about this report, please contact the administrator.
                   <tr>
                     <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
                       ${logoBase64 ? `
-                      <img src="${logoBase64}" alt="${companyName}" style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; border-radius: 12px; background: white; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width: 80px; height: 80px; margin: 0 auto 15px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><tr><td align="center" valign="middle" style="width: 80px; height: 80px; padding: 8px; box-sizing: border-box;"><img src="${logoBase64}" alt="${companyName}" style="max-width: 64px; max-height: 64px; width: auto; height: auto; display: inline-block;"></td></tr></table>
                       ` : `
                       <table role="presentation" cellpadding="0" cellspacing="0" style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                         <tr><td align="center" valign="middle" style="font-size: 22px; font-weight: bold; color: ${primaryColor}; font-family: Arial, sans-serif;">${companyName.substring(0, 3).toUpperCase()}</td></tr>
@@ -2010,7 +2010,7 @@ This is an automated emergency notification from ${companySettings.companyName}`
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
                         <!-- Company Logo -->
                         ${logoDataUrl ? `
-                        <img src="${logoDataUrl}" alt="${companyName}" style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; border-radius: 12px; background: white; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width: 80px; height: 80px; margin: 0 auto 15px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><tr><td align="center" valign="middle" style="width: 80px; height: 80px; padding: 8px; box-sizing: border-box;"><img src="${logoDataUrl}" alt="${companyName}" style="max-width: 64px; max-height: 64px; width: auto; height: auto; display: inline-block;"></td></tr></table>
                         ` : `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                           <tr>
@@ -2382,7 +2382,7 @@ Powered by TPR`;
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
                         ${logoDataUrl ? `
-                        <img src="${logoDataUrl}" alt="${companyName}" style="width: 64px; height: 64px; margin: 0 auto 12px; display: block; border-radius: 12px; background: white; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width: 64px; height: 64px; margin: 0 auto 12px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><tr><td align="center" valign="middle" style="width: 64px; height: 64px; padding: 6px; box-sizing: border-box;"><img src="${logoDataUrl}" alt="${companyName}" style="max-width: 52px; max-height: 52px; width: auto; height: auto; display: inline-block;"></td></tr></table>
                         ` : ''}
                         <h1 style="margin: 0; color: white; font-size: 22px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                           ✅ ${typeLabel} Arrival Notification
@@ -2602,7 +2602,7 @@ Powered by TPR`;
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
                         <!-- Company Logo -->
                         ${logoDataUrl ? `
-                        <img src="${logoDataUrl}" alt="${companyName}" style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; border-radius: 12px; background: white; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width: 80px; height: 80px; margin: 0 auto 15px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><tr><td align="center" valign="middle" style="width: 80px; height: 80px; padding: 8px; box-sizing: border-box;"><img src="${logoDataUrl}" alt="${companyName}" style="max-width: 64px; max-height: 64px; width: auto; height: auto; display: inline-block;"></td></tr></table>
                         ` : `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                           <tr>
@@ -3390,7 +3390,7 @@ TPR Max Visitor Management System
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); padding: 30px 20px; text-align: center;">
                         ${logoDataUrl ? `
-                        <img src="${logoDataUrl}" alt="${siteName}" style="width: 70px; height: 70px; margin: 0 auto 12px; display: block; border-radius: 12px; background: white; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width: 70px; height: 70px; margin: 0 auto 12px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><tr><td align="center" valign="middle" style="width: 70px; height: 70px; padding: 6px; box-sizing: border-box;"><img src="${logoDataUrl}" alt="${siteName}" style="max-width: 58px; max-height: 58px; width: auto; height: auto; display: inline-block;"></td></tr></table>
                         ` : `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 70px; height: 70px; background: white; border-radius: 12px; margin: 0 auto 12px; display: inline-block; overflow: hidden;">
                           <tr><td align="center" valign="middle" style="width: 70px; height: 70px; font-size: 24px; font-weight: bold; color: ${primaryColor};">
@@ -3581,7 +3581,7 @@ TPR Max Visitor Management System
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); padding: 30px 20px; text-align: center;">
                         ${logoDataUrl ? `
-                        <img src="${logoDataUrl}" alt="${siteName}" style="width: 70px; height: 70px; margin: 0 auto 12px; display: block; border-radius: 12px; background: white; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width: 70px; height: 70px; margin: 0 auto 12px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><tr><td align="center" valign="middle" style="width: 70px; height: 70px; padding: 6px; box-sizing: border-box;"><img src="${logoDataUrl}" alt="${siteName}" style="max-width: 58px; max-height: 58px; width: auto; height: auto; display: inline-block;"></td></tr></table>
                         ` : `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 70px; height: 70px; background: white; border-radius: 12px; margin: 0 auto 12px; display: inline-block; overflow: hidden;">
                           <tr><td align="center" valign="middle" style="width: 70px; height: 70px; font-size: 24px; font-weight: bold; color: ${primaryColor};">
@@ -3737,7 +3737,7 @@ TPR Max Visitor Management System
                   <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); padding: 30px 20px; text-align: center;">
-                        ${logoDataUrl ? `<img src="${logoDataUrl}" alt="${siteName}" style="width: 70px; height: 70px; margin: 0 auto 12px; display: block; border-radius: 12px; background: white; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">` : `<div style="width:70px;height:70px;background:white;border-radius:12px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:${primaryColor};">${siteName.substring(0,3).toUpperCase()}</div>`}
+                        ${logoDataUrl ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width: 70px; height: 70px; margin: 0 auto 12px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><tr><td align="center" valign="middle" style="width: 70px; height: 70px; padding: 6px; box-sizing: border-box;"><img src="${logoDataUrl}" alt="${siteName}" style="max-width: 58px; max-height: 58px; width: auto; height: auto; display: inline-block;"></td></tr></table>` : `<div style="width:70px;height:70px;background:white;border-radius:12px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:${primaryColor};">${siteName.substring(0,3).toUpperCase()}</div>`}
                         <h1 style="margin: 0; color: white; font-size: 24px; font-weight: 700;">&#128296; Contractor Check-In Pass</h1>
                         <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Your Personal QR Code for Quick Check-In</p>
                       </td>
