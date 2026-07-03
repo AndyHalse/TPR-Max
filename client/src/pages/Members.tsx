@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList, CloudUpload, Upload, X, Calendar, CreditCard, QrCode, Camera } from "lucide-react";
+import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList, CloudUpload, Upload, X, Calendar, CreditCard, QrCode, Camera, Archive, ArchiveRestore } from "lucide-react";
 import QRScannerModal from "@/components/QRScannerModal";
 
 interface Member {
@@ -69,6 +70,8 @@ export default function Members() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [sortBy, setSortBy] = useState<'firstName' | 'lastName' | 'recentCheckIn'>('firstName');
+  const [showArchived, setShowArchived] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -182,6 +185,8 @@ export default function Members() {
 
   const filteredMembers = members
     .filter((member) => {
+      if (showArchived ? member.isActive : !member.isActive) return false;
+
       const term = searchTerm.toLowerCase();
       return (
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(term) ||
@@ -191,10 +196,32 @@ export default function Members() {
       );
     })
     .sort((a, b) => {
-      const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
-      const nameB = `${b.lastName} ${b.firstName}`.toLowerCase();
-      return nameA.localeCompare(nameB);
+      if (sortBy === 'firstName') return (a.firstName || '').localeCompare(b.firstName || '');
+      if (sortBy === 'lastName') return (a.lastName || '').localeCompare(b.lastName || '');
+      return new Date(b.checkedInAt || b.createdAt).getTime() - new Date(a.checkedInAt || a.createdAt).getTime();
     });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("PATCH", `/api/members/${id}/archive`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      toast({ title: t('toasts.archivedTitle'), description: t('toasts.archivedDesc') });
+    },
+    onError: () => {
+      toast({ title: t('toasts.archiveError'), variant: "destructive" });
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("PATCH", `/api/members/${id}/unarchive`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      toast({ title: t('toasts.unarchivedTitle'), description: t('toasts.unarchivedDesc') });
+    },
+    onError: () => {
+      toast({ title: t('toasts.unarchiveError'), variant: "destructive" });
+    },
+  });
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -365,6 +392,27 @@ export default function Members() {
             className="pl-10"
           />
         </div>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+          <SelectTrigger className="w-44 h-9 text-sm flex-shrink-0" data-testid="select-sort-members">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="firstName">{t('sorting.firstName')}</SelectItem>
+            <SelectItem value="lastName">{t('sorting.lastName')}</SelectItem>
+            <SelectItem value="recentCheckIn">{t('sorting.recentCheckIn')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          variant={showArchived ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowArchived(v => !v)}
+          className={showArchived ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 gap-1.5 flex-shrink-0" : "text-amber-700 border-amber-300 hover:bg-amber-50 gap-1.5 flex-shrink-0"}
+          title={showArchived ? t('hideArchived') : t('showArchived')}
+          data-testid="button-toggle-archived-members"
+        >
+          <Archive size={13} />
+          <span className="hidden sm:inline text-xs">{showArchived ? t('hideArchived') : t('showArchived')}</span>
+        </Button>
         <div className="flex items-center gap-1 flex-shrink-0">
           <Button
             variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -392,14 +440,14 @@ export default function Members() {
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Users className="h-16 w-16 text-variable mb-4 opacity-50" />
             <h3 className="text-lg font-semibold text-fixed mb-2">
-              {searchTerm ? t('noMembersFound') : t('noMembersYet')}
+              {showArchived ? t('noArchivedMembers') : (searchTerm ? t('noMembersFound') : t('noMembersYet'))}
             </h3>
             <p className="text-variable mb-6">
-              {searchTerm
-                ? t('tryDifferentSearch')
-                : t('addFirstMember')}
+              {showArchived
+                ? t('noArchivedMembersDesc')
+                : (searchTerm ? t('tryDifferentSearch') : t('addFirstMember'))}
             </p>
-            {!searchTerm && (
+            {!searchTerm && !showArchived && (
               <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-2">
                 <UserPlus className="h-4 w-4" />
                 {t('addMember')}
@@ -441,6 +489,15 @@ export default function Members() {
                 {/* Actions — always inline */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => openEditDialog(member)}><Edit className="h-3.5 w-3.5" /></Button>
+                  {!showArchived ? (
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50" onClick={() => archiveMutation.mutate(member.id)} disabled={archiveMutation.isPending} title={t('archiveMember')} data-testid={`button-archive-member-${member.id}`}>
+                      <Archive size={14} />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => unarchiveMutation.mutate(member.id)} disabled={unarchiveMutation.isPending} title={t('unarchiveMember')} data-testid={`button-unarchive-member-${member.id}`}>
+                      <ArchiveRestore size={14} />
+                    </Button>
+                  )}
                   {member.isCheckedIn ? (
                     <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-medium text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
                       <UserX className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">{t('common:checkOut')}</span>
@@ -521,6 +578,31 @@ export default function Members() {
                     >
                       <Edit size={15} />
                     </Button>
+                    {!showArchived ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                        onClick={() => archiveMutation.mutate(member.id)}
+                        disabled={archiveMutation.isPending}
+                        title={t('archiveMember')}
+                        data-testid={`button-archive-member-grid-${member.id}`}
+                      >
+                        <Archive size={15} />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={() => unarchiveMutation.mutate(member.id)}
+                        disabled={unarchiveMutation.isPending}
+                        title={t('unarchiveMember')}
+                        data-testid={`button-unarchive-member-grid-${member.id}`}
+                      >
+                        <ArchiveRestore size={15} />
+                      </Button>
+                    )}
                   </div>
                   {member.isCheckedIn ? (
                     <Button

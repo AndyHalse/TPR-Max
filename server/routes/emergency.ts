@@ -5196,13 +5196,70 @@ ${evacuationPhotosData.length > 0 ? `
       const allMembers = await membersCustDb
         .select()
         .from(isolatedSchema.members)
-        .where(and(eq(isolatedSchema.members.isActive, true), scopedWhere(membersSiteCtx, isolatedSchema.members)))
+        .where(scopedWhere(membersSiteCtx, isolatedSchema.members))
         .orderBy(desc(isolatedSchema.members.createdAt));
       
       res.json(allMembers);
     } catch (error) {
       logger.error("Failed to fetch members:", error);
       res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+
+  // Archive member — soft-delete (isActive=false), auto-checks-out if on site
+  app.patch("/api/members/:id/archive", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const { id } = req.params;
+
+      const [existing] = await customerDb
+        .select()
+        .from(isolatedSchema.members)
+        .where(eq(isolatedSchema.members.id, id));
+      if (!existing) return res.status(404).json({ error: "Member not found" });
+
+      const updates: any = { isActive: false, updatedAt: new Date() };
+      if (existing.isCheckedIn) {
+        updates.isCheckedIn = false;
+        updates.checkedOutAt = new Date();
+        updates.checkoutType = "archive";
+      }
+
+      const [updated] = await customerDb
+        .update(isolatedSchema.members)
+        .set(updates)
+        .where(eq(isolatedSchema.members.id, id))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      logger.error("Failed to archive member:", error);
+      res.status(500).json({ error: "Failed to archive member" });
+    }
+  });
+
+  // Unarchive member — restore (isActive=true)
+  app.patch("/api/members/:id/unarchive", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const { id } = req.params;
+
+      const [updated] = await customerDb
+        .update(isolatedSchema.members)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(isolatedSchema.members.id, id))
+        .returning();
+
+      if (!updated) return res.status(404).json({ error: "Member not found" });
+
+      res.json(updated);
+    } catch (error) {
+      logger.error("Failed to unarchive member:", error);
+      res.status(500).json({ error: "Failed to unarchive member" });
     }
   });
 

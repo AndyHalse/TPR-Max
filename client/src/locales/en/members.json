@@ -6,8 +6,19 @@
   "searchPlaceholder": "Search members...",
   "noMembersFound": "No members found",
   "noMembersYet": "No members yet",
+  "noArchivedMembers": "No archived members",
+  "noArchivedMembersDesc": "Members you archive will appear here",
   "tryDifferentSearch": "Try a different search term",
   "addFirstMember": "Add your first member to get started",
+  "sorting": {
+    "firstName": "First name (A-Z)",
+    "lastName": "Last name (A-Z)",
+    "recentCheckIn": "Most recently checked in"
+  },
+  "showArchived": "Show Archived",
+  "hideArchived": "Hide Archived",
+  "archiveMember": "Archive",
+  "unarchiveMember": "Restore",
   "noMembershipNumber": "No membership number",
   "membershipNoLabel": "No: {{number}}",
   "expiryLabel": "Exp: {{date}}",
@@ -52,6 +63,12 @@
     "nameRequired": "First name and last name are required",
     "fileReadError": "Could not read the file. Please try selecting it again.",
     "photoUploadSuccess": "Photo uploaded successfully!",
-    "photoUploadFailed": "Failed to upload photo"
+    "photoUploadFailed": "Failed to upload photo",
+    "archivedTitle": "Member archived",
+    "archivedDesc": "The member has been archived.",
+    "archiveError": "Failed to archive member",
+    "unarchivedTitle": "Member restored",
+    "unarchivedDesc": "The member has been restored.",
+    "unarchiveError": "Failed to restore member"
   }
 }

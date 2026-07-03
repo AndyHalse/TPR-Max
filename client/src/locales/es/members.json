@@ -6,8 +6,19 @@
   "searchPlaceholder": "Buscar miembros...",
   "noMembersFound": "No se encontraron miembros",
   "noMembersYet": "Aún no hay miembros",
+  "noArchivedMembers": "No hay miembros archivados",
+  "noArchivedMembersDesc": "Los miembros que archive aparecerán aquí",
   "tryDifferentSearch": "Pruebe con otro término de búsqueda",
   "addFirstMember": "Añada su primer miembro para empezar",
+  "sorting": {
+    "firstName": "Nombre (A-Z)",
+    "lastName": "Apellidos (A-Z)",
+    "recentCheckIn": "Entrada más reciente"
+  },
+  "showArchived": "Mostrar archivados",
+  "hideArchived": "Ocultar archivados",
+  "archiveMember": "Archivar",
+  "unarchiveMember": "Restaurar",
   "noMembershipNumber": "Sin número de membresía",
   "membershipNoLabel": "Nº: {{number}}",
   "expiryLabel": "Venc: {{date}}",
@@ -52,6 +63,12 @@
     "nameRequired": "El nombre y los apellidos son obligatorios",
     "fileReadError": "No se pudo leer el archivo. Vuelva a seleccionarlo.",
     "photoUploadSuccess": "¡Foto cargada correctamente!",
-    "photoUploadFailed": "Error al cargar la foto"
+    "photoUploadFailed": "Error al cargar la foto",
+    "archivedTitle": "Miembro archivado",
+    "archivedDesc": "El miembro ha sido archivado.",
+    "archiveError": "Error al archivar el miembro",
+    "unarchivedTitle": "Miembro restaurado",
+    "unarchivedDesc": "El miembro ha sido restaurado.",
+    "unarchiveError": "Error al restaurar el miembro"
   }
 }
