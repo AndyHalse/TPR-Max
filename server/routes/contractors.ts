@@ -2258,9 +2258,6 @@ export function registerContractorRoutes(app: Express): void {
   });
   app.post("/api/contractors/:companyId/documents/upload", requireAuth, contractorDocUpload.single('file'), async (req, res) => {
     try {
-      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
-        return res.status(403).json({ error: 'Manager or administrator access required' });
-      }
       if (!req.file) return res.status(400).json({ error: 'No file provided' });
       const { companyId } = req.params;
       const username = req.user!.username;
@@ -2314,9 +2311,6 @@ export function registerContractorRoutes(app: Express): void {
 
   app.post("/api/contractors/:companyId/documents", requireAuth, async (req, res) => {
     try {
-      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
-        return res.status(403).json({ error: 'Manager or administrator access required' });
-      }
       const { companyId } = req.params;
       const { documentName, documentType, documentUrl, expiryDate, issuedBy, policyNumber } = req.body;
       const username = req.user!.username;
@@ -2395,9 +2389,6 @@ export function registerContractorRoutes(app: Express): void {
 
   app.patch("/api/contractors/:companyId/documents/:documentId", requireAuth, async (req, res) => {
     try {
-      if (!['admin', 'manager'].includes((req.user as any)?.role)) {
-        return res.status(403).json({ error: 'Manager or administrator access required' });
-      }
       const { companyId, documentId } = req.params;
       const { documentUrl, expiryDate, issuedBy, policyNumber, status } = req.body;
       const username = req.user!.username;
