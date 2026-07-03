@@ -2322,6 +2322,7 @@ Powered by TPR`;
     purpose?: string;
     checkedInAt: Date;
     companyName?: string;
+    companySettings?: CompanySettings;
   }): Promise<boolean> {
     try {
       const {
@@ -2332,50 +2333,134 @@ Powered by TPR`;
         visitorType,
         purpose,
         checkedInAt,
-        companyName = 'TPR Max'
+        companyName = params.companySettings?.companyName || 'TPR Max',
+        companySettings
       } = params;
 
       const isContractor = visitorType === 'contractor';
       const typeLabel = isContractor ? 'Contractor' : 'Visitor';
-      const checkInTime = new Date(checkedInAt).toLocaleString('en-GB');
+      const checkInTime = new Date(checkedInAt).toLocaleString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
       const dashboardUrl = process.env.PUBLIC_URL || 'https://visigate.pro';
+
+      // Extract branding colors from settings (same convention as other templates)
+      const primaryColor = companySettings?.accentColor || '#3b82f6';
+      const backgroundColor = companySettings?.backgroundColor || '#f8fafc';
+      const textColor = companySettings?.foregroundColor || '#1e293b';
+      const variableTextColor = companySettings?.variableTextColor || '#374151';
+      const logoDataUrl = companySettings ? await this.getLogoForEmail(companySettings) : null;
 
       const subject = isContractor 
         ? `Contractor arrival - ${visitorName}`
         : `Your visitor has arrived - ${visitorName}`;
 
       const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 20px;">✅ ${typeLabel} Arrival Notification</h1>
-          </div>
-          
-          <div style="padding: 20px; background: #ecfdf5; border-left: 4px solid #10b981;">
-            <h2 style="color: #333; margin-top: 0;">Hello ${hostFirstName},</h2>
-            
-            <p>A ${typeLabel.toLowerCase()} has just arrived on site and checked in.</p>
-            
-            <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
-              <h3 style="color: #10b981; margin-top: 0;">${typeLabel} Details</h3>
-              <p><strong>Name:</strong> ${visitorName}</p>
-              <p><strong>Company:</strong> ${visitorCompany || 'N/A'}</p>
-              ${purpose ? `<p><strong>Purpose:</strong> ${purpose}</p>` : ''}
-              <p><strong>Check-in Time:</strong> ${checkInTime}</p>
-              <p><strong>Type:</strong> ${typeLabel}</p>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-              <a href="${dashboardUrl}/dashboard" 
-                 style="display: inline-block; padding: 10px 20px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
-                View Dashboard
-              </a>
-            </div>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 20px;">
-              This is an automated notification from ${companyName}.
-            </p>
-          </div>
-        </div>
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>${typeLabel} Arrival Notification - ${companyName}</title>
+            <style>
+              @media only screen and (max-width: 600px) {
+                .mobile-padding { padding: 15px !important; }
+                h1 { font-size: 20px !important; }
+              }
+            </style>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: ${backgroundColor}; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td align="center" style="padding: 0;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; border-collapse: collapse; background: white; margin: 0 auto;">
+                    <!-- Header with Company Branding -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
+                        ${logoDataUrl ? `
+                        <img src="${logoDataUrl}" alt="${companyName}" style="width: 64px; height: 64px; margin: 0 auto 12px; display: block; border-radius: 12px; background: white; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        ` : ''}
+                        <h1 style="margin: 0; color: white; font-size: 22px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                          ✅ ${typeLabel} Arrival Notification
+                        </h1>
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.95); font-size: 14px; font-weight: 500;">
+                          ${companyName}
+                        </p>
+                      </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                      <td class="mobile-padding" style="padding: 25px;">
+                        <h2 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 20px; font-weight: 600;">
+                          Hello ${hostFirstName},
+                        </h2>
+                        <p style="margin: 0 0 20px 0; color: ${variableTextColor}; font-size: 15px; line-height: 1.5;">
+                          A ${typeLabel.toLowerCase()} has just arrived on site and checked in.
+                        </p>
+
+                        <!-- Details Card -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 0 0 20px 0;">
+                          <tr>
+                            <td style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                              <h3 style="margin: 0 0 12px 0; color: ${textColor}; font-size: 16px; font-weight: 600; border-bottom: 2px solid ${primaryColor}20; padding-bottom: 8px;">
+                                ${typeLabel} Details
+                              </h3>
+                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px; width: 40%;">Name:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${visitorName}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Company:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${visitorCompany || 'N/A'}</td>
+                                </tr>
+                                ${purpose ? `
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Purpose:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${purpose}</td>
+                                </tr>
+                                ` : ''}
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Check-in Time:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${checkInTime}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Type:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${typeLabel}</td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+
+                        <!-- Action Button -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 0 0 10px 0;">
+                          <tr>
+                            <td align="center">
+                              <a href="${dashboardUrl}/dashboard" 
+                                 style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px ${primaryColor}40; text-align: center;">
+                                View Dashboard
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+
+                        <p style="margin: 20px 0 0 0; padding-top: 15px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; text-align: center;">
+                          This is an automated notification from ${companyName}.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
       `;
 
       const text = `${typeLabel} Arrival Notification\n\nHello ${hostFirstName},\n\nA ${typeLabel.toLowerCase()} has just arrived on site:\n\n${typeLabel} Details:\nName: ${visitorName}\nCompany: ${visitorCompany || 'N/A'}\n${purpose ? `Purpose: ${purpose}\n` : ''}Check-in Time: ${checkInTime}\nType: ${typeLabel}\n\nView details at: ${dashboardUrl}/dashboard\n\nThis is an automated notification from ${companyName}.`;

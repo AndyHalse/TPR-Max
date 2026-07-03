@@ -5117,6 +5117,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               purpose: purpose || 'Site work',
               checkedInAt: new Date(),
               companyName: companySettings?.companyName || 'TPR Max',
+              companySettings,
             });
             logger.info(`Arrival notification sent to host ID ${hostStaff.id} ([email])`);
           }

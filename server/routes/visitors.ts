@@ -396,6 +396,7 @@ export function registerVisitorRoutes(app: Express): void {
                 purpose: visitor.purpose || undefined,
                 checkedInAt: new Date(),
                 companyName: settings?.companyName || 'TPR Max',
+                companySettings: settings,
               });
               logger.info(`Arrival notification sent to host [email]`);
               notificationSent = true;
