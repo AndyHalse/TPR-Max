@@ -80,7 +80,31 @@ export function registerRaBuilderRoutes(app: Express): void {
         .select()
         .from(isolatedSchema.raBuilderAssessments)
         .where(and(eq(isolatedSchema.raBuilderAssessments.id, id), scopedWhere(siteContext, isolatedSchema.raBuilderAssessments)));
-      if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
+      if (!assessment) {
+        // The assessment may genuinely not exist, or (in an Enterprise multi-site
+        // account) it may belong to a different site than the one currently active
+        // in this session. Distinguish the two so the UI can tell the user to
+        // switch sites instead of implying the data was lost.
+        if (siteContext.isEnterprise) {
+          const [elsewhere] = await custDb
+            .select({ siteId: isolatedSchema.raBuilderAssessments.siteId })
+            .from(isolatedSchema.raBuilderAssessments)
+            .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+          if (elsewhere?.siteId) {
+            const [site] = await custDb
+              .select({ id: isolatedSchema.sites.id, name: isolatedSchema.sites.name })
+              .from(isolatedSchema.sites)
+              .where(eq(isolatedSchema.sites.id, elsewhere.siteId));
+            return res.status(404).json({
+              error: 'Assessment not found',
+              wrongSite: true,
+              siteId: elsewhere.siteId,
+              siteName: site?.name ?? 'another site',
+            });
+          }
+        }
+        return res.status(404).json({ error: 'Assessment not found' });
+      }
       const hazards = await custDb
         .select()
         .from(isolatedSchema.raBuilderHazards)

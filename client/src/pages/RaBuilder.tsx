@@ -246,6 +246,20 @@ export default function RaBuilder() {
     }
   }, [loadedAssessment]);
 
+  const switchSiteMutation = useMutation({
+    mutationFn: async (siteId: string) => {
+      const res = await apiRequest("POST", "/api/enterprise/active-site", { siteId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      refetchAssessment();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not switch site", description: err.message, variant: "destructive" });
+    },
+  });
+
   // ── Auto-save helpers ────────────────────────────────────────────────────
 
   const scheduleAutoSave = useCallback((updates: Partial<Assessment>, meta?: Record<string, any>) => {
@@ -639,7 +653,9 @@ export default function RaBuilder() {
     }
 
     if (currentAssessmentId && editorError) {
-      const message = (editorErrorObj as any)?.message || "We couldn't reach the server.";
+      const errObj = editorErrorObj as any;
+      const wrongSite = !!errObj?.wrongSite;
+      const message = errObj?.message || "We couldn't reach the server.";
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4 md:p-6">
           <button onClick={closeEditor} className="flex items-center gap-2 text-slate-600 hover:text-[#2460A9] text-sm font-medium mb-6">
@@ -649,17 +665,38 @@ export default function RaBuilder() {
           <div className="max-w-md mx-auto mt-16 text-center space-y-4">
             <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              Couldn't load this assessment
+              {wrongSite ? "This assessment belongs to a different site" : "Couldn't load this assessment"}
             </h2>
             <p className="text-sm text-slate-500">
-              Your data hasn't been lost — it's still saved on the server. We just couldn't load it just now
-              ({message}).
+              {wrongSite ? (
+                <>
+                  Your data hasn't been lost. This assessment was created for{" "}
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{errObj.siteName}</span>, but that
+                  isn't the site you currently have selected. Switch to it to view or download this assessment.
+                </>
+              ) : (
+                <>Your data hasn't been lost — it's still saved on the server. We just couldn't load it just now ({message}).</>
+              )}
             </p>
             <div className="flex items-center justify-center gap-3 pt-2">
               <Button variant="outline" onClick={closeEditor}>Back to Assessments</Button>
-              <Button style={{ backgroundColor: "#2460A9" }} onClick={() => refetchAssessment()}>
-                Try Again
-              </Button>
+              {wrongSite ? (
+                <Button
+                  style={{ backgroundColor: "#2460A9" }}
+                  disabled={switchSiteMutation.isPending}
+                  onClick={() => switchSiteMutation.mutate(errObj.siteId)}
+                >
+                  {switchSiteMutation.isPending ? (
+                    <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Switching…</span>
+                  ) : (
+                    `Switch to ${errObj.siteName} & Open`
+                  )}
+                </Button>
+              ) : (
+                <Button style={{ backgroundColor: "#2460A9" }} onClick={() => refetchAssessment()}>
+                  Try Again
+                </Button>
+              )}
             </div>
           </div>
         </div>
