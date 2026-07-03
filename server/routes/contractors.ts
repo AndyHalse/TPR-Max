@@ -2121,10 +2121,6 @@ export function registerContractorRoutes(app: Express): void {
 
   app.post("/api/contractors/:companyId/workers", requireAuth, async (req, res) => {
     try {
-      // Role check — only admin/manager can add workers
-      if (!['admin', 'manager'].includes(req.user!.role)) {
-        return res.status(403).json({ error: 'Only admins and managers can add workers.' });
-      }
       const { companyId } = req.params;
       const db = await customerDbService.getCustomerDatabase(req.customerId);
       const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
