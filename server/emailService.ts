@@ -2346,7 +2346,6 @@ Powered by TPR`;
         month: 'short',
         year: 'numeric'
       });
-      const dashboardUrl = process.env.PUBLIC_URL || 'https://visigate.pro';
 
       // Extract branding colors from settings (same convention as other templates)
       const primaryColor = companySettings?.accentColor || '#3b82f6';
@@ -2438,18 +2437,6 @@ Powered by TPR`;
                           </tr>
                         </table>
 
-                        <!-- Action Button -->
-                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 0 0 10px 0;">
-                          <tr>
-                            <td align="center">
-                              <a href="${dashboardUrl}/dashboard" 
-                                 style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px ${primaryColor}40; text-align: center;">
-                                View Dashboard
-                              </a>
-                            </td>
-                          </tr>
-                        </table>
-
                         <p style="margin: 20px 0 0 0; padding-top: 15px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; text-align: center;">
                           This is an automated notification from ${companyName}.
                         </p>
@@ -2463,7 +2450,7 @@ Powered by TPR`;
         </html>
       `;
 
-      const text = `${typeLabel} Arrival Notification\n\nHello ${hostFirstName},\n\nA ${typeLabel.toLowerCase()} has just arrived on site:\n\n${typeLabel} Details:\nName: ${visitorName}\nCompany: ${visitorCompany || 'N/A'}\n${purpose ? `Purpose: ${purpose}\n` : ''}Check-in Time: ${checkInTime}\nType: ${typeLabel}\n\nView details at: ${dashboardUrl}/dashboard\n\nThis is an automated notification from ${companyName}.`;
+      const text = `${typeLabel} Arrival Notification\n\nHello ${hostFirstName},\n\nA ${typeLabel.toLowerCase()} has just arrived on site:\n\n${typeLabel} Details:\nName: ${visitorName}\nCompany: ${visitorCompany || 'N/A'}\n${purpose ? `Purpose: ${purpose}\n` : ''}Check-in Time: ${checkInTime}\nType: ${typeLabel}\n\nThis is an automated notification from ${companyName}.`;
 
       return await this.sendEmail({
         to: hostEmail,
