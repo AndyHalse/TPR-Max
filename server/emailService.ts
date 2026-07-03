@@ -2684,18 +2684,6 @@ Powered by TPR`;
                           </tr>
                         </table>
                         
-                        <!-- Action Buttons -->
-                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 25px 0;">
-                          <tr>
-                            <td align="center">
-                              <a href="${passUrl}" class="mobile-button" 
-                                 style="display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); text-align: center;">
-                                📱 View Your Pass
-                              </a>
-                            </td>
-                          </tr>
-                        </table>
-                        
                         <!-- Health & Safety Rules Section (exactly matching visitor e-pass) -->
                         ${workerId ? `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
@@ -2798,8 +2786,6 @@ Check-in: ${new Date().toLocaleString('en-GB', {
   day: 'numeric',
   month: 'short'
 })}
-
-View your digital pass: ${passUrl}
 
 Health & Safety Rules - Action Required:
 You must accept our health & safety rules to complete your check-in.
