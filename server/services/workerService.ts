@@ -20,6 +20,7 @@ import { insertContractorWorkerSchema } from '@shared/schema';
 import { customerDbService } from '../customerDatabase';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
+import { withSiteId } from '../siteScope';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
 
@@ -45,6 +46,12 @@ export interface WorkerServiceContext {
   customerId: string;
   /** Authenticated username — recorded in all audit notes. */
   actor: string;
+  /**
+   * Active site id resolved via getScopedDb(req) at the call site.
+   * null/undefined for non-enterprise customers (no site scoping needed) or
+   * when the caller has no request-bound site context (e.g. contractor portal).
+   */
+  siteId?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -103,7 +110,7 @@ export async function createWorker(
 
   // ── Pre-booking auto-create path ─────────────────────────────────────────
   if (origin === 'prebooking') {
-    const insertValues: Record<string, any> = {
+    const insertValues: Record<string, any> = withSiteId(ctx.siteId ?? null, {
       companyId,
       firstName: String(body.firstName).trim(),
       lastName: String(body.lastName).trim(),
@@ -113,7 +120,7 @@ export async function createWorker(
       isActive: true,
       siteInductionCompleted: false, // isolated key (not `inductionCompleted`)
       safetyRating: body.safetyRating ?? 'N/A',
-    };
+    });
     if (body.id) insertValues.id = body.id;
     const [worker] = await ctx.db
       .insert(isolatedSchema.contractorWorkers)
@@ -126,7 +133,7 @@ export async function createWorker(
   if (origin === 'portal') {
     const [worker] = await ctx.db
       .insert(isolatedSchema.contractorWorkers)
-      .values({
+      .values(withSiteId(ctx.siteId ?? null, {
         companyId,
         firstName: String(body.firstName).trim(),
         lastName: String(body.lastName).trim(),
@@ -136,7 +143,7 @@ export async function createWorker(
         jobTitle: body.jobTitle?.trim() || null,
         trade: body.trade?.trim() || null,
         isActive: true,
-      })
+      }))
       .returning();
 
     await _writePortalCreateNotes(ctx, worker, body, normalisedPhone!);
@@ -172,6 +179,13 @@ export async function createWorker(
   // Remove shared-schema-only keys so they don't shadow or confuse the isolated insert.
   delete workerData.phone;
   delete workerData.inductionCompleted;
+
+  // Stamp the worker with the site they're being registered at (Enterprise multi-site).
+  // Without this, scopedWhere() excludes the worker from every site-filtered dashboard,
+  // muster, and worker-list query even after they check in.
+  if (!workerData.siteId) {
+    Object.assign(workerData, withSiteId(ctx.siteId ?? null, {}));
+  }
 
   const context = simpleDatabaseService.createCustomerContext(ctx.actor, ctx.customerId);
   const worker = await databaseService.createContractorWorker(context, workerData);
@@ -602,6 +616,16 @@ export async function checkInWorker(
   if (data.hsRulesAcceptedAt !== undefined) set.hsRulesAcceptedAt = data.hsRulesAcceptedAt;
   if (data.ndaAccepted !== undefined) set.ndaAccepted = data.ndaAccepted;
   if (data.ndaAcceptedAt !== undefined) set.ndaAcceptedAt = data.ndaAcceptedAt;
+
+  // Re-stamp the worker's site to wherever they are physically checking in.
+  // Fixes Dashboard/Muster "on-site" counts silently excluding contractors whose
+  // stored siteId (set at creation, possibly null/stale) no longer matches the
+  // active site — scopedWhere() filters strictly on contractor_workers.site_id.
+  // ctx.siteId is undefined for callers that could not resolve a site context
+  // (leaves the existing value untouched); null/id values overwrite it.
+  if (data.isCheckedIn && ctx.siteId !== undefined) {
+    set.siteId = ctx.siteId;
+  }
 
   await ctx.db
     .update(isolatedSchema.contractorWorkers)

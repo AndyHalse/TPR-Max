@@ -1355,6 +1355,31 @@ export class CustomerDatabaseService {
     }
     // ─── END ENTERPRISE SITE COLUMNS ──────────────────────────────────────────
 
+    // Backfill contractor_workers.site_id for already-checked-in workers whose
+    // siteId was never stamped at creation (bug: createWorker did not call
+    // withSiteId()). Without this, Enterprise Dashboard/Muster silently show
+    // Contractors: 0 for these workers even though they're on-site, because
+    // scopedWhere() filters strictly on site_id. contractor_visits already had
+    // the correct site_id stamped at check-in time, so use each worker's most
+    // recent visit as the source of truth for the backfill.
+    try {
+      await pool.query(`
+        UPDATE "${schemaName}".contractor_workers cw
+        SET site_id = latest_visit.site_id
+        FROM (
+          SELECT DISTINCT ON (worker_id) worker_id, site_id
+          FROM "${schemaName}".contractor_visits
+          WHERE site_id IS NOT NULL
+          ORDER BY worker_id, checked_in_at DESC
+        ) AS latest_visit
+        WHERE cw.id = latest_visit.worker_id
+          AND cw.site_id IS NULL
+          AND cw.is_checked_in = true
+      `);
+    } catch (err: any) {
+      logger.warn(`⚠️ contractor_workers site_id backfill failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure site induction + AI/video + QR + CLUe columns on company_settings
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS site_address TEXT`);

@@ -860,7 +860,7 @@ export function registerContractorRoutes(app: Express): void {
         const workerId = randomUUID();
         
         const preSvcCtx: WorkerServiceContext = {
-          db: customerDb, customerId: context.customerId, actor: req.user!.username,
+          db: customerDb, customerId: context.customerId, actor: req.user!.username, siteId: cpbCiSiteId,
         };
         const newWorker = await svcCreateWorker(preSvcCtx, company.id, {
           id: workerId,
@@ -906,7 +906,7 @@ export function registerContractorRoutes(app: Express): void {
       
       // Update worker check-in status via service (do NOT overwrite qrCode — CPB- belongs to the visit, not the worker)
       const pbCheckInCtx: WorkerServiceContext = {
-        db: customerDb, customerId: context.customerId, actor: req.user!.username,
+        db: customerDb, customerId: context.customerId, actor: req.user!.username, siteId: cpbCiSiteId,
       };
       await svcCheckInWorker(pbCheckInCtx, worker.id, { isCheckedIn: true, checkedInAt: new Date() });
       
@@ -2122,8 +2122,8 @@ export function registerContractorRoutes(app: Express): void {
   app.post("/api/contractors/:companyId/workers", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const db = await customerDbService.getCustomerDatabase(req.customerId);
-      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
+      const { db, siteId: newWorkerSiteId } = await getScopedDb(req);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username, siteId: newWorkerSiteId };
 
       const worker = await svcCreateWorker(svcCtx, companyId, req.body, 'admin');
       logger.info(`Created contractor worker ${worker.id} for customer ${req.customerId}`);
@@ -4957,7 +4957,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       await contractorCheckinDb.transaction(async (tx) => {
         // Pass the transaction as db so the update enrolls in the same atomic unit
         await svcCheckInWorker(
-          { db: tx, customerId: context.customerId, actor: username },
+          { db: tx, customerId: context.customerId, actor: username, siteId: workerCheckinSiteId },
           workerId,
           {
             qrCode: workerQrCode,
