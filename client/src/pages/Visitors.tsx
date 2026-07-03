@@ -914,38 +914,38 @@ export default function Visitors() {
               </div>
             </div>
 
-            {/* Search */}
-            <div className="relative mb-4 sm:mb-6">
-              <Search className="absolute left-3 top-3 text-variable" size={18} />
-              <Input
-                placeholder={t('placeholders.search')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 py-2.5 sm:py-3 text-sm sm:text-lg"
-                data-testid="input-search-visitors"
-              />
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 mb-4">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="h-8 w-8 p-0"
-                title={t('gridView')}
-              >
-                <LayoutGrid size={14} />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="h-8 w-8 p-0"
-                title={t('listView')}
-              >
-                <LayoutList size={14} />
-              </Button>
+            {/* Search & View Mode Toggle */}
+            <div className="flex items-center gap-3 flex-wrap mb-4 sm:mb-6">
+              <div className="relative flex-1 min-w-[180px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-variable" size={18} />
+                <Input
+                  placeholder={t('placeholders.search')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-visitors"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className="h-8 w-8 p-0"
+                  title={t('gridView')}
+                >
+                  <LayoutGrid size={14} />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="h-8 w-8 p-0"
+                  title={t('listView')}
+                >
+                  <LayoutList size={14} />
+                </Button>
+              </div>
             </div>
 
             {/* Show All Button */}

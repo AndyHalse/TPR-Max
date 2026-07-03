@@ -116,20 +116,18 @@ export default function ContractorPreviousTab({
               {/* Remove Duplicates button removed - duplication prevented via email validation */}
             </div>
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={t("previousWorkers.searchPlaceholder")}
-                className="pl-10"
-                data-testid="input-search-contractors"
-              />
-            </div>
-
-            {/* Sort, Archive & View Toggle */}
+            {/* Search, Sort, Archive & View Toggle */}
             <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[180px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={t("previousWorkers.searchPlaceholder")}
+                  className="pl-10"
+                  data-testid="input-search-contractors"
+                />
+              </div>
               <Select value={previousSortBy} onValueChange={(v) => setPreviousSortBy(v as typeof previousSortBy)}>
                 <SelectTrigger className="w-44 h-9 text-sm" data-testid="select-sort-workers">
                   <SelectValue />
