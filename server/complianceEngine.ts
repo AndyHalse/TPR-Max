@@ -18,6 +18,8 @@ import { sql, eq, and, lt, lte, gte, isNotNull, ne, inArray, or, isNull } from '
 import { customerDbService } from './customerDatabase';
 import * as iso from './isolatedSchema';
 import { logger } from './utils/logger';
+import { db as managementDb } from './db';
+import { inductionTokens as sharedInductionTokens } from '@shared/schema';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -185,7 +187,7 @@ async function evalRams(custDb: any, siteId: string, now: Date): Promise<ItemDef
   });
 }
 
-async function evalInductions(custDb: any, siteId: string, now: Date): Promise<ItemDef[]> {
+async function evalInductions(custDb: any, siteId: string, now: Date, customerId?: string): Promise<ItemDef[]> {
   // All active contractor workers at this site (not just checked-in — tracks
   // induction status for the full workforce register, not just today's visitors)
   const workers = await custDb
@@ -205,19 +207,30 @@ async function evalInductions(custDb: any, siteId: string, now: Date): Promise<I
 
   const workerIds = workers.map((w: any) => w.id);
 
-  // Digital induction tokens — quiz-completed tokens give an expiry date
-  // (offline inductions are tracked via siteInductionCompleted on the worker)
-  const tokens = await custDb
-    .select({
-      workerId: iso.inductionTokens.workerId,
-      expiresAt: iso.inductionTokens.expiresAt,
-    })
-    .from(iso.inductionTokens)
-    .where(and(
-      eq(iso.inductionTokens.siteId, siteId),
-      inArray(iso.inductionTokens.workerId, workerIds),
-      eq(iso.inductionTokens.quizCompleted, true),
-    ));
+  // Digital induction tokens live in the SHARED management DB (induction_tokens
+  // has no reliable per-tenant partitioning at write time — tokens are created
+  // for kiosk/portal/email flows before a customer schema lookup happens), NOT
+  // in the isolated customer schema. Reading iso.inductionTokens here would
+  // always return zero rows since nothing ever writes to that table — quiz
+  // completions are recorded against the shared table instead. Scope by
+  // workerId (already resolved from this tenant's isolated DB, so it's safe)
+  // plus customerId as a defence-in-depth check when the token has one set.
+  let tokens: Array<{ workerId: string | null; expiresAt: Date | null }> = [];
+  try {
+    tokens = await managementDb
+      .select({
+        workerId: sharedInductionTokens.workerId,
+        expiresAt: sharedInductionTokens.expiresAt,
+      })
+      .from(sharedInductionTokens)
+      .where(and(
+        inArray(sharedInductionTokens.workerId, workerIds),
+        eq(sharedInductionTokens.quizCompleted, true),
+        or(isNull(sharedInductionTokens.customerId), customerId ? eq(sharedInductionTokens.customerId, customerId) : undefined),
+      ));
+  } catch (tokenErr) {
+    logger.warn('[compliance] induction token lookup skipped (non-fatal):', tokenErr);
+  }
 
   // Best token per worker: latest expiry wins
   const tokenExpiry = new Map<string, Date | null>();
@@ -227,6 +240,24 @@ async function evalInductions(custDb: any, siteId: string, now: Date): Promise<I
     const prev = tokenExpiry.get(t.workerId);
     if (!tokenExpiry.has(t.workerId) || (newExp && (!prev || newExp > prev))) {
       tokenExpiry.set(t.workerId, newExp);
+    }
+  }
+
+  // Self-heal: if a worker has a completed digital induction token but the
+  // worker record's own flag was never set (e.g. historical data from before
+  // this lookup was fixed), persist it now so future reads don't need the
+  // token fallback at all.
+  const toHeal = workers.filter((w: any) => w.siteInductionCompleted !== true && tokenExpiry.has(w.id));
+  if (toHeal.length > 0) {
+    try {
+      await Promise.all(toHeal.map((w: any) => {
+        const exp = tokenExpiry.get(w.id) ?? null;
+        return custDb.update(iso.contractorWorkers)
+          .set({ siteInductionCompleted: true, siteInductionCompletedAt: now, ...(exp ? { siteInductionExpiryDate: exp } : {}) })
+          .where(eq(iso.contractorWorkers.id, w.id));
+      }));
+    } catch (healErr) {
+      logger.warn('[compliance] induction self-heal skipped (non-fatal):', healErr);
     }
   }
 
@@ -595,7 +626,7 @@ export async function evaluateSite(customerId: string, siteId: string): Promise<
   const [insItems, ramsItems, indItems, certItems, ppmItems, fraItems, rtwItems] = await Promise.all([
     evalInsurance(custDb, siteId, now),
     evalRams(custDb, siteId, now),
-    evalInductions(custDb, siteId, now),
+    evalInductions(custDb, siteId, now, customerId),
     evalCertificates(custDb, siteId, now),
     evalPpm(custDb, siteId, now),
     evalFra(custDb, siteId, now),
