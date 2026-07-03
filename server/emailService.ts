@@ -4,6 +4,7 @@ import type { RoomBooking, MeetingRoom, Staff, Visitor, CompanySettings } from '
 import { CustomerDatabaseService } from './customerDatabase.js';
 import { emailLog } from './isolatedSchema.js';
 import { logger } from './utils/logger';
+import { ObjectStorageService, ObjectNotFoundError } from './objectStorage.js';
 
 interface EmailOptions {
   to: string;
@@ -1909,30 +1910,29 @@ This is an automated emergency notification from ${companySettings.companyName}`
         return null;
       }
 
-      // Try to fetch the logo from internal storage and convert to base64
-      // The logoUrl is stored as /uploads/... but needs to be accessed as /objects/uploads/...
-      const logoPath = settings.logoUrl.startsWith('/objects') 
-        ? settings.logoUrl 
+      // Read the logo directly from object storage instead of making an HTTP
+      // round-trip to the /objects/... route. That route requires an authenticated
+      // staff session or bearer token (by design, to protect private uploads), so a
+      // server-to-server fetch() with no credentials always failed with 401 and
+      // silently fell back to the plain text-initials logo placeholder.
+      const logoPath = settings.logoUrl.startsWith('/objects')
+        ? settings.logoUrl
         : `/objects${settings.logoUrl}`;
-      const logoUrl = `http://localhost:5000${logoPath}`;
-      
-      logger.info('Fetching logo from:', logoUrl);
-      
-      const response = await fetch(logoUrl);
-      if (!response.ok) {
-        logger.info('Failed to fetch logo:', response.status);
-        return null;
-      }
 
-      // Convert to buffer then to base64
-      const buffer = await response.arrayBuffer();
-      const base64 = Buffer.from(buffer).toString('base64');
-      const contentType = response.headers.get('content-type') || 'image/png';
-      
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(logoPath);
+      const [buffer] = await objectFile.download();
+      const [metadata] = await objectFile.getMetadata();
+      const contentType = metadata.contentType || 'image/png';
+
       // Return as data URL for embedding in email
-      return `data:${contentType};base64,${base64}`;
+      return `data:${contentType};base64,${buffer.toString('base64')}`;
     } catch (error) {
-      logger.error('Error converting logo to base64:', error);
+      if (error instanceof ObjectNotFoundError) {
+        logger.info('Logo not found in object storage:', settings.logoUrl);
+      } else {
+        logger.error('Error converting logo to base64:', error);
+      }
       return null;
     }
   }
@@ -1959,7 +1959,6 @@ This is an automated emergency notification from ${companySettings.companyName}`
       
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(visitor.qrCode || visitor.id)}`;
       const baseUrl = ePassUrl ? ePassUrl.replace(/\/epass\/.*$/, '') : (process.env.PUBLIC_URL || 'https://visigate.pro');
-      const passUrl = ePassUrl || `${baseUrl}/epass/${visitor.id}`;
       
       // Extract branding colors from settings
       const primaryColor = settings?.accentColor || '#3b82f6';
@@ -2109,21 +2108,6 @@ This is an automated emergency notification from ${companySettings.companyName}`
                           </tr>
                         </table>
                         
-                        <!-- Action Buttons -->
-                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 25px 0;">
-                          <tr>
-                            <td align="center">
-                              <a href="${passUrl}" class="mobile-button" 
-                                 style="display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); text-align: center;">
-                                📱 View Digital Pass
-                              </a>
-                              <p style="margin: 12px 0 0 0; color: ${variableTextColor}; font-size: 13px;">
-                                Can't see the button? Open: <a href="${passUrl}" style="color: ${primaryColor}; word-break: break-all;">${passUrl}</a>
-                              </p>
-                            </td>
-                          </tr>
-                        </table>
-                        
                         <!-- Health & Safety Rules Section -->
                         ${settings?.hsRulesEnabled && (settings?.hsRulesContent || settings?.hsRulesUrl) && !visitor.hsRulesAccepted ? `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
@@ -2217,8 +2201,6 @@ Visit Details:
 - Valid Until: ${validUntil}
 ${visitor.company ? `- Company: ${visitor.company}` : ''}
 ${host ? `- Host: ${host.firstName} ${host.lastName}` : ''}
-
-View your digital pass: ${passUrl}
 
 Important:
 - Please check out when leaving the building
