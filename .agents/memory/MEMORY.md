@@ -1,4 +1,5 @@
 - [Google AI API key proxy conflict](google-api-key-proxy-pattern.md) — GOOGLE_API_KEY is Replit's proxy token; must temporarily unset it so SDK uses real GEMINI_API_KEY for image generation.
+- [Settings checklist cache staleness](quick-setup-checklist-staleness.md) — settings-save mutations must invalidate quick-setup-status AND onboarding/checklist-status queries, not just /api/settings, or checklist shows stale "incomplete".
 - [line_manager_id raw SQL only](line-manager-id-raw-sql.md) — staff.line_manager_id exists in DB via raw ALTER TABLE but NOT in Drizzle schema; Zod strips it silently; must use raw SQL to write it.
 - [Drag-drop line manager fix](line-manager-id-raw-sql.md) — topic file updated; use PATCH /api/staff/:id/line-manager for org chart drag; never PUT with lineManagerId through Zod.
 - [apiRequest returns Response not JSON](apirequest-response-pattern.md) — apiRequest() returns a raw Response object; always call .json() explicitly to get parsed data.

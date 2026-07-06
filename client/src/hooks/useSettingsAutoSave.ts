@@ -31,6 +31,11 @@ export function useSettingsAutoSave() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      // Any settings save (logo, CDM alerts email, SMTP, etc.) can flip a Quick
+      // Setup / getting-started checklist item — refresh those too so they
+      // don't show stale "incomplete" state after the user just completed them.
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/quick-setup-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding/checklist-status"] });
       toast({ title: "Auto-saved", description: "Settings saved successfully", duration: 2000 });
     },
     onError: (error: any) => {

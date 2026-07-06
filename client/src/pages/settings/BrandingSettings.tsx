@@ -51,6 +51,8 @@ export default function BrandingSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/quick-setup-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding/checklist-status"] });
       setFormData({});
       toast({ title: "Branding Reset", description: "All colors, logo, and banner have been reset to the default values." });
     },

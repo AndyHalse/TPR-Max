@@ -10,6 +10,8 @@ import { Building2, Upload, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getSessionToken } from "@/lib/queryClient";
 
+const DEFAULT_LOGO_ID = "d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6";
+
 function LogoPreview({ logoUrl }: { logoUrl: string }) {
   const [blobSrc, setBlobSrc] = useState<string | null>(null);
 
@@ -185,7 +187,14 @@ export default function GeneralSettings() {
         </div>
         <div className="space-y-4">
           {currentSettings?.logoUrl && (
-            <LogoPreview logoUrl={currentSettings.logoUrl} />
+            <div className="space-y-2">
+              <LogoPreview logoUrl={currentSettings.logoUrl} />
+              {currentSettings.logoUrl.includes(DEFAULT_LOGO_ID) && (
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 text-center">
+                  This is the default TPR Max placeholder logo — upload your own to complete this step.
+                </p>
+              )}
+            </div>
           )}
           <ObjectUploader
             onUploadComplete={handleLogoUpload}
@@ -194,7 +203,7 @@ export default function GeneralSettings() {
             buttonClassName="w-full"
           >
             <Upload className="mr-2" size={16} />
-            {currentSettings?.logoUrl ? "Replace Logo" : "Upload Logo"}
+            {currentSettings?.logoUrl && !currentSettings.logoUrl.includes(DEFAULT_LOGO_ID) ? "Replace Logo" : "Upload Logo"}
           </ObjectUploader>
           <p className="text-xs text-variable">Recommended: PNG or SVG, max 2MB</p>
         </div>
