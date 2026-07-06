@@ -7,13 +7,50 @@
  */
 
 import type { Express } from 'express';
+import rateLimit from 'express-rate-limit';
 import { sql, eq, and, lte, gte, inArray, ne, isNull, or } from 'drizzle-orm';
 import { requireAuth } from '../auth';
 import { requireEnterpriseRole, resolveEnterpriseGrants } from '../enterpriseRoles';
 import { customerDbService } from '../customerDatabase';
 import * as iso from '../isolatedSchema';
 import { computeLiveScores, evaluateSite, DEFAULT_WEIGHTS, DEFAULT_PENALTY, CATEGORIES } from '../complianceEngine';
+import { generateEstateBrief } from '../estateBriefService';
+import { resolveAnthropicKey } from './chatbot';
 import { logger } from '../utils/logger';
+
+// ── Estate brief cache (separate from summary cache; longer TTL — it's an AI call) ─
+const _briefCache = new Map<string, { ts: number; data: unknown }>();
+const BRIEF_CACHE_TTL_MS = 10 * 60_000;
+
+function briefCacheGet(key: string): unknown | null {
+  const entry = _briefCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > BRIEF_CACHE_TTL_MS) { _briefCache.delete(key); return null; }
+  return entry.data;
+}
+function briefCacheSet(key: string, data: unknown): void {
+  _briefCache.set(key, { ts: Date.now(), data });
+}
+
+const estateBriefLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many estate brief requests. Please wait a few minutes and try again.' },
+  keyGenerator: (req) => {
+    const customerId = (req as any).customerId || 'unknown';
+    const userId = (req as any).user?.id || (req as any).user?.username || 'unknown';
+    return `estate-brief:${customerId}:${userId}`;
+  },
+});
+
+function scoreBand(score: number | null): string {
+  if (score === null) return 'no data';
+  if (score >= 90) return 'good';
+  if (score >= 70) return 'attention';
+  return 'critical';
+}
 
 // ── Simple in-memory cache per (customerId + scopeKey) ────────────────────────
 // Normal TTL: 60 s.  Short TTL (8 s): used when returning existing data while a
@@ -802,4 +839,95 @@ export function registerEnterpriseComplianceRoutes(app: Express): void {
       }
     },
   );
+
+  // ── GET /api/enterprise/compliance/brief ──────────────────────────────────
+  // AI-generated (Claude) daily estate brief. Read-only: reuses callerScope,
+  // computeLiveScores, loadSiteNames — no new queries, no writes. Cached 10 min
+  // per (customerId + scope); pass ?refresh=1 to bypass the cache.
+  app.get('/api/enterprise/compliance/brief', requireAuth, ROLE_GATE, estateBriefLimiter, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const allowed = await callerScope(req);
+      const scopeKey = buildScopeKey(allowed);
+      const cacheKey = `${customerId}:${scopeKey}`;
+      const forceRefresh = req.query.refresh === '1';
+
+      if (!forceRefresh) {
+        const cached = briefCacheGet(cacheKey);
+        if (cached) return res.json(cached);
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const { estateScore, siteScores, categoryScores } = await computeLiveScores(custDb, allowed);
+
+      if (siteScores.length === 0) {
+        const empty = {
+          brief: 'No sites are in scope for your account, so there is nothing to brief you on today.',
+          success: true,
+          generatedAt: new Date().toISOString(),
+          siteCount: 0,
+        };
+        briefCacheSet(cacheKey, empty);
+        return res.json(empty);
+      }
+
+      const apiKey = await resolveAnthropicKey(customerId);
+      if (!apiKey) {
+        return res.status(503).json({
+          error: 'The estate brief requires a Claude API key. Please add one in Settings → AI.',
+        });
+      }
+
+      const siteNames = await loadSiteNames(custDb, siteScores.map(s => s.siteId));
+
+      // Prioritize sites with an actual (worse) score over "no data" sites so the
+      // brief highlights real risk first; null-score sites are appended after.
+      const worstSites = siteScores
+        .slice()
+        .sort((a, b) => {
+          if (a.score == null && b.score == null) return 0;
+          if (a.score == null) return 1;
+          if (b.score == null) return -1;
+          return a.score - b.score;
+        })
+        .slice(0, 8)
+        .map(s => ({
+          name: siteNames.get(s.siteId) ?? 'Unnamed site',
+          score: s.score,
+          band: scoreBand(s.score),
+          topIssues: s.topIssues,
+        }));
+
+      const scopeLabel = allowed === 'all'
+        ? 'all sites in the estate'
+        : `${siteScores.length} site${siteScores.length === 1 ? '' : 's'} this manager is scoped to`;
+
+      const { brief, success, error } = await generateEstateBrief({
+        apiKey,
+        scopeLabel,
+        data: {
+          estateScore,
+          siteCount: siteScores.length,
+          worstSites,
+          categoryScores,
+        },
+      });
+
+      const payload = {
+        brief,
+        success,
+        error: success ? undefined : error,
+        generatedAt: new Date().toISOString(),
+        siteCount: siteScores.length,
+      };
+
+      // Only cache successful generations — errors (bad key, rate limit) should
+      // be retried on the next request rather than stuck for 10 minutes.
+      if (success) briefCacheSet(cacheKey, payload);
+      return res.json(payload);
+    } catch (err) {
+      logger.error('[compliance/brief] error:', err);
+      return res.status(500).json({ error: 'Failed to generate estate brief' });
+    }
+  });
 }

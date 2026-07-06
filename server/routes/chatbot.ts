@@ -22,7 +22,7 @@ const chatbotLimiter = rateLimit({
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_MESSAGES = 10;
 
-async function resolveAnthropicKey(customerId?: string): Promise<string | null> {
+export async function resolveAnthropicKey(customerId?: string): Promise<string | null> {
   if (customerId) {
     try {
       const apiKeys = await databaseService.getCustomerApiKeys({ customerId });

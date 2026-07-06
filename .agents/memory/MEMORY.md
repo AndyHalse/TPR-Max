@@ -40,3 +40,4 @@
 - [PPM role-gating removal](ppm-role-gating.md) — PPM had blanket admin-only checks on ~31 backend routes + 3 frontend isAdmin gates; check both sides when a "role X should access Y" bug is reported.
 - [Dual visitors table definitions](dual-visitors-table-schema.md) — isolatedSchema.ts visitors table is runtime source; shared/schema.ts visitors table drives the exported Visitor TS type; both need new columns kept in sync.
 - [RA Builder silent load failure & enterprise wrong-site 404s](ra-builder-silent-load-failure.md) — detail-editor useQuery needs isError UI; wrong-site 404s need site-switch UX; internal SPA deep-links (not real files) must open same-tab, never `target="_blank" rel="noopener"`, or they lose the per-tab auth token.
+- [Enterprise 2FA blocks live-login testing](enterprise-2fa-blocks-live-testing.md) — real enterprise customers require email 2FA; never force a login to test a feature — verify server logic via a temporary tsx script instead.

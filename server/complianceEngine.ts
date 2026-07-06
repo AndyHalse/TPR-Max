@@ -49,6 +49,7 @@ export interface SiteScore {
   score: number | null;                    // null = no tracked items at all
   categoryScores: Record<string, number | null>;
   openCriticals: number;
+  topIssues: string[];                     // human-readable alert titles, critical first, capped
 }
 
 // ── Config defaults (stored in company_settings as compliance_weights / compliance_penalty) ─
@@ -837,7 +838,12 @@ export async function computeLiveScores(
     .where(inArray(iso.complianceItems.siteId, allSiteIds));
 
   const openAlerts = await custDb
-    .select({ siteId: iso.complianceAlerts.siteId, severity: iso.complianceAlerts.severity })
+    .select({
+      siteId: iso.complianceAlerts.siteId,
+      severity: iso.complianceAlerts.severity,
+      category: iso.complianceAlerts.category,
+      title: iso.complianceAlerts.title,
+    })
     .from(iso.complianceAlerts)
     .where(and(inArray(iso.complianceAlerts.siteId, allSiteIds), eq(iso.complianceAlerts.status, 'open')));
 
@@ -865,7 +871,15 @@ export async function computeLiveScores(
 
   for (const site of sites) {
     const siteItems = items.filter((i: any) => i.siteId === site.id);
-    const siteCriticals = openAlerts.filter((a: any) => a.siteId === site.id && a.severity === 'critical').length;
+    const siteAlerts = openAlerts.filter((a: any) => a.siteId === site.id);
+    const siteCriticals = siteAlerts.filter((a: any) => a.severity === 'critical').length;
+    // Critical alerts first, then warnings, capped to 3 — reuses the alerts already
+    // fetched above (no extra query). These titles come from evaluateSite/alert
+    // creation, so they are already human-readable (e.g. "2 contractor insurances expired").
+    const topIssues = [...siteAlerts]
+      .sort((a: any, b: any) => (a.severity === 'critical' ? 0 : 1) - (b.severity === 'critical' ? 0 : 1))
+      .slice(0, 3)
+      .map((a: any) => a.title as string);
     const rawCatScores: Record<string, number | null> = {};
     const catScores: Record<string, number | null> = {};
     for (const cat of CATEGORIES) {
@@ -885,7 +899,7 @@ export async function computeLiveScores(
       nonNullSiteCount++;
     }
     const score = calcSiteScore(catScores, weights, siteCriticals, penalty);
-    siteResults.push({ siteId: site.id, score, categoryScores: catScores, openCriticals: siteCriticals });
+    siteResults.push({ siteId: site.id, score, categoryScores: catScores, openCriticals: siteCriticals, topIssues });
   }
 
   const estateCategoryScores: Record<string, number | null> = {};

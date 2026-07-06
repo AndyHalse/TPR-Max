@@ -91,6 +91,14 @@ interface SiteRow {
   openWarnings: number;
 }
 
+interface BriefData {
+  brief: string;
+  success: boolean;
+  error?: string;
+  siteCount: number;
+  generatedAt: string;
+}
+
 interface AlertRow {
   id: string;
   siteId: string;
@@ -774,6 +782,19 @@ function CategoryBar({ cat, score, noData }: { cat: string; score: number | unde
   );
 }
 
+// ── Estate Brief text renderer ──────────────────────────────────────────────────
+// Minimal **bold** markdown parser — the brief is plain AI text, not HTML.
+
+function renderBoldText(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="font-semibold text-slate-900 dark:text-white">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 // ── Stat card ──────────────────────────────────────────────────────────────────
 
 function StatCard({
@@ -912,6 +933,28 @@ export default function EnterpriseCompliance() {
     retry: 1,
     retryDelay: 2000,
   });
+
+  const [briefRefreshing, setBriefRefreshing] = useState(false);
+  const { data: brief, isLoading: briefLoading, isFetching: briefFetching, refetch: refetchBrief } = useQuery<BriefData>({
+    queryKey: ["/api/enterprise/compliance/brief"],
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: 0,
+  });
+
+  const handleRefreshBrief = async () => {
+    setBriefRefreshing(true);
+    try {
+      await queryClient.cancelQueries({ queryKey: ["/api/enterprise/compliance/brief"] });
+      const res = await apiRequest("GET", "/api/enterprise/compliance/brief?refresh=1");
+      const data = await res.json();
+      queryClient.setQueryData(["/api/enterprise/compliance/brief"], data);
+    } catch {
+      // Swallow — the card falls back to its existing quiet error state.
+    } finally {
+      setBriefRefreshing(false);
+    }
+  };
 
   const { data: alerts, isLoading: alertsLoading } = useQuery<AlertRow[]>({
     queryKey: ["/api/enterprise/compliance/alerts"],
@@ -1385,6 +1428,56 @@ export default function EnterpriseCompliance() {
             </div>
           </div>
         </div>
+
+        {/* ── Estate Brief: AI daily summary — hidden entirely when nothing is in scope ── */}
+        {!(brief && brief.siteCount === 0) && (
+          <div className="rounded-2xl border border-white/40 dark:border-slate-700/50 shadow-xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-purple-500/10">
+                  <Zap size={15} className="text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Estate Brief</h3>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">AI-generated daily summary of your estate</p>
+                </div>
+              </div>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100/80 dark:hover:bg-slate-700/60"
+                      onClick={handleRefreshBrief}
+                      disabled={briefRefreshing || briefLoading}
+                    >
+                      <RefreshCw size={15} className={briefRefreshing ? "animate-spin" : ""} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">Refresh brief</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="p-5">
+              {(briefLoading || briefRefreshing) ? (
+                <div className="space-y-2 animate-pulse">
+                  <Skeleton className="h-4 w-4/5" />
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              ) : brief?.success === false ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 italic">{brief.brief}</p>
+              ) : brief?.brief ? (
+                <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-line">
+                  {renderBoldText(brief.brief)}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400 dark:text-slate-500 italic">Estate brief is not available right now.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Row 2: Stat cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
