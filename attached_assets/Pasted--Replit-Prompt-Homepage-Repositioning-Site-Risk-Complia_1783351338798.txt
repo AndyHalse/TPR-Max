@@ -1,0 +1,120 @@
+# Replit Prompt — Homepage Repositioning (Site Risk & Compliance)
+
+Paste this into Replit AI as a single instruction block. It only changes marketing copy and SEO meta on the public homepage — no functional changes, no new components.
+
+---
+
+## Prompt
+
+I want to reposition the TPR Max public homepage. Right now it's pitched as an "all-in-one platform that replaces 8+ systems" — a feature-count argument. I want to lead instead with **site risk and compliance**: the outcome a health & safety or facilities buyer actually cares about. The consolidation point stays, but as supporting proof lower down, not the headline.
+
+All edits are in **`client/src/pages/MarketingPage.tsx`** unless stated otherwise. Do not remove any features, sections, screenshots or the module list — only change the copy strings below. Keep British spelling throughout.
+
+---
+
+### 1. Hero badge
+
+Find:
+
+```
+<Shield className="h-3 w-3 mr-1" />
+Workplace Safety & Compliance
+```
+
+Replace the text `Workplace Safety & Compliance` with:
+
+```
+Site Risk & Compliance
+```
+
+---
+
+### 2. Hero headline (h1)
+
+Find the h1 that currently reads:
+
+```
+The All-in-One
+<span style={{ color: "#2460A9" }}>
+  {" "}
+  Workplace Compliance & Safety
+</span>{" "}
+Platform
+```
+
+Replace the whole h1 content with:
+
+```
+The Complete
+<span style={{ color: "#2460A9" }}>
+  {" "}
+  Site Risk & Compliance
+</span>{" "}
+Platform
+```
+
+---
+
+### 3. Sub-headline pill (the emerald highlight under the h1)
+
+Find:
+
+```
+Replace 8+ disconnected systems with one unified platform
+```
+
+Replace with:
+
+```
+Audit-ready proof your site is safe, compliant and accounted for
+```
+
+---
+
+### 4. Hero paragraph
+
+Find the paragraph that begins `Managing health &amp; safety, contractor compliance, site security...` and ends `...one login, one database, one subscription.`
+
+Replace the entire paragraph text with:
+
+```
+When something goes wrong on site — an incident, an insurance claim, an HSE inspection — you need to show who was there, that they were verified and inducted, and that you could account for every one of them. TPR captures all of it as it happens: contractor compliance, site inductions, permits, risk assessments, incident reports and emergency roll-call — in one platform, with one login. So the evidence is there when you need it, not scrambled together afterwards.
+```
+
+---
+
+### 5. Fix a number inconsistency
+
+The hero badge says `32 Modules · One Platform` but the old paragraph said 30. Pick the correct current number and make both the badge and any other module-count references on the page match it. Tell me which number you used.
+
+---
+
+### 6. SEO — page title and meta description
+
+Find wherever this page sets the browser tab title and meta description (check for a `<title>` tag, `document.title`, a React Helmet / `<Helmet>` block, or the `<head>` in `client/index.html`). Update them to include the phrases buyers actually search for.
+
+Set the page **title** to:
+
+```
+TPR — Site Risk & Compliance Software for Contractors, Visitors & Staff
+```
+
+Set the meta **description** to:
+
+```
+TPR is site risk and compliance software for UK sites: contractor compliance and CDM verification, digital inductions, permit-to-work, risk assessments, incident reporting and emergency mustering — with a full audit trail. One platform, one login.
+```
+
+If there's no meta description on the page yet, add one.
+
+---
+
+### 7. Leave the rest intact
+
+Keep the module list, industry sections, pricing, screenshots and testimonials exactly as they are. They're the proof that backs up the new headline — I just want the *top of the page* to lead with risk and compliance rather than system consolidation.
+
+When done, show me a before/after of the hero section and confirm the title/meta changes.
+```
+---
+
+*Note: the brochure PDF isn't in Replit — I'll rework that separately as a document.*

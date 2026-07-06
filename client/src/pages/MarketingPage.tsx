@@ -413,7 +413,7 @@ export default function MarketingPage() {
                   style={{ backgroundColor: "#2460A9" }}
                 >
                   <Shield className="h-3 w-3 mr-1" />
-                  Workplace Safety & Compliance
+                  Site Risk & Compliance
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
@@ -426,10 +426,10 @@ export default function MarketingPage() {
               </div>
 
               <h1 className="text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-4">
-                The All-in-One
+                The Complete
                 <span style={{ color: "#2460A9" }}>
                   {" "}
-                  Workplace Compliance & Safety
+                  Site Risk & Compliance
                 </span>{" "}
                 Platform
               </h1>
@@ -437,12 +437,12 @@ export default function MarketingPage() {
               <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-400 mb-4 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 rounded-full px-4 py-1.5">
                   <CheckCircle className="h-4 w-4" />
-                  Replace 8+ disconnected systems with one unified platform
+                  Audit-ready proof your site is safe, compliant and accounted for
                 </span>
               </p>
 
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-                Managing health &amp; safety, contractor compliance, site security, and workforce wellbeing shouldn't mean juggling 8 different systems — each with its own login, data silo, and invoice. <strong>TPR removes those pain points</strong> for any business or organisation with one unified platform: 30 modules, one login, one database, one subscription.
+                When something goes wrong on site — an incident, an insurance claim, an HSE inspection — you need to show who was there, that they were verified and inducted, and that you could account for every one of them. <strong>TPR captures all of it as it happens</strong>: contractor compliance, site inductions, permits, risk assessments, incident reports and emergency roll-call — in one platform, with one login. So the evidence is there when you need it, not scrambled together afterwards.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
@@ -5155,7 +5155,7 @@ export default function MarketingPage() {
               © 2026 ACS Safety & Security Ltd. All rights reserved.
             </p>
             <p className="text-slate-500 text-xs">
-              The UK's Connected Workforce & Site Safety Platform — 30 modules, one subscription.
+              The UK's Connected Workforce & Site Safety Platform — 32 modules, one subscription.
             </p>
           </div>
         </div>

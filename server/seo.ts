@@ -214,9 +214,9 @@ export function buildHead(meta: MetaInput): string {
 
 const ROUTE_META: Record<string, { title: string; description: string }> = {
   '/': {
-    title: 'Connected Workforce & Site Safety Platform UK | TPR',
+    title: 'TPR — Site Risk & Compliance Software for Contractors, Visitors & Staff',
     description:
-      'TPR is a UK-built connected workforce & site safety platform — contractor compliance, emergency mustering, audits & inspections, risk assessments, CDM 2015, PPM, HR lifecycle and lone worker protection. Book a free demo.',
+      'TPR is site risk and compliance software for UK sites: contractor compliance and CDM verification, digital inductions, permit-to-work, risk assessments, incident reporting and emergency mustering — with a full audit trail. One platform, one login.',
   },
   '/marketing': {
     title: 'TPR — Connected Workforce & Site Safety Platform | Book a Demo',
