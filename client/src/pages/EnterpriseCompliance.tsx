@@ -33,6 +33,7 @@ import {
   Search,
   ArrowUpDown,
   MapPin,
+  Info,
 } from "lucide-react";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -1433,16 +1434,26 @@ export default function EnterpriseCompliance() {
         {!(brief && brief.siteCount === 0) && (
           <div className="rounded-2xl border border-white/40 dark:border-slate-700/50 shadow-xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/50">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-purple-500/10">
-                  <Zap size={15} className="text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Estate Brief</h3>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">AI-generated daily summary of your estate</p>
-                </div>
-              </div>
               <TooltipProvider delayDuration={400}>
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-purple-500/10">
+                    <Zap size={15} className="text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Estate Brief</h3>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={12} className="text-slate-300 dark:text-slate-600 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[260px]">
+                          AI-written summary of the sites most in need of attention across your estate today, based on live compliance scores. Refreshes automatically every 10 minutes, or click refresh for the latest.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">AI-generated daily summary of your estate</p>
+                  </div>
+                </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -1473,7 +1484,18 @@ export default function EnterpriseCompliance() {
                   {renderBoldText(brief.brief)}
                 </p>
               ) : (
-                <p className="text-sm text-slate-400 dark:text-slate-500 italic">Estate brief is not available right now.</p>
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-sm text-slate-400 dark:text-slate-500 italic cursor-help inline-flex items-center gap-1">
+                        Estate brief is not available right now.
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[280px]">
+                      This usually means no Claude API key is configured yet. Add one in Settings → AI, or ask an administrator to set one up.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>
